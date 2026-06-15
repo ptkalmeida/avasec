@@ -107,66 +107,66 @@ function DashboardSwitcher() {
 
   const translations = {
     pt: {
-      heroBadge: "Inscrições Abertas — Trilhas Curriculares",
+      heroBadge: "Inscrições Abertas — Cursos Livres de Qualificação",
       heroTitleLine1: "Escola da Cultura",
       heroTitleLine2: "de Cultura e Economia Criativa",
-      heroDesc: "A AVASEC é uma plataforma de cursos on-line destinada à formação e qualificação para o mundo do trabalho em Cultura por meio da oferta de cursos Livres, de Formação Inicial e Continuada (FIC) e de Especialização. Confira os cursos disponíveis!",
+      heroDesc: "A AVASEC é uma plataforma de cursos on-line destinada à formação e qualificação profissional em Cultura e Economia Criativa exclusivamente por meio da oferta de Cursos Livres 100% gratuitos. Cadastre-se e comece já!",
       btnDiscover: "Descubra mais",
       btnStart: "Comece a estudar",
-      gradeTitle: "Estrutura de Ensino",
-      gradeSubtitle: "Nossa Grade de Formação",
-      gradeCard1: "Cursos Livres",
-      gradeCard1Desc: "Atividades pontuais de curta duração e alta aplicabilidade, ideais para sintonização rápida a novos processos tecnológicos e criativos.",
-      gradeCard2: "Formação Inicial e Continuada (FIC)",
-      gradeCard2Desc: "Qualificação profissional estruturada com certificação ideal para impulsionar a empregabilidade no setor de prestação de serviços culturais gaúchos.",
-      gradeCard3: "Pós-Graduação Latu Sensu",
-      gradeCard3Desc: "Especialização acadêmica avançada com foco em políticas públicas, fomento e gestão cultural voltado para líderes de projetos de grande escala.",
+      gradeTitle: "Pilares do Aprendizado",
+      gradeSubtitle: "Diferenciais do Ensino Livre",
+      gradeCard1: "Alta Aplicabilidade",
+      gradeCard1Desc: "Atividades pontuais de curta duração e alta aplicabilidade prática, ideais para sintonização rápida a novos processos tecnológicos e criativos do cenário nacional.",
+      gradeCard2: "Certificação Gratuita",
+      gradeCard2Desc: "Conclua as trilhas de estudo e emita seu certificado oficial digital gratuitamente, válido para comprovação de competência, editais e horas curriculares.",
+      gradeCard3: "Ritmo Flexível",
+      gradeCard3Desc: "Estude de qualquer lugar, no seu tempo e estilo de vida, com nossa plataforma dinâmica de cursos livres projetada para seu sucesso profissional.",
       coursesTitle: "Investimento Formativo",
-      coursesSubtitle: "Nossas Trilhas de Especialização",
+      coursesSubtitle: "Nossos Cursos Livres Disponíveis",
       newsTitle: "Últimas Notícias",
       newsSubtitle: "Informativos Recentes",
       faqTitle: "Faq e Suporte ao Estudante",
       faqSubtitle: "Dúvidas Frequentes",
     },
     en: {
-      heroBadge: "Open Applications — Curricular Paths",
+      heroBadge: "Open Applications — Free Qualification Courses",
       heroTitleLine1: "Culture School",
       heroTitleLine2: "of Culture and Creative Economy",
-      heroDesc: "AVASEC is an online course platform dedicated to education and professional qualification in Culture through Free, Initial & Continuing Training, and Postgraduate courses.",
+      heroDesc: "AVASEC is an online course platform dedicated to professional qualification in Culture and Creative Economy exclusively through the offer of 100% free Courses.",
       btnDiscover: "Discover more",
       btnStart: "Start Studying",
-      gradeTitle: "Teaching Structure",
-      gradeSubtitle: "Our Training Framework",
-      gradeCard1: "Free Courses",
-      gradeCard1Desc: "Short-term, high-applicability sessions, perfect for quickly tuning into new technological and creative workflows.",
-      gradeCard2: "Initial & Continuing (FIC)",
-      gradeCard2Desc: "Structured professional qualification with certification tailored to boost employability in the southern cultural service sector.",
-      gradeCard3: "Latu Sensu Specialization",
-      gradeCard3Desc: "Advanced academic specialization focused on public policies, cultural funding, and management for large-scale project leaders.",
+      gradeTitle: "Learning Pillars",
+      gradeSubtitle: "Free Course Benefits",
+      gradeCard1: "High Applicability",
+      gradeCard1Desc: "Short-term classes with immediate practical applicability, perfect for quickly tuning into new technological and creative workflows in the cultural market.",
+      gradeCard2: "Free Certification",
+      gradeCard2Desc: "Complete your study paths and issue your official digital certificate for free, fully valid for cultural grants, bids, and academic credentials.",
+      gradeCard3: "Flexible Pace",
+      gradeCard3Desc: "Learn from anywhere, at your own pace and schedule, with our responsive online platform designed to fit your creative career.",
       coursesTitle: "Interactive Training",
-      coursesSubtitle: "Our Curricular Paths",
+      coursesSubtitle: "Our Available Free Courses",
       newsTitle: "Latest News",
       newsSubtitle: "Recent Notices",
       faqTitle: "Faq & Student Support",
       faqSubtitle: "Frequently Asked Questions",
     },
     es: {
-      heroBadge: "Inscripciones Abiertas — Rutas Curriculares",
+      heroBadge: "Inscripciones Abiertas — Cursos Libres de Calificación",
       heroTitleLine1: "Escuela de la Cultura",
       heroTitleLine2: "de Cultura y Economía Creativa",
-      heroDesc: "AVASEC es una plataforma de cursos en línea dedicada a la capacitación profesional en Cultura mediante cursos Libres, de Formación Inicial y Continua, y Especialización.",
+      heroDesc: "AVASEC es una plataforma de cursos en línea dedicada a la capacitación profesional en Cultura y Economía Creativa exclusivamente mediante la oferta de Cursos Libres 100% gratuitos.",
       btnDiscover: "Descubre más",
       btnStart: "Comience a estudiar",
-      gradeTitle: "Estructura de Enseñanza",
-      gradeSubtitle: "Nuestra Red de Formación",
-      gradeCard1: "Cursos Livres",
-      gradeCard1Desc: "Sesiones de corta duración y alta aplicación práctica, ideales para sintonizar rápidamente con nuevos flujos creativos.",
-      gradeCard2: "Formación Inicial y Continua",
-      gradeCard2Desc: "Calificación profesional estruturada con certificación diseñada para impulsar la empleabilidad en el sector de servicios culturales.",
-      gradeCard3: "Especialización de Posgrado",
-      gradeCard3Desc: "Especialización académica avanzada enfocada en políticas públicas, recaudación de fondos y gestión cultural para líderes de proyectos.",
+      gradeTitle: "Pilares del Aprendizaje",
+      gradeSubtitle: "Beneficios de los Cursos Libres",
+      gradeCard1: "Alta Aplicación",
+      gradeCard1Desc: "Sesiones formativas cortas y de alta aplicación práctica, ideales para sintonizar rápidamente con nuevos flujos creativos y tecnológicos en el mercado.",
+      gradeCard2: "Certificado Gratuito",
+      gradeCard2Desc: "Complete las rutas de estudio y emita su certificado oficial digital de forma gratuita, ideal para convocatorias de incentivo y créditos curriculares.",
+      gradeCard3: "Ritmo Flexible",
+      gradeCard3Desc: "Estudie desde cualquier lugar, a su propio ritmo y horario, con nuestra plataforma móvil dinámica diseñada para el éxito de su carrera creativa.",
       coursesTitle: "Inversión Formativa",
-      coursesSubtitle: "Nuestras Rutas de Especialización",
+      coursesSubtitle: "Nuestros Cursos Livres Disponibles",
       newsTitle: "Últimas Noticias",
       newsSubtitle: "Boletines Recientes",
       faqTitle: "Faq y Soporte Estudiantil",
@@ -1139,82 +1139,92 @@ function DashboardSwitcher() {
               </div>
             </section>
 
-            {/* CURRICULAR MODAL MODES: Image 3 Cards (Cursos Livres, FIC, Pós-Graduação) */}
-            <section className="bg-slate-50 py-16 px-4">
+            {/* CURRICULAR MODAL MODES: Benefits & Pillars of Free Courses */}
+            <section className="bg-slate-50 py-16 px-4 border-b border-slate-150">
               <div className="mx-auto max-w-7xl text-center space-y-12">
                 <div className="space-y-3">
-                  <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">Estrutura de Ensino</span>
-                  <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">Nossa Grade de Formação</h3>
+                  <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">
+                    {translations[currentLang].gradeTitle}
+                  </span>
+                  <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif text-slate-900">
+                    {translations[currentLang].gradeSubtitle}
+                  </h3>
                   <div className="h-1.5 w-16 bg-[#540D6E] mx-auto rounded-full" />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5.5xl mx-auto">
                   
-                  {/* Card 1: Cursos Livres */}
+                  {/* Card 1: Alta Aplicabilidade */}
                   <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-slate-100 flex flex-col justify-between group">
-                    <div className="arch-card-blue h-36 relative flex items-end justify-center pb-6">
+                    <div className="arch-card-[#540D6E] h-36 bg-[#540D6E]/5 relative flex items-end justify-center pb-6">
                       <div className="absolute -bottom-10 h-20 w-20 rounded-full bg-[#EE4266] border-4 border-white flex items-center justify-center text-white shadow-md">
                         <Activity className="h-8 w-8 text-white" />
                       </div>
                     </div>
                     <div className="p-6 pt-14 space-y-4 text-center flex-1 flex flex-col justify-between">
                       <div className="space-y-2">
-                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">Cursos Livres</h4>
+                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">
+                          {translations[currentLang].gradeCard1}
+                        </h4>
                         <p className="text-xs text-slate-500 leading-relaxed">
-                          A AVASEC tem uma variedade de cursos de curta duração, especialmente desenvolvidos para enriquecer seu conhecimento e promover a formação de estudantes e trabalhadores da Cultura. Venha conhecer nossos Cursos Livres!!!
+                          {translations[currentLang].gradeCard1Desc}
                         </p>
                       </div>
                       <button 
                         onClick={() => handleSmoothScroll('cursos')} 
                         className="w-full mt-4 py-2.5 rounded-xl border border-[#540D6E] hover:bg-[#540D6E] hover:text-white text-[#540D6E] text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                       >
-                        Leia Mais
+                        {currentLang === 'pt' ? 'Conhecer' : currentLang === 'en' ? 'Learn More' : 'Conocer'}
                       </button>
                     </div>
                   </div>
 
-                  {/* Card 2: Formação Inicial e Continuada (FIC) */}
+                  {/* Card 2: Certificação Gratuita */}
                   <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-slate-100 flex flex-col justify-between group">
-                    <div className="arch-card-green h-36 relative flex items-end justify-center pb-6">
+                    <div className="arch-card-[#3BCEAC] h-36 bg-[#3BCEAC]/5 relative flex items-end justify-center pb-6">
                       <div className="absolute -bottom-10 h-20 w-20 rounded-full bg-[#540D6E] border-4 border-white flex items-center justify-center text-white shadow-md">
-                        <CheckSquare className="h-8 w-8 text-white" />
+                        <Award className="h-8 w-8 text-white" />
                       </div>
                     </div>
                     <div className="p-6 pt-14 space-y-4 text-center flex-1 flex flex-col justify-between">
                       <div className="space-y-2">
-                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">Formação Inicial e Continuada (FIC)</h4>
+                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">
+                          {translations[currentLang].gradeCard2}
+                        </h4>
                         <p className="text-xs text-slate-500 leading-relaxed">
-                          Venha adquirir novos conhecimentos ou aprender mais sobre sua área de atuação com nossa seleção de cursos FIC (Formação Inicial e Continuada) à distância, focando em habilidades imediatas do mercado de cultura.
+                          {translations[currentLang].gradeCard2Desc}
                         </p>
                       </div>
                       <button 
                         onClick={() => handleSmoothScroll('cursos')} 
-                        className="w-full mt-4 py-2.5 rounded-xl border border-[#3BCEAC] hover:bg-[#3BCEAC] hover:text-white text-[#3BCEAC] text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                        className="w-full mt-4 py-2.5 rounded-xl border border-[#3BCEAC] hover:bg-[#3BCEAC] hover:text-white text-[#3BCEAC] text-xs font-black uppercase tracking-wider transition-all cursor-pointer relative"
                       >
-                        Leia Mais
+                        {currentLang === 'pt' ? 'Conhecer' : currentLang === 'en' ? 'Learn More' : 'Conocer'}
                       </button>
                     </div>
                   </div>
 
-                  {/* Card 3: Pós-Graduação */}
+                  {/* Card 3: Ritmo Flexível */}
                   <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-slate-100 flex flex-col justify-between group">
-                    <div className="arch-card-red h-36 relative flex items-end justify-center pb-6">
+                    <div className="arch-card-[#FFD23F] h-36 bg-[#FFD23F]/5 relative flex items-end justify-center pb-6">
                       <div className="absolute -bottom-10 h-20 w-20 rounded-full bg-[#FFD23F] border-4 border-white flex items-center justify-center text-slate-900 shadow-md">
-                        <GraduationCap className="h-9 w-9 text-slate-900" />
+                        <BookOpen className="h-8 w-8 text-slate-900" />
                       </div>
                     </div>
                     <div className="p-6 pt-14 space-y-4 text-center flex-1 flex flex-col justify-between">
                       <div className="space-y-2">
-                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">Pós-Graduação</h4>
+                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">
+                          {translations[currentLang].gradeCard3}
+                        </h4>
                         <p className="text-xs text-slate-500 leading-relaxed">
-                          Nossos cursos são cuidadosamente desenvolvidos para proporcionar uma educação sólida e abrangente em diversas áreas das artes e da cultura. As especializações oferecem o equilíbrio perfeito entre reflexão teórica e prática.
+                          {translations[currentLang].gradeCard3Desc}
                         </p>
                       </div>
                       <button 
                         onClick={() => handleSmoothScroll('cursos')} 
                         className="w-full mt-4 py-2.5 rounded-xl border border-[#EE4266] hover:bg-[#EE4266] hover:text-white text-[#EE4266] text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                       >
-                        Leia Mais
+                        {currentLang === 'pt' ? 'Conhecer' : currentLang === 'en' ? 'Learn More' : 'Conocer'}
                       </button>
                     </div>
                   </div>

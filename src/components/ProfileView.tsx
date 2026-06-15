@@ -4,7 +4,7 @@ import {
   User, Mail, ArrowLeft, Shield, Award, BookOpen, Sparkles, 
   Clock, Settings, Volume2, VolumeX, Eye, EyeOff, RefreshCw, 
   Trash2, FileText, CheckCircle2, Copy, Check, Globe, Layout, Gauge,
-  Lock, Key, Fingerprint, ShieldAlert, Camera, Upload
+  Lock, Key, Fingerprint, ShieldAlert, Camera, Upload, X, Printer, ShieldCheck
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 
@@ -48,6 +48,7 @@ export function ProfileView({
 
   // Local state for profile configurations
   const [editableName, setEditableName] = useState(activeUser.name);
+  const [isDossierOpen, setIsDossierOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   
   // State to manage showing the main Profile view or the New password change view
@@ -1113,41 +1114,70 @@ export function ProfileView({
             </span>
 
             {activeUser.role === 'student' ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                
-                <div className="bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 border border-indigo-100 p-4 rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-indigo-650 mb-4">
-                    <BookOpen className="h-5 w-5" />
-                    <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-indigo-200/60 font-bold">Matriculado</span>
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  
+                  <div className="bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 border border-indigo-100 p-4 rounded-xl flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-indigo-650 mb-4">
+                      <BookOpen className="h-5 w-5" />
+                      <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-indigo-200/60 font-bold">Matriculado</span>
+                    </div>
+                    <div>
+                      <span className="text-2xl font-black text-slate-900 leading-none block">{totalCourses}</span>
+                      <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Cursos de Catálogo</span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 leading-none block">{totalCourses}</span>
-                    <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Cursos de Catálogo</span>
+
+                  <div className="bg-gradient-to-br from-emerald-50/50 to-emerald-100/30 border border-emerald-150 p-4 rounded-xl flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-emerald-650 mb-4">
+                      <Gauge className="h-5 w-5" />
+                      <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-emerald-200/65 font-bold">Rendimento</span>
+                    </div>
+                    <div>
+                      <span className="text-2xl font-black text-slate-900 leading-none block">{averageProgressPercent}%</span>
+                      <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Progresso Médio</span>
+                    </div>
                   </div>
+
+                  <div className="bg-gradient-to-br from-amber-50/50 to-amber-100/30 border border-amber-150 p-4 rounded-xl flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-amber-600 mb-4">
+                      <Award className="h-5 w-5" />
+                      <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-amber-200/65 font-bold">Autêntico</span>
+                    </div>
+                    <div>
+                      <span className="text-2xl font-black text-slate-900 leading-none block">{studentCerts.length}</span>
+                      <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Certificados Emitidos</span>
+                    </div>
+                  </div>
+
                 </div>
 
-                <div className="bg-gradient-to-br from-emerald-50/50 to-emerald-100/30 border border-emerald-150 p-4 rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-emerald-650 mb-4">
-                    <Gauge className="h-5 w-5" />
-                    <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-emerald-200/65 font-bold">Rendimento</span>
+                <div className="mt-2 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/40 p-4 rounded-xl border border-slate-200/60 text-left">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-black text-slate-800">
+                      {currentLang === 'pt' ? 'Histórico Escolar Unificado' : currentLang === 'es' ? 'Expediente Unificado' : 'Unified Academic Transcript'}
+                    </h4>
+                    <p className="text-[10.5px] text-slate-500 leading-relaxed max-w-xl">
+                      {currentLang === 'pt' 
+                        ? 'Gere um documento oficial contendo seu histórico de aproveitamento em todos os cursos livres da Escola da Cultura e a lista autenticada dos seus certificados emitidos com validação eletrônica.' 
+                        : currentLang === 'es'
+                        ? 'Genere un documento oficial con su historial de calificaciones, carga horaria de cursos libres y certificados emitidos con validación electrónica.'
+                        : 'Generate an official document containing your academic course progress transcript and an authenticated registry of certificates with validation keys.'}
+                    </p>
                   </div>
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 leading-none block">{averageProgressPercent}%</span>
-                    <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Progresso Médio</span>
-                  </div>
+                  <button
+                    onClick={() => {
+                      setIsDossierOpen(true);
+                      speakText(currentLang === 'pt' ? 'Exportando histórico escolar e certificados de conclusão' : 'Exporting academic record and printable transcript');
+                    }}
+                    className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 active:bg-indigo-800 text-[#FFFFFF] font-bold text-xs rounded-xl transition-all shadow-3xs flex items-center justify-center gap-2 cursor-pointer shrink-0 uppercase tracking-wider hover:scale-[1.02] duration-150 border border-transparent"
+                  >
+                    <FileText className="h-4.5 w-4.5 text-[#FFD23F]" />
+                    <span>
+                      {currentLang === 'pt' ? 'Exportar Histórico' : currentLang === 'es' ? 'Exportar Historial' : 'Export Transcript'}
+                    </span>
+                  </button>
                 </div>
-
-                <div className="bg-gradient-to-br from-amber-50/50 to-amber-100/30 border border-amber-150 p-4 rounded-xl flex flex-col justify-between">
-                  <div className="flex items-center justify-between text-amber-600 mb-4">
-                    <Award className="h-5 w-5" />
-                    <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-amber-200/65 font-bold">Autêntico</span>
-                  </div>
-                  <div>
-                    <span className="text-2xl font-black text-slate-900 leading-none block">{studentCerts.length}</span>
-                    <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Certificados Emitidos</span>
-                  </div>
-                </div>
-
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1255,6 +1285,328 @@ export function ProfileView({
         </div>
 
       </div>
+
+      {isDossierOpen && (() => {
+        const studentDossierRecords = courses.map(course => {
+          const record = progress.find(p => p.studentName === activeUser.name && p.courseId === course.id);
+          const totalLessons = course.lessons.length;
+          const completedCount = record ? record.completedLessonIds.length : 0;
+          const percent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+          const cert = studentCerts.find(c => c.courseId === course.id);
+          
+          return {
+            course,
+            totalLessons,
+            completedCount,
+            percent,
+            cert,
+            status: percent === 100 || cert 
+              ? (currentLang === 'pt' ? 'Concluído' : currentLang === 'es' ? 'Completado' : 'Completed') 
+              : percent > 0 
+                ? (currentLang === 'pt' ? 'Em Andamento' : currentLang === 'es' ? 'En Curso' : 'In Progress') 
+                : (currentLang === 'pt' ? 'Não Iniciado' : currentLang === 'es' ? 'No Iniciado' : 'Not Started')
+          };
+        });
+
+        const currentFormattedDate = new Date().toLocaleDateString('pt-BR', { 
+          day: '2-digit', 
+          month: '2-digit', 
+          year: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+
+        return (
+          <div 
+            className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4 backdrop-blur-sm flex items-start justify-center cursor-default animate-in fade-in duration-200 text-left"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsDossierOpen(false);
+            }}
+          >
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #printable-dossier, #printable-dossier * {
+                  visibility: visible !important;
+                }
+                #printable-dossier {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  background: #ffffff !important;
+                  color: #000000 !important;
+                  padding: 2.5rem !important;
+                  margin: 0 !important;
+                  box-shadow: none !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+              }
+            `}</style>
+
+            <div className="relative my-8 w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl md:p-8 animate-in zoom-in-95 duration-200">
+              
+              {/* Upper actions panel (Hidden in Print) */}
+              <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-4 no-print">
+                <div className="flex items-center gap-2.5">
+                  <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-120 flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-indigo-650" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-black text-slate-900 uppercase tracking-tight font-serif leading-none">
+                      {currentLang === 'pt' ? 'Histórico Escolar Oficial' : currentLang === 'es' ? 'Expediente Oficial' : 'Official Academic Transcript'}
+                    </h2>
+                    <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                      {currentLang === 'pt' 
+                        ? 'Dica: Escolha "Salvar como PDF" nas configurações de destino da impressão para baixar o seu histórico.' 
+                        : 'Tip: Select "Save as PDF" relative to your system print dialog destination to download.'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2.5 self-end sm:self-auto">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-1.5 rounded-xl bg-indigo-650 hover:bg-indigo-700 active:bg-indigo-800 px-4.5 py-2.5 text-xs font-black text-white cursor-pointer transition-all shadow-3xs uppercase tracking-wider"
+                  >
+                    <Printer className="h-4 w-4 text-[#FFD23F]" />
+                    <span>{currentLang === 'pt' ? 'Imprimir / Salvar PDF' : 'Print / Save PDF'}</span>
+                  </button>
+                  <button
+                    onClick={() => setIsDossierOpen(false)}
+                    className="rounded-xl p-2.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer transition-all border border-slate-200"
+                    title="Fechar"
+                  >
+                    <X className="h-4.5 w-4.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Printable Document Sheet */}
+              <div 
+                id="printable-dossier" 
+                className="bg-white p-2 md:p-6 text-slate-800"
+                style={{ fontFamily: 'var(--font-sans), system-ui, sans-serif' }}
+              >
+                {/* Visual Header */}
+                <div className="border-b-4 border-indigo-900 pb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="bg-[#540D6E] text-[#FFD23F] font-sans font-black tracking-widest text-[10px] py-1 px-2.5 rounded">
+                        AVASEC
+                      </div>
+                      <span className="text-[10px] uppercase tracking-widest text-[#540D6E] font-extrabold font-mono">
+                        Escola da Cultura e Economia Criativa
+                      </span>
+                    </div>
+                    <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight font-serif uppercase leading-tight">
+                      {currentLang === 'pt' ? 'Histórico Escolar Oficial' : currentLang === 'es' ? 'Expediente Oficial' : 'Official Academic Transcript'}
+                    </h1>
+                    <p className="text-[10.5px] text-slate-400 uppercase tracking-widest font-extrabold mt-1">
+                      {currentLang === 'pt' ? 'Dossiê do Estudante e Registro de Qualificação Técnica' : 'Student Qualification & Course Registry Dossier'}
+                    </p>
+                  </div>
+                  
+                  {/* Digital Signature registry block */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-left min-w-[210px] shrink-0">
+                    <div className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Validado Eletronicamente</span>
+                    </div>
+                    <span className="text-[10px] text-slate-700 font-mono block">REF: SEC-{activeUser.name.toUpperCase().replace(/\s+/g, '_')}_FILE</span>
+                    <span className="text-[9.5px] text-slate-450 block font-sans mt-0.5">Data de Emissão: {currentFormattedDate}</span>
+                  </div>
+                </div>
+
+                {/* Student Demographics Section */}
+                <div className="my-6 grid grid-cols-1 md:grid-cols-12 gap-5 bg-slate-50 border border-slate-200 p-5 rounded-2xl items-center">
+                  <div className="md:col-span-2 flex justify-center">
+                    <div className={`h-16 w-16 rounded-xl border border-slate-200 flex items-center justify-center text-4xl shadow-3xs bg-white overflow-hidden ${
+                      customAvatar ? '' : selectedAvatar.color
+                    }`}>
+                      {customAvatar ? (
+                        <img src={customAvatar} alt="Foto Aluno" className="w-full h-full object-cover" />
+                      ) : (
+                        selectedAvatar.emoji
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="md:col-span-6 space-y-1 text-center md:text-left">
+                    <span className="text-[9px] font-black tracking-widest uppercase text-[#540D6E] font-mono">Registro Civil do Discente</span>
+                    <h3 className="text-lg font-black text-slate-900 leading-none">{activeUser.name}</h3>
+                    <p className="text-xs text-slate-500 font-medium">{simulatedEmail}</p>
+                  </div>
+
+                  <div className="md:col-span-4 border-t md:border-t-0 md:border-l border-slate-200 pt-3 md:pt-0 md:pl-5 space-y-1.5 text-center md:text-left">
+                    <div>
+                      <span className="text-[8.5px] font-bold text-slate-400 uppercase block tracking-wider">Situação Curricular</span>
+                      <strong className="text-xs text-emerald-600 font-extrabold flex items-center justify-center md:justify-start gap-1">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        Regularmente Ativo
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-[8.5px] font-bold text-slate-400 uppercase block tracking-wider">Aproveitamento Médio</span>
+                      <strong className="text-xs text-slate-800 font-black">{averageProgressPercent}% Matriculado</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Courses Detail Table */}
+                <div className="my-6">
+                  <h3 className="text-xs font-extrabold text-[#540D6E] uppercase tracking-wider mb-3.5 font-serif border-b border-slate-200/60 pb-1.5">
+                    1. Trilha Curricular e Aproveitamento Escolar
+                  </h3>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-slate-200 font-mono text-[9px] uppercase font-black text-slate-400">
+                          <th className="py-2.5 pr-3">Nome Curricular do Curso</th>
+                          <th className="py-2.5 px-3">Modalidade</th>
+                          <th className="py-2.5 px-3 text-center">Carga Horária</th>
+                          <th className="py-2.5 px-3 text-center">Progresso Físico</th>
+                          <th className="py-2.5 pl-3 text-right">Situação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {studentDossierRecords.map((item, idx) => (
+                          <tr key={idx} className="border-b border-slate-100 text-xs font-semibold text-slate-700">
+                            <td className="py-3.5 pr-3 font-bold text-slate-900 leading-tight">
+                              {item.course.title}
+                            </td>
+                            <td className="py-3.5 px-3">
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 border border-slate-200 text-slate-600 uppercase tracking-wide">
+                                {item.course.category}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-3 text-center font-mono text-[11px] text-slate-650">
+                              {(item.course.lessons?.length || 4) * 10} horas
+                            </td>
+                            <td className="py-3.5 px-3 text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <span className="font-mono text-[11px] text-slate-900 font-bold">{item.percent}%</span>
+                                <div className="w-12 bg-slate-100 border border-slate-200 rounded-full h-1.5 overflow-hidden shrink-0 hidden sm:block">
+                                  <div className="bg-[#540D6E] h-1.5" style={{ width: `${item.percent}%` }} />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3.5 pl-3 text-right">
+                              <span className={`inline-flex items-center gap-1 font-extrabold text-[10.5px] leading-none ${
+                                item.percent === 100 ? 'text-emerald-700' : item.percent > 0 ? 'text-amber-700' : 'text-slate-400'
+                              }`}>
+                                {item.percent === 100 && <Check className="h-3 w-3 inline text-emerald-600" />}
+                                <span>{item.status}</span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Certificates Validation Registry */}
+                <div className="my-6 pt-2">
+                  <h3 className="text-xs font-extrabold text-[#540D6E] uppercase tracking-wider mb-4 font-serif border-b border-slate-200/60 pb-1.5">
+                    2. Certificados de Qualificação Emitidos
+                  </h3>
+
+                  {studentCerts.length === 0 ? (
+                    <p className="text-xs italic text-slate-400 font-medium bg-slate-50 p-4 border border-dashed border-slate-200 rounded-xl text-center">
+                      {currentLang === 'pt' 
+                        ? 'Nenhum certificado conclusivo foi emitido digitalmente por este discente até a presente data.'
+                        : 'No certificates have been issued to this student as of the current date.'}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {studentCerts.map((cert) => (
+                        <div 
+                          key={cert.id} 
+                          className="bg-amber-50/20 border border-amber-200 p-4 rounded-xl relative overflow-hidden flex flex-col justify-between"
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <Award className="h-4.5 w-4.5 text-amber-550" />
+                              <span className="text-[8.5px] font-mono bg-white px-2 py-0.5 rounded border border-amber-200/80 font-bold text-amber-800 uppercase tracking-wider">
+                                Ativo & Registrado
+                              </span>
+                            </div>
+                            <h4 className="text-xs font-extrabold text-slate-900 font-sans block truncate mb-1">
+                              {cert.courseTitle}
+                            </h4>
+                            <span className="text-[9.5px] text-slate-405 block font-mono">
+                              Hash: SEC-{cert.verificationHash}
+                            </span>
+                          </div>
+                          <div className="mt-3 pt-2 border-t border-slate-200/40 text-[9px] text-slate-450 flex justify-between items-center">
+                            <span>Emissão: {cert.issueDate}</span>
+                            <span className="font-mono text-emerald-650 font-black">Presença: {cert.attendancePercent}%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Verification Instruction block */}
+                <div className="my-6 bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <ShieldCheck className="h-7 w-7 text-indigo-600 shrink-0" />
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest font-mono">Chaves de Assinatura Escolar Digital</h4>
+                      <p className="text-[9.5px] text-slate-500 leading-snug">
+                        A veracidade do histórico curricular deste aluno de cultura pode ser confirmada a qualquer momento inserindo as chaves públicas nos portais de validação do sistema AVASEC.
+                      </p>
+                    </div>
+                  </div>
+                  {/* Digital Signature barcode placeholder */}
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="flex items-center gap-[1px] h-5 bg-slate-250 px-2.5 py-0.5 rounded">
+                      <div className="w-[1.5px] h-3 bg-slate-800" />
+                      <div className="w-[3px] h-3 bg-slate-800" />
+                      <div className="w-[0.5px] h-3 bg-slate-800" />
+                      <div className="w-[2px] h-3 bg-slate-800" />
+                      <div className="w-[1px] h-3 bg-[#540D6E]" />
+                      <div className="w-[3px] h-3 bg-[#540D6E]" />
+                      <div className="w-[1.5px] h-3 bg-slate-800" />
+                      <div className="w-[0.5px] h-3 bg-slate-800" />
+                      <div className="w-[2px] h-3 bg-slate-800" />
+                    </div>
+                    <span className="text-[7.5px] font-mono text-slate-400 mt-1 uppercase">AVASEC AUTH SIGN</span>
+                  </div>
+                </div>
+
+                {/* Signatures */}
+                <div className="mt-12 pt-6 border-t border-slate-200 grid grid-cols-2 gap-8 text-center bg-transparent">
+                  <div className="flex flex-col items-center">
+                    <span className="text-xs italic font-serif text-slate-350">Alessandro Pinto</span>
+                    <div className="w-32 border-t border-slate-250 my-1" />
+                    <span className="text-[9px] font-extrabold text-slate-800 uppercase tracking-wide">Alessandro Pinto</span>
+                    <span className="text-[8px] text-slate-450 font-mono">Diretoria Pedagógica - AVASEC</span>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <span className="text-xs italic font-serif text-slate-350">Mariana Santos</span>
+                    <div className="w-32 border-t border-slate-250 my-1 font-mono" />
+                    <span className="text-[9px] font-extrabold text-slate-800 uppercase tracking-wide">Mariana Santos</span>
+                    <span className="text-[8px] text-slate-450 font-mono">Coordenação de Economia Criativa</span>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
