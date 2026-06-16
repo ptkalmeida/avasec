@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest } from '../types';
+import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS } from '../data/mockData';
 
 interface LMSContextProps {
@@ -17,7 +17,7 @@ interface LMSContextProps {
   quizzes: Quiz[];
   quizSubmissions: QuizSubmission[];
   professorsList: string[];
-  studentsList: { name: string; email: string }[];
+  studentsList: { name: string; email: string; password?: string }[];
   academicRequests: AcademicRequest[];
   libraryItems: LibraryItem[];
   webinarEvents: WebinarEvent[];
@@ -49,9 +49,9 @@ interface LMSContextProps {
   addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => void;
   deleteQuiz: (quizId: string) => void;
   submitQuiz: (studentName: string, courseId: string, quizId: string, scorePercent: number, passed: boolean) => QuizSubmission;
-  addProfessor: (name: string) => void;
+  addProfessor: (name: string, password?: string) => void;
   deleteProfessor: (name: string) => void;
-  addStudent: (name: string, email: string) => void;
+  addStudent: (name: string, email: string, password?: string) => void;
   deleteStudent: (name: string) => void;
   setUserProfile: (name: string, role: 'student' | 'instructor' | 'admin') => void;
   addAcademicRequest: (req: Omit<AcademicRequest, 'id' | 'status' | 'submittedAt'>) => void;
@@ -73,7 +73,11 @@ interface LMSContextProps {
   setActiveDashboardTab: (tab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students') => void;
   getYouTubeEmbedUrl: (url: string) => string | null;
   admissionRequests: AdmissionRequest[];
+  addAdmissionRequest: (studentName: string, courseId: string, status?: 'pending' | 'approved' | 'rejected') => void;
   updateAdmissionStatus: (reqId: string, status: 'approved' | 'rejected') => void;
+  securityLogs: SecurityLog[];
+  addSecurityLog: (action: string, details: string, status?: 'SUCCESS' | 'WARNING' | 'FAILED') => void;
+  clearSecurityLogs: () => void;
 }
 
 const LMSContext = createContext<LMSContextProps | undefined>(undefined);
@@ -81,13 +85,35 @@ const LMSContext = createContext<LMSContextProps | undefined>(undefined);
 export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [courses, setCourses] = useState<Course[]>(() => {
     const saved = localStorage.getItem('ava_courses');
-    return saved ? JSON.parse(saved) : INITIAL_COURSES;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_COURSES;
+    if (Array.isArray(parsed)) {
+      const seen = new Set<string>();
+      const deduped: Course[] = [];
+      for (const c of parsed) {
+        if (c && c.id && !seen.has(c.id)) {
+          seen.add(c.id);
+          deduped.push(c);
+        }
+      }
+      return deduped;
+    }
+    return INITIAL_COURSES;
   });
 
   const [categoriesList, setCategoriesList] = useState<string[]>(() => {
     const saved = localStorage.getItem('ava_categories');
-    if (saved) return JSON.parse(saved);
-    return ['Tecnologia', 'Design Digital', 'Ciência de Dados', 'Engenharia de Software', 'Economia Criativa & IA', 'Áreas Técnicas', 'Políticas e Gestão Culturais'];
+    const defaultCats = ['Tecnologia', 'Design Digital', 'Ciência de Dados', 'Engenharia de Software', 'Economia Criativa & IA', 'Áreas Técnicas', 'Políticas e Gestão Culturais'];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return Array.from(new Set(parsed)).filter(Boolean);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return defaultCats;
   });
 
   useEffect(() => {
@@ -108,29 +134,50 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [professorsList, setProfessorsList] = useState<string[]>(() => {
     const saved = localStorage.getItem('ava_professors');
-    if (saved) return JSON.parse(saved);
-    return ['Alessandro Pinto', 'Mariana Santos', 'André Lima', 'Juliana Rezende'];
+    const defaultProfs = ['Alessandro Pinto', 'Mariana Santos', 'André Lima', 'Juliana Rezende'];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return Array.from(new Set(parsed)).filter(Boolean);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return defaultProfs;
   });
 
-  const [studentsList, setStudentsList] = useState<{ name: string; email: string }[]>(() => {
+  const [studentsList, setStudentsList] = useState<{ name: string; email: string; password?: string }[]>(() => {
     const defaultStudents = [
-      { name: 'João Silva', email: 'joao.silva@lms.edu' },
-      { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu' },
-      { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu' },
-      { name: 'Sofia Rocha', email: 'sofia.rocha@lms.edu' },
-      { name: 'Ana Souza', email: 'ana.souza@lms.edu' },
-      { name: 'Lucas Santana', email: 'lucas.santana@lms.edu' },
-      { name: 'Carolina Mendes', email: 'carol.mendes@lms.edu' }
+      { name: 'João Silva', email: 'joao.silva@lms.edu', password: '1234' },
+      { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', password: '1234' },
+      { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu', password: '1234' },
+      { name: 'Sofia Rocha', email: 'sofia.rocha@lms.edu', password: '1234' },
+      { name: 'Ana Souza', email: 'ana.souza@lms.edu', password: '1234' },
+      { name: 'Lucas Santana', email: 'lucas.santana@lms.edu', password: '1234' },
+      { name: 'Carolina Mendes', email: 'carol.mendes@lms.edu', password: '1234' }
     ];
     const saved = localStorage.getItem('ava_students');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const merged = [...parsed];
+          const seenEmails = new Set<string>();
+          const dedupedParsed: { name: string; email: string; password?: string }[] = [];
+          
+          parsed.forEach(p => {
+            if (p && p.email && !seenEmails.has(p.email.toLowerCase())) {
+              seenEmails.add(p.email.toLowerCase());
+              dedupedParsed.push(p);
+            }
+          });
+
+          const merged = [...dedupedParsed];
           defaultStudents.forEach(item => {
-            if (!merged.some(m => m.name === item.name)) {
+            if (!seenEmails.has(item.email.toLowerCase())) {
               merged.push(item);
+              seenEmails.add(item.email.toLowerCase());
             }
           });
           return merged;
@@ -144,25 +191,65 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [progress, setProgress] = useState<StudentProgress[]>(() => {
     const saved = localStorage.getItem('ava_student_progress');
-    // Pre-populate so user has some completed lessons and doesn't start with 0% absolute empty unless they want to
-    if (saved) return JSON.parse(saved);
-    return [
-      {
-        courseId: 'course-1',
-        completedLessons: ['lesson-1-1', 'lesson-1-2', 'lesson-1-3'], // 3 out of 5 lessons completed initially (60% lesson prog)
-        attendedLiveSessions: ['live-1-2'], // Attended 1 out of 2 live sessions
-      },
-      {
-        courseId: 'course-2',
-        completedLessons: ['lesson-2-1'],
-        attendedLiveSessions: [],
+    let parsed: StudentProgress[] | null = null;
+    try {
+      if (saved) parsed = JSON.parse(saved);
+    } catch (e) {
+      console.error("Error parsing ava_student_progress:", e);
+    }
+    
+    if (!parsed || !Array.isArray(parsed)) {
+      parsed = [
+        {
+          courseId: 'course-1',
+          completedLessons: ['lesson-1-1', 'lesson-1-2', 'lesson-1-3'], // 3 out of 5 lessons completed initially (60% lesson prog)
+          attendedLiveSessions: ['live-1-2'], // Attended 1 out of 2 live sessions
+        },
+        {
+          courseId: 'course-2',
+          completedLessons: ['lesson-2-1'],
+          attendedLiveSessions: [],
+        }
+      ];
+    }
+
+    const seen = new Set<string>();
+    const deduped: StudentProgress[] = [];
+    for (const p of parsed) {
+      if (!seen.has(p.courseId)) {
+        seen.add(p.courseId);
+        deduped.push(p);
       }
-    ];
+    }
+    return deduped;
   });
 
   const [certificates, setCertificates] = useState<Certificate[]>(() => {
     const saved = localStorage.getItem('ava_certificates');
-    return saved ? JSON.parse(saved) : [];
+    let parsed: Certificate[] | null = null;
+    try {
+      if (saved) parsed = JSON.parse(saved);
+    } catch (e) {
+      console.error("Error parsing ava_certificates:", e);
+    }
+
+    if (!parsed || !Array.isArray(parsed)) {
+      return [];
+    }
+
+    const seenKeys = new Set<string>();
+    const seenIds = new Set<string>();
+    const deduped: Certificate[] = [];
+    for (const cert of parsed) {
+      if (!cert || !cert.id) continue;
+      const key = `${cert.courseId}-${cert.studentName}`;
+      if (!seenKeys.has(key) && !seenIds.has(cert.id)) {
+        seenKeys.add(key);
+        seenIds.add(cert.id);
+        deduped.push(cert);
+      }
+    }
+    return deduped;
   });
 
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => {
@@ -254,11 +341,21 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addLibraryItem = (item: Omit<LibraryItem, 'id'>) => {
     const newItem = { ...item, id: `lib-${Date.now()}` };
     setLibraryItems(prev => [newItem, ...prev]);
+    fetch('/api/library', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newItem)
+    }).catch(err => console.error(err));
   };
 
   const addWebinarEvent = (webinar: Omit<WebinarEvent, 'id'>) => {
     const newWebinar = { ...webinar, id: `web-${Date.now()}` };
     setWebinarEvents(prev => [newWebinar, ...prev]);
+    fetch('/api/webinars', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newWebinar)
+    }).catch(err => console.error(err));
   };
 
   useEffect(() => {
@@ -460,12 +557,147 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const updateSystemSettings = (updates: Partial<LMSContextProps['systemSettings']>) => {
-    setSystemSettings((prev: LMSContextProps['systemSettings']) => ({ ...prev, ...updates }));
+    setSystemSettings((prev: LMSContextProps['systemSettings']) => {
+      const next = { ...prev, ...updates };
+      fetch('/api/system-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      }).catch(err => console.error(err));
+      return next;
+    });
   };
 
   useEffect(() => {
     localStorage.setItem('ava_system_settings', JSON.stringify(systemSettings));
   }, [systemSettings]);
+
+  const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>(() => {
+    const saved = localStorage.getItem('ava_security_logs');
+    if (saved) return JSON.parse(saved);
+    return [
+      {
+        id: 'log-1',
+        timestamp: new Date(Date.now() - 3600000 * 5).toLocaleTimeString('pt-BR') + ' ' + new Date(Date.now() - 3600000 * 5).toLocaleDateString('pt-BR'),
+        user: 'Admin Superior',
+        role: 'admin',
+        ipAddress: '192.168.1.14',
+        device: 'Chrome / macOS (Sistema Autenticado)',
+        action: 'Auditoria de Sistema',
+        details: 'Geração de relatório geral de matrículas ativas na Escola da Cultura.',
+        status: 'SUCCESS' as const
+      },
+      {
+        id: 'log-2',
+        timestamp: new Date(Date.now() - 3600000 * 3).toLocaleTimeString('pt-BR') + ' ' + new Date(Date.now() - 3600000 * 3).toLocaleDateString('pt-BR'),
+        user: 'Alessandro Pinto',
+        role: 'instructor',
+        ipAddress: '172.16.254.12',
+        device: 'Firefox / Windows 11',
+        action: 'Atualização de Aula',
+        details: 'Novas diretrizes e links adicionados na aula inaugural de Vídeo Mapping.',
+        status: 'SUCCESS' as const
+      },
+      {
+        id: 'log-3',
+        timestamp: new Date(Date.now() - 3600000 * 1).toLocaleTimeString('pt-BR') + ' ' + new Date(Date.now() - 3600000 * 1).toLocaleDateString('pt-BR'),
+        user: 'João Silva',
+        role: 'student',
+        ipAddress: '189.122.45.92',
+        device: 'Safari / iPhone 15 Pro',
+        action: 'Autenticação no Sistema',
+        details: 'Acesso realizado com êxito sob as diretrizes de LGPD e segurança de canais.',
+        status: 'SUCCESS' as const
+      }
+    ];
+  });
+
+  const addSecurityLog = (action: string, details: string, status: 'SUCCESS' | 'WARNING' | 'FAILED' = 'SUCCESS') => {
+    const currentFormattedTime = new Date().toLocaleTimeString('pt-BR') + ' ' + new Date().toLocaleDateString('pt-BR');
+    const randomIp = '192.168.42.' + Math.floor(Math.random() * 254 + 1);
+    const simulatedDevice = navigator.userAgent?.includes('Mobile') ? 'Chrome / iOS (Dispositivos Móveis)' : 'Chrome / Windows (Terminal Homologado)';
+    
+    // Fallback names based on role
+    const userName = activeUser ? activeUser.name : 'Visitante Anônimo';
+    const userRole = activeUser ? activeUser.role : 'student';
+
+    const newLog: SecurityLog = {
+      id: `log-${Date.now()}`,
+      timestamp: currentFormattedTime,
+      user: userName,
+      role: userRole,
+      ipAddress: randomIp,
+      device: simulatedDevice,
+      action,
+      details,
+      status
+    };
+    
+    setSecurityLogs((prev) => [newLog, ...prev].slice(0, 50));
+    fetch('/api/security-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newLog)
+    }).catch(err => console.error("Erro ao sincronizar log com backend:", err));
+  };
+
+  const clearSecurityLogs = () => {
+    setSecurityLogs([]);
+    fetch('/api/security-logs', { method: 'DELETE' })
+      .catch((err) => console.error("Erro ao limpar logs com backend:", err));
+  };
+
+  useEffect(() => {
+    localStorage.setItem('ava_security_logs', JSON.stringify(securityLogs));
+  }, [securityLogs]);
+
+  // Sincronização inicial do aplicativo com o backend Express ao montar o contexto
+  useEffect(() => {
+    const fetchBackendState = async () => {
+      try {
+        const [
+          coursesRes,
+          libraryRes,
+          webinarsRes,
+          progressRes,
+          certificatesRes,
+          chatRes,
+          dmsRes,
+          requestsRes,
+          admissionsRes,
+          logsRes,
+          settingsRes
+        ] = await Promise.all([
+          fetch('/api/courses'),
+          fetch('/api/library'),
+          fetch('/api/webinars'),
+          fetch('/api/progress'),
+          fetch('/api/certificates'),
+          fetch('/api/chat'),
+          fetch('/api/dms'),
+          fetch('/api/academic-requests'),
+          fetch('/api/admissions'),
+          fetch('/api/security-logs'),
+          fetch('/api/system-settings')
+        ]);
+
+        if (coursesRes.ok) setCourses(await coursesRes.json());
+        if (libraryRes.ok) setLibraryItems(await libraryRes.json());
+        if (webinarsRes.ok) setWebinarEvents(await webinarsRes.json());
+        if (progressRes.ok) setProgress(await progressRes.json());
+        if (certificatesRes.ok) setCertificates(await certificatesRes.json());
+        if (chatRes.ok) setChatMessages(await chatRes.json());
+        if (dmsRes.ok) setDirectMessages(await dmsRes.json());
+        if (requestsRes.ok) setAcademicRequests(await requestsRes.json());
+        if (admissionsRes.ok) setAdmissionRequests(await admissionsRes.json());
+        if (logsRes.ok) setSecurityLogs(await logsRes.json());
+        if (settingsRes.ok) setSystemSettings(await settingsRes.json());
+      } catch (err) {
+        console.warn("Servidor Backend Express offline. Inicializado no modo de fallback offline:", err);
+      }
+    };
+    fetchBackendState();
+  }, []);
 
   // Save changes to localStorage on any state changes
   useEffect(() => {
@@ -574,17 +806,19 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       // If student has at least 70% attendance and doesn't have a certificate for this course yet, issue it automatically!
       if (attendance >= 70) {
-        const alreadyIssued = certificates.some(
-          (cert) => cert.courseId === course.id && cert.studentName === activeUser.name
-        );
+        setCertificates((prev) => {
+          const alreadyIssued = prev.some(
+            (cert) => cert.courseId === course.id && cert.studentName === activeUser.name
+          );
 
-        if (!alreadyIssued) {
+          if (alreadyIssued) return prev;
+
           const hashHex = Array.from({ length: 16 }, () =>
             Math.floor(Math.random() * 16).toString(16)
           ).join('').toUpperCase();
 
           const newCertificate: Certificate = {
-            id: `cert-${course.id}-${Date.now()}`,
+            id: `cert-${course.id}-${hashHex}`,
             studentName: activeUser.name,
             courseId: course.id,
             courseTitle: course.title,
@@ -593,19 +827,26 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             verificationHash: `AVA-${hashHex}`
           };
 
-          setCertificates((prev) => [...prev, newCertificate]);
-        }
+          fetch('/api/certificates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newCertificate)
+          }).catch(err => console.error("Erro ao sincronizar certificado:", err));
+
+          return [...prev, newCertificate];
+        });
       } else {
         // If they became un-qualified (unselected lesson and went below 70%), remove certificate
         // to stay dynamically accurate in state simulation, unless they like it
-        const alreadyIssued = certificates.some(
-          (cert) => cert.courseId === course.id && cert.studentName === activeUser.name
-        );
-        if (alreadyIssued && attendance < 70) {
-          setCertificates((prev) =>
-            prev.filter((cert) => !(cert.courseId === course.id && cert.studentName === activeUser.name))
+        setCertificates((prev) => {
+          const alreadyIssued = prev.some(
+            (cert) => cert.courseId === course.id && cert.studentName === activeUser.name
           );
-        }
+          if (alreadyIssued) {
+            return prev.filter((cert) => !(cert.courseId === course.id && cert.studentName === activeUser.name));
+          }
+          return prev;
+        });
       }
     });
   }, [progress, activeUser.name, courses, activeUser.role]);
@@ -613,40 +854,75 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleLessonCompletion = (courseId: string, lessonId: string) => {
     setProgress((prev) => {
       const existing = prev.find((p) => p.courseId === courseId);
+      let updated: StudentProgress;
+      let nextState: StudentProgress[];
+
       if (existing) {
         const isCompleted = existing.completedLessons.includes(lessonId);
         const updatedLessons = isCompleted
           ? existing.completedLessons.filter((id) => id !== lessonId)
           : [...existing.completedLessons, lessonId];
-
-        return prev.map((p) =>
-          p.courseId === courseId ? { ...p, completedLessons: updatedLessons } : p
-        );
+        updated = { ...existing, completedLessons: updatedLessons };
+        nextState = prev.map((p) => (p.courseId === courseId ? updated : p));
       } else {
-        return [...prev, { courseId, completedLessons: [lessonId], attendedLiveSessions: [] }];
+        updated = {
+          courseId,
+          completedLessons: [lessonId],
+          attendedLiveSessions: []
+        };
+        nextState = [...prev, updated];
       }
+
+      fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      }).catch(err => console.error("Erro ao atualizar progresso:", err));
+
+      return nextState;
     });
   };
 
   const attendLiveSession = (courseId: string, liveSessionId: string) => {
     setProgress((prev) => {
       const existing = prev.find((p) => p.courseId === courseId);
-      if (existing) {
-        if (existing.attendedLiveSessions.includes(liveSessionId)) return prev; // already recorded
+      let updated: StudentProgress;
+      let nextState: StudentProgress[];
 
-        return prev.map((p) =>
-          p.courseId === courseId
-            ? { ...p, attendedLiveSessions: [...p.attendedLiveSessions, liveSessionId] }
-            : p
-        );
+      if (existing) {
+        if (existing.attendedLiveSessions.includes(liveSessionId)) return prev;
+
+        updated = {
+          ...existing,
+          attendedLiveSessions: [...existing.attendedLiveSessions, liveSessionId]
+        };
+        nextState = prev.map((p) => (p.courseId === courseId ? updated : p));
       } else {
-        return [...prev, { courseId, completedLessons: [], attendedLiveSessions: [liveSessionId] }];
+        updated = {
+          courseId,
+          completedLessons: [],
+          attendedLiveSessions: [liveSessionId]
+        };
+        nextState = [...prev, updated];
       }
+
+      fetch('/api/progress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      }).catch(err => console.error("Erro ao atualizar presenca em live:", err));
+
+      return nextState;
     });
   };
 
   const addCourse = (newCourse: Course) => {
     setCourses((prev) => [...prev, newCourse]);
+    fetch('/api/courses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newCourse)
+    }).catch(err => console.error(err));
   };
 
   const deleteCourse = (courseId: string) => {
@@ -659,6 +935,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         course.id === courseId ? { ...course, instructorName } : course
       )
     );
+    fetch(`/api/courses/${courseId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ instructorName })
+    }).catch(err => console.error(err));
   };
 
   const updateCourseProps = (courseId: string, updates: Partial<Course>) => {
@@ -667,6 +948,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         course.id === courseId ? { ...course, ...updates } : course
       )
     );
+    fetch(`/api/courses/${courseId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    }).catch(err => console.error(err));
   };
 
   const addLessonToCourse = (courseId: string, lessonTitle: string, duration: string, content: string, videoUrl?: string) => {
@@ -785,6 +1071,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toISOString()
     };
     setChatMessages((prev) => [...prev, newMessage]);
+    fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newMessage)
+    }).catch(err => console.error(err));
   };
 
   const sendDirectMessage = (studentName: string, text: string) => {
@@ -797,6 +1088,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toISOString()
     };
     setDirectMessages((prev) => [...prev, newDM]);
+    fetch('/api/dms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newDM)
+    }).catch(err => console.error(err));
   };
 
   const addQuiz = (courseId: string, title: string, questions: QuizQuestion[]) => {
@@ -822,7 +1118,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     passed: boolean
   ): QuizSubmission => {
     const newSubmission: QuizSubmission = {
-      id: `sub-${Date.now()}`,
+      id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       studentName,
       courseId,
       quizId,
@@ -838,9 +1134,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newSubmission;
   };
 
-  const addProfessor = (name: string) => {
+  const addProfessor = (name: string, password?: string) => {
     setProfessorsList((prev) => {
       if (prev.includes(name)) return prev;
+      const finalPassword = password && password.trim() ? password.trim() : '5678';
+      localStorage.setItem(`ava_active_password_${name}`, finalPassword);
       return [...prev, name];
     });
   };
@@ -849,10 +1147,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProfessorsList((prev) => prev.filter((p) => p !== name));
   };
 
-  const addStudent = (name: string, email: string) => {
+  const addStudent = (name: string, email: string, password?: string) => {
     setStudentsList((prev) => {
       if (prev.some((s) => s.name.toLowerCase() === name.toLowerCase() || s.email.toLowerCase() === email.toLowerCase())) return prev;
-      return [...prev, { name, email }];
+      const finalPassword = password && password.trim() ? password.trim() : '1234';
+      // Store in localStorage so the login overlay / ProfileView immediately picks it up
+      localStorage.setItem(`ava_active_password_${name}`, finalPassword);
+      return [...prev, { name, email, password: finalPassword }];
     });
   };
 
@@ -872,12 +1173,22 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submittedAt: new Date().toLocaleDateString('pt-BR')
     };
     setAcademicRequests((prev) => [newRequest, ...prev]);
+    fetch('/api/academic-requests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newRequest)
+    }).catch(err => console.error(err));
   };
 
   const updateRequestStatus = (reqId: string, status: 'approved' | 'rejected') => {
     setAcademicRequests((prev) =>
       prev.map((req) => (req.id === reqId ? { ...req, status } : req))
     );
+    fetch(`/api/academic-requests/${reqId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    }).catch(err => console.error(err));
   };
 
   const [admissionRequests, setAdmissionRequests] = useState<AdmissionRequest[]>(() => {
@@ -898,6 +1209,22 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAdmissionRequests((prev) =>
       prev.map((req) => (req.id === reqId ? { ...req, status } : req))
     );
+    fetch(`/api/admissions/${reqId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    }).catch(err => console.error(err));
+  };
+
+  const addAdmissionRequest = (studentName: string, courseId: string, status: 'pending' | 'approved' | 'rejected' = 'pending') => {
+    const newReq: AdmissionRequest = {
+      id: `adm-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      studentName,
+      courseId,
+      status,
+      submittedAt: new Date().toLocaleDateString('pt-BR')
+    };
+    setAdmissionRequests(prev => [...prev, newReq]);
   };
 
   const getYouTubeEmbedUrl = (url: string): string | null => {
@@ -971,7 +1298,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveDashboardTab,
         getYouTubeEmbedUrl,
         admissionRequests,
+        addAdmissionRequest,
         updateAdmissionStatus,
+        securityLogs,
+        addSecurityLog,
+        clearSecurityLogs,
       }}
     >
       {children}

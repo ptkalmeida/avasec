@@ -152,3 +152,15 @@ export interface LMSState {
   quizSubmissions: QuizSubmission[];
 }
 
+export interface SecurityLog {
+  id: string;
+  timestamp: string;
+  user: string;
+  role: string;
+  ipAddress: string;
+  device: string;
+  action: string;
+  details: string;
+  status: 'SUCCESS' | 'WARNING' | 'FAILED';
+}
+
