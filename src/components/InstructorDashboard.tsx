@@ -6,13 +6,18 @@
 import React, { useState } from 'react';
 import {
   BookOpen, Calendar, CheckCircle, Award, Video, Plus, Trash2, Edit3, Users,
-  Globe, Clock, Grid, ChevronRight, TrendingUp, Sparkles, Send, Info, Check, Link, Play,
+  Globe, Clock, Grid, ChevronRight, TrendingUp, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 import { Course, Lesson, LiveSession } from '../types';
 
-export const InstructorDashboard: React.FC = () => {
+interface InstructorDashboardProps {
+  onBackToLanding?: () => void;
+  speakText: (text: string) => void;
+}
+
+export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBackToLanding, speakText }) => {
   const {
     courses,
     addCourse,
@@ -81,6 +86,31 @@ export const InstructorDashboard: React.FC = () => {
     const latestMsg = studentDMs[studentDMs.length - 1];
     return latestMsg.senderRole === 'student'; // Unanswered by the instructor
   });
+
+  const handleBack = () => {
+    if (isEditingCourse) {
+      setIsEditingCourse(false);
+    } else if (isCreatingCourse) {
+      setIsCreatingCourse(false);
+    } else if (isCreatingLesson) {
+      setIsCreatingLesson(false);
+    } else if (isCreatingQuiz) {
+      setIsCreatingQuiz(false);
+    } else if (isCreatingWebinar) {
+      setIsCreatingWebinar(false);
+    } else if (isCreatingLive) {
+      setIsCreatingLive(false);
+    } else if (onBackToLanding) {
+      onBackToLanding();
+    }
+  };
+
+  const getBackLabel = () => {
+    if (isEditingCourse || isCreatingCourse || isCreatingLesson || isCreatingQuiz || isCreatingWebinar || isCreatingLive) {
+      return "Voltar p/ Gestão";
+    }
+    return "Sair p/ Portal";
+  };
 
   // Quiz Builder State
   const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
@@ -330,16 +360,33 @@ export const InstructorDashboard: React.FC = () => {
       
       {/* Instructor Dashboard Welcome Banner */}
       <div className="mb-8 rounded-2xl bg-linear-to-r from-slate-900 to-teal-950 p-6 border border-slate-800 text-left flex flex-col justify-between gap-6 md:flex-row md:items-center shadow-lg">
-        <div>
-          <span className="rounded-full bg-teal-500/10 px-2.5 py-1 text-[11px] font-bold text-teal-400 border border-teal-500/20">
-            Painel do Instrutor-Gestor
-          </span>
-          <h2 className="text-xl md:text-2xl font-black text-slate-100 mt-2">
-            Gestão Pedagógica do AVA
-          </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Professor Alessandro Pinto • Publique conteúdos, agende encontros e monitore o limiar de 70% de presença.
-          </p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          {onBackToLanding && (
+            <button
+              onClick={() => {
+                const label = getBackLabel();
+                speakText(`${label}. Voltando um nível na gestão.`);
+                handleBack();
+              }}
+              className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-750 transition-all cursor-pointer shadow-3xs"
+              title={getBackLabel()}
+            >
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+              <span className="text-[10px] font-bold uppercase tracking-tighter">{getBackLabel()}</span>
+            </button>
+          )}
+
+          <div>
+            <span className="rounded-full bg-teal-500/10 px-2.5 py-1 text-[11px] font-bold text-teal-400 border border-teal-500/20">
+              Painel do Instrutor-Gestor
+            </span>
+            <h2 className="text-xl md:text-2xl font-black text-slate-100 mt-2">
+              Gestão Pedagógica do AVA
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Professor Alessandro Pinto • Publique conteúdos, agende encontros e monitore o limiar de 70% de presença.
+            </p>
+          </div>
         </div>
 
         <button
@@ -353,7 +400,7 @@ export const InstructorDashboard: React.FC = () => {
 
       {/* Dynamic Tab Navigation System */}
       {systemSettings.allowDirectMessages && (
-        <div className="flex border-b border-slate-200 mb-8 gap-1.5 p-1 bg-slate-100 rounded-2xl w-fit">
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1.5 mb-10 overflow-x-auto scrollbar-hide md:justify-center w-full max-w-4xl mx-auto shadow-3xs border border-slate-200">
           <button
             onClick={() => setActiveDashboardTab('general')}
             className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${

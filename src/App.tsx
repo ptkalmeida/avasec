@@ -15,7 +15,8 @@ import {
   Shield, Activity, Settings, HelpCircle, BookOpen, Palette, Globe,
   Search, Menu, ChevronLeft, ChevronRight, Star, Play, FileText,
   Mail, ExternalLink, X, Sparkles, Calendar, MapPin, Info,
-  Printer, Download, Monitor, CheckCircle, Instagram, Youtube, Facebook, Twitter, Home, Bell, MessageSquare
+  Printer, Download, Monitor, CheckCircle, Instagram, Youtube, Facebook, Twitter, Home, Bell, MessageSquare,
+  Fingerprint, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 // @ts-ignore
@@ -67,8 +68,13 @@ function DashboardSwitcher() {
     currentLang,
     setCurrentLang,
     textSizeMultiplier,
-    setTextSizeMultiplier
+    setTextSizeMultiplier,
+    addSecurityLog,
+    securityLogs,
+    addStudent
   } = useLMS();
+  
+  const isUserLoggedIn = activeUser && activeUser.name !== '';
   
   // List of students that are simulated in the system
   const studentsWithMessages = studentsList.map(s => s.name);
@@ -83,6 +89,18 @@ function DashboardSwitcher() {
   const [currentView, setCurrentView] = useState<'landing' | 'active_app' | 'perfil'>('landing');
   const [previousView, setPreviousView] = useState<'landing' | 'active_app'>('landing');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  
+  // Registration and external validator integration states
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [registerName, setRegisterName] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerCpf, setRegisterCpf] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [validationStep, setValidationStep] = useState<'idle' | 'matching' | 'verifying' | 'syncing' | 'completed'>('idle');
+  const [validationProgress, setValidationProgress] = useState(0);
+  const [isExternalLinkClicked, setIsExternalLinkClicked] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+
   const [dismissedNotice, setDismissedNotice] = useState(false);
   const [loginRoleTab, setLoginRoleTab] = useState<'student' | 'instructor' | 'admin'>('student');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -94,6 +112,20 @@ function DashboardSwitcher() {
   // Accessibility & Multi-language Internationalization (Transient UI states only)
   const [isAccessibilityOpen, setIsAccessibilityOpen] = useState(false);
   const [isSiteMapOpen, setIsSiteMapOpen] = useState(false);
+
+  // PIN Verification Flow Security States
+  const [pendingLogin, setPendingLogin] = useState<{ name: string; role: 'student' | 'instructor' | 'admin' } | null>(null);
+  const [pinInput, setPinInput] = useState<string>('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [isPinSuccess, setIsPinSuccess] = useState<boolean>(false);
+
+  useEffect(() => {
+    const isLocked = localStorage.getItem('ava_session_locked') === 'true';
+    if (isLocked) {
+      setIsLoginModalOpen(true);
+      setCurrentView('landing');
+    }
+  }, []);
 
   const speakText = (text: string) => {
     if (!isSpeechEnabled) return;
@@ -370,15 +402,73 @@ function DashboardSwitcher() {
   };
 
   const handleProfileLogin = (name: string, role: 'student' | 'instructor' | 'admin') => {
+    // Intercept with security PIN prompt
+    setPendingLogin({ name, role });
+    setPinInput('');
+    setPinError(null);
+    setIsPinSuccess(false);
+    speakText(`Verificação de segurança requerida para o perfil de ${name}. Digite o PIN de acesso.`);
+  };
+
+  const executeProfileLogin = (name: string, role: 'student' | 'instructor' | 'admin') => {
     setUserProfile(name, role);
+    addSecurityLog('Autenticação de Fluxo', `Login efetuado com PIN para o perfil: ${name}.`, 'SUCCESS');
     setCurrentView('active_app');
     setIsLoginModalOpen(false);
+    setPendingLogin(null);
+    localStorage.removeItem('ava_session_locked');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    speakText(`Acesso liberado com sucesso. Bem vindo de volta, ${name}.`);
   };
 
   const handleLogout = () => {
+    setUserProfile('', 'student');
     setCurrentView('landing');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    speakText("Você desconectou do sistema com sucesso.");
+  };
+
+  const handlePinKeyClick = (val: string) => {
+    if (pinInput.length < 8) {
+      setPinInput(p => p + val);
+      setPinError(null);
+    }
+  };
+
+  const verifyPinAndLogin = () => {
+    if (!pendingLogin) return;
+    
+    let isCorrect = false;
+    const inputVal = pinInput;
+    
+    // Check custom password if set in localStorage
+    const savedPassword = localStorage.getItem(`ava_active_password_${pendingLogin.name}`);
+    
+    if (savedPassword && inputVal === savedPassword) {
+      isCorrect = true;
+    } else {
+      // Default fallback pins
+      if (pendingLogin.role === 'admin' && (inputVal === '9999' || inputVal === 'admin2026')) {
+        isCorrect = true;
+      } else if (pendingLogin.role === 'instructor' && (inputVal === '5678' || inputVal === '1234')) {
+        isCorrect = true;
+      } else if (pendingLogin.role === 'student' && inputVal === '1234') {
+        isCorrect = true;
+      }
+    }
+
+    if (isCorrect) {
+      setIsPinSuccess(true);
+      setTimeout(() => {
+        executeProfileLogin(pendingLogin.name, pendingLogin.role);
+      }, 700);
+    } else {
+      setPinError('PIN ou Senha de segurança inválida!');
+      setPinInput('');
+      const failedSound = `Falha de verificação. PIN incorreto para o perfil ${pendingLogin.name}.`;
+      speakText(failedSound);
+      addSecurityLog('Tentativa Fracassada', `Código PIN incorreto inserido para o perfil: ${pendingLogin.name}.`, 'FAILED');
+    }
   };
 
   const handleSubmitSuggestion = (e: React.FormEvent) => {
@@ -464,89 +554,7 @@ function DashboardSwitcher() {
         ` }} />
       )}
 
-      {/* 1. Official Top Accessibility Bar (MADE HIGHER CONTRAST, LARGER & 100% FUNCTIONAL) */}
-      <div className="bg-slate-950 text-slate-300 py-3 px-4 md:px-6 border-b border-slate-900 select-none">
-        <div className="mx-auto max-w-7xl flex flex-col lg:flex-row justify-between items-center gap-4 font-mono">
-          {/* Skip-links */}
-          <div className="flex flex-wrap justify-center gap-4 text-xs md:text-[13px]">
-            <a 
-              href="#hero-section" 
-              onClick={(e) => { e.preventDefault(); handleSmoothScroll('hero-section'); speakText("Ir para conteúdo"); }} 
-              className="hover:underline hover:text-white transition-all uppercase tracking-wider font-bold text-slate-200"
-            >
-              Ir para o conteúdo [1]
-            </a>
-            <a 
-              href="#cursos" 
-              onClick={(e) => { e.preventDefault(); handleSmoothScroll('cursos'); speakText("Ir para cursos"); }} 
-              className="hover:underline hover:text-white transition-all uppercase tracking-wider font-bold text-slate-200"
-            >
-              Ir para o menu [2]
-            </a>
-          </div>
 
-          {/* Interactive Accessibility Settings Buttons */}
-          <div className="flex flex-wrap justify-center gap-4.5 items-center text-xs md:text-[13px]">
-            <button 
-              onClick={() => { setIsAccessibilityOpen(true); speakText("Janela de acessibilidade aberta"); }}
-              className="cursor-pointer hover:underline text-slate-200 font-extrabold hover:text-teal-400 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
-              title="Ajustar tamanho da fonte, leitor e preferências"
-            >
-              <Settings className="w-4 h-4 text-teal-400 animate-spin" style={{ animationDuration: '8s' }} />
-              <span className="uppercase tracking-wide font-black">Acessibilidade</span>
-            </button>
-            
-            <button 
-              onClick={() => {
-                const next = !accessibilitySettings.highContrast;
-                updateAccessibilitySettings({ highContrast: next });
-                speakText(next ? "Alto contraste ativado" : "Alto contraste desativado");
-              }}
-              className={`cursor-pointer hover:underline font-extrabold flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5 ${accessibilitySettings.highContrast ? 'text-yellow-400 underline' : 'text-slate-200 hover:text-yellow-400'}`}
-              title="Ativar/Desativar cores de alto contraste para baixa visão"
-            >
-              <Monitor className="w-4 h-4 text-yellow-400" />
-              <span className="uppercase tracking-wide font-black">Alto Contraste</span>
-            </button>
-            
-            <button 
-              onClick={() => { setIsSiteMapOpen(true); speakText("Mapa de seções do site aberto"); }}
-              className="cursor-pointer hover:underline text-slate-200 font-extrabold hover:text-teal-400 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
-              title="Exibir mapa do site"
-            >
-              <BookOpen className="w-4 h-4 text-teal-400" />
-              <span className="uppercase tracking-wide font-black">Mapa do Site</span>
-            </button>
-
-            {/* Language Selector */}
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-4 text-slate-300">
-              <button 
-                onClick={() => { setCurrentLang('pt'); speakText("Idioma alterado para Português"); }}
-                className={`font-black uppercase text-xs tracking-wider transition-all cursor-pointer px-2 py-1 rounded ${currentLang === 'pt' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-white font-bold'}`}
-                title="Português (Brasil)"
-              >
-                PT-BR
-              </button>
-              <span className="text-slate-700 font-light">|</span>
-              <button 
-                onClick={() => { setCurrentLang('en'); speakText("Language changed to English"); }}
-                className={`font-black uppercase text-xs tracking-wider transition-all cursor-pointer px-2 py-1 rounded ${currentLang === 'en' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-white font-bold'}`}
-                title="English"
-              >
-                EN
-              </button>
-              <span className="text-slate-700 font-light">|</span>
-              <button 
-                onClick={() => { setCurrentLang('es'); speakText("Idioma cambiado a Español"); }}
-                className={`font-black uppercase text-xs tracking-wider transition-all cursor-pointer px-2 py-1 rounded ${currentLang === 'es' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-white font-bold'}`}
-                title="Español"
-              >
-                ES
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
 
 
 
@@ -559,16 +567,9 @@ function DashboardSwitcher() {
           {/* Logo & Brand title */}
           <div 
             onClick={() => {
-              if (activeUser) {
-                setCurrentView('active_app');
-                window.dispatchEvent(new Event('reset-dashboard'));
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                speakText("Voltando para o Painel.");
-              } else {
-                setCurrentView('landing');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                speakText("Voltando para a Página Inicial.");
-              }
+              setCurrentView('landing');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+              speakText("Voltando para a Página Inicial.");
             }}
             title="Voltar ao Portal Inicial"
             className="cursor-pointer hover:opacity-95 transition-all"
@@ -580,14 +581,8 @@ function DashboardSwitcher() {
           {currentView === 'landing' && !isSearchOpen && (
             <nav className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-650 uppercase tracking-widest">
               <button onClick={() => { 
-                if (activeUser) {
-                  setCurrentView('active_app');
-                  window.dispatchEvent(new Event('reset-dashboard'));
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                  speakText("Voltando para o Painel.");
-                } else {
-                  window.scrollTo({ top: 0, behavior: 'smooth' }); speakText("Página Inicial"); 
-                }
+                window.scrollTo({ top: 0, behavior: 'smooth' }); 
+                speakText("Voltando para o topo da Página Inicial.");
               }} className="hover:text-[#540D6E] transition-colors border-b-2 border-[#540D6E] pb-1 cursor-pointer">
                 Página Inicial
               </button>
@@ -712,19 +707,12 @@ function DashboardSwitcher() {
                 {/* Back to landing portal link (extremely robust navigational flow) */}
                 <button
                   onClick={() => {
-                    if (activeUser) {
-                      setCurrentView('active_app');
-                      window.dispatchEvent(new Event('reset-dashboard'));
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                      speakText("Retornando ao Painel.");
-                    } else {
-                      setCurrentView('landing');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                      speakText("Retornando ao Portal Institucional.");
-                    }
+                    setCurrentView('landing');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    speakText("Retornando ao Portal Institucional.");
                   }}
                   className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-650 px-3 py-2 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs"
-                  title="Ir para tela inicial dos Cursos"
+                  title="Ir para a Página Inicial do Portal"
                 >
                   <Home className="h-3.5 w-3.5 text-[#540D6E]" />
                   <span className="hidden sm:inline">Página Inicial</span>
@@ -838,8 +826,8 @@ function DashboardSwitcher() {
                   <div className="text-right">
                     <span className="block text-xs font-bold text-slate-800 leading-none">{activeUser.name}</span>
                     <span className="text-[9px] text-[#540D6E] font-bold block mt-0.5">
-                      {activeUser.role === 'student' && 'Discente Credenciado'}
-                      {activeUser.role === 'instructor' && 'Docente Avaliador'}
+                      {activeUser.role === 'student' && 'Aluno Credenciado'}
+                      {activeUser.role === 'instructor' && 'Professor Avaliador'}
                       {activeUser.role === 'admin' && 'Moderação Coordenadora'}
                     </span>
                   </div>
@@ -856,9 +844,9 @@ function DashboardSwitcher() {
                     <Lock className="h-4.5 w-4.5 hover:text-slate-800 cursor-pointer transition-colors" title="Simular Conexão" onClick={() => setIsLoginModalOpen(true)} />
                     <User 
                       className="h-4.5 w-4.5 hover:text-slate-800 cursor-pointer transition-colors" 
-                      title={activeUser ? "Visualizar meu Perfil" : "Identidade Discente/Docente"} 
+                      title={isUserLoggedIn ? "Visualizar meu Perfil" : "Identidade Aluno/Professor"} 
                       onClick={() => {
-                        if (activeUser) {
+                        if (isUserLoggedIn) {
                           setPreviousView(currentView === 'perfil' ? previousView : currentView);
                           setCurrentView('perfil');
                           window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -872,19 +860,54 @@ function DashboardSwitcher() {
                 )}
 
                 {/* If the user is technically logged in but on the landing view, provide an instant "Ir p/ Painel" button */}
-                {activeUser ? (
-                  <button 
-                    onClick={() => {
-                      setCurrentView('active_app');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                      speakText("Retornando ao seu Painel de Aprendizado Ativo.");
-                    }}
-                    className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 font-extrabold px-3 py-2 text-xs uppercase tracking-wider transition-all cursor-pointer shadow-3xs flex items-center gap-1"
-                    title={`Acessar seu Painel como ${activeUser.role === 'admin' ? 'Coordenação' : activeUser.role === 'instructor' ? 'Docente' : 'Discente'}`}
-                  >
-                    <Activity className="h-3.5 w-3.5 text-slate-900 shrink-0" />
-                    <span className="hidden xs:inline">Ir p/ Painel ({activeUser.role === 'admin' ? 'Coord' : activeUser.role === 'instructor' ? 'Docente' : 'Discente'})</span>
-                  </button>
+                {isUserLoggedIn ? (
+                  <div className="flex items-center gap-2 animate-in fade-in transition-all">
+                    <button
+                      onClick={handleLogout}
+                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
+                      title="Sair do Portal e encerrar sessão"
+                    >
+                      <LogOut className="h-3.5 w-3.5 text-rose-500" />
+                      <span>Sair</span>
+                    </button>
+                    {activeUser.role === 'student' ? (
+                      <button 
+                        onClick={() => {
+                          setCurrentView('active_app');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                          speakText("Acessando o seu Ambiente de Estudos.");
+                        }}
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 font-extrabold px-3.5 py-2 text-xs uppercase tracking-wider transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        title="Ir para seu Ambiente de Estudos"
+                      >
+                        <BookOpen className="h-4 w-4 text-slate-900 shrink-0" />
+                        <span className="hidden sm:inline">Ambiente de Estudos</span>
+                        <span className="inline sm:hidden">Estudos</span>
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => {
+                          setCurrentView('active_app');
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                          if (activeUser.role === 'admin') {
+                            speakText("Acessando a sua Gestão da Plataforma.");
+                          } else {
+                            speakText("Acessando a sua Gestão de Cursos e Alunos.");
+                          }
+                        }}
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 font-extrabold px-3.5 py-2 text-xs uppercase tracking-wider transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        title={activeUser.role === 'admin' ? "Acessar Coordenação / Gestão da Plataforma" : "Acessar Docência / Gestão de Cursos e Alunos"}
+                      >
+                        <GraduationCap className="h-4 w-4 text-slate-900 shrink-0" />
+                        <span className="hidden sm:inline">
+                          {activeUser.role === 'admin' ? "Gestão da Plataforma" : "Gestão de Cursos/Alunos"}
+                        </span>
+                        <span className="inline sm:hidden">
+                          {activeUser.role === 'admin' ? "Plataforma" : "Gestão"}
+                        </span>
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <>
                     <button 
@@ -894,7 +917,10 @@ function DashboardSwitcher() {
                       Entrar
                     </button>
                     <button 
-                      onClick={() => setIsLoginModalOpen(true)}
+                      onClick={() => {
+                        setIsRegisterModalOpen(true);
+                        speakText("Portal de direcionamento e validação de cadastro externo aberto.");
+                      }}
                       className="rounded-lg bg-[#540D6E] hover:bg-blue-700 text-white px-4.5 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
                     >
                       Cadastre-se
@@ -932,15 +958,8 @@ function DashboardSwitcher() {
               <div className="px-5 py-4.5 flex flex-col gap-3.5 text-left text-xs font-bold text-slate-650 uppercase tracking-widest bg-slate-50/50">
                 <button 
                   onClick={() => { 
-                    if (activeUser) {
-                      setCurrentView('active_app');
-                      window.dispatchEvent(new Event('reset-dashboard'));
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                      speakText("Retornando ao Painel.");
-                    } else {
-                      window.scrollTo({ top: 0, behavior: 'smooth' }); 
-                      speakText("Início");
-                    }
+                    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+                    speakText("Voltando para o topo da Página Inicial.");
                     setIsMobileMenuOpen(false); 
                   }} 
                   className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
@@ -1367,7 +1386,7 @@ function DashboardSwitcher() {
 
                       return (
                         <div 
-                          key={idx}
+                          key={course.title}
                           className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md ${
                             isFocus ? 'border-[#540D6E] ring-1.5 ring-[#540D6E]' : 'border-slate-200'
                           }`}
@@ -1435,9 +1454,9 @@ function DashboardSwitcher() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto text-center">
-                  {categoriesData.map((cat, idx) => (
+                  {categoriesData.map((cat) => (
                     <div 
-                      key={idx}
+                      key={cat.title}
                       className="bg-slate-50/50 hover:bg-slate-50 border border-slate-200/60 hover:border-slate-300 p-6.5 rounded-3xl transition-all hover:shadow-xs flex flex-col justify-between"
                     >
                       <div className="space-y-4">
@@ -1740,25 +1759,110 @@ function DashboardSwitcher() {
             onBack={() => {
               setCurrentView(previousView);
             }}
+            onLogout={handleLogout}
             speakText={speakText}
           />
         ) : (
           /* ACTIVE APP VIEW - ROUTING WITH ABSOLUTE BOUNDARIES EXPLICITLY RESPECTING THE GUIDELINES */
           <div className="bg-slate-50/20">
             {activeUser.role === 'student' && (
-              <StudentDashboard />
+              <StudentDashboard onBackToLanding={() => setCurrentView('landing')} speakText={speakText} />
             )}
             
             {activeUser.role === 'instructor' && (
-              <InstructorDashboard />
+              <InstructorDashboard onBackToLanding={() => setCurrentView('landing')} speakText={speakText} />
             )}
 
             {activeUser.role === 'admin' && (
-              <AdminDashboard />
+              <AdminDashboard onBackToLanding={() => setCurrentView('landing')} speakText={speakText} />
             )}
           </div>
         )}
       </main>
+
+      {/* 1. Official Bottom Accessibility Bar (Moved to footer area for a more discrete look) */}
+      <div className="bg-slate-950 text-slate-450 py-4 px-4 md:px-6 border-t border-b border-slate-900 select-none">
+        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row justify-between items-center gap-4 font-mono">
+          {/* Skip-links */}
+          <div className="flex flex-wrap justify-center gap-4 text-[11px] text-slate-450">
+            <a 
+              href="#hero-section" 
+              onClick={(e) => { e.preventDefault(); handleSmoothScroll('hero-section'); speakText("Ir para conteúdo"); }} 
+              className="hover:underline hover:text-slate-200 transition-all uppercase tracking-wider font-bold text-slate-400"
+            >
+              Ir para o conteúdo [1]
+            </a>
+            <a 
+              href="#cursos" 
+              onClick={(e) => { e.preventDefault(); handleSmoothScroll('cursos'); speakText("Ir para cursos"); }} 
+              className="hover:underline hover:text-slate-200 transition-all uppercase tracking-wider font-bold text-slate-400"
+            >
+              Ir para o menu [2]
+            </a>
+          </div>
+
+          {/* Interactive Accessibility Settings Buttons */}
+          <div className="flex flex-wrap justify-center gap-4 items-center text-[11px] text-slate-450">
+            <button 
+              onClick={() => { setIsAccessibilityOpen(true); speakText("Janela de acessibilidade aberta"); }}
+              className="cursor-pointer hover:underline text-slate-400 font-extrabold hover:text-teal-400 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
+              title="Ajustar tamanho da fonte, leitor e preferências"
+            >
+              <Settings className="w-3.5 h-3.5 text-teal-400 animate-spin" style={{ animationDuration: '8s' }} />
+              <span className="uppercase tracking-wide font-black">Acessibilidade</span>
+            </button>
+            
+            <button 
+              onClick={() => {
+                const next = !accessibilitySettings.highContrast;
+                updateAccessibilitySettings({ highContrast: next });
+                speakText(next ? "Alto contraste ativado" : "Alto contraste desativado");
+              }}
+              className={`cursor-pointer hover:underline font-extrabold flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5 ${accessibilitySettings.highContrast ? 'text-yellow-400 underline' : 'text-slate-400 hover:text-yellow-400'}`}
+              title="Ativar/Desativar cores de alto contraste para baixa visão"
+            >
+              <Monitor className="w-3.5 h-3.5 text-yellow-400" />
+              <span className="uppercase tracking-wide font-black">Alto Contraste</span>
+            </button>
+            
+            <button 
+              onClick={() => { setIsSiteMapOpen(true); speakText("Mapa de seções do site aberto"); }}
+              className="cursor-pointer hover:underline text-slate-400 font-extrabold hover:text-teal-400 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
+              title="Exibir mapa do site"
+            >
+              <BookOpen className="w-3.5 h-3.5 text-teal-400" />
+              <span className="uppercase tracking-wide font-black">Mapa do Site</span>
+            </button>
+
+            {/* Language Selector */}
+            <div className="flex items-center gap-2 border-l border-slate-800 pl-4 text-slate-450">
+              <button 
+                onClick={() => { setCurrentLang('pt'); speakText("Idioma alterado para Português"); }}
+                className={`font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'pt' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
+                title="Português (Brasil)"
+              >
+                PT-BR
+              </button>
+              <span className="text-slate-700 font-light">|</span>
+              <button 
+                onClick={() => { setCurrentLang('en'); speakText("Language changed to English"); }}
+                className={`font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'en' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
+                title="English"
+              >
+                EN
+              </button>
+              <span className="text-slate-700 font-light">|</span>
+              <button 
+                onClick={() => { setCurrentLang('es'); speakText("Idioma cambiado a Español"); }}
+                className={`font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'es' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
+                title="Español"
+              >
+                ES
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Footer minimalista e elegante coerente com a remoção solicitada */}
       <footer className="bg-slate-950 text-slate-500 text-center py-8 text-xs border-t border-slate-900 font-sans">
@@ -2000,14 +2104,14 @@ function DashboardSwitcher() {
                   
                   <div className="flex flex-col gap-2 text-xs">
                     <button 
-                      onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('João Silva', 'student'); speakText("Acesso de Estudante Homologado"); }}
+                      onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('João Silva', 'student'); speakText("Acesso de Aluno Homologado"); }}
                       className="text-left py-1.5 px-2 hover:bg-blue-50 rounded text-[#540D6E] transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
-                      <span>• Dashboard do Estudante</span>
+                      <span>• Dashboard do Aluno</span>
                       <span className="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-mono uppercase">Mapeado</span>
                     </button>
                     <button 
-                      onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Prof. Paulo de Souza', 'instructor'); speakText("Acesso de Docente Homologado"); }}
+                      onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Prof. Paulo de Souza', 'instructor'); speakText("Acesso de Professor Homologado"); }}
                       className="text-left py-1.5 px-2 hover:bg-blue-50 rounded text-teal-700 transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
                       <span>• Dashboard do Professor</span>
@@ -2091,7 +2195,7 @@ function DashboardSwitcher() {
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  Docente
+                  Professor
                 </button>
                 <button
                   onClick={() => setLoginRoleTab('admin')}
@@ -2113,9 +2217,9 @@ function DashboardSwitcher() {
                   <div className="space-y-2.5 animate-in fade-in duration-200">
                     <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Estudantes Cadastrados ativos:</span>
                     <div className="grid grid-cols-1 gap-2.5">
-                      {mockStudentProfiles.map((student, idx) => (
+                      {mockStudentProfiles.map((student) => (
                         <div
-                          key={idx}
+                          key={student.email}
                           onClick={() => handleProfileLogin(student.name, 'student')}
                           className="group border border-slate-200 hover:border-slate-350 bg-slate-50/40 hover:bg-slate-50 p-3 rounded-xl cursor-pointer flex justify-between items-center transition-all"
                         >
@@ -2143,9 +2247,9 @@ function DashboardSwitcher() {
                   <div className="space-y-2.5 animate-in fade-in duration-200">
                     <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Trilhas de Tutores Credenciados ({professorsList.length}):</span>
                     <div className="grid grid-cols-1 gap-2.5">
-                      {professorsList.map((prof, idx) => (
+                      {professorsList.map((prof) => (
                         <div
-                          key={idx}
+                          key={prof}
                           onClick={() => handleProfileLogin(prof, 'instructor')}
                           className="group border border-slate-200 hover:border-slate-350 bg-slate-50/40 hover:bg-slate-50 p-3 rounded-xl cursor-pointer flex justify-between items-center transition-all"
                         >
@@ -2202,6 +2306,492 @@ function DashboardSwitcher() {
               {/* Notice text in bottom of login block */}
               <div className="pt-2 text-center">
                 <span className="text-[9.5px] text-slate-400 block font-mono">AUTENTICAÇÃO SEGURA DE ACORDO COM A LGPD • PORTAL ESCULT</span>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+
+        {isRegisterModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            
+            {/* Dark glass backdrop with exit gesture close */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (validationStep === 'idle' || validationStep === 'completed') {
+                  setIsRegisterModalOpen(false);
+                }
+              }}
+              className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs"
+            />
+
+            {/* Center modular dialogue wrap */}
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 30 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="relative w-full max-w-lg bg-white border border-slate-200/90 rounded-3xl shadow-2xl p-6 sm:p-8 overflow-hidden z-50 text-left"
+            >
+              {/* Close Button */}
+              {(validationStep === 'idle' || validationStep === 'completed') && (
+                <button
+                  onClick={() => setIsRegisterModalOpen(false)}
+                  className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-650 hover:bg-slate-100 rounded-lg transition-all cursor-pointer border-none bg-transparent"
+                  title="Fechar"
+                  id="btn-close-register-modal"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              )}
+
+              {/* Title Section */}
+              <div className="space-y-1.5 pr-6 mb-5">
+                <span className="text-[9px] uppercase tracking-widest bg-[#540D6E]/10 text-[#540D6E] px-2 py-0.5 rounded-md font-mono font-bold w-fit block">
+                  Célula de Integração Governamental
+                </span>
+                <h3 className="font-extrabold text-[#111] text-base sm:text-lg flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-[#540D6E]" />
+                  <span>Integração de Cadastro • AVASEC</span>
+                </h3>
+                <p className="text-xs text-slate-505 leading-relaxed">
+                  Conforme solicitado: Você será direcionado para outro site externo onde irá se cadastrar. Preencha seus dados lá e, após validados, esse mesmo cadastro será homologado e usado de forma integrada no <strong className="text-[#540D6E] font-bold">AVASEC</strong> como sua credencial oficial de estudos.
+                </p>
+              </div>
+
+              {validationStep === 'idle' && (
+                <div className="space-y-5">
+                  {/* Passo 1 block */}
+                  <div className="relative border border-slate-200 hover:border-[#540D6E]/35 rounded-2xl p-4 bg-slate-50/50 hover:bg-white transition-all space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="h-7 w-7 rounded-lg bg-[#540D6E]/5 text-[#540D6E] flex items-center justify-center font-bold text-xs uppercase tracking-wide">
+                        01
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Direcionamento para Portal Externo</h4>
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          Crie ou obtenha suas informações no Portal Externo de Inscrição onde você realiza o cadastro de sua Identidade Digital antes de usá-la aqui.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="pl-10">
+                      <a 
+                        href="https://cadastro.escoladacultura.gov.br" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        onClick={() => {
+                          setIsExternalLinkClicked(true);
+                          speakText("Redirecionando para o Portal Externo de Inscrição.");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#540D6E]/5 hover:bg-[#540D6E]/10 text-[#540D6E] border border-[#540D6E]/15 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-wider transition-all cursor-pointer no-underline"
+                        id="lnk-external-cadastro"
+                      >
+                        <span>Ir para o Portal de Cadastro</span>
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                      
+                      {isExternalLinkClicked && (
+                        <span className="text-[9.5px] text-emerald-600 font-bold block mt-1.5">
+                          ✓ Conexão externa simulada. Preencha e valide suas informações abaixo para liberá-la no AVASEC.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Passo 2 form */}
+                  <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
+                      <div className="flex items-start gap-3">
+                        <div className="h-7 w-7 rounded-lg bg-[#540D6E]/5 text-[#540D6E] flex items-center justify-center font-bold text-xs uppercase tracking-wide">
+                          02
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Validação & Sincronização no AVASEC</h4>
+                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                            Insira abaixo os dados cadastrados no portal externo para simular a autenticação unificada sob os padrões de conformidade da LGPD.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {(isExternalLinkClicked || validationStep !== 'idle') && (
+                        <button
+                          onClick={() => {
+                            setIsExternalLinkClicked(false);
+                            setValidationStep('idle');
+                            speakText("Voltando para o passo inicial de consulta externa.");
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 text-slate-400 hover:text-[#540D6E] transition-all text-[9.5px] font-bold uppercase tracking-widest cursor-pointer border border-slate-200 group"
+                        >
+                          <ArrowLeft className="h-3 w-3 group-hover:-translate-x-0.5 transition-transform" />
+                          <span>Mudar Método</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-1">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Nome Completo</label>
+                        <input 
+                          type="text" 
+                          required
+                          value={registerName}
+                          onChange={(e) => {
+                            setRegisterName(e.target.value);
+                            setValidationError(null);
+                          }}
+                          placeholder="Ex: João Silva da Silva"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          id="inp-register-name"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">C.P.F. ou R.G.</label>
+                        <input 
+                          type="text" 
+                          value={registerCpf}
+                          onChange={(e) => {
+                            setRegisterCpf(e.target.value);
+                            setValidationError(null);
+                          }}
+                          placeholder="000.000.000-00"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          id="inp-register-cpf"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Endereço de E-mail</label>
+                        <input 
+                          type="email" 
+                          required
+                          value={registerEmail}
+                          onChange={(e) => {
+                            setRegisterEmail(e.target.value);
+                            setValidationError(null);
+                          }}
+                          placeholder="seu.email@lms.edu"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          id="inp-register-email"
+                        />
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="block text-[10px] uppercase font-bold text-slate-400">PIN / Senha de Acesso (Exclusivamente Números)</label>
+                          <span className="text-[8.5px] text-slate-400 font-mono">Usado para se conectar</span>
+                        </div>
+                        <input 
+                          type="password" 
+                          maxLength={8}
+                          required
+                          value={registerPassword}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, ''); // numeric PIN
+                            setRegisterPassword(val);
+                            setValidationError(null);
+                          }}
+                          placeholder="De 4 a 8 dígitos numéricos"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800 font-mono tracking-widest"
+                          id="inp-register-password"
+                        />
+                      </div>
+                    </div>
+
+                    {validationError && (
+                      <div className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 text-center leading-relaxed">
+                        ⚠️ Erro de Registro: {validationError}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        if (!registerName.trim() || !registerEmail.trim() || !registerPassword.trim()) {
+                          setValidationError("Por favor, preencha todos os campos obrigatórios (Nome, E-mail e Senha PIN).");
+                          speakText("Por favor, preencha todos os campos obrigatórios.");
+                          return;
+                        }
+                        if (registerPassword.length < 4) {
+                          setValidationError("Sua senha PIN deve possuir no mínimo 4 dígitos.");
+                          speakText("Sua senha deve ter no mínimo 4 dígitos.");
+                          return;
+                        }
+                        
+                        // Start animated check simulation
+                        setValidationStep('matching');
+                        setValidationProgress(0);
+                        speakText("Integrando com o Portal Externo. Verificando as credenciais informadas...");
+                        
+                        let progressVal = 0;
+                        const interval = setInterval(() => {
+                          progressVal += 5;
+                          setValidationProgress(progressVal);
+                          if (progressVal === 30) {
+                            setValidationStep('verifying');
+                          } else if (progressVal === 70) {
+                            setValidationStep('syncing');
+                          } else if (progressVal >= 100) {
+                            clearInterval(interval);
+                            setValidationStep('completed');
+                            speakText("Validação biométrica e cruzamento cadastral realizados com sucesso.");
+                          }
+                        }, 120);
+                      }}
+                      className="w-full rounded-xl bg-[#540D6E] hover:bg-[#340845] text-white font-extrabold text-xs py-3.5 uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 border-none"
+                      id="btn-trigger-validation"
+                    >
+                      <ShieldCheck className="h-4.5 w-4.5" />
+                      <span>Validar Cadastro e Integrar com AVASEC</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Validation Progress Animations */}
+              {(validationStep === 'matching' || validationStep === 'verifying' || validationStep === 'syncing') && (
+                <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
+                  <div className="relative h-20 w-20 flex items-center justify-center">
+                    <div className="absolute inset-0 rounded-full border-4 border-slate-100 border-t-[#540D6E] animate-spin" />
+                    <Fingerprint className="h-10 w-10 text-[#540D6E] animate-pulse" />
+                  </div>
+
+                  <div className="space-y-1.5 max-w-sm">
+                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                      {validationStep === 'matching' && "Buscando Registro na Rede do Ministério..."}
+                      {validationStep === 'verifying' && "Verificando Autenticidade e CPF do Titular..."}
+                      {validationStep === 'syncing' && "Homologando Documento Digital Governamental..."}
+                    </h4>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      {validationStep === 'matching' && "Localizando cadastros sob a infraestrutura do Portal da Cultura e Economia Criativa."}
+                      {validationStep === 'verifying' && `Submetendo credencial biométrica do CPF ${registerCpf || "Federal"} aos órgãos de validação.`}
+                      {validationStep === 'syncing' && `Sucesso na assinatura digital! Gravando acesso estudantil no AVASEC de ${registerName}.`}
+                    </p>
+                  </div>
+
+                  <div className="w-full max-w-xs space-y-1.5">
+                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        style={{ width: `${validationProgress}%` }}
+                        className="h-full bg-gradient-to-r from-teal-400 via-indigo-500 to-[#540D6E] transition-all duration-100"
+                      />
+                    </div>
+                    <span className="text-[9.5px] font-mono text-slate-450 font-bold block">{validationProgress}% CONCLUÍDO</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Completion Block */}
+              {validationStep === 'completed' && (
+                <div className="py-6 flex flex-col items-center justify-center text-center space-y-5 animate-in zoom-in-95 duration-200">
+                  <div className="h-14 w-14 bg-emerald-50 border border-emerald-250 rounded-full flex items-center justify-center">
+                    <CheckCircle className="h-8 w-8 text-emerald-600" />
+                  </div>
+
+                  <div className="space-y-1 max-w-sm">
+                    <h4 className="text-base font-black text-slate-900 uppercase tracking-wide leading-tight">
+                      Integração Sincronizada!
+                    </h4>
+                    <p className="text-[11.5px] text-slate-500 leading-relaxed">
+                      Seu cadastro foi homologado externamente. Use a senha numérica <span className="font-bold text-[#540D6E] font-mono">{registerPassword}</span> para reconectores futuros.
+                    </p>
+                  </div>
+
+                  {/* Summary Box */}
+                  <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 max-w-md">
+                    <span className="text-[9px] uppercase font-extrabold text-[#540D6E] font-mono block border-b border-slate-150 pb-1.5">
+                      Ficha de Aluno no AVASEC
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-[9.5px] font-mono text-slate-600 leading-relaxed">
+                      <div>
+                        <strong>NOME ID:</strong> <span className="block text-slate-800 font-sans font-bold">{registerName}</span>
+                      </div>
+                      <div>
+                        <strong>EMAIL ACC:</strong> <span className="block text-slate-800 font-sans">{registerEmail}</span>
+                      </div>
+                      <div>
+                        <strong>CONEXÃO CPF:</strong> <span className="block text-slate-800">{registerCpf || "NÃO CADASTRADO"}</span>
+                      </div>
+                      <div>
+                        <strong>STATUS:</strong> <span className="block text-emerald-600 font-bold uppercase">ATIVO E INTEGRADO</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      // Save record to database
+                      addStudent(registerName, registerEmail, registerPassword);
+                      // Instantly log in matching their credential
+                      executeProfileLogin(registerName, 'student');
+                      
+                      setIsRegisterModalOpen(false);
+                      // Clear values
+                      setRegisterName('');
+                      setRegisterEmail('');
+                      setRegisterPassword('');
+                      setRegisterCpf('');
+                      setValidationStep('idle');
+                      setValidationProgress(0);
+                      setIsExternalLinkClicked(false);
+                    }}
+                    className="w-full rounded-xl bg-slate-950 hover:bg-[#540D6E] text-white font-extrabold text-xs py-3.5 uppercase tracking-wider transition-all cursor-pointer shadow-md border-none"
+                    id="btn-finish-integration"
+                  >
+                    Ingressar no Meu Painel de Estudos
+                  </button>
+                </div>
+              )}
+
+            </motion.div>
+          </div>
+        )}
+
+        {pendingLogin && (
+          <div className="fixed inset-0 z-55 flex items-center justify-center p-4">
+            {/* Matte dark backdrop */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPendingLogin(null)}
+              className="absolute inset-0 bg-slate-950/85 backdrop-blur-md"
+            />
+
+            {/* Tactile secure card container */}
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 30 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 30 }}
+              transition={{ type: "spring", duration: 0.5 }}
+              className="relative w-full max-w-sm bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-6 overflow-hidden text-center z-50 text-left"
+            >
+              {/* Top security header shield badge */}
+              <div className="mx-auto h-12 w-12 bg-indigo-50 border border-indigo-150 rounded-full flex items-center justify-center mb-3">
+                <Fingerprint className="h-6 w-6 text-indigo-600 animate-pulse" />
+              </div>
+
+              <h3 className="font-extrabold text-slate-900 text-sm text-center uppercase tracking-wider">
+                Controle de Acesso AVA
+              </h3>
+              <p className="text-[11px] text-slate-400 text-center mt-0.5">
+                Validação de Fluxo de Segurança LGPD
+              </p>
+
+              {/* Account details */}
+              <div className="mt-4 p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center gap-2.5 mx-auto max-w-[280px]">
+                <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                  pendingLogin.role === 'admin' 
+                    ? 'bg-amber-100 text-amber-800' 
+                    : pendingLogin.role === 'instructor' 
+                      ? 'bg-emerald-50 text-emerald-700' 
+                      : 'bg-[#540D6E]/10 text-[#540D6E]'
+                }`}>
+                  {pendingLogin.name.charAt(0)}
+                </div>
+                <div className="text-left">
+                  <span className="text-[11px] font-black text-slate-800 block leading-tight">{pendingLogin.name}</span>
+                  <span className="text-[8.5px] uppercase text-slate-450 font-mono tracking-wide block">Identidade: {pendingLogin.role.toUpperCase()}</span>
+                </div>
+              </div>
+
+              {/* Password dot-display indicators */}
+              <div className="my-5 space-y-2 text-center">
+                <div className="flex justify-center gap-3.5 h-6 items-center">
+                  {[...Array(Math.max(4, pinInput.length))].map((_, idx) => (
+                    <motion.div 
+                      key={idx}
+                      animate={idx < pinInput.length ? { scale: [1, 1.2, 1], backgroundColor: '#4f46e5' } : { scale: 1, backgroundColor: '#cbd5e1' }}
+                      transition={{ duration: 0.15 }}
+                      className="h-3 w-3 rounded-full shadow-3xs"
+                    />
+                  ))}
+                </div>
+                
+                {pinError && (
+                  <span className="text-[10px] text-rose-600 font-bold bg-rose-50 border border-rose-200/60 rounded px-2 py-0.5 inline-block animate-bounce text-center">
+                    {pinError}
+                  </span>
+                )}
+                
+                {isPinSuccess && (
+                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-250 rounded px-2 py-0.5 inline-block text-center">
+                    ✓ Credencial Homologada!
+                  </span>
+                )}
+              </div>
+
+              {/* Tactical 10-key PIN numerical keyboard Pad */}
+              <div className="grid grid-cols-3 gap-2.5 max-w-[240px] mx-auto text-center justify-items-center">
+                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
+                  <button
+                    key={num}
+                    onClick={() => handlePinKeyClick(num)}
+                    disabled={isPinSuccess}
+                    className="h-11 w-11 rounded-full font-mono font-bold text-slate-800 hover:text-indigo-650 bg-slate-50 hover:bg-slate-100 border border-slate-150 flex items-center justify-center cursor-pointer text-sm shadow-3xs active:scale-95 transition-all duration-100"
+                  >
+                    {num}
+                  </button>
+                ))}
+                
+                {/* Clear (backspace equivalent) */}
+                <button
+                  onClick={() => {
+                    setPinInput('');
+                    setPinError(null);
+                  }}
+                  disabled={isPinSuccess}
+                  className="h-11 w-full min-w-[44px] rounded-xl font-sans font-bold text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-slate-100 border border-slate-150 flex items-center justify-center cursor-pointer text-[9px] uppercase shadow-3xs transition-all active:scale-95 px-1"
+                >
+                  Limpar
+                </button>
+
+                {/* Number 0 */}
+                <button
+                  onClick={() => handlePinKeyClick('0')}
+                  disabled={isPinSuccess}
+                  className="h-11 w-11 rounded-full font-mono font-bold text-slate-800 hover:text-[#540D6E] bg-slate-50 hover:bg-slate-100 border border-slate-150 flex items-center justify-center cursor-pointer text-sm shadow-3xs hover:border-[#540D6E]/40 active:scale-95 transition-all"
+                >
+                  0
+                </button>
+
+                {/* Confirm key */}
+                <button
+                  onClick={verifyPinAndLogin}
+                  disabled={isPinSuccess || pinInput.length === 0}
+                  className={`h-11 w-full min-w-[44px] rounded-xl font-sans font-black flex items-center justify-center cursor-pointer text-[9.5px] uppercase shadow-3xs transition-all active:scale-95 ${
+                    pinInput.length > 0 
+                      ? 'bg-[#540D6E] hover:bg-[#6e118f] text-white' 
+                      : 'bg-slate-100 border border-slate-200 text-slate-300 pointer-events-none'
+                  }`}
+                >
+                  Entrar
+                </button>
+              </div>
+
+              {/* Demo PIN code guideline disclaimer */}
+              <div className="mt-5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-left text-[9.5px] text-slate-500 leading-relaxed font-mono">
+                <span className="font-bold text-indigo-700 block mb-0.5 uppercase tracking-wide">Dica para Avaliação do Fluxo:</span>
+                • Aluno: <code className="font-extrabold text-slate-800">1234</code><br />
+                • Professor: <code className="font-extrabold text-slate-800">5678</code><br />
+                • Admin Superior: <code className="font-extrabold text-[#540D6E]">9999</code><br />
+                <span className="text-[8.5px] text-slate-400 block mt-1 leading-normal">
+                  (Senhas customizadas no perfil também servem para desbloqueio do aluno).
+                </span>
+              </div>
+
+              {/* Cancel button */}
+              <div className="text-center mt-3.5">
+                <button
+                  onClick={() => setPendingLogin(null)}
+                  disabled={isPinSuccess}
+                  className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest ease-in-out transition-colors cursor-pointer bg-transparent border-none py-1"
+                >
+                  Voltar ao Portal
+                </button>
               </div>
 
             </motion.div>

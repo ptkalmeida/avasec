@@ -79,7 +79,12 @@ const getCourseModules = (course: Course): ModuleGroup[] => {
   return modules;
 };
 
-export const StudentDashboard: React.FC = () => {
+interface StudentDashboardProps {
+  onBackToLanding?: () => void;
+  speakText: (text: string) => void;
+}
+
+export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLanding, speakText }) => {
   const {
     courses,
     progress,
@@ -110,6 +115,25 @@ export const StudentDashboard: React.FC = () => {
     setIsSpeechEnabled,
     getYouTubeEmbedUrl
   } = useLMS();
+
+  const handleBack = () => {
+    if (activeLesson) {
+      setActiveLesson(null);
+    } else if (activeQuizTaking) {
+      setActiveQuizTaking(null);
+    } else if (selectedCourse) {
+      setSelectedCourse(null);
+    } else if (onBackToLanding) {
+      onBackToLanding();
+    }
+  };
+
+  const getBackLabel = () => {
+    if (activeLesson) return "Voltar ao Curso";
+    if (activeQuizTaking) return "Voltar ao Curso";
+    if (selectedCourse) return "Voltar p/ Meus Cursos";
+    return "Sair p/ Portal";
+  };
 
   // Active state selections
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -257,17 +281,34 @@ export const StudentDashboard: React.FC = () => {
       
       {/* Student Welcome Header */}
       <div className="mb-8 flex flex-col justify-between gap-6 rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-xs md:flex-row md:items-center">
-        <div className="flex items-center gap-4 text-left">
-          <div className="rounded-full bg-teal-600/15 p-3.5 border border-teal-500/20">
-            <User className="h-8 w-8 text-teal-400" />
-          </div>
-          <div>
-            <span className="text-xs uppercase tracking-widest text-teal-400 font-bold">Painel do Aluno</span>
-            
-            <h2 className="text-xl md:text-2xl font-bold text-slate-100 flex items-center gap-3">
-              <span>Olá, {activeUser.name}</span>
-            </h2>
-            <p className="text-xs text-slate-400">Pronto para acelerar seus conhecimentos hoje?</p>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          {onBackToLanding && (
+            <button
+              onClick={() => {
+                const label = getBackLabel();
+                speakText(`${label}. Voltando um nível no fluxo.`);
+                handleBack();
+              }}
+              className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-750 transition-all cursor-pointer shadow-3xs"
+              title={getBackLabel()}
+            >
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+              <span className="text-[10px] font-bold uppercase tracking-tighter">{getBackLabel()}</span>
+            </button>
+          )}
+          
+          <div className="flex items-center gap-4 text-left">
+            <div className="rounded-full bg-teal-600/15 p-3.5 border border-teal-500/20">
+              <User className="h-8 w-8 text-teal-400" />
+            </div>
+            <div>
+              <span className="text-xs uppercase tracking-widest text-teal-400 font-bold">Painel do Aluno</span>
+              
+              <h2 className="text-xl md:text-2xl font-bold text-slate-100 flex items-center gap-3">
+                <span>Olá, {activeUser.name}</span>
+              </h2>
+              <p className="text-xs text-slate-400">Pronto para acelerar seus conhecimentos hoje?</p>
+            </div>
           </div>
         </div>
 

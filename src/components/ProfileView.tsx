@@ -4,13 +4,14 @@ import {
   User, Mail, ArrowLeft, Shield, Award, BookOpen, Sparkles, 
   Clock, Settings, Volume2, VolumeX, Eye, EyeOff, RefreshCw, 
   Trash2, FileText, CheckCircle2, Copy, Check, Globe, Layout, Gauge,
-  Lock, Key, Fingerprint, ShieldAlert, Camera, Upload, X, Printer, ShieldCheck
+  Lock, Key, Fingerprint, ShieldAlert, Camera, Upload, X, Printer, ShieldCheck, LogOut
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 
 interface ProfileViewProps {
   onBack: () => void;
   speakText: (text: string) => void;
+  onLogout?: () => void;
 }
 
 const AVATAR_PRESETS = [
@@ -24,7 +25,8 @@ const AVATAR_PRESETS = [
 
 export function ProfileView({
   onBack,
-  speakText
+  speakText,
+  onLogout
 }: ProfileViewProps) {
   const { 
     activeUser, 
@@ -43,7 +45,10 @@ export function ProfileView({
     currentLang,
     setCurrentLang,
     textSizeMultiplier,
-    setTextSizeMultiplier
+    setTextSizeMultiplier,
+    securityLogs,
+    addSecurityLog,
+    clearSecurityLogs
   } = useLMS();
 
   // Local state for profile configurations
@@ -1102,6 +1107,31 @@ export function ProfileView({
             </div>
           </div>
 
+          {/* Bento-block 2.5: Interactive Profile Security & Logout Section */}
+          <div className="bg-white border border-rose-200 rounded-2xl shadow-3xs p-6 text-left relative overflow-hidden animate-in fade-in transition-all">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-rose-50/50 rounded-full filter blur-xl pointer-events-none" />
+            
+            <span className="text-[9px] font-bold text-rose-500 uppercase tracking-widest block mb-4 flex items-center gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
+              <span>Gerenciamento de Segurança da Conta</span>
+            </span>
+            <p className="text-[11px] text-slate-505 mb-4 leading-relaxed font-sans">
+              Deseja se desconectar do sistema? Encerrar a sessão atual fará com que o perfil simulado seja limpo e você retornará com segurança ao Portal Acadêmico Institucional.
+            </p>
+            <button
+              onClick={() => {
+                if (onLogout) {
+                  onLogout();
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-150 hover:border-rose-600 rounded-xl text-xs font-bold transition-all cursor-pointer uppercase shadow-3xs font-sans"
+              title="Encerrar sessão de forma definitiva"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sair da Conta / Desconectar</span>
+            </button>
+          </div>
+
         </div>
 
         {/* RIGHT COLUMN: Real-Time Stats (Academic Summary), Cryptographic cert hashes and Simulated access logs */}
@@ -1243,6 +1273,125 @@ export function ProfileView({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Bento-block 4: Security and Audit Trail Logs (LGPD) */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-3xs p-6 text-left relative overflow-hidden">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-4 flex items-center justify-between">
+              <span>Fluxo de Segurança e Trilhas LGPD</span>
+              <span className="bg-emerald-50 text-emerald-700 text-[8px] font-bold px-2 py-0.5 rounded border border-emerald-200">
+                Homologado AVA
+              </span>
+            </span>
+
+            <div className="space-y-4">
+              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
+                <h4 className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                  <ShieldCheck className="h-4.5 w-4.5 text-indigo-600" />
+                  <span>Configuração de Segurança do Fluxo</span>
+                </h4>
+                <p className="text-[10.5px] text-slate-500 leading-snug">
+                  Este sistema implementa controles e bloqueios preventivos para ambientes corporativos e acadêmicos compartilhados. Ative recursos de proteção em tempo real abaixo:
+                </p>
+
+                <div className="pt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="bg-white p-3 border border-slate-150 rounded-lg flex items-center justify-between gap-3">
+                    <div>
+                      <strong className="text-[11px] text-slate-800 block leading-tight font-bold">Bloqueio de Sessão Rápido</strong>
+                      <span className="text-[9.5px] text-slate-400 block leading-tight mt-0.5">Retornar à tela de autenticação</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        addSecurityLog('Bloqueio Manual', 'O usuário solicitou o bloqueio manual da sessão.', 'SUCCESS');
+                        speakText('Sessão bloqueada com segurança.');
+                        setTimeout(() => {
+                          // Simulates locking the terminal by forcing a reload of the connection page
+                          localStorage.setItem('ava_session_locked', 'true');
+                          window.location.reload();
+                        }, 500);
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-900 text-white font-mono hover:bg-slate-850 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border border-transparent shadow-3xs"
+                    >
+                      Bloquear
+                    </button>
+                  </div>
+
+                  <div className="bg-white p-3 border border-slate-150 rounded-lg flex items-center justify-between gap-2">
+                    <div>
+                      <strong className="text-[11px] text-slate-800 block leading-tight font-bold">PIN de Acesso Obrigatório</strong>
+                      <span className="text-[9.5px] text-slate-400 block leading-tight mt-0.5">Controla os dashboards corporativos</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold px-2 py-1 rounded">
+                      ATIVADO
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Logs Section */}
+              <div className="space-y-2.5 pt-1.5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                    <Clock className="h-4.5 w-4.5 text-slate-500" />
+                    <span>Trilha de Eventos e Auditoria de Acesso ({securityLogs.length})</span>
+                  </h4>
+                  {securityLogs.length > 0 && (
+                    <button
+                      onClick={() => {
+                        clearSecurityLogs();
+                        addSecurityLog('Limpeza de Logs', 'O histórico de auditoria local foi limpo pelo usuário.', 'WARNING');
+                        speakText('Trilha de logs de segurança reiniciada.');
+                      }}
+                      className="text-[9.2px] font-black text-rose-600 hover:text-rose-800 uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-transparent border border-transparent"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Limpar Logs</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="max-h-[195px] overflow-y-auto border border-slate-180 rounded-xl divide-y divide-slate-100 bg-slate-50/30 pr-1">
+                  {securityLogs.length === 0 ? (
+                    <div className="p-4 text-center text-slate-400 italic text-[10.5px]">
+                      Nenhum registro de segurança catalogado no dispositivo.
+                    </div>
+                  ) : (
+                    securityLogs.map((log) => (
+                      <div key={log.id} className="p-3 hover:bg-slate-50/80 transition-colors text-left flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                        <div className="space-y-0.5 text-left">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-black text-slate-850 font-sans block">{log.action}</span>
+                            <span className={`text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded border ${
+                              log.status === 'SUCCESS' 
+                                ? 'bg-emerald-50 border-emerald-250 text-emerald-700' 
+                                : log.status === 'WARNING' 
+                                  ? 'bg-amber-50 border-amber-250 text-amber-700' 
+                                  : 'bg-rose-50 border-rose-250 text-rose-700'
+                            }`}>
+                              {log.status}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-500 leading-normal">{log.details}</p>
+                          <div className="flex flex-wrap items-center gap-x-2 text-[9px] text-slate-400 font-mono pt-0.5">
+                            <span className="font-bold text-slate-450">{log.user} ({log.role.toUpperCase()})</span>
+                            <span>•</span>
+                            <span>IP: {log.ipAddress}</span>
+                            <span>•</span>
+                            <span className="truncate max-w-[150px]">{log.device}</span>
+                          </div>
+                        </div>
+                        <span className="text-[9px] font-mono text-slate-450 shrink-0 self-end sm:self-auto font-bold bg-white px-1.5 py-0.5 rounded border border-slate-150">
+                          {log.timestamp}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+                <span className="text-[8.5px] text-slate-400 block font-mono">
+                  SISTEMA DE AUDITORIA COMPATÍVEL COM COMUNICAÇÃO CRIPTOGRAFADA E DIRETRIZES DA ANPD.
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Bento-block 5: Advanced Controls area - Toggle test identity & purge options */}

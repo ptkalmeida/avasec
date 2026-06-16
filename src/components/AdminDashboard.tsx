@@ -6,17 +6,22 @@
 import React, { useState } from 'react';
 import { useLMS } from '../context/LMSContext';
 import { 
-  ShieldCheck, Users, BookOpen, Award, CheckSquare, Plus, 
+  ShieldCheck, Users, BookOpen, Award, CheckSquare, Plus, ArrowLeft,
   Trash2, Lock, Settings, Activity, FileText, Search, Shield, Filter,
   FileCheck, Printer, Download, Check, X, Layers, Save,
-  ArrowUpRight, ArrowDownRight, TrendingUp
+  ArrowUpRight, ArrowDownRight, TrendingUp, Eye, EyeOff, Key
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area 
 } from 'recharts';
 
-export function AdminDashboard() {
+interface AdminDashboardProps {
+  onBackToLanding?: () => void;
+  speakText: (text: string) => void;
+}
+
+export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardProps) {
   const {
     courses,
     progress,
@@ -35,14 +40,16 @@ export function AdminDashboard() {
     updateCourseInstructor,
     updateCourseProps,
     updateRequestStatus,
+    addAdmissionRequest,
+    admissionRequests,
     categoriesList,
     addCategory,
     systemSettings,
     updateSystemSettings,
   } = useLMS();
 
-  // Selected Section State: 'metrics' | 'professors' | 'courses' | 'students' | 'requests' | 'reports' | 'settings'
-  const [activeTab, setActiveTab] = useState<'metrics' | 'professors' | 'courses' | 'students' | 'requests' | 'reports' | 'settings'>('metrics');
+  // Selected Section State: 'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings'
+  const [activeTab, setActiveTab] = useState<'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings'>('analytics');
 
   // New report active sub-filters: 'consolidado' | 'alunos' | 'professores' | 'cursos' | 'inscricoes'
   const [activeReportSubTab, setActiveReportSubTab] = useState<'consolidado' | 'alunos' | 'professores' | 'cursos' | 'inscricoes'>('consolidado');
@@ -56,10 +63,32 @@ export function AdminDashboard() {
 
   // Form State for Instructor creation
   const [newProfName, setNewProfName] = useState('');
+  const [newProfPassword, setNewProfPassword] = useState('');
+  const [showProfPassword, setShowProfPassword] = useState(false);
   const [newProfSpecialty, setNewProfSpecialty] = useState('Design de Interfaces');
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
+  const [newStudentPassword, setNewStudentPassword] = useState('');
+  const [showStudentPassword, setShowStudentPassword] = useState(false);
+  const [selectedEnrollCourseId, setSelectedEnrollCourseId] = useState<string | null>(null);
+  const [showCoursePickerModal, setShowCoursePickerModal] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+
+  const handleBack = () => {
+    if (activeDocViewer) {
+      setActiveDocViewer(null);
+    } else if (expandedCourseStudentsId) {
+      setExpandedCourseStudentsId(null);
+    } else if (onBackToLanding) {
+      onBackToLanding();
+    }
+  };
+
+  const getBackLabel = () => {
+    if (activeDocViewer) return "Fechar Documento";
+    if (expandedCourseStudentsId) return "Voltar p/ Gestão de Alunos";
+    return "Sair p/ Portal";
+  };
 
   // Course configuration parameters
   const [newCourseTitle, setNewCourseTitle] = useState('');
@@ -97,9 +126,10 @@ export function AdminDashboard() {
       return;
     }
 
-    addProfessor(newProfName.trim());
+    addProfessor(newProfName.trim(), newProfPassword.trim());
     showToast(`Professor(a) ${newProfName.trim()} foi registrado(a) com sucesso com cargo Letrado!`);
     setNewProfName('');
+    setNewProfPassword('');
   };
 
   const handleCreateStudent = (e: React.FormEvent) => {
@@ -109,10 +139,32 @@ export function AdminDashboard() {
       return;
     }
 
-    addStudent(newStudentName.trim(), newStudentEmail.trim());
-    showToast(`Discente ${newStudentName.trim()} matriculado(a) com sucesso!`);
+    if (!selectedEnrollCourseId) {
+      showToast('Por favor, selecione o curso de matrícula.');
+      return;
+    }
+
+    const pass = newStudentPassword.trim() || '1234';
+    const studentName = newStudentName.trim();
+    const studentEmail = newStudentEmail.trim();
+
+    addStudent(studentName, studentEmail, pass);
+    
+    // Auto-enroll in the selected course with approved status
+    if (selectedEnrollCourseId) {
+      addAdmissionRequest(studentName, selectedEnrollCourseId, 'approved');
+      const course = courses.find(c => c.id === selectedEnrollCourseId);
+      if (course) {
+        showToast(`Aluno ${studentName} matriculado(a) em ${course.title} sob supervisão de ${course.instructorName}!`);
+      }
+    } else {
+      showToast(`Aluno ${studentName} matriculado(a) com sucesso!`);
+    }
+
     setNewStudentName('');
     setNewStudentEmail('');
+    setNewStudentPassword('');
+    setSelectedEnrollCourseId(null);
   };
 
   const handleCreateCourse = (e: React.FormEvent) => {
@@ -184,16 +236,33 @@ export function AdminDashboard() {
       
       {/* Top Welcome Panel */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-3xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex items-center gap-4 text-left">
-          <div className="rounded-2xl bg-slate-900 text-white p-3.5 shadow-xs">
-            <ShieldCheck className="h-6 w-6 text-amber-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-black tracking-tight text-slate-900">Portal do Administrador</h2>
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-bold text-slate-500 uppercase">Master Root</span>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+          {onBackToLanding && (
+            <button
+              onClick={() => {
+                const label = getBackLabel();
+                speakText(`${label}. Retornando.`);
+                handleBack();
+              }}
+              className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-all cursor-pointer shadow-3xs"
+              title={getBackLabel()}
+            >
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
+              <span className="text-[10px] font-bold uppercase tracking-tighter">{getBackLabel()}</span>
+            </button>
+          )}
+
+          <div className="flex items-center gap-4 text-left">
+            <div className="rounded-2xl bg-slate-900 text-white p-3.5 shadow-xs">
+              <ShieldCheck className="h-6 w-6 text-amber-400" />
             </div>
-            <p className="text-xs text-slate-500 mt-1">Gestão global de professores, turmas, cursos e auditoria de rendimento.</p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black tracking-tight text-slate-900">Portal do Administrador</h2>
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-bold text-slate-500 uppercase">Master Root</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Gestão global de professores, alunos, turmas e cursos.</p>
+            </div>
           </div>
         </div>
 
@@ -208,15 +277,14 @@ export function AdminDashboard() {
       </div>
 
       {/* Internal Navigation tabs */}
-      <div className="flex border-b border-slate-205 mb-6 overflow-x-auto gap-1">
+      <div className="flex border-b border-slate-205 mb-8 overflow-x-auto gap-1 scrollbar-hide lg:justify-center">
         {[
-          { id: 'metrics', label: 'Visão Geral & Métricas', icon: Activity },
-          { id: 'professors', label: 'Gestão de Professores', icon: Users },
-          { id: 'courses', label: 'Cursos & Disciplinas', icon: BookOpen },
-          { id: 'students', label: 'Auditoria de Alunos', icon: Award },
-          { id: 'requests', label: 'Solicitações & Documentos', icon: FileCheck },
-          { id: 'reports', label: 'Relatórios Consolidados', icon: FileText },
-          { id: 'settings', label: 'Configuração do AVA', icon: Settings },
+          { id: 'analytics', label: 'Dashboard & Relatórios', icon: Activity },
+          { id: 'professors', label: 'Professores', icon: Users },
+          { id: 'students', label: 'Alunos', icon: Award },
+          { id: 'courses', label: 'Cursos & Trilhas', icon: BookOpen },
+          { id: 'requests', label: 'Documentos', icon: FileCheck },
+          { id: 'settings', label: 'Configurações', icon: Settings },
         ].map((tab) => {
           const IconComp = tab.icon;
           const isActive = activeTab === tab.id;
@@ -224,39 +292,54 @@ export function AdminDashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-3 border-b-2 text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              className={`px-5 py-3.5 border-b-2 text-xs font-bold transition-all flex items-center gap-2.5 whitespace-nowrap cursor-pointer relative group ${
                 isActive
                   ? 'border-slate-800 text-slate-900'
-                  : 'border-transparent text-slate-400 hover:text-slate-700'
+                  : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-200'
               }`}
             >
-              <IconComp className={`h-4 w-4 ${isActive ? 'text-slate-800' : 'text-slate-400'}`} />
-              <span>{tab.label}</span>
+              <IconComp className={`h-4 w-4 transition-colors ${isActive ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-500'}`} />
+              {tab.label}
+              {isActive && (
+                <div className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-teal-500 rounded-full animate-in fade-in zoom-in-50 duration-300" />
+              )}
             </button>
           );
         })}
       </div>
 
       {/* TAB CONTENT SPACES */}
-      {activeTab === 'metrics' && (
-        <div className="space-y-6">
+      {activeTab === 'analytics' && (
+        <div className="space-y-6 text-left animate-in fade-in duration-300">
           
-          {/* Bento-grid High-Level Counters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
+          {/* Header Info */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-2">
+            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Activity className="h-4.5 w-4.5 text-indigo-600" />
+              <span>Painel de Controle e Inteligência de Dados (Analytics)</span>
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Visão consolidada do ecossistema educacional. Monitore métricas de engajamento, rendimento pedagógico e gere relatórios oficiais de auditoria.
+            </p>
+          </div>
+
+          {/* Combined High-Level Counters */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-left">
             {[
-              { label: 'Cursos Cadastrados', value: courses.length, desc: 'Disciplinas Ativas ', icon: BookOpen, accent: 'bg-teal-50 border-teal-100 text-teal-700' },
-              { label: 'Corpo Docente Ativo', value: professorsList.length, desc: 'Professores Habilitados', icon: Users, accent: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
-              { label: 'Média de Quizzes', value: `${getGlobalAverageQuizScore()}%`, desc: 'Com base em envios de testes', icon: CheckSquare, accent: 'bg-amber-50 border-amber-100 text-amber-700' },
-              { label: 'Certificados Emitidos', value: certificates.length, desc: 'Presença >= 70% validada', icon: Award, accent: 'bg-sky-50 border-sky-100 text-sky-700' }
-            ].map((stat, idx) => (
-              <div key={idx} className="bg-white border border-slate-200 p-5 rounded-xl shadow-3xs flex justify-between items-start">
+              { label: 'Total de Alunos', value: studentsList.length, desc: 'Alunos Ativos', icon: Users, accent: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
+              { label: 'Cursos Ativos', value: courses.length, desc: 'Disciplinas em Catálogo', icon: BookOpen, accent: 'bg-teal-50 border-teal-100 text-teal-700' },
+              { label: 'Professores', value: professorsList.length, desc: 'Professores Habilitados', icon: ShieldCheck, accent: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
+              { label: 'Média de Quizzes', value: `${getGlobalAverageQuizScore()}%`, desc: 'Rendimento Pedagógico', icon: CheckSquare, accent: 'bg-amber-50 border-amber-100 text-amber-700' },
+              { label: 'Certificados', value: certificates.length, desc: 'Diplomas Emitidos', icon: Award, accent: 'bg-sky-50 border-sky-100 text-sky-700' }
+            ].map((stat) => (
+              <div key={stat.label} className="bg-white border border-slate-200 p-4 rounded-xl shadow-3xs flex justify-between items-start">
                 <div className="space-y-1">
-                  <header className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{stat.label}</header>
-                  <p className="text-2xl font-black text-slate-900 font-mono leading-none">{stat.value}</p>
-                  <span className="text-[10px] text-slate-500 block">{stat.desc}</span>
+                  <header className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{stat.label}</header>
+                  <p className="text-xl font-black text-slate-900 font-mono leading-none">{stat.value}</p>
+                  <span className="text-[9px] text-slate-500 block leading-tight">{stat.desc}</span>
                 </div>
-                <div className={`p-2 rounded-lg border ${stat.accent}`}>
-                  <stat.icon className="h-4 w-4" />
+                <div className={`p-1.5 rounded-lg border ${stat.accent}`}>
+                  <stat.icon className="h-3.5 w-3.5" />
                 </div>
               </div>
             ))}
@@ -271,8 +354,7 @@ export function AdminDashboard() {
               </h3>
               <p className="text-slate-550 text-xs leading-relaxed">
                 A presença mínima de <strong>{attendanceBarrier}%</strong> está configurada como limite letivo. 
-                Os alunos são submetidos a aulas gravadas e encontros síncronos. Quando completam esta participação, o sistema
-                criptografa uma chave única e emite o certificado autenticado em formato PDF virtual direto na interface deles.
+                Os certificados são emitidos automaticamente após validação de chaves únicas.
               </p>
               <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-150 flex items-center justify-between">
                 <div>
@@ -296,8 +378,8 @@ export function AdminDashboard() {
                   Nenhum envio de teste síncrono registrado até o momento.
                 </div>
               ) : (
-                <div className="space-y-3.5 pt-1">
-                  {courses.map(course => {
+                <div className="space-y-3 pt-1">
+                  {courses.slice(0, 3).map(course => {
                     const submissions = quizSubmissions.filter(s => s.courseId === course.id);
                     const avg = submissions.length === 0 
                       ? 0 
@@ -306,9 +388,9 @@ export function AdminDashboard() {
                       <div key={course.id} className="text-xs space-y-1">
                         <div className="flex items-center justify-between">
                           <strong className="font-bold text-slate-800 truncate block max-w-[70%]">{course.title}</strong>
-                          <span className="font-mono text-slate-500">{avg}% média</span>
+                          <span className="font-mono text-slate-500">{avg}%</span>
                         </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                           <div 
                             className="bg-slate-800 h-full rounded-full transition-all"
                             style={{ width: `${avg}%` }}
@@ -319,6 +401,389 @@ export function AdminDashboard() {
                   })}
                 </div>
               )}
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-6">
+            <div className="mb-4">
+              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <FileText className="h-4 w-4 text-teal-600" />
+                <span>Módulos de Relatórios e Auditoria Pedagógica</span>
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-1">Gere documentos oficiais e estatísticas cruzadas de alunos e professores.</p>
+            </div>
+
+            {/* Sub Navigation controls to target specific reports */}
+            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 gap-1 overflow-x-auto mb-6 max-w-fit md:mx-auto">
+              {[
+                { id: 'consolidado', label: 'Estatísticas Gerais', icon: Activity },
+                { id: 'alunos', label: 'Alunos', icon: Users },
+                { id: 'professores', label: 'Professores', icon: ShieldCheck },
+                { id: 'cursos', label: 'Andamento', icon: BookOpen },
+                { id: 'inscricoes', label: 'Matrículas', icon: FileCheck },
+              ].map((st) => {
+                const SubIcon = st.icon;
+                const isSubActive = activeReportSubTab === st.id;
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => setActiveReportSubTab(st.id as any)}
+                    className={`px-4 py-2 rounded-lg text-[10.5px] font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                      isSubActive 
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60 font-black' 
+                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                    }`}
+                  >
+                    <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-teal-600' : 'text-slate-400'}`} />
+                    <span>{st.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+              
+              {/* Action buttons header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Relatório de Rendimento: <span className="text-slate-800 font-extrabold text-xs">{activeReportSubTab.toUpperCase()}</span>
+                </span>
+                <button
+                  onClick={() => {
+                    window.print();
+                  }}
+                  className="text-[10px] bg-slate-900 hover:bg-slate-800 text-white transition-colors font-bold px-3 py-1.8 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="h-3 w-3 text-slate-300" />
+                  <span>Imprimir Relatório Oficial</span>
+                </button>
+              </div>
+
+              {/* RELATÓRIO CONSOLIDADO / DASHBOARD */}
+              {activeReportSubTab === 'consolidado' && (
+                <div className="space-y-8 animate-in fade-in duration-300">
+                  
+                  {/* Metric Cards Row - Integrated with main analytics but keeping the sub-view clean */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 bg-indigo-50 rounded-lg">
+                          <Users className="h-4 w-4 text-indigo-600" />
+                        </div>
+                        <span className="flex items-center gap-0.5 text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                          <ArrowUpRight className="h-3 w-3" />
+                          12%
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total de Alunos</p>
+                        <p className="text-2xl font-black text-slate-900">{studentsList.length}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 bg-teal-50 rounded-lg">
+                          <BookOpen className="h-4 w-4 text-teal-600" />
+                        </div>
+                        <span className="flex items-center gap-0.5 text-[10px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-full">
+                          Estável
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cursos Ativos</p>
+                        <p className="text-2xl font-black text-slate-900">{courses.length}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 bg-amber-50 rounded-lg">
+                          <Award className="h-4 w-4 text-amber-600" />
+                        </div>
+                        <span className="flex items-center gap-0.5 text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                          <ArrowUpRight className="h-3 w-3" />
+                          8%
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Diplomas Emitidos</p>
+                        <p className="text-2xl font-black text-slate-900">{certificates.length}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="p-2 bg-rose-50 rounded-lg">
+                          <Activity className="h-4 w-4 text-rose-600" />
+                        </div>
+                        <span className="flex items-center gap-0.5 text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
+                          <ArrowDownRight className="h-3 w-3" />
+                          3%
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Taxa de Evasão</p>
+                        <p className="text-2xl font-black text-slate-900">4.2%</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Charts Section */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* Category Distribution (Pie) */}
+                    <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-5 shadow-3xs flex flex-col">
+                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <Layers className="h-3.5 w-3.5 text-indigo-600" />
+                        Inscrições por Categoria
+                      </h4>
+                      <div className="h-[240px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={categoriesList.map((cat, idx) => ({
+                                name: cat,
+                                value: courses.filter(c => c.category === cat).length * 15 + Math.floor(Math.random() * 20)
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={80}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {categoriesList.map((_, index) => (
+                                <Cell key={`cell-${index}`} fill={[
+                                  '#540D6E', '#EE4266', '#FFD23F', '#3BCEAC', '#0EAD69'
+                                ][index % 5]} />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Monthly Trend (Area Chart) */}
+                    <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-3xs">
+                      <div className="flex items-center justify-between mb-6">
+                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                          <TrendingUp className="h-3.5 w-3.5 text-teal-600" />
+                          Crescimento de Matrículas (Semestral)
+                        </h4>
+                      </div>
+                      <div className="h-[240px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart
+                            data={[
+                              { name: 'Jan', matriculas: 45, conclusoes: 21 },
+                              { name: 'Fev', matriculas: 52, conclusoes: 25 },
+                              { name: 'Mar', matriculas: 48, conclusoes: 30 },
+                              { name: 'Abr', matriculas: 70, conclusoes: 42 },
+                              { name: 'Mai', matriculas: 85, conclusoes: 50 },
+                              { name: 'Jun', matriculas: 92, conclusoes: 65 },
+                            ]}
+                            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                          >
+                            <defs>
+                              <linearGradient id="colorMatricula" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#540D6E" stopOpacity={0.1}/>
+                                <stop offset="95%" stopColor="#540D6E" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748B', fontWeight: 'bold' }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748B', fontWeight: 'bold' }} />
+                            <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} />
+                            <Area type="monotone" dataKey="matriculas" stroke="#540D6E" strokeWidth={3} fillOpacity={1} fill="url(#colorMatricula)" />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Alunos list detailed report */}
+              {activeReportSubTab === 'alunos' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
+                    <div className="text-left font-sans">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Total de Alunos Auditados</span>
+                      <strong className="text-xl font-black text-slate-900 font-mono">{mockStudents.length} discentes</strong>
+                    </div>
+                    <div className="text-left">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Média Geral Frequência</span>
+                      <strong className="text-xl font-black text-teal-700 font-mono">
+                        {Math.round(mockStudents.reduce((sum, s) => sum + calculateStudentOverallAttendance(s.name), 0) / mockStudents.length)}%
+                      </strong>
+                    </div>
+                    <div className="text-left">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Diplomas Autenticados</span>
+                      <strong className="text-xl font-black text-emerald-700 font-mono">{certificates.length} emitidos</strong>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                          <th className="p-2.5">Nome do Aluno</th>
+                          <th className="p-2.5">Email</th>
+                          <th className="p-2.5 text-center">Frequência</th>
+                          <th className="p-2.5 text-center">Média Testes</th>
+                          <th className="p-2.5 text-right">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mockStudents.map((st) => {
+                          const attendance = calculateStudentOverallAttendance(st.name);
+                          const submissions = quizSubmissions.filter(s => s.studentName === st.name);
+                          const avgScore = submissions.length === 0 ? 0 : Math.round(submissions.reduce((s, x) => s + x.scorePercent, 0) / submissions.length);
+                          return (
+                            <tr key={st.email} className="border-b border-slate-100 hover:bg-slate-50/25">
+                              <td className="p-2.5">
+                                <span className="font-extrabold text-slate-900 block">{st.name}</span>
+                              </td>
+                              <td className="p-2.5 text-slate-500 font-mono">{st.email}</td>
+                              <td className="p-2.5 text-center">
+                                <span className={`font-bold ${attendance >= attendanceBarrier ? 'text-emerald-600' : 'text-amber-500'}`}>{attendance}%</span>
+                              </td>
+                              <td className="p-2.5 text-center">
+                                <span className="text-slate-705 font-mono">{submissions.length > 0 ? `${avgScore}%` : '-'}</span>
+                              </td>
+                              <td className="p-2.5 text-right">
+                                <select 
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val) {
+                                      setActiveDocViewer({ studentName: st.name, type: val as any });
+                                      e.target.value = '';
+                                    }
+                                  }}
+                                  className="text-[10px] bg-slate-100 border border-slate-205 rounded px-2 py-1 text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                                >
+                                  <option value="">Emitir...</option>
+                                  <option value="historico">Histórico</option>
+                                  <option value="certificado">Diploma</option>
+                                  <option value="matricula">Matrícula</option>
+                                </select>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Professores detailed report */}
+              {activeReportSubTab === 'professores' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Professores Cadastrados</span>
+                      <strong className="text-xl font-black text-slate-900 font-mono">{professorsList.length} professores</strong>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                          <th className="p-2.5">Nome do Professor</th>
+                          <th className="p-2.5 text-center">Cursos</th>
+                          <th className="p-2.5 text-right">Total Aulas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {professorsList.map((prof) => {
+                          const assigned = courses.filter(c => c.instructorName === prof);
+                          const totalLessons = assigned.reduce((sum, c) => sum + c.lessons.length, 0);
+                          return (
+                            <tr key={prof} className="border-b border-slate-100">
+                              <td className="p-2.5 font-extrabold text-slate-900">{prof}</td>
+                              <td className="p-2.5 text-center font-bold text-teal-600">{assigned.length} cursos</td>
+                              <td className="p-2.5 text-right font-mono text-slate-500">{totalLessons} aulas</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Cursos detailed report */}
+              {activeReportSubTab === 'cursos' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                          <th className="p-2.5">Curso</th>
+                          <th className="p-2.5 text-center">Módulos</th>
+                          <th className="p-2.5 text-right">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {courses.map((c) => (
+                          <tr key={c.id} className="border-b border-slate-100">
+                            <td className="p-2.5">
+                              <span className="font-extrabold text-slate-900 block">{c.title}</span>
+                              <span className="text-[9px] text-slate-400 block font-mono">{c.category}</span>
+                            </td>
+                            <td className="p-2.5 text-center font-mono">{c.lessons.length}</td>
+                            <td className="p-2.5 text-right">
+                              <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
+                                {c.lessons.length > 0 ? "Ativo" : "Planejado"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Inscrições detailed reports */}
+              {activeReportSubTab === 'inscricoes' && (
+                <div className="space-y-4 animate-in fade-in duration-200">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                          <th className="p-2.5">Aluno</th>
+                          <th className="p-2.5">Disciplina</th>
+                          <th className="p-2.5 text-center">Progresso</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mockStudents.flatMap((s, si) => 
+                          courses.slice(0, 2).map((c, ci) => {
+                            const userProg = progress.find(p => p.courseId === c.id);
+                            const comp = userProg ? userProg.completedLessons.length : 0;
+                            const ratio = c.lessons.length > 0 ? Math.round((comp / c.lessons.length) * 100) : 0;
+                            return (
+                              <tr key={`${si}-${ci}`} className="border-b border-slate-100">
+                                <td className="p-2.5 font-bold text-slate-900">{s.name}</td>
+                                <td className="p-2.5 text-slate-600">{c.title}</td>
+                                <td className="p-2.5 text-center font-mono text-teal-600 font-bold">{ratio}%</td>
+                              </tr>
+                            )
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
 
@@ -349,6 +814,27 @@ export function AdminDashboard() {
               </div>
 
               <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Senha de Acesso (PIN 4-8 Dígitos)</label>
+                <div className="relative">
+                  <input
+                    type={showProfPassword ? "text" : "password"}
+                    placeholder="Padronizado: 5678"
+                    value={newProfPassword}
+                    onChange={(e) => setNewProfPassword(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowProfPassword(!showProfPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                  >
+                    {showProfPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1 italic font-medium">* Se vazio, o padrão de homologação será "5678".</p>
+              </div>
+
+              <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cadeira / Área de Atuação</label>
                 <select
                   value={newProfSpecialty}
@@ -366,7 +852,7 @@ export function AdminDashboard() {
                 type="submit"
                 className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer"
               >
-                Registrar Credenciais do Docente
+                Registrar Novo Professor
               </button>
             </form>
           </div>
@@ -375,7 +861,7 @@ export function AdminDashboard() {
           <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-xl space-y-4 professors-list-container">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                Docentes Habilitados no AVA ({professorsList.length})
+                Professores Habilitados no AVA ({professorsList.length})
               </h3>
               <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
@@ -396,7 +882,7 @@ export function AdminDashboard() {
               }).map((prof, idx) => {
                 const assignedCourses = courses.filter(c => c.instructorName === prof);
                 return (
-                  <div key={idx} className="border border-slate-150 p-4 rounded-xl bg-slate-50/40 relative group">
+                  <div key={prof} className="border border-slate-150 p-4 rounded-xl bg-slate-50/40 relative group">
                     <div className="absolute top-4 right-4 flex items-center gap-1.5">
                       <span className="text-[9px] bg-slate-200 font-mono font-bold px-1.5 py-0.5 rounded text-slate-600">
                         ID: DOC-0{idx + 1}
@@ -478,8 +964,8 @@ export function AdminDashboard() {
                   onChange={(e) => setNewCourseTeacher(e.target.value)}
                   className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 bg-white"
                 >
-                  {professorsList.map((prof, idx) => (
-                    <option key={idx} value={prof}>{prof}</option>
+                  {professorsList.map((prof) => (
+                    <option key={prof} value={prof}>{prof}</option>
                   ))}
                 </select>
               </div>
@@ -650,8 +1136,8 @@ export function AdminDashboard() {
                                 }}
                                 className="border border-slate-200 bg-white p-0.5 px-1.5 text-[10px] rounded-md font-bold text-slate-700 cursor-pointer focus:outline-hidden"
                               >
-                                {professorsList.map((prof, idx) => (
-                                  <option key={idx} value={prof}>{prof}</option>
+                                {professorsList.map((prof) => (
+                                  <option key={prof} value={prof}>{prof}</option>
                                 ))}
                               </select>
                             </div>
@@ -724,7 +1210,7 @@ export function AdminDashboard() {
                         
                         {expandedCourseStudentsId === course.id && (
                           <div className="mt-2 bg-slate-50 border border-slate-150 rounded-xl p-3 space-y-2 animate-in fade-in duration-200">
-                            <span className="text-[9px] font-extrabold text-slate-450 block uppercase tracking-wider">Identificação dos Discentes Vinculados</span>
+                            <span className="text-[9px] font-extrabold text-slate-450 block uppercase tracking-wider">Identificação dos Alunos Vinculados</span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {activeStudents.map((std, index) => (
                                 <div key={index} className="flex items-center gap-2.5 bg-white border border-slate-150 p-2 rounded-lg">
@@ -770,7 +1256,7 @@ export function AdminDashboard() {
             <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-xl h-fit space-y-4">
               <div>
                 <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Matricular Novo Aluno</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Adicione novos usuários discentes para participarem das turmas da plataforma.</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Adicione novos alunos para participarem das turmas da plataforma.</p>
               </div>
 
               <form onSubmit={handleCreateStudent} className="space-y-3">
@@ -798,6 +1284,56 @@ export function AdminDashboard() {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Curso de Matrícula</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCoursePickerModal(true)}
+                    className="w-full border border-slate-200 p-2 text-left text-xs rounded-lg text-slate-700 bg-slate-50/50 hover:bg-slate-100 transition-colors flex items-center justify-between group"
+                  >
+                    <span>
+                      {selectedEnrollCourseId 
+                        ? courses.find(c => c.id === selectedEnrollCourseId)?.title 
+                        : "Selecionar Disciplina..."}
+                    </span>
+                    <BookOpen className="h-3.5 w-3.5 text-slate-400 group-hover:text-teal-600 transition-colors" />
+                  </button>
+                  {selectedEnrollCourseId && (
+                    <div className="mt-2 p-2 bg-emerald-50 border border-emerald-100 rounded-lg animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex items-center gap-1.5">
+                        <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                        <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-tight">Professor Designado:</span>
+                      </div>
+                      <p className="text-[11px] font-black text-emerald-900 mt-0.5">
+                        {courses.find(c => c.id === selectedEnrollCourseId)?.instructorName}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center justify-between">
+                    <span>Senha de Acesso</span>
+                    <span className="text-[8.5px] text-slate-400 font-normal normal-case">Padrão: 1234</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showStudentPassword ? 'text' : 'password'}
+                      placeholder="Senha do aluno (Ex: 1234)"
+                      value={newStudentPassword}
+                      onChange={(e) => setNewStudentPassword(e.target.value)}
+                      className="w-full border border-slate-200 p-2 pr-10 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowStudentPassword(!showStudentPassword)}
+                      className="absolute right-2.5 top-2 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                    >
+                      {showStudentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
@@ -813,7 +1349,7 @@ export function AdminDashboard() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
                 <div>
                   <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                    Discentes Registrados ({mockStudents.length})
+                    Alunos Registrados ({mockStudents.length})
                   </h4>
                   <p className="text-[10px] text-slate-500 mt-0.5">Frequência letiva, certificados homologados e médias de testes.</p>
                 </div>
@@ -835,6 +1371,7 @@ export function AdminDashboard() {
                   <thead>
                     <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/65">
                       <th className="p-3">Estudante</th>
+                      <th className="p-3">Disciplinas / Tutores</th>
                       <th className="p-3">Frequência Letiva</th>
                       <th className="p-3">Status Certificados</th>
                       <th className="p-3">Quiz</th>
@@ -847,16 +1384,48 @@ export function AdminDashboard() {
                         if (!studentSearchQuery) return true;
                         return st.name.toLowerCase().includes(studentSearchQuery.toLowerCase());
                       })
-                      .map((st, idx) => {
+                      .map((st) => {
                         const studentOverallAttendance = calculateStudentOverallAttendance(st.name);
                         const stuSubmissions = quizSubmissions.filter(sub => sub.studentName === st.name);
                         const stuCertificates = certificates.filter(c => c.studentName === st.name);
                         
+                        const activePass = st.password || localStorage.getItem(`ava_active_password_${st.name}`) || '1234';
                         return (
-                          <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
+                          <tr key={st.email} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors">
                             <td className="p-3">
                               <strong className="text-slate-905 block font-bold">{st.name}</strong>
                               <span className="text-[10px] text-slate-400 font-mono block mt-0.5">{st.email}</span>
+                              <div className="flex items-center gap-1.5 mt-1 text-[9px]">
+                                <span className="text-slate-400 font-mono flex items-center gap-0.5">
+                                  <Key className="h-2.5 w-2.5" /> Senha ativa:
+                                </span>
+                                <span className="font-mono bg-slate-50 hover:bg-slate-150 transition-colors text-slate-700 px-1.5 py-0.5 rounded select-all font-semibold" title="Clique para copiar">
+                                  {activePass}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              {(() => {
+                                const myAdmissions = admissionRequests.filter(r => r.studentName === st.name && r.status === 'approved');
+                                if (myAdmissions.length === 0) return <span className="text-[10px] text-slate-400 italic">Sem matrícula ativa</span>;
+                                
+                                return (
+                                  <div className="flex flex-col gap-1.5">
+                                    {myAdmissions.map(adm => {
+                                      const course = courses.find(c => c.id === adm.courseId);
+                                      return (
+                                        <div key={adm.id} className="flex flex-col gap-0.5">
+                                          <span className="text-[10px] font-bold text-slate-700 leading-tight">{course?.title || 'Curso Removido'}</span>
+                                          <div className="flex items-center gap-1">
+                                            <div className="h-1.5 w-1.5 bg-teal-500 rounded-full" />
+                                            <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-tighter">Tutor: {course?.instructorName || 'N/A'}</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="p-3">
                               <div className="flex items-center gap-2">
@@ -921,6 +1490,69 @@ export function AdminDashboard() {
         </div>
       )}
 
+      {/* Course Picker Modal */}
+      {showCoursePickerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <header className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-teal-600" />
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Vincular Disciplina</h3>
+              </div>
+              <button 
+                onClick={() => setShowCoursePickerModal(false)}
+                className="p-1 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-slate-400"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+
+            <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+              <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-4">
+                Selecione abaixo a disciplina na qual o aluno será matriculado. O professor correspondente será vinculado automaticamente para acompanhamento pedagógico.
+              </p>
+
+              {courses.map(course => (
+                <button
+                  key={course.id}
+                  onClick={() => {
+                    setSelectedEnrollCourseId(course.id);
+                    setShowCoursePickerModal(false);
+                  }}
+                  className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between group ${
+                    selectedEnrollCourseId === course.id 
+                    ? 'border-teal-500 bg-teal-50/50 ring-1 ring-teal-500/20' 
+                    : 'border-slate-100 bg-slate-50/30 hover:border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors">{course.title}</p>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500 font-mono">
+                        {course.category}
+                      </span>
+                      <span className="text-[9px] text-slate-400">
+                        Instrutor: <span className="font-bold text-slate-600 underline decoration-slate-300">{course.instructorName}</span>
+                      </span>
+                    </div>
+                  </div>
+                  {selectedEnrollCourseId === course.id && <Check className="h-4 w-4 text-teal-600" />}
+                </button>
+              ))}
+            </div>
+
+            <footer className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button
+                onClick={() => setShowCoursePickerModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors uppercase tracking-widest cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
+
       {activeTab === 'requests' && (
         <div className="space-y-6 text-left animate-in fade-in duration-300">
           
@@ -963,8 +1595,8 @@ export function AdminDashboard() {
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Escolher Aluno</label>
                   <select name="directStudent" required className="w-full border border-slate-205 p-2 text-xs rounded-lg text-slate-800 bg-white focus:outline-hidden">
-                    {mockStudents.map((st, i) => (
-                      <option key={i} value={st.name}>{st.name} ({st.email})</option>
+                    {mockStudents.map((st) => (
+                      <option key={st.email} value={st.name}>{st.name} ({st.email})</option>
                     ))}
                   </select>
                 </div>
@@ -1001,7 +1633,7 @@ export function AdminDashboard() {
             {/* List of Incoming Requests */}
             <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-xl space-y-4">
               <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">
-                Requerimentos Registrados por Discentes ({academicRequests?.length || 0})
+                Requerimentos Registrados por Alunos ({academicRequests?.length || 0})
               </h4>
 
               {!academicRequests || academicRequests.length === 0 ? (
@@ -1117,546 +1749,6 @@ export function AdminDashboard() {
         </div>
       )}
 
-      {activeTab === 'reports' && (
-        <div className="space-y-6 text-left animate-in fade-in duration-300">
-          
-          {/* Main Info Box */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-2">
-            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <FileText className="h-4.5 w-4.5 text-teal-600" />
-              <span>Painel Gerencial de Auditoria Pedagógica e Estatística</span>
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Consulte relatórios de admissão e rendimento unificados. Estes relatórios agregam dados dinâmicos de progresso de aulas secundárias, presença em videoconferências, notas médias de quizzes tutoriais e contagens de admissão corporativa.
-            </p>
-          </div>
-
-          {/* Sub Navigation controls to target specific reports */}
-          <div className="flex border-b border-slate-200 gap-1 overflow-x-auto bg-slate-50 p-1.5 rounded-xl border">
-            {[
-              { id: 'consolidado', label: 'Estatísticas Gerais', icon: Activity },
-              { id: 'alunos', label: 'Estatística de Alunos', icon: Users },
-              { id: 'professores', label: 'Cargos de Professores', icon: ShieldCheck },
-              { id: 'cursos', label: 'Andamento de Cursos', icon: BookOpen },
-              { id: 'inscricoes', label: 'Inscrições & Matrículas', icon: FileCheck },
-            ].map((st) => {
-              const SubIcon = st.icon;
-              const isSubActive = activeReportSubTab === st.id;
-              return (
-                <button
-                  key={st.id}
-                  onClick={() => setActiveReportSubTab(st.id as any)}
-                  className={`px-3 py-1.8 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                    isSubActive 
-                      ? 'bg-white text-slate-900 shadow-2xs border border-slate-200 font-extrabold' 
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-teal-600' : 'text-slate-400'}`} />
-                  <span>{st.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
-            
-            {/* Action buttons header */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Relatório de Rendimento: <span className="text-slate-800 font-extrabold text-xs">{activeReportSubTab.toUpperCase()}</span>
-              </span>
-              <button
-                onClick={() => {
-                  window.print();
-                }}
-                className="text-[10px] bg-slate-900 hover:bg-slate-800 text-white transition-colors font-bold px-3 py-1.8 rounded-lg flex items-center gap-1.5 cursor-pointer"
-              >
-                <Printer className="h-3 w-3 text-slate-300" />
-                <span>Imprimir Relatório Oficial</span>
-              </button>
-            </div>
-
-            {/* RELATÓRIO CONSOLIDADO / DASHBOARD */}
-            {activeReportSubTab === 'consolidado' && (
-              <div className="space-y-8 animate-in fade-in duration-300">
-                
-                {/* 1. Metric Cards Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 bg-indigo-50 rounded-lg">
-                        <Users className="h-4 w-4 text-indigo-600" />
-                      </div>
-                      <span className="flex items-center gap-0.5 text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                        <ArrowUpRight className="h-3 w-3" />
-                        12%
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Total de Alunos</p>
-                      <p className="text-2xl font-black text-slate-900">{studentsList.length}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 bg-teal-50 rounded-lg">
-                        <BookOpen className="h-4 w-4 text-teal-600" />
-                      </div>
-                      <span className="flex items-center gap-0.5 text-[10px] font-black text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-full">
-                        Estável
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cursos Ativos</p>
-                      <p className="text-2xl font-black text-slate-900">{courses.length}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 bg-amber-50 rounded-lg">
-                        <Award className="h-4 w-4 text-amber-600" />
-                      </div>
-                      <span className="flex items-center gap-0.5 text-[10px] font-black text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                        <ArrowUpRight className="h-3 w-3" />
-                        8%
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Diplomas Emitidos</p>
-                      <p className="text-2xl font-black text-slate-900">{certificates.length}</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="p-2 bg-rose-50 rounded-lg">
-                        <Activity className="h-4 w-4 text-rose-600" />
-                      </div>
-                      <span className="flex items-center gap-0.5 text-[10px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
-                        <ArrowDownRight className="h-3 w-3" />
-                        3%
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Taxa de Evasão</p>
-                      <p className="text-2xl font-black text-slate-900">4.2%</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Charts Section */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  
-                  {/* Category Distribution (Pie) */}
-                  <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-5 shadow-3xs flex flex-col">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <Layers className="h-3.5 w-3.5 text-indigo-600" />
-                      Inscrições por Categoria
-                    </h4>
-                    <div className="h-[240px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={categoriesList.map((cat, idx) => ({
-                              name: cat,
-                              value: courses.filter(c => c.category === cat).length * 15 + Math.floor(Math.random() * 20)
-                            }))}
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={60}
-                            outerRadius={80}
-                            paddingAngle={5}
-                            dataKey="value"
-                          >
-                            {categoriesList.map((_, index) => (
-                              <Cell key={`cell-${index}`} fill={[
-                                '#540D6E', '#EE4266', '#FFD23F', '#3BCEAC', '#0EAD69'
-                              ][index % 5]} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="mt-4 space-y-2">
-                      {categoriesList.slice(0, 4).map((cat, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-[11px]">
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: ['#540D6E', '#EE4266', '#FFD23F', '#3BCEAC'][idx] }} />
-                            <span className="font-bold text-slate-600">{cat}</span>
-                          </div>
-                          <span className="font-mono text-slate-400">
-                            {courses.filter(c => c.category === cat).length} cursos
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Monthly Trend (Area Chart) */}
-                  <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-3xs">
-                    <div className="flex items-center justify-between mb-6">
-                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                        <TrendingUp className="h-3.5 w-3.5 text-teal-600" />
-                        Crescimento de Matrículas (Semestral)
-                      </h4>
-                      <select className="text-[10px] bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 font-bold text-slate-600 outline-none">
-                        <option>2026</option>
-                        <option>2025</option>
-                      </select>
-                    </div>
-                    <div className="h-[280px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart
-                          data={[
-                            { name: 'Jan', matriculas: 45, conclusoes: 21 },
-                            { name: 'Fev', matriculas: 52, conclusoes: 25 },
-                            { name: 'Mar', matriculas: 48, conclusoes: 30 },
-                            { name: 'Abr', matriculas: 70, conclusoes: 42 },
-                            { name: 'Mai', matriculas: 85, conclusoes: 50 },
-                            { name: 'Jun', matriculas: 92, conclusoes: 65 },
-                          ]}
-                          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                        >
-                          <defs>
-                            <linearGradient id="colorMatricula" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#540D6E" stopOpacity={0.1}/>
-                              <stop offset="95%" stopColor="#540D6E" stopOpacity={0}/>
-                            </linearGradient>
-                            <linearGradient id="colorConclusao" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#0EAD69" stopOpacity={0.1}/>
-                              <stop offset="95%" stopColor="#0EAD69" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                          <XAxis 
-                            dataKey="name" 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#64748B', fontWeight: 'bold' }}
-                            dy={10}
-                          />
-                          <YAxis 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#64748B', fontWeight: 'bold' }}
-                          />
-                          <Tooltip 
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                          />
-                          <Area type="monotone" dataKey="matriculas" stroke="#540D6E" strokeWidth={3} fillOpacity={1} fill="url(#colorMatricula)" />
-                          <Area type="monotone" dataKey="conclusoes" stroke="#0EAD69" strokeWidth={3} fillOpacity={1} fill="url(#colorConclusao)" />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Professor Ranks and Course Rankings */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  
-                  {/* Professors by Rank */}
-                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-3xs">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <ShieldCheck className="h-3.5 w-3.5 text-amber-600" />
-                      Distribuição de Cargos Docentes
-                    </h4>
-                    <div className="h-[250px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart
-                          layout="vertical"
-                          data={[
-                            { name: 'Letrado Adjunto', value: 12 },
-                            { name: 'Doutor Titular', value: 5 },
-                            { name: 'Mestre Assistente', value: 8 },
-                            { name: 'Especialista Convidado', value: 15 },
-                          ]}
-                          margin={{ top: 5, right: 30, left: 40, bottom: 5 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E2E8F0" />
-                          <XAxis type="number" axisLine={false} tickLine={false} hide />
-                          <YAxis 
-                            dataKey="name" 
-                            type="category" 
-                            axisLine={false} 
-                            tickLine={false} 
-                            tick={{ fontSize: 10, fill: '#475569', fontWeight: 'black' }}
-                            width={100}
-                          />
-                          <Tooltip 
-                            cursor={{ fill: 'rgba(241, 245, 249, 0.5)' }}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }}
-                          />
-                          <Bar dataKey="value" fill="#540D6E" radius={[0, 4, 4, 0]} barSize={20} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Top Courses by Performance */}
-                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-3xs">
-                    <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-                      <Activity className="h-3.5 w-3.5 text-rose-600" />
-                      Ranking de Engajamento por Disciplina
-                    </h4>
-                    <div className="space-y-4">
-                      {courses.slice(0, 4).map((c, idx) => {
-                        const progressAvg = 65 + Math.floor(Math.random() * 30);
-                        return (
-                          <div key={idx} className="space-y-1.5">
-                            <div className="flex items-center justify-between text-[11px] font-bold">
-                              <span className="text-slate-800">{c.title}</span>
-                              <span className="text-teal-600">{progressAvg}% Completitude</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                              <div 
-                                className="h-full bg-teal-500 rounded-full transition-all duration-1000" 
-                                style={{ width: `${progressAvg}%` }} 
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-8 p-4 bg-slate-50 border border-slate-100 rounded-xl">
-                      <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
-                        <span className="font-black text-rose-600 uppercase mr-1">Observação:</span>
-                        As métricas de engajamento baseiam-se na proporção entre aulas visualizadas e tempo médio de permanência em tela por discente matriculado.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            )}
-
-            {/* Alunos list detailed report */}
-            {activeReportSubTab === 'alunos' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
-                  <div className="text-left font-sans">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Total Discentes Auditados</span>
-                    <strong className="text-xl font-black text-slate-900 font-mono">{mockStudents.length} discentes</strong>
-                  </div>
-                  <div className="text-left">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Média Geral Frequência</span>
-                    <strong className="text-xl font-black text-teal-700 font-mono">
-                      {Math.round(mockStudents.reduce((sum, s) => sum + calculateStudentOverallAttendance(s.name), 0) / mockStudents.length)}%
-                    </strong>
-                  </div>
-                  <div className="text-left">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Diplomas Autenticados</span>
-                    <strong className="text-xl font-black text-emerald-700 font-mono">{certificates.length} emitidos</strong>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
-                        <th className="p-2.5">Nome do Aluno</th>
-                        <th className="p-2.5">Email Cadastrado</th>
-                        <th className="p-2.5 text-center">Presença Letiva</th>
-                        <th className="p-2.5 text-center">Rendimento de Testes</th>
-                        <th className="p-2.5 text-right">Ação Direta</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mockStudents.map((st, i) => {
-                        const attendance = calculateStudentOverallAttendance(st.name);
-                        const submissions = quizSubmissions.filter(s => s.studentName === st.name);
-                        const avgScore = submissions.length === 0 ? 0 : Math.round(submissions.reduce((s, x) => s + x.scorePercent, 0) / submissions.length);
-                        return (
-                          <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/25">
-                            <td className="p-2.5">
-                              <span className="font-extrabold text-slate-905 block font-bold">{st.name}</span>
-                            </td>
-                            <td className="p-2.5 text-slate-500 font-mono">{st.email}</td>
-                            <td className="p-2.5 text-center">
-                              <span className={`font-bold ${attendance >= attendanceBarrier ? 'text-emerald-600' : 'text-amber-500'}`}>{attendance}%</span>
-                            </td>
-                            <td className="p-2.5 text-center">
-                              <span className="text-slate-705 font-mono">{submissions.length > 0 ? `${avgScore}% (Média)` : 'Não Concluído'}</span>
-                            </td>
-                            <td className="p-2.5 text-right">
-                              <select 
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val) {
-                                    setActiveDocViewer({
-                                      studentName: st.name,
-                                      type: val as any
-                                    });
-                                    e.target.value = '';
-                                  }
-                                }}
-                                className="text-[10px] bg-slate-100 border border-slate-205 rounded px-2 py-1 text-slate-700 font-semibold focus:outline-hidden"
-                              >
-                                <option value="">Emitir Documento...</option>
-                                <option value="historico">Histórico Completo</option>
-                                <option value="certificado">Certificado Diploma</option>
-                                <option value="matricula">Declaração Matrícula</option>
-                              </select>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Professores / Agentes educacionais detailed report */}
-            {activeReportSubTab === 'professores' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 flex items-center justify-between text-left">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Agentes Educacionais (Professores)</span>
-                    <strong className="text-xl font-black text-slate-900 font-mono">{professorsList.length} professores credenciados</strong>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] bg-teal-50 text-teal-700 font-black px-2.5 py-1 rounded uppercase block">AVA Docentes Ativos</span>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
-                        <th className="p-2.5">Agente de Ensino (Docente)</th>
-                        <th className="p-2.5">Cargo Titular</th>
-                        <th className="p-2.5 text-center">Disciplinas Vinculadas</th>
-                        <th className="p-2.5 text-right">Aulas Ativas</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {professorsList.map((prof, i) => {
-                        const assigned = courses.filter(c => c.instructorName === prof);
-                        const totalLessons = assigned.reduce((sum, c) => sum + c.lessons.length, 0);
-                        return (
-                          <tr key={i} className="border-b border-slate-100 hover:bg-slate-50/25">
-                            <td className="p-2.5">
-                              <span className="font-extrabold text-slate-900">{prof}</span>
-                            </td>
-                            <td className="p-2.5 text-slate-650">Professor Letrado Adjunto</td>
-                            <td className="p-2.5 text-center font-bold text-teal-600 font-mono">{assigned.length} cursos</td>
-                            <td className="p-2.5 text-right font-mono text-slate-500">{totalLessons} unidades teóricas</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Cursos concluidos ou andamento detailed report */}
-            {activeReportSubTab === 'cursos' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Cursos de Catálogo</span>
-                    <strong className="text-xl font-black text-slate-900 font-mono">{courses.length} disciplinas</strong>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Aulas Práticas Realizadas</span>
-                    <strong className="text-xl font-black text-teal-700 font-mono">
-                      {courses.reduce((sum, c) => sum + c.lessons.length, 0)} aulas
-                    </strong>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Índice Geral Aprovação</span>
-                    <strong className="text-xl font-black text-sky-700 font-mono">70% Frequência Mínima</strong>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
-                        <th className="p-2.5">Curso Curricular</th>
-                        <th className="p-2.5">Agente Docente</th>
-                        <th className="p-2.5 text-center">Aulas Vídeo</th>
-                        <th className="p-2.5 text-center">Status Curricular</th>
-                        <th className="p-2.5 text-right font-sans">Inscrições Estimadas</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {courses.map((c) => {
-                        const status = c.lessons.length > 0 ? "Em Andamento" : "Planejamento Curricular";
-                        return (
-                          <tr key={c.id} className="border-b border-slate-100 hover:bg-slate-50/25">
-                            <td className="p-2.5">
-                              <span className="font-extrabold text-slate-900 block">{c.title}</span>
-                              <span className="text-[9px] text-slate-400 block font-mono">{c.category}</span>
-                            </td>
-                            <td className="p-2.5 text-slate-600">{c.instructorName}</td>
-                            <td className="p-2.5 text-center font-mono">{c.lessons.length} aulas</td>
-                            <td className="p-2.5 text-center">
-                              <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
-                                {status === "Em Andamento" ? "Em Andamento" : "Planejado"}
-                              </span>
-                            </td>
-                            <td className="p-2.5 text-right font-semibold font-mono text-slate-700">{mockStudents.length} matriculados</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Inscrições detailed reports */}
-            {activeReportSubTab === 'inscricoes' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                <div className="bg-slate-50 p-4 border border-slate-150 rounded-xl text-left">
-                  <span className="text-[9px] font-bold text-slate-400 block uppercase tracking-wider">Metrificação de Inscrições Integradas</span>
-                  <p className="text-[11px] text-slate-505">Visão cruzada de matriculados por disciplina de forma integral.</p>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs text-left border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
-                        <th className="p-2.5 font-sans">Discente Recomendado</th>
-                        <th className="p-2.5">Disciplina Curricular</th>
-                        <th className="p-2.5 text-center font-sans">Conclusão de Módulos</th>
-                        <th className="p-2.5 text-right font-sans">Matrícula ID</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {mockStudents.flatMap((s, si) => 
-                        courses.map((c, ci) => {
-                          const userProg = progress.find(p => p.courseId === c.id);
-                          const comp = userProg ? userProg.completedLessons.length : 0;
-                          const ratio = c.lessons.length > 0 ? Math.round((comp / c.lessons.length) * 100) : 0;
-                          return (
-                            <tr key={`${si}-${ci}`} className="border-b border-slate-100 hover:bg-slate-50/25">
-                              <td className="p-2.5 font-bold text-slate-900">{s.name}</td>
-                              <td className="p-2.5 text-slate-600">{c.title}</td>
-                              <td className="p-2.5 text-center font-mono text-teal-600 font-bold">{ratio}% ({comp}/{c.lessons.length})</td>
-                              <td className="p-2.5 text-right text-slate-450 font-mono text-[9px]">REG-2026-{si}{ci}</td>
-                            </tr>
-                          )
-                        })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-          </div>
-
-        </div>
-      )}
 
       {activeTab === 'settings' && (
         <div className="bg-white border border-slate-200 rounded-xl p-5 text-left space-y-6 settings-tab-content">
@@ -1875,7 +1967,7 @@ export function AdminDashboard() {
                 <div className="border-b border-double border-slate-300 pb-5 text-center space-y-2">
                   <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded font-mono font-bold uppercase tracking-widest">Via Homologada de Autenticidade</span>
                   <h3 className="text-base font-black uppercase text-slate-950 tracking-tight leading-none mt-1">Unidade de Ensino Superior AVA</h3>
-                  <p className="text-[9px] text-slate-550 font-bold uppercase tracking-wider mt-1.5">Secretaria de Registros e Auditoria Pedagógica Digital</p>
+                  <p className="text-[9px] text-slate-550 font-bold uppercase tracking-wider mt-1.5">Secretaria de Registros e Gestão Pedagógica Digital</p>
                 </div>
 
                 {/* Document Specific Content */}
