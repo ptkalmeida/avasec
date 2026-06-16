@@ -2167,7 +2167,6 @@ function DashboardSwitcher() {
 
               {/* Title Section */}
               <div className="space-y-1">
-                <span className="text-[9px] uppercase tracking-widest bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-mono font-bold w-fit block">Simulador AVA Letivo</span>
                 <h3 className="font-extrabold text-[#111] text-base font-serif flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-[#540D6E]" />
                   <span>Portal de Conexão Acadêmica</span>
