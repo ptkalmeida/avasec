@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import { useLMS } from '../context/LMSContext';
 import { 
-  ShieldCheck, Users, BookOpen, Award, CheckSquare, Plus, ArrowLeft,
+  ShieldCheck, Users, User, BookOpen, Award, CheckSquare, Plus, ArrowLeft,
   Trash2, Lock, Settings, Activity, FileText, Search, Shield, Filter,
   FileCheck, Printer, Download, Check, X, Layers, Save,
   ArrowUpRight, ArrowDownRight, TrendingUp, Eye, EyeOff, Key
@@ -46,6 +46,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     addCategory,
     systemSettings,
     updateSystemSettings,
+    studentEnrollments,
+    clearStudentPenalty,
   } = useLMS();
 
   // Selected Section State: 'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings'
@@ -280,7 +282,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       <div className="flex border-b border-slate-205 mb-8 overflow-x-auto gap-1 scrollbar-hide lg:justify-center">
         {[
           { id: 'analytics', label: 'Dashboard & Relatórios', icon: Activity },
-          { id: 'professors', label: 'Professores', icon: Users },
+          { id: 'professors', label: 'Gestor de Cursos', icon: User },
           { id: 'students', label: 'Alunos', icon: Award },
           { id: 'courses', label: 'Cursos & Trilhas', icon: BookOpen },
           { id: 'requests', label: 'Documentos', icon: FileCheck },
@@ -321,87 +323,6 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <p className="text-xs text-slate-500 leading-relaxed">
               Visão consolidada do ecossistema educacional. Monitore métricas de engajamento, rendimento pedagógico e gere relatórios oficiais de auditoria.
             </p>
-          </div>
-
-          {/* Combined High-Level Counters */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 text-left">
-            {[
-              { label: 'Total de Alunos', value: studentsList.length, desc: 'Alunos Ativos', icon: Users, accent: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-              { label: 'Cursos Ativos', value: courses.length, desc: 'Disciplinas em Catálogo', icon: BookOpen, accent: 'bg-teal-50 border-teal-100 text-teal-700' },
-              { label: 'Professores', value: professorsList.length, desc: 'Professores Habilitados', icon: ShieldCheck, accent: 'bg-emerald-50 border-emerald-100 text-emerald-700' },
-              { label: 'Média de Quizzes', value: `${getGlobalAverageQuizScore()}%`, desc: 'Rendimento Pedagógico', icon: CheckSquare, accent: 'bg-amber-50 border-amber-100 text-amber-700' },
-              { label: 'Certificados', value: certificates.length, desc: 'Diplomas Emitidos', icon: Award, accent: 'bg-sky-50 border-sky-100 text-sky-700' }
-            ].map((stat) => (
-              <div key={stat.label} className="bg-white border border-slate-200 p-4 rounded-xl shadow-3xs flex justify-between items-start">
-                <div className="space-y-1">
-                  <header className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{stat.label}</header>
-                  <p className="text-xl font-black text-slate-900 font-mono leading-none">{stat.value}</p>
-                  <span className="text-[9px] text-slate-500 block leading-tight">{stat.desc}</span>
-                </div>
-                <div className={`p-1.5 rounded-lg border ${stat.accent}`}>
-                  <stat.icon className="h-3.5 w-3.5" />
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Quick Informational Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                <Settings className="h-4 w-4 text-teal-600" />
-                <span>Configuração de Presença Ativa</span>
-              </h3>
-              <p className="text-slate-550 text-xs leading-relaxed">
-                A presença mínima de <strong>{attendanceBarrier}%</strong> está configurada como limite letivo. 
-                Os certificados são emitidos automaticamente após validação de chaves únicas.
-              </p>
-              <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-150 flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase block">Regulamento de Emissão</span>
-                  <span className="text-[11px] font-medium text-slate-400 mt-0.5 block">Exigência síncrona atual</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-base font-black text-slate-800 font-mono">{attendanceBarrier}%</span>
-                  <span className="text-[9px] bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded uppercase block mt-1">Ativo</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                <Activity className="h-4 w-4 text-emerald-505" />
-                <span>Rendimento Médio por Disciplina (Quizzes)</span>
-              </h3>
-              {quizSubmissions.length === 0 ? (
-                <div className="h-32 flex items-center justify-center text-xs text-slate-400 italic">
-                  Nenhum envio de teste síncrono registrado até o momento.
-                </div>
-              ) : (
-                <div className="space-y-3 pt-1">
-                  {courses.slice(0, 3).map(course => {
-                    const submissions = quizSubmissions.filter(s => s.courseId === course.id);
-                    const avg = submissions.length === 0 
-                      ? 0 
-                      : Math.round(submissions.reduce((sum, s) => sum + s.scorePercent, 0) / submissions.length);
-                    return (
-                      <div key={course.id} className="text-xs space-y-1">
-                        <div className="flex items-center justify-between">
-                          <strong className="font-bold text-slate-800 truncate block max-w-[70%]">{course.title}</strong>
-                          <span className="font-mono text-slate-500">{avg}%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                          <div 
-                            className="bg-slate-800 h-full rounded-full transition-all"
-                            style={{ width: `${avg}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
 
           <div className="border-t border-slate-100 pt-6">
@@ -604,6 +525,27 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </div>
                     </div>
                   </div>
+
+                  {/* Combined High-Level Counters (Relocated below charts) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left border-t border-slate-100 pt-6">
+                    {[
+                      { label: 'Total de Alunos', value: studentsList.length, desc: 'Alunos Ativos', icon: Users, accent: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
+                      { label: 'Cursos Ativos', value: courses.length, desc: 'Disciplinas em Catálogo', icon: BookOpen, accent: 'bg-teal-50 border-teal-100 text-teal-700' },
+                      { label: 'Gestão', value: '1 Gestor', desc: 'Gestor de Cursos', icon: ShieldCheck, accent: 'bg-emerald-50 border-emerald-100 text-emerald-700' }
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-white border border-slate-200 p-4 rounded-xl shadow-3xs flex justify-between items-start">
+                        <div className="space-y-1">
+                          <header className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{stat.label}</header>
+                          <p className="text-xl font-black text-slate-900 font-mono leading-none">{stat.value}</p>
+                          <span className="text-[9px] text-slate-500 block leading-tight">{stat.desc}</span>
+                        </div>
+                        <div className={`p-1.5 rounded-lg border ${stat.accent}`}>
+                          <stat.icon className="h-3.5 w-3.5" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
                 </div>
               )}
 
@@ -793,81 +735,45 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {activeTab === 'professors' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-left">
           
-          {/* Create Professor Form Panel */}
+          {/* Gestor de Cursos Configuration Panel */}
           <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-xl text-left h-fit space-y-4">
             <div>
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Habilitar Professor</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Adicione credenciais letivas de novos docentes.</p>
+              <span className="rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-[9px] font-bold border border-emerald-100 uppercase tracking-wide">
+                Configuração de Perfil
+              </span>
+              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mt-2">Configurações do Gestor</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">Gerencie os dados e acessos de controle de cursos.</p>
             </div>
 
-            <form onSubmit={handleCreateProfessor} className="space-y-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nome Completo</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Prof. Dr. Hamilton Santos"
-                  value={newProfName}
-                  onChange={(e) => setNewProfName(e.target.value)}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Senha de Acesso (PIN 4-8 Dígitos)</label>
-                <div className="relative">
-                  <input
-                    type={showProfPassword ? "text" : "password"}
-                    placeholder="Padronizado: 5678"
-                    value={newProfPassword}
-                    onChange={(e) => setNewProfPassword(e.target.value.replace(/\D/g, '').slice(0, 8))}
-                    className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowProfPassword(!showProfPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                  >
-                    {showProfPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  </button>
+            <div className="space-y-3 pt-2">
+              <div className="bg-slate-50 border border-slate-150 p-3.5 rounded-xl space-y-2.5">
+                <div>
+                  <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Usuário do Gestor</span>
+                  <span className="text-xs font-bold text-slate-800 block mt-1">Gestor de Cursos</span>
                 </div>
-                <p className="text-[9px] text-slate-400 mt-1 italic font-medium">* Se vazio, o padrão de homologação será "5678".</p>
+                <div>
+                  <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Especialidade Principal</span>
+                  <span className="text-xs font-semibold text-slate-700 block mt-1">Design de Interfaces & Novas Mídias</span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">PIN de Acesso</span>
+                  <span className="text-xs font-mono font-bold text-[#540D6E] block mt-1">5678 ou 1234</span>
+                </div>
               </div>
-
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cadeira / Área de Atuação</label>
-                <select
-                  value={newProfSpecialty}
-                  onChange={(e) => setNewProfSpecialty(e.target.value)}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 bg-white"
-                >
-                  <option value="Design de Interfaces">Design de Interfaces & UX/UI</option>
-                  <option value="Desenvolvimento Back-End">Desenvolvimento Back-End & APIs</option>
-                  <option value="Banco de Dados">Engenharia de Dados & SQL</option>
-                  <option value="Sistemas para Internet">Sistemas Distribuídos & Nuvem</option>
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer"
-              >
-                Registrar Novo Professor
-              </button>
-            </form>
+            </div>
           </div>
 
           {/* Master Professors list cards */}
           <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-xl space-y-4 professors-list-container">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-                Professores Habilitados no AVA ({professorsList.length})
+                Gestor Ativo no AVA ({professorsList.length})
               </h3>
               <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Buscar docente por nome..."
+                  placeholder="Buscar gestor por nome..."
                   value={professorSearchQuery}
                   onChange={(e) => setProfessorSearchQuery(e.target.value)}
                   className="w-full sm:w-64 pl-8 pr-3 py-1.5 text-[11px] border border-slate-200 rounded-lg max-w-full text-slate-700 bg-slate-50 focus:bg-white transition-colors focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none"
@@ -885,22 +791,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div key={prof} className="border border-slate-150 p-4 rounded-xl bg-slate-50/40 relative group">
                     <div className="absolute top-4 right-4 flex items-center gap-1.5">
                       <span className="text-[9px] bg-slate-200 font-mono font-bold px-1.5 py-0.5 rounded text-slate-600">
-                        ID: DOC-0{idx + 1}
+                        ID: GESTOR-01
                       </span>
-                      <button
-                        onClick={() => {
-                          deleteProfessor(prof);
-                          showToast(`Professor(a) ${prof} excluído(a) com sucesso!`);
-                        }}
-                        className="text-[10px] text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-md p-1 transition-colors cursor-pointer"
-                        title="Excluir Professor"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
                     </div>
                     <strong className="block font-black text-slate-900 text-xs pr-24">{prof}</strong>
-                    <span className="text-[10px] font-bold text-teal-600 tracking-wide uppercase block mt-1">Especialista Acadêmico</span>
-                    <span className="text-[10px] text-slate-400 block mt-2">Disciplinas Lecionadas: {assignedCourses.length}</span>
+                    <span className="text-[10px] font-bold text-teal-600 tracking-wide uppercase block mt-1">Coordenação Geral de Conteúdos</span>
+                    <span className="text-[10px] text-slate-400 block mt-2">Trilhas sob Gestão: {assignedCourses.length}</span>
                     <div className="mt-2.5 pt-2.5 border-t border-slate-150 flex flex-wrap gap-1">
                       {assignedCourses.length === 0 ? (
                         <span className="text-slate-400 text-[10px] italic">Nenhuma disciplina vinculada</span>
@@ -1403,6 +1299,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   {activePass}
                                 </span>
                               </div>
+                              {(() => {
+                                const enrollRecord = studentEnrollments?.[st.name];
+                                const isPenalized = enrollRecord?.dropOutPenaltyUntil && new Date(enrollRecord.dropOutPenaltyUntil).getTime() > Date.now();
+                                if (isPenalized) {
+                                  return (
+                                    <div className="mt-1.5 flex items-center gap-1.5">
+                                      <span className="inline-block px-1.8 py-0.4 rounded-md bg-rose-50 text-rose-700 text-[8.5px] font-black uppercase tracking-wider border border-rose-100 animate-pulse">
+                                        ⚠️ Inadimplente (Multa)
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                             </td>
                             <td className="p-3">
                               {(() => {
@@ -1465,13 +1375,33 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 </div>
                               )}
                             </td>
-                            <td className="p-3 text-right">
+                            <td className="p-3 text-right flex items-center justify-end gap-1.5">
+                              {(() => {
+                                const enrollRecord = studentEnrollments?.[st.name];
+                                const isPenalized = enrollRecord?.dropOutPenaltyUntil && new Date(enrollRecord.dropOutPenaltyUntil).getTime() > Date.now();
+                                if (isPenalized) {
+                                  return (
+                                    <button
+                                      onClick={() => {
+                                        clearStudentPenalty(st.name);
+                                        showToast(`A restrição de inadimplência de ${st.name} foi removida.`);
+                                        speakText(`A restrição de inadimplência de ${st.name} foi revogada com sucesso.`);
+                                      }}
+                                      className="rounded bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 font-extrabold text-[9px] uppercase px-2.5 py-1.5 transition-all cursor-pointer"
+                                      title="Revogar status de Inadimplente manualmente"
+                                    >
+                                      Perdoar Multa
+                                    </button>
+                                  );
+                                }
+                                return null;
+                              })()}
                               <button
                                 onClick={() => {
                                   deleteStudent(st.name);
                                   showToast(`Estudante e credenciais de ${st.name} foram removidos.`);
                                 }}
-                                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-1.5 rounded transition-all cursor-pointer"
+                                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 p-1.5 rounded transition-all cursor-pointer inline-flex items-center"
                                 title="Remover Estudante"
                               >
                                 <Trash2 className="h-4 w-4" />

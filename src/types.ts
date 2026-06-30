@@ -3,6 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export interface LessonDocument {
+  id: string;
+  title: string;
+  type: 'pdf' | 'doc' | 'url' | 'drive' | 'outro';
+  url: string;
+  size?: string;
+}
+
 export interface Lesson {
   id: string;
   courseId: string;
@@ -11,6 +19,7 @@ export interface Lesson {
   videoUrl?: string;
   content?: string;
   order: number;
+  documents?: LessonDocument[];
 }
 
 export interface LiveSession {
@@ -35,6 +44,14 @@ export interface Course {
   coverImage?: string;
   courseType?: 'fixo' | 'ao_vivo';
   hasChat?: boolean;
+  minAttendance?: number;
+}
+
+export interface StudentEnrollment {
+  enrolledCourseId: string | null;
+  enrolledAt: string | null;
+  completedCourseIds: string[];
+  dropOutPenaltyUntil: string | null;
 }
 
 export interface StudentProgress {
@@ -163,4 +180,16 @@ export interface SecurityLog {
   details: string;
   status: 'SUCCESS' | 'WARNING' | 'FAILED';
 }
+
+export interface ForumMessage {
+  id: string;
+  courseId: string;
+  senderName: string;
+  senderRole: 'student' | 'instructor' | 'admin';
+  text: string;
+  timestamp: string;
+  likes: number;
+  likedBy: string[]; // List of user names who liked
+}
+
 

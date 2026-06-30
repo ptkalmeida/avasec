@@ -6,14 +6,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   BookOpen, Calendar, CheckCircle, Award, Video, Clock, ChevronRight,
-  TrendingUp, FileCheck, ArrowRight, ArrowLeft, User, Settings, Sparkles, BookMarked, Monitor, Linkedin, Download, Globe,
-  Lock, MessageSquare, Send, ChevronDown, Check, Play, FileText, Notebook, Layers, HelpCircle, CheckSquare, ExternalLink, Library, Info,
+  TrendingUp, FileCheck, ArrowRight, ArrowLeft, User, Settings, Sparkles, BookMarked, Monitor, Linkedin, Download, Globe, PlayCircle,
+  Lock, MessageSquare, Send, ChevronDown, Check, Play, FileText, Notebook, Layers, HelpCircle, CheckSquare, ExternalLink, Archive, Library, Info,
   Bell, Shield, Smartphone
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 import { Course, Lesson, LiveSession, Certificate } from '../types';
 import { CertificateTemplate } from './CertificateTemplate';
 import { LiveClassroom } from './LiveClassroom';
+import { CourseForum } from './CourseForum';
 
 interface ModuleGroup {
   name: string;
@@ -113,8 +114,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     setTextSizeMultiplier,
     isSpeechEnabled,
     setIsSpeechEnabled,
-    getYouTubeEmbedUrl
+    getYouTubeEmbedUrl,
+    studentEnrollments,
+    enrollStudentInCourse,
+    dropStudentFromCourse,
+    completeStudentCourse,
+    clearStudentPenalty,
   } = useLMS();
+
+  const enrollmentRecord = studentEnrollments[activeUser.name] || { enrolledCourseId: null, completedCourseIds: [], dropOutPenaltyUntil: null };
 
   const handleBack = () => {
     if (activeLesson) {
@@ -149,6 +157,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   // Custom states
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortType, setSortType] = useState<'alphabetical-asc' | 'alphabetical-desc' | 'recent'>('recent');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [viewingCatalogCourse, setViewingCatalogCourse] = useState<Course | null>(null);
+  const [simulatedDaysForCancel, setSimulatedDaysForCancel] = useState<number>(3);
   const [lockedCourseWarning, setLockedCourseWarning] = useState<string | null>(null);
   const [showUpcomingCalendar, setShowUpcomingCalendar] = useState(false);
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
@@ -214,7 +226,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   };
 
   // Student private notebook states
-  const [activeTab, setActiveTab] = useState<'teoria' | 'anotacao' | 'suporte'>('teoria');
+  const [activeTab, setActiveTab] = useState<'teoria' | 'anotacao' | 'suporte' | 'forum'>('teoria');
   const [savedNotes, setSavedNotes] = useState<{[key: string]: string}>(() => {
     try {
       const saved = localStorage.getItem('ava_student_lesson_notes');
@@ -278,53 +290,59 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-      
       {/* Student Welcome Header */}
-      <div className="mb-8 flex flex-col justify-between gap-6 rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-xs md:flex-row md:items-center">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+      <div className="mb-8 flex flex-col justify-between gap-6 rounded-2xl bg-gradient-to-r from-purple-50/70 via-white to-teal-50/40 border border-purple-100/60 p-6 shadow-sm md:flex-row md:items-center relative overflow-hidden">
+        {/* Ambient subtle light glows */}
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-48 h-48 bg-[#540D6E]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 -mb-10 w-44 h-44 bg-teal-400/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 relative z-10">
           {onBackToLanding && (
             <button
-              onClick={() => {
-                const label = getBackLabel();
-                speakText(`${label}. Voltando um nível no fluxo.`);
-                handleBack();
-              }}
-              className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 hover:text-white hover:bg-slate-750 transition-all cursor-pointer shadow-3xs"
+               onClick={() => {
+                 const label = getBackLabel();
+                 speakText(`${label}. Voltando um nível no fluxo.`);
+                 handleBack();
+               }}
+              className="group flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-950 transition-all cursor-pointer shadow-2xs"
               title={getBackLabel()}
             >
-              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-              <span className="text-[10px] font-bold uppercase tracking-tighter">{getBackLabel()}</span>
+              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform text-[#540D6E]" />
+              <span className="text-[10px] font-black uppercase tracking-wider">{getBackLabel()}</span>
             </button>
           )}
           
           <div className="flex items-center gap-4 text-left">
-            <div className="rounded-full bg-teal-600/15 p-3.5 border border-teal-500/20">
-              <User className="h-8 w-8 text-teal-400" />
+            <div className="rounded-full bg-teal-50 p-3.5 border border-teal-200 shadow-3xs">
+              <User className="h-8 w-8 text-teal-605" />
             </div>
             <div>
-              <span className="text-xs uppercase tracking-widest text-teal-400 font-bold">Painel do Aluno</span>
+              <span className="text-[10px] uppercase font-black tracking-wider text-teal-800 bg-teal-100/50 border border-teal-200/80 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 shadow-3xs">
+                <span className="inline-block w-1.5 h-1.5 bg-teal-500 rounded-full animate-ping"></span>
+                Painel de Estudos AVASEC
+              </span>
               
-              <h2 className="text-xl md:text-2xl font-bold text-slate-100 flex items-center gap-3">
+              <h2 className="text-xl md:text-2xl font-black text-slate-900 flex items-center gap-3 mt-1.5">
                 <span>Olá, {activeUser.name}</span>
               </h2>
-              <p className="text-xs text-slate-400">Pronto para acelerar seus conhecimentos hoje?</p>
+              <p className="text-xs text-slate-550 font-medium">Pronto para acelerar os seus conhecimentos profissionais hoje?</p>
             </div>
           </div>
         </div>
 
         {/* Dynamic global analytics wheels summary */}
-        <div className="grid grid-cols-3 gap-6 md:gap-10">
-          <div className="text-center">
-            <span className="block text-2xl font-black text-slate-100 font-mono">{activeEnrollments}</span>
-            <span className="text-[10px] uppercase text-slate-400 font-semibold tracking-wider">Cursos</span>
+        <div className="grid grid-cols-3 gap-6 md:gap-10 relative z-10">
+          <div className="text-center text-left">
+            <span className="block text-2xl font-black text-slate-900 font-mono tracking-tight">{activeEnrollments}</span>
+            <span className="text-[9px] uppercase text-slate-500 font-black tracking-wider block mt-0.5">Cursos</span>
           </div>
-          <div className="text-center border-l border-slate-800 pl-6">
-            <span className="block text-2xl font-black text-emerald-400 font-mono">{avgGlobalAttendance}%</span>
-            <span className="text-[10px] uppercase text-slate-400 font-semibold tracking-wider">Presença Global</span>
+          <div className="text-center border-l border-slate-200 pl-6 text-left">
+            <span className="block text-2xl font-black text-teal-600 font-mono tracking-tight">{avgGlobalAttendance}%</span>
+            <span className="text-[9px] uppercase text-slate-500 font-black tracking-wider block mt-0.5">Presença</span>
           </div>
-          <div className="text-center border-l border-slate-800 pl-6">
-            <span className="block text-2xl font-black text-amber-500 font-mono">{totalCertificatesCount}</span>
-            <span className="text-[10px] uppercase text-slate-400 font-semibold tracking-wider">Certificados</span>
+          <div className="text-center border-l border-slate-200 pl-6 text-left">
+            <span className="block text-2xl font-black text-amber-600 font-mono tracking-tight">{totalCertificatesCount}</span>
+            <span className="text-[9px] uppercase text-slate-500 font-black tracking-wider block mt-0.5">Diploma</span>
           </div>
         </div>
       </div>
@@ -438,11 +456,44 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   <span>← Sair do Curso</span>
                 </button>
 
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Trilha de Estudos:</span>
-                  <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">
-                    {selectedCourse.category}
-                  </span>
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* Cancel enrollment control */}
+                  <div className="flex flex-wrap items-center gap-2 bg-slate-50 border border-slate-205 rounded-xl px-3 py-1.5 text-xs">
+                    <span className="text-[10px] text-slate-500 font-bold">Simular Dias Matriculado:</span>
+                    <select
+                      value={simulatedDaysForCancel}
+                      onChange={(e) => setSimulatedDaysForCancel(Number(e.target.value))}
+                      className="bg-white border border-slate-300 rounded font-bold font-mono text-[11px] text-slate-700 px-1.5 py-0.5 outline-hidden"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 10, 15, 30].map(d => (
+                        <option key={d} value={d}>{d} dias {d <= 5 ? '(sem inadimplência ✓)' : '(com inadimplência ⚠️)'}</option>
+                      ))}
+                    </select>
+                    
+                    <button
+                      onClick={() => {
+                        const hasPenalty = dropStudentFromCourse(activeUser.name, selectedCourse.id, simulatedDaysForCancel);
+                        if (hasPenalty) {
+                          speakText("Matrícula cancelada. Você desistiu deste curso após o limite de 5 dias letivos. Seu acesso agora está sob regime de Inadimplência temporária.");
+                        } else {
+                          speakText("Matrícula desfeita com sucesso. Saída realizada dentro do prazo de tolerância escolar de 5 dias.");
+                        }
+                        setSelectedCourse(null);
+                        setActiveLesson(null);
+                        setSelectedModulePageName(null);
+                      }}
+                      className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[9.5px] uppercase tracking-wide px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                    >
+                      Solicitar Saída do Curso
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-bold text-slate-400">Trilha de Estudos:</span>
+                    <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">
+                      {selectedCourse.category}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -498,18 +549,35 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       Você atingiu {calculateAttendancePercent(selectedCourse.id)}% de presença! Seu diploma acadêmico digital foi emitido e está pronto no painel lateral.
                     </div>
                   </div>
-                  {certificates.find((cert) => cert.courseId === selectedCourse.id && cert.studentName === activeUser.name) && (
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
                     <button
                       onClick={() => {
-                        const cert = certificates.find((c) => c.courseId === selectedCourse.id && c.studentName === activeUser.name);
-                        if (cert) setSelectedCertificate(cert);
+                        completeStudentCourse(activeUser.name, selectedCourse.id);
+                        speakText("Parabéns pela conclusão da disciplina! Agora você pode escolher um novo curso para iniciar seus estudos.");
+                        setSelectedCourse(null);
+                        setActiveLesson(null);
+                        setSelectedModulePageName(null);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="shrink-0 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-3.5 py-1.8 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
+                      className="shrink-0 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-3.5 py-1.8 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
                     >
-                      <Award className="h-3.5 w-3.5" />
-                      <span>Emitir Certificado</span>
+                      <Check className="h-3.5 w-3.5" />
+                      <span>Concluir Disciplina e Escolher Novo Curso</span>
                     </button>
-                  )}
+
+                    {certificates.find((cert) => cert.courseId === selectedCourse.id && cert.studentName === activeUser.name) && (
+                      <button
+                        onClick={() => {
+                          const cert = certificates.find((c) => c.courseId === selectedCourse.id && c.studentName === activeUser.name);
+                          if (cert) setSelectedCertificate(cert);
+                        }}
+                        className="shrink-0 rounded-lg bg-emerald-650 hover:bg-emerald-605 text-white font-semibold text-xs px-3.5 py-1.8 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
+                      >
+                        <Award className="h-3.5 w-3.5" />
+                        <span>Emitir Certificado</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1087,6 +1155,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             <HelpCircle className="h-4 w-4" />
                             <span>Suporte Técnico</span>
                           </button>
+
+                          <button
+                            onClick={() => setActiveTab('forum')}
+                            className={`flex-1 py-3 px-4 text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                              activeTab === 'forum' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
+                            }`}
+                          >
+                            <MessageSquare className="h-4 w-4 text-teal-650" />
+                            <span className="flex items-center gap-1">
+                              Fórum Interativo
+                              <span className="bg-teal-100 text-teal-800 text-[8px] font-black uppercase px-2 py-0.5 rounded-full animate-pulse shrink-0">Comunidade</span>
+                            </span>
+                          </button>
                         </div>
 
                         {/* Tab panel display content */}
@@ -1097,9 +1178,66 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 <Sparkles className="h-4 w-4 text-teal-500 animate-pulse" />
                                 <span>Roteiro Consolidado de Aprendizado</span>
                               </h4>
-                              <div className="whitespace-pre-line text-[13px] text-slate-700 font-sans leading-relaxed">
+                              <div className="whitespace-pre-line text-[13px] text-slate-700 font-sans leading-relaxed mb-6">
                                 {activeLesson.content}
                               </div>
+
+                              {/* Student-Facing attached documents list */}
+                              {activeLesson.documents && activeLesson.documents.length > 0 && (
+                                <div className="mt-8 border-t border-slate-150 pt-6 space-y-3.5">
+                                  <h4 className="font-extrabold text-slate-950 text-xs uppercase tracking-wider flex items-center gap-2">
+                                    <Archive className="h-4 w-4 text-teal-600" />
+                                    Material de Apoio e Documentos Anexos ({activeLesson.documents.length})
+                                  </h4>
+                                  <p className="text-[10px] text-slate-400 -mt-1 leading-none">Arquivos e links disponibilizados pelo seu instrutor para aprofundamento.</p>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1.5">
+                                    {activeLesson.documents.map((doc) => {
+                                      let docBg = 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-350';
+                                      let labelColor = 'bg-slate-100 text-slate-700';
+                                      
+                                      if (doc.type === 'pdf') {
+                                        docBg = 'bg-rose-50/50 border-rose-100 hover:bg-rose-50 hover:border-rose-250';
+                                        labelColor = 'bg-rose-100 text-rose-800';
+                                      } else if (doc.type === 'drive') {
+                                        docBg = 'bg-emerald-50/50 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-250';
+                                        labelColor = 'bg-emerald-100 text-emerald-800';
+                                      } else if (doc.type === 'url') {
+                                        docBg = 'bg-amber-50/50 border-amber-100 hover:bg-amber-50 hover:border-amber-250';
+                                        labelColor = 'bg-amber-100 text-amber-800';
+                                      }
+
+                                      return (
+                                        <a
+                                          key={doc.id}
+                                          href={doc.url}
+                                          target="_blank"
+                                          referrerPolicy="no-referrer"
+                                          rel="noopener noreferrer"
+                                          className={`p-3.5 rounded-xl border transition-all text-left flex items-start justify-between gap-3 group/doc shadow-3xs ${docBg}`}
+                                        >
+                                          <div className="flex items-start gap-3 min-w-0">
+                                            <div className="p-2 rounded-lg bg-white shrink-0 border border-slate-100 shadow-3xs">
+                                              <FileText className="h-4.5 w-4.5 text-teal-600" />
+                                            </div>
+                                            <div className="min-w-0">
+                                              <p className="font-extrabold text-slate-900 text-xs truncate group-hover/doc:text-teal-700">{doc.title}</p>
+                                              <div className="flex items-center gap-1.5 mt-1">
+                                                <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider ${labelColor}`}>
+                                                  {doc.type}
+                                                </span>
+                                                {doc.size && (
+                                                  <span className="text-[10px] text-slate-400 font-mono">{doc.size}</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <ExternalLink className="h-3.5 w-3.5 text-slate-400 group-hover/doc:text-teal-600 transition-colors shrink-0 self-center" />
+                                        </a>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -1138,7 +1276,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 <span>Suporte Técnico & Pedagógico</span>
                               </h4>
                               <p className="text-[11px] text-slate-500 leading-relaxed">
-                                Tem dúvidas sobre as regras de arquitetura abordadas ou sobre um bug estrito na aula? Envie seu questionamento diretamente ao instrutor pelo painel de comunicação na coluna da direita! O professorAlessandro responderá em sua conta no portal de canais em instantes!
+                                Tem dúvidas sobre as regras de arquitetura abordadas ou sobre um bug estrito na aula? Envie seu questionamento diretamente ao instrutor pelo painel de comunicação na coluna da direita! O Gestor de Cursos responderá em sua conta no portal de canais em instantes!
                               </p>
 
                               <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-start gap-3 mt-2">
@@ -1163,6 +1301,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                   </strong>
                                   <span className="text-[10px] text-slate-450 block">Tempo de resposta esperado: &lt; 2 horas</span>
                                 </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {activeTab === 'forum' && (
+                            <div className="space-y-4">
+                              <h4 className="font-bold text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
+                                <MessageSquare className="h-4 w-4 text-teal-500 animate-pulse" />
+                                <span>Fórum de Dúvidas & Interação da Comunidade</span>
+                              </h4>
+                              <p className="text-[11px] text-slate-500 leading-relaxed">
+                                Faça perguntas sobre o conteúdo atual da aula ou debata soluções com seus colegas sem sair do ambiente de aprendizado.
+                              </p>
+                              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                                <CourseForum selectedCourse={selectedCourse} />
                               </div>
                             </div>
                           )}
@@ -1208,6 +1361,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           Trocar de Curso
                         </button>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Fórum de Discussão do Curso */}
+                  {!activeLesson && !activeQuizTaking && (
+                    <div className="mt-6 animate-in fade-in duration-300">
+                      <CourseForum selectedCourse={selectedCourse} />
                     </div>
                   )}
                 </div>
@@ -1455,183 +1615,590 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-bold text-slate-900">Seus Cursos Matriculados</h3>
-                  <button 
-                    onClick={() => setShowUpcomingCalendar(true)}
-                    className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-teal-600 hover:border-teal-200 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-                    title="Ver Calendário de Próximas Aulas Live"
-                  >
-                    <Calendar className="h-4 w-4" />
-                    <span className="text-[10px] font-black uppercase tracking-wider">Aulas ao Vivo</span>
-                  </button>
-                </div>
-                
-                {/* Search string layout */}
-                <input
-                  type="text"
-                  placeholder="Filtrar por nome ou categoria..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-teal-500 max-w-xs focus:border-teal-500"
-                />
-              </div>
-
-              {/* Locked course warning presentation */}
-              {lockedCourseWarning && (
-                <div className="rounded-xl bg-rose-50 border border-rose-200 p-4 text-xs text-rose-800 flex items-start gap-2.5 animate-in slide-in-from-top-2 duration-200">
-                  <Lock className="h-4.5 w-4.5 shrink-0 text-rose-600 mt-0.5" />
-                  <div className="flex-1">
-                    <strong className="block font-bold mb-0.5">Acesso Bloqueado pelo Administrador</strong>
-                    {lockedCourseWarning}
+              {viewingCatalogCourse ? (
+                /* Specs detailed previews sheet with rich pedagogical curriculum to prevent churn */
+                <div id="course-catalog-detailed-syllabus-preview" className="rounded-2xl border border-slate-200 bg-white p-6 md:p-8 shadow-md text-left animate-in fade-in duration-300 space-y-6">
+                  {/* Top Header Navigation */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-5">
+                    <button
+                      id="btn-back-to-catalog"
+                      onClick={() => setViewingCatalogCourse(null)}
+                      className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                    >
+                      ← Voltar à Vitrine / Catálogo de Cursos
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 uppercase tracking-wider text-[10px]">
+                        {viewingCatalogCourse.category}
+                      </span>
+                      <span className="rounded-full bg-amber-50 text-amber-700 border border-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                        <Lock className="h-3 w-3" /> Inscrição Pendente
+                      </span>
+                    </div>
                   </div>
-                  <button 
-                    onClick={() => setLockedCourseWarning(null)} 
-                    className="text-[10px] font-bold text-rose-600 hover:underline px-2"
-                  >
-                    Fechar
-                  </button>
-                </div>
-              )}
 
-              {filteredCourses.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
-                  Nenhum curso coincide com a sua busca.
+                  {/* Main Header Presentation */}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-amber-600 font-bold">
+                      <span className="bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md">★ 4.9 de Avaliação Acadêmica Geral</span>
+                      <span className="text-slate-300">•</span>
+                      <span>Mais de 320 alunos formados e certificados neste curso</span>
+                    </div>
+                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight tracking-tight">
+                      {viewingCatalogCourse.title}
+                    </h2>
+                    <p className="text-xs md:text-sm text-slate-600 leading-relaxed max-w-4xl">
+                      {viewingCatalogCourse.description}
+                    </p>
+                  </div>
+
+                  {/* Churn Prevention Metric Pillars */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+                    <div className="bg-emerald-50/40 border border-emerald-100 rounded-xl p-4 space-y-2">
+                      <span className="p-2 bg-emerald-100 text-emerald-700 rounded-lg inline-block">
+                        <Award className="h-4 w-4" />
+                      </span>
+                      <strong className="block text-xs font-black text-slate-800">Certificado Oficial Garantido</strong>
+                      <p className="text-[10.5px] text-slate-500 leading-normal">
+                        Ao participar ativamente e assegurar <span className="font-extrabold text-slate-700">{viewingCatalogCourse.minAttendance || 70}%</span> de presença mínima, você garante seu certificado digital chancelado.
+                      </p>
+                    </div>
+
+                    <div className="bg-teal-50/40 border border-teal-100 rounded-xl p-4 space-y-2">
+                      <span className="p-2 bg-teal-100 text-teal-700 rounded-lg inline-block">
+                        <Layers className="h-4 w-4" />
+                      </span>
+                      <strong className="block text-xs font-black text-slate-800">Módulos de Fixação Rápida</strong>
+                      <p className="text-[10.5px] text-slate-500 leading-normal">
+                        Tire dúvidas usando mini-quizzes integrados e leituras de base científica projetadas para aprendizagem acelerada.
+                      </p>
+                    </div>
+
+                    <div className="bg-sky-50/50 border border-sky-100 rounded-xl p-4 space-y-2">
+                      <span className="p-2 bg-sky-100 text-sky-700 rounded-lg inline-block">
+                        <Calendar className="h-4 w-4" />
+                      </span>
+                      <strong className="block text-xs font-black text-slate-800">Aulas ao Vivo & Reuniões</strong>
+                      <p className="text-[10.5px] text-slate-500 leading-normal">
+                        Participe de discussões interativas semanais e veja plantões síncronos com seu professor e colegas de turma do AVA.
+                      </p>
+                    </div>
+
+                    <div className="bg-rose-50/40 border border-rose-100 rounded-xl p-4 space-y-2">
+                      <span className="p-2 bg-rose-100 text-rose-700 rounded-lg inline-block">
+                        <Shield className="h-4 w-4" />
+                      </span>
+                      <strong className="block text-xs font-black text-slate-800">Tolerância Acadêmica de 5 Dias</strong>
+                      <p className="text-[10.5px] text-slate-500 leading-normal">
+                        Política de Saída Limpa: Desista ou mude de curso em até 5 dias sem qualquer penalidade ou registro de inadimplência escolar.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Syllabus on Left, Course Details / CTA on Right */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
+                    
+                    {/* Course syllabus / Curriculum grade details */}
+                    <div className="lg:col-span-2 space-y-4">
+                      
+                      <div className="border border-slate-200 rounded-xl bg-slate-50/40 p-5 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                          <div>
+                            <h4 className="text-xs uppercase font-black text-slate-500 tracking-wider">Estrutura Curricular Detalhada & Cronograma</h4>
+                            <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Explore exatamente o que será apresentado em cada etapa letiva</span>
+                          </div>
+                          <span className="text-[10px] uppercase font-mono font-black bg-white px-2.5 py-1 border border-slate-200 rounded-lg text-slate-700 whitespace-nowrap">
+                            {viewingCatalogCourse.lessons ? viewingCatalogCourse.lessons.length : 0} Lições Cadastradas
+                          </span>
+                        </div>
+
+                        {/* Lessons syllabus list */}
+                        <div className="space-y-3.5">
+                          {viewingCatalogCourse.lessons && viewingCatalogCourse.lessons.length > 0 ? (
+                            viewingCatalogCourse.lessons.map((lesson, idx) => {
+                              // Churn prevention details: We formulate highly custom contextual highlights
+                              const descriptionsPerIndex = [
+                                "Introdução Básica: Alinhamento das diretrizes curriculares do AVA, glossário fundamental e primeiras leituras acadêmicas.",
+                                "Aprofundamento Prático: Atividades com exemplos de mercado passo a passo no sandbox de simulação e consolidação conceitual.",
+                                "Avaliação Teórica de Meio-Termo: Métricas, boas práticas de resolução rápida e exercícios adaptativos de fixação imediata.",
+                                "Trabalho Final Integrado: Casos corporativos práticos reais e orientação direta para postagem e validação do portfólio."
+                              ];
+                              const customizedDesc = descriptionsPerIndex[idx % descriptionsPerIndex.length];
+
+                              return (
+                                <div key={lesson.id} className="bg-white p-4 rounded-xl border border-slate-150 transition-all hover:border-teal-200/75 flex flex-col gap-2.5">
+                                  <div className="flex items-center justify-between gap-4">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <span className="flex items-center justify-center h-6 w-6 rounded-lg bg-teal-50 border border-teal-200 text-[11px] font-black text-teal-850 shrink-0">
+                                        {idx + 1}
+                                      </span>
+                                      <strong className="text-xs font-black text-slate-800 leading-snug truncate">{lesson.title}</strong>
+                                    </div>
+                                    <span className="text-slate-500 text-[9px] font-mono font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-150 shrink-0 uppercase">
+                                      ⏰ Duração: {lesson.duration || `${lesson.durationMinutes || 45} min`}
+                                    </span>
+                                  </div>
+                                  
+                                  {/* Explanatory text */}
+                                  <div className="text-[11px] text-slate-500 leading-relaxed font-medium bg-slate-50/50 p-3 rounded-lg border border-slate-100">
+                                    <span className="font-extrabold text-[#540D6E] block text-[9.5px] uppercase tracking-wider mb-1">Destaques do Módulo:</span>
+                                    {customizedDesc} {lesson.content ? "Este bloco traz também material teórico detalhado composto por textos formatados em Markdown e testes simulados de prática." : ""}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-xs text-slate-400 italic text-center py-6">Nenhuma aula cadastrada ainda nesta disciplina.</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Interactive Student Agreement to Prevent Procrastination and Drifting */}
+                      <div className="bg-[#540D6E]/5 rounded-xl border border-[#540D6E]/10 p-5 space-y-3 text-left">
+                        <h4 className="text-xs font-black uppercase text-[#540D6E] tracking-wider flex items-center gap-1.5">
+                          <CheckSquare className="h-4 w-4" />
+                          <span>Pacto de Compromisso & Foco Estudantil (Garantia de Sucesso)</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-600 leading-relaxed">
+                          Sabe-se que <span className="font-bold">85% dos alunos</span> que assinam um compromisso visual de aprendizagem completam os cursos até a obtenção do certificado. Declare o seu foco antes de matricular-se:
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-[10px] text-slate-600 font-bold">
+                          <label className="flex items-center gap-2 bg-white/70 border border-slate-150 rounded-lg p-2.5 select-none cursor-pointer hover:bg-white transition-colors">
+                            <input defaultChecked type="checkbox" className="accent-[#540D6E] h-3.5 w-3.5 cursor-pointer" />
+                            <span>Vou focar em {viewingCatalogCourse.minAttendance || 70}% de presença</span>
+                          </label>
+                          <label className="flex items-center gap-2 bg-white/70 border border-slate-150 rounded-lg p-2.5 select-none cursor-pointer hover:bg-white transition-colors">
+                            <input defaultChecked type="checkbox" className="accent-[#540D6E] h-3.5 w-3.5 cursor-pointer" />
+                            <span>Entregar exercícios práticos sem pressa</span>
+                          </label>
+                          <label className="flex items-center gap-2 bg-white/70 border border-slate-150 rounded-lg p-2.5 select-none cursor-pointer hover:bg-white transition-colors">
+                            <input defaultChecked type="checkbox" className="accent-[#540D6E] h-3.5 w-3.5 cursor-pointer" />
+                            <span>Consultar o Prof. em caso de bloqueio</span>
+                          </label>
+                          <label className="flex items-center gap-2 bg-white/70 border border-slate-150 rounded-lg p-2.5 select-none cursor-pointer hover:bg-white transition-colors">
+                            <input defaultChecked type="checkbox" className="accent-[#540D6E] h-3.5 w-3.5 cursor-pointer" />
+                            <span>Respeitar a tolerância letiva de 5 dias</span>
+                          </label>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* Enrollment CTA Panel Sidebar */}
+                    <div className="space-y-4">
+                      
+                      {/* Teacher Profile & Direct Availability Details */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+                        <span className="text-[9.5px] uppercase font-black text-slate-400 font-mono tracking-wider block">Professor Designado</span>
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-10 w-10 rounded-full bg-[#540D6E] text-white flex items-center justify-center text-xs font-black shrink-0 shadow-xs">
+                            {viewingCatalogCourse.instructorName ? viewingCatalogCourse.instructorName.charAt(0) : 'P'}
+                          </div>
+                          <div className="min-w-0">
+                            <strong className="text-xs font-black text-slate-800 block truncate">Prof. {viewingCatalogCourse.instructorName || 'Acadêmico'}</strong>
+                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 text-[8.5px] font-black text-emerald-700 uppercase tracking-widest mt-0.5">
+                              <span className="h-1 w-1 bg-emerald-500 rounded-full animate-pulse" />
+                              <span>ON-LINE NO CHAT</span>
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quality Specifications */}
+                        <div className="space-y-2 font-medium text-xs text-slate-650 pt-2 border-t border-slate-100">
+                          <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-150">
+                            <span>Quantidade de Aulas:</span>
+                            <strong className="text-slate-800 font-mono text-[11px] font-black">
+                              {viewingCatalogCourse.lessons ? viewingCatalogCourse.lessons.length : 0} Aulas
+                            </strong>
+                          </div>
+                          <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-150">
+                            <span>Mínimo de Frequência:</span>
+                            <strong className="text-emerald-700 font-mono text-[11px] font-black">
+                              {viewingCatalogCourse.minAttendance || 70}%
+                            </strong>
+                          </div>
+                          <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-150">
+                            <span>Modalidade Acadêmica:</span>
+                            <strong className="text-slate-700 font-sans text-[11px] font-black">
+                              EAD Autoinstrucional
+                            </strong>
+                          </div>
+                          <div className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-slate-150">
+                            <span>Idioma das Aulas:</span>
+                            <strong className="text-slate-700 font-sans text-[11px] font-black">
+                              Português (Brasil)
+                            </strong>
+                          </div>
+                        </div>
+
+                        {/* CTA button to confirm enrollment */}
+                        <div className="pt-3 border-t border-slate-200">
+                          <button
+                            id="btn-confirm-enroll"
+                            onClick={() => {
+                              enrollStudentInCourse(activeUser.name, viewingCatalogCourse.id);
+                              speakText(`Matrícula concluída com sucesso no curso de ${viewingCatalogCourse.title}. Bons estudos!`);
+                              const freshCourse = courses.find(c => c.id === viewingCatalogCourse.id);
+                              setSelectedCourse(freshCourse || viewingCatalogCourse);
+                              setViewingCatalogCourse(null);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="w-full bg-teal-600 hover:bg-teal-500 text-white font-black text-xs uppercase tracking-wide py-3.5 rounded-xl text-center transition-all cursor-pointer shadow-md hover:scale-[1.01] flex items-center justify-center gap-1.5"
+                          >
+                            <BookOpen className="h-4.5 w-4.5" />
+                            <span>Confirmar Inscrição Gratuita</span>
+                          </button>
+                          <p className="text-[9.5px] text-slate-400 font-black text-center mt-2.5 uppercase tracking-wide">
+                            ✓ Começar Estudos Imediatamente
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Informative Frequently Asked Questions (FAQ) explicitly targeting drop-out prevention */}
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2.5 text-xs text-slate-600">
+                        <strong className="block text-slate-800 font-black text-[10px] uppercase tracking-wider flex items-center gap-1">
+                          <Info className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span>Perguntas e Respostas Úteis</span>
+                        </strong>
+                        <div className="space-y-3">
+                          <div className="space-y-0.5">
+                            <h5 className="font-extrabold text-slate-900 text-[10.5px]">Se eu perder o prazo letivo o que acontece?</h5>
+                            <p className="text-[10px] text-slate-500 leading-normal">
+                              Caso queira sair do curso, solicite a saída em até <strong className="font-bold text-slate-600">5 dias letivos</strong> para liberar sua ficha comercial. Após 5 dias letivos, você entra em regime temporário de inadimplência escolar (penalidade acadêmica ajustável pela coordenação).
+                            </p>
+                          </div>
+                          <div className="space-y-0.5">
+                            <h5 className="font-extrabold text-slate-900 text-[10.5px]">Como funciona a emissão de diploma?</h5>
+                            <p className="text-[10px] text-slate-500 leading-normal">
+                              O diploma fica disponível para download imediatamente em formato PDF autenticado após a conclusão do progresso mínimo (quizzes e presença síncrona/leitura). No AVA, não há custo extra!
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                  {filteredCourses.map((course) => {
-                    const masterIndex = courses.findIndex((c) => c.id === course.id);
-                    const isLocked = masterIndex > 0 && calculateAttendancePercent(courses[masterIndex - 1].id) < 70;
-                    const previousCourse = masterIndex > 0 ? courses[masterIndex - 1] : null;
-                    const attendance = calculateAttendancePercent(course.id);
-                    const isCompleted = attendance >= 70;
-
-                    return (
-                      <div
-                        key={course.id}
-                        onClick={() => {
-                          if (isLocked) {
-                            setLockedCourseWarning(
-                              `Você precisa concluir o curso anterior "${previousCourse?.title}" atingindo pelo menos 70% de frequência antes de se matricular e iniciar "${course.title}".`
-                            );
-                            // Scroll mock
-                            window.scrollTo({ top: 120, behavior: 'smooth' });
-                            return;
-                          }
-                          setLockedCourseWarning(null);
-                          setSelectedCourse(course);
-                          setSelectedModulePageName(null);
-                        }}
-                        className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border bg-white p-5 cursor-pointer transition-all duration-200 ${
-                          isLocked 
-                            ? 'border-slate-200 bg-slate-50/50 opacity-65 hover:border-slate-300' 
-                            : 'border-slate-100 hover:border-teal-200 hover:shadow-md'
-                        }`}
-                      >
-                        <div>
-                          {/* Accent status tag decoration */}
-                          <div className="flex items-center justify-between mb-3.5">
-                            <span className={`rounded-full px-2.2 py-0.8 text-[11px] font-semibold transition-colors ${
-                              isLocked 
-                                ? 'bg-slate-200 text-slate-500' 
-                                : 'bg-slate-100 text-slate-600 group-hover:bg-teal-50 group-hover:text-teal-600'
-                            }`}>
-                              {course.category}
-                            </span>
+                <div className="space-y-6 text-left">
+                  {/* Scenario 1: Active Enrolled Course Card */}
+                  {enrollmentRecord.enrolledCourseId ? (
+                    (() => {
+                      const activeCourse = courses.find(c => c.id === enrollmentRecord.enrolledCourseId);
+                      if (!activeCourse) return null;
+                      const attendance = calculateAttendancePercent(activeCourse.id);
+                      const minAttendance = activeCourse.minAttendance !== undefined ? activeCourse.minAttendance : 70;
+                      return (
+                        <div className="rounded-2xl border border-teal-200 bg-teal-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
+                          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
+                            <div className="space-y-2 max-w-xl">
+                              <span className="bg-teal-100 text-teal-850 border border-teal-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono">Curso Ativo em Andamento</span>
+                              <h3 className="text-base md:text-lg font-black text-slate-900 leading-tight">{activeCourse.title}</h3>
+                              <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{activeCourse.description}</p>
+                              
+                              <div className="flex flex-wrap items-center gap-4 mt-2">
+                                <div className="text-[10px] text-slate-600 font-medium">
+                                  Prof. <strong className="text-slate-800 font-bold">{activeCourse.instructorName}</strong>
+                                </div>
+                                <div className="text-[10px] text-slate-600 flex items-center gap-1.5">
+                                  <span>Frequência Atual:</span>
+                                  <strong className={`font-mono text-xs ${attendance >= minAttendance ? 'text-emerald-600 font-black' : 'text-amber-600'}`}>{attendance}%</strong>
+                                  <span className="text-slate-400">/ Mínimo {minAttendance}%</span>
+                                </div>
+                              </div>
+                            </div>
                             
-                            {isLocked ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                                <Lock className="h-3 w-3 text-slate-400" />
-                                <span>Bloqueado</span>
-                              </span>
-                            ) : isCompleted ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700 animate-pulse">
-                                <Award className="h-3.5 w-3.5" />
-                                <span>Aprovado</span>
-                              </span>
-                            ) : (
-                              <span className="text-[10px] text-slate-400 font-semibold">Carga Pendente</span>
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                              <button
+                                onClick={() => {
+                                  setSelectedCourse(activeCourse);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="bg-[#540D6E] hover:bg-[#430858] text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition-all shadow-md hover:scale-[1.01] text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                              >
+                                <PlayCircle className="h-4 w-4 animate-pulse" />
+                                <span>Entrar na Sala de Aula</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()
+                  ) : null}
+
+                  {/* Scenario 2: Active Dropout Penalty Warning Card */}
+                  {enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now() ? (
+                    <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-6 shadow-xs animate-in fade-in duration-300">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-5">
+                        <div className="space-y-1.5 max-w-2xl">
+                          <div className="flex items-center gap-2 text-rose-800 font-bold text-sm">
+                            <Lock className="h-5 w-5 text-rose-600 animate-pulse" />
+                            <span>⚠️ Bloqueio temporário de Matrícula - Inadimplência</span>
+                          </div>
+                          <p className="text-xs text-rose-900/85 leading-relaxed">
+                            Como você cancelou sua inscrição em uma matéria fora do prazo limite regulamentar de <strong className="text-rose-600 font-bold">5 dias letivos</strong>, você foi classificado como <strong>Inadimplente</strong>. Novas matrículas estão suspensas pelo prazo regulamentar de 1 mês.
+                          </p>
+                          <div className="text-[11px] text-rose-700 font-semibold pt-1">
+                            Sua penalidade termina em: <span className="underline font-bold font-mono bg-rose-100 px-1.5 py-0.5 rounded">{new Date(enrollmentRecord.dropOutPenaltyUntil).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                        </div>
+                        
+                        <button
+                          onClick={() => {
+                            clearStudentPenalty(activeUser.name);
+                            speakText("Restrição escolar removida com sucesso. Sinta-se livre para escolher novos cursos!");
+                          }}
+                          className="shrink-0 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[9px] uppercase tracking-wider px-3.5 py-2 rounded-xl transition-all border border-slate-700 cursor-pointer"
+                          title="Remover inadimplência para continuar testando à vontade!"
+                        >
+                          Remover Penalidade (Simulador)
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Scenario 3: Course Selection Catalog (Available when no active enrollment and not penalized) */}
+                  {!enrollmentRecord.enrolledCourseId && !(enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now()) && (
+                    <div className="space-y-5">
+                      <div className="bg-teal-50/55 p-4 rounded-2xl border border-teal-150/40 flex items-center gap-3">
+                        <Sparkles className="h-4.5 w-4.5 text-teal-600 shrink-0" />
+                        <div className="text-left text-xs text-slate-700 leading-relaxed">
+                          <span className="font-extrabold text-teal-950 mr-1.5">Início da Jornada:</span>
+                          Selecione um curso na lista abaixo para se matricular e iniciar os seus estudos de forma imediata!
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-teal-500 animate-pulse"></div>
+                          <h3 className="text-sm font-black text-slate-850 uppercase tracking-widest">Disciplinas Acadêmicas Disponíveis</h3>
+                        </div>
+                      </div>
+
+                      {/* Interactive Catalog Filter and Sort Strip */}
+                      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-4 text-left">
+                        {/* Row 1: Search and Sort Control bar */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0 max-w-md relative">
+                            <input
+                              type="text"
+                              placeholder="Buscar por nome ou categoria do curso..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-14 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs"
+                            />
+                            <div className="absolute left-3 top-2.5 text-slate-400">
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                              </svg>
+                            </div>
+                            {searchQuery && (
+                              <button 
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 font-extrabold text-[10px] uppercase bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded cursor-pointer"
+                              >
+                                Limpar
+                              </button>
                             )}
                           </div>
-
-                          <div className="flex gap-2">
-                            {isLocked && <Lock className="h-5 w-5 text-slate-400 shrink-0 mt-0.5" />}
-                            <div>
-                              <h4 className={`font-bold transition-colors line-clamp-1 ${
-                                isLocked ? 'text-slate-500' : 'text-slate-900 group-hover:text-teal-600'
-                              }`}>
-                                {course.title}
-                              </h4>
-                              <p className="mt-1 text-xs text-slate-500 line-clamp-2">
-                                {course.description}
-                              </p>
-                              
-                              <div className="mt-3 flex items-center justify-between text-[11px] bg-slate-50 p-2 rounded-xl border border-slate-150">
-                                <span className="text-slate-500 font-medium font-sans">Prof. {course.instructorName}</span>
-                                <span className="inline-flex items-center gap-1.5 bg-white border border-slate-200 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">
-                                  <span className={`h-1.5 w-1.5 rounded-full ${
-                                    (localStorage.getItem(`ava_presence_status_${course.instructorName}`) || 'online') === 'online'
-                                      ? 'bg-emerald-500 animate-pulse'
-                                      : 'bg-slate-400'
-                                  }`} />
-                                  <span className={(localStorage.getItem(`ava_presence_status_${course.instructorName}`) || 'online') === 'online' ? 'text-emerald-600' : 'text-slate-450'}>
-                                    {(localStorage.getItem(`ava_presence_status_${course.instructorName}`) || 'online') === 'online' ? 'Online' : 'Offline'}
-                                  </span>
-                                </span>
+                          
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block md:inline">Ordenar por:</span>
+                            <div className="relative">
+                              <select
+                                value={sortType}
+                                onChange={(e) => setSortType(e.target.value as any)}
+                                className="appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2 pr-9 text-xs font-bold text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs cursor-pointer"
+                              >
+                                <option value="recent">📅 Mais recentes</option>
+                                <option value="alphabetical-asc">🔤 Ordem alfabética (A-Z)</option>
+                                <option value="alphabetical-desc">🔤 Ordem alfabética (Z-A)</option>
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                                <ChevronDown className="h-3.5 w-3.5" />
                               </div>
                             </div>
                           </div>
                         </div>
 
-                        {/* Lock reason callout if locked */}
-                        {isLocked && previousCourse && (
-                          <div className="mt-3 bg-slate-200/45 p-2 rounded-lg border border-slate-200/50 text-[10px] text-slate-500 text-left font-semibold">
-                            Requisito: Concluir "{previousCourse.title}" (Presença atual: {calculateAttendancePercent(previousCourse.id)}% / 70%)
+                        {/* Row 2: Category pill buttons with interactive state */}
+                        <div className="flex flex-col gap-1.5 pt-3 border-t border-slate-200/55">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Filtrar por Categoria / Área:</span>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCategory('all');
+                                speakText("Exibindo todas as áreas acadêmicas.");
+                              }}
+                              className={`px-3 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-all ${
+                                selectedCategory === 'all'
+                                  ? 'bg-[#540D6E] text-white shadow-xs scale-102 font-black'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                              }`}
+                            >
+                              📂 Ver Tudo ({courses.length})
+                            </button>
+                            {Array.from(new Set(courses.map(c => c.category))).map(category => {
+                              const count = courses.filter(c => c.category === category).length;
+                              return (
+                                <button
+                                  type="button"
+                                  key={category}
+                                  onClick={() => {
+                                    setSelectedCategory(category);
+                                    speakText(`Filtrando disciplinas para a área de ${category}`);
+                                  }}
+                                  className={`px-3 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-all ${
+                                    selectedCategory === category
+                                      ? 'bg-teal-600 text-white shadow-xs scale-102 font-black'
+                                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-teal-50'
+                                  }`}
+                                >
+                                  🔖 {category} ({count})
+                                </button>
+                              );
+                            })}
                           </div>
-                        )}
-
-                        {/* Progress monitoring element footer */}
-                        <div className="mt-4 border-t border-slate-100 pt-4 space-y-3">
-                           <div className="flex items-center justify-between">
-                              <div className="flex flex-col">
-                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">Progresso do Certificado</span>
-                                <strong className="text-sm font-black text-slate-800 tracking-tight font-mono mt-1">
-                                  {attendance}% <span className="text-[10px] text-slate-400">/ 70% para liberar</span>
-                                </strong>
-                              </div>
-                              
-                              <div className={`text-xs font-semibold flex items-center gap-0.5 transition-transform ${
-                                isLocked ? 'text-slate-400' : 'text-teal-600 group-hover:translate-x-1'
-                              }`}>
-                                <span>{isLocked ? 'Indisponível' : 'Acessar'}</span>
-                                <ArrowRight className="h-3 w-3" />
-                              </div>
-                           </div>
-
-                           <div className="space-y-1.5">
-                              <div className="w-full bg-slate-100 rounded-full h-2 relative overflow-hidden shadow-inner">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-1000 ease-out shadow-sm ${isLocked ? 'bg-slate-300' : isCompleted ? 'bg-emerald-500' : 'bg-[#540D6E]'}`}
-                                  style={{ width: `${Math.min(100, attendance)}%` }}
-                                />
-                              </div>
-                              {attendance < 70 && !isLocked && (
-                                <p className="text-[9px] text-slate-400 font-medium italic text-right">
-                                  Faltam aprox. {Math.ceil((70 - attendance) / (100 / (course.lessons.length + course.liveSessions.length || 1)))} atividades para a meta
-                                </p>
-                              )}
-                              {isCompleted && (
-                                <p className="text-[9px] text-emerald-600 font-black uppercase flex items-center justify-end gap-1">
-                                  <CheckCircle className="h-3 w-3" /> Certificado Pronto
-                                </p>
-                              )}
-                           </div>
                         </div>
                       </div>
-                    );
-                  })}
+
+                      {/* Displaying match counts dynamically */}
+                      {(() => {
+                        const filtered = courses
+                          .filter(c => {
+                            const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                                  c.category.toLowerCase().includes(searchQuery.toLowerCase());
+                            const matchesCategory = selectedCategory === 'all' || c.category === selectedCategory;
+                            return matchesSearch && matchesCategory;
+                          })
+                          .sort((a, b) => {
+                            if (sortType === 'alphabetical-asc') return a.title.localeCompare(b.title, 'pt-BR');
+                            if (sortType === 'alphabetical-desc') return b.title.localeCompare(a.title, 'pt-BR');
+                            if (sortType === 'recent') return b.id.localeCompare(a.id);
+                            return 0;
+                          });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3">
+                              <Info className="h-8 w-8 text-slate-400 mx-auto" />
+                              <p className="text-sm font-extrabold text-slate-800">Ops! Sem resultados correspondentes</p>
+                              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                                Não encontramos nenhuma disciplina letiva que combine com sua busca "{searchQuery}" ou filtros selecionados.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSearchQuery('');
+                                  setSelectedCategory('all');
+                                  setSortType('recent');
+                                  speakText("Todos os filtros foram redefinidos para os valores padrão.");
+                                }}
+                                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+                              >
+                                Limpar Todos os Filtros
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="space-y-4">
+                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest text-left flex items-center justify-between">
+                              <span>Grade Curricular Disponível para Matrícula:</span>
+                              <span className="text-teal-600 font-mono font-black shrink-0">
+                                {filtered.length} {filtered.length === 1 ? 'curso encontrado' : 'cursos encontrados'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                              {filtered.map((course) => {
+                                const minAtt = course.minAttendance !== undefined ? course.minAttendance : 70;
+                                const isAlreadyCompleted = enrollmentRecord.completedCourseIds?.includes(course.id);
+                                return (
+                                  <div key={course.id} className="group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-with-duration hover:shadow-md hover:border-[#540D6E]/30 flex flex-col justify-between text-left animate-in fade-in zoom-in-95 duration-150">
+                                    <div className="space-y-3 ms-0.5">
+                                      <div className="flex items-center justify-between">
+                                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500 border border-slate-200 flex items-center gap-1">
+                                          🔖 {course.category}
+                                        </span>
+                                        {isAlreadyCompleted ? (
+                                          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                                            ✓ Concluído
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] text-teal-600 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full shadow-2xs">
+                                            Meta: {minAtt}% pres.
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div>
+                                        <h4 className="text-sm font-black text-slate-950 group-hover:text-[#540D6E] transition-colors line-clamp-1">{course.title}</h4>
+                                        <p className="mt-1 text-xs text-slate-500 leading-relaxed line-clamp-2">{course.description}</p>
+                                        <div className="flex items-center gap-2 mt-2">
+                                          <span className="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-slate-150">
+                                            📚 {course.lessons ? course.lessons.length : 0} {course.lessons && course.lessons.length === 1 ? 'Aula' : 'Aulas'}
+                                          </span>
+                                          <span className="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-slate-150">
+                                            🎥 {course.liveSessions ? course.liveSessions.length : 0} {course.liveSessions && course.liveSessions.length === 1 ? 'Sessão Ao Vivo' : 'Sessões'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-4 pt-4 border-t border-slate-150 flex items-center justify-between">
+                                      <div className="text-[10px] text-slate-500 font-medium">
+                                        Prof. <strong className="text-slate-700 font-bold">{course.instructorName}</strong>
+                                      </div>
+                                      <button
+                                        onClick={() => setViewingCatalogCourse(course)}
+                                        className="text-xs bg-[#540D6E] hover:bg-[#430a58] text-white font-bold uppercase tracking-wider px-3.5 py-1.8 rounded-lg hover:scale-101 active:scale-98 transition-all cursor-pointer flex items-center gap-1 select-none shadow-2xs"
+                                      >
+                                        <span>Ver e Escolher</span>
+                                        <ArrowRight className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Scenario 4: Completed Courses review panel (Always visible if any completed) */}
+                  {enrollmentRecord.completedCourseIds && enrollmentRecord.completedCourseIds.length > 0 && (
+                    <div className="space-y-4 pt-6 border-t border-slate-200 animate-in fade-in duration-500">
+                      <div className="flex items-center gap-2 text-[#540D6E]">
+                        <CheckCircle className="h-5 w-5 text-emerald-500" />
+                        <h3 className="text-xs font-black uppercase tracking-wider">Cursos Concluídos (Acesso Vitalício de Revisão)</h3>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                        {courses
+                          .filter(c => enrollmentRecord.completedCourseIds.includes(c.id))
+                          .map(course => (
+                            <div 
+                              key={course.id}
+                              onClick={() => {
+                                setSelectedCourse(course);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="group p-4 bg-emerald-50/10 border border-emerald-100 rounded-xl cursor-pointer hover:bg-emerald-50/20 hover:border-emerald-200 transition-all flex flex-col justify-between"
+                            >
+                              <div className="space-y-1 text-left">
+                                <span className="inline-block text-[8px] bg-emerald-100 text-emerald-850 px-1.5 py-0.2 rounded font-black uppercase tracking-wider mb-1">Grade Completa</span>
+                                <h4 className="text-xs font-black text-slate-850 group-hover:text-emerald-700 transition-colors block line-clamp-1">{course.title}</h4>
+                                <span className="text-[10px] text-slate-400 block">Prof. {course.instructorName}</span>
+                              </div>
+                              <span className="text-[10px] text-teal-600 hover:underline font-bold mt-3 block text-right font-mono">Modo Revisão →</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2141,21 +2708,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 <div className="relative">
                   <User className="h-4 w-4 text-teal-600 shrink-0" />
                   <span className={`absolute -bottom-1 -right-1 block h-2.5 w-2.5 rounded-full border border-white ${
-                    (localStorage.getItem('ava_presence_status_Alessandro Pinto') || 'online') === 'online'
+                    (localStorage.getItem('ava_presence_status_Gestor de Cursos') || 'online') === 'online'
                       ? 'bg-emerald-500 animate-pulse'
                       : 'bg-slate-400'
                   }`} />
                 </div>
                 <div>
-                  <span className="block text-[8px] text-slate-400 font-bold uppercase leading-none">Tutor Dedicado</span>
+                  <span className="block text-[8px] text-slate-400 font-bold uppercase leading-none">Gestor Responsável</span>
                   <span className="font-bold text-[10.5px] flex items-center gap-1.5 leading-none mt-0.5">
-                    <span>Prof. Alessandro</span>
+                    <span>Gestor de Cursos</span>
                     <span className={`text-[9px] font-black ${
-                      (localStorage.getItem('ava_presence_status_Alessandro Pinto') || 'online') === 'online'
+                      (localStorage.getItem('ava_presence_status_Gestor de Cursos') || 'online') === 'online'
                         ? 'text-emerald-600'
                         : 'text-slate-500'
                     }`}>
-                      ({(localStorage.getItem('ava_presence_status_Alessandro Pinto') || 'online') === 'online' ? 'Online' : 'Offline'})
+                      ({(localStorage.getItem('ava_presence_status_Gestor de Cursos') || 'online') === 'online' ? 'Online' : 'Offline'})
                     </span>
                   </span>
                 </div>
@@ -2223,7 +2790,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     const tutorResponse = {
                       id: `dm-bot-${Date.now()}`,
                       studentName: activeUser.name,
-                      senderName: 'Prof. Alessandro Pinto',
+                      senderName: 'Gestor de Cursos',
                       senderRole: 'instructor',
                       text: randomPhrase,
                       timestamp: new Date().toISOString()
@@ -2237,7 +2804,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   name="messageText"
                   type="text"
                   required
-                  placeholder="Digite sua mensagem técnica ou pedagógica para o professor..."
+                  placeholder="Digite sua mensagem ao Gestor de Cursos..."
                   className="flex-1 rounded-xl border border-slate-205 bg-white px-4 py-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all shadow-3xs"
                 />
                 <button

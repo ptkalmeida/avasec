@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog } from '../types';
+import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS } from '../data/mockData';
 
 interface LMSContextProps {
@@ -39,7 +39,7 @@ interface LMSContextProps {
   updateCourseInstructor: (courseId: string, instructorName: string) => void;
   updateCourseProps: (courseId: string, updates: Partial<Course>) => void;
   addLessonToCourse: (courseId: string, lessonTitle: string, duration: string, content: string, videoUrl?: string) => void;
-  updateLesson: (courseId: string, lessonId: string, updates: Partial<{ title: string; duration: string; content: string; videoUrl: string }>) => void;
+  updateLesson: (courseId: string, lessonId: string, updates: Partial<Lesson>) => void;
   deleteLesson: (courseId: string, lessonId: string) => void;
   addLiveSessionToCourse: (courseId: string, title: string, scheduledAt: string, durationMinutes: number, meetingLink: string, isLive: boolean) => void;
   removeLiveSession: (courseId: string, sessionId: string) => void;
@@ -78,6 +78,15 @@ interface LMSContextProps {
   securityLogs: SecurityLog[];
   addSecurityLog: (action: string, details: string, status?: 'SUCCESS' | 'WARNING' | 'FAILED') => void;
   clearSecurityLogs: () => void;
+  studentEnrollments: { [studentName: string]: StudentEnrollment };
+  enrollStudentInCourse: (studentName: string, courseId: string, customEnrolledAt?: string) => void;
+  dropStudentFromCourse: (studentName: string, courseId: string, simulatedDaysElapsed?: number) => boolean;
+  completeStudentCourse: (studentName: string, courseId: string) => void;
+  clearStudentPenalty: (studentName: string) => void;
+  forumMessages: ForumMessage[];
+  addForumMessage: (courseId: string, text: string) => void;
+  toggleForumMessageLike: (messageId: string, userName: string) => void;
+  deleteForumMessage: (messageId: string) => void;
 }
 
 const LMSContext = createContext<LMSContextProps | undefined>(undefined);
@@ -129,23 +138,20 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activeUser, setActiveUser] = useState<{ name: string; role: 'student' | 'instructor' | 'admin' }>(() => {
     const saved = localStorage.getItem('ava_active_user');
-    return saved ? JSON.parse(saved) : { name: 'João Silva', role: 'student' };
-  });
-
-  const [professorsList, setProfessorsList] = useState<string[]>(() => {
-    const saved = localStorage.getItem('ava_professors');
-    const defaultProfs = ['Alessandro Pinto', 'Mariana Santos', 'André Lima', 'Juliana Rezende'];
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return Array.from(new Set(parsed)).filter(Boolean);
+        if (parsed.role === 'instructor') {
+          parsed.name = 'Gestor de Cursos';
         }
-      } catch (e) {
-        console.error(e);
-      }
+        return parsed;
+      } catch (e) {}
     }
-    return defaultProfs;
+    return { name: 'João Silva', role: 'student' };
+  });
+
+  const [professorsList, setProfessorsList] = useState<string[]>(() => {
+    return ['Gestor de Cursos'];
   });
 
   const [studentsList, setStudentsList] = useState<{ name: string; email: string; password?: string }[]>(() => {
@@ -251,6 +257,47 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return deduped;
   });
+
+  const [studentEnrollments, setStudentEnrollments] = useState<{[studentName: string]: StudentEnrollment}>(() => {
+    const saved = localStorage.getItem('ava_student_enrollments');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return {
+      'João Silva': {
+        enrolledCourseId: 'course-1',
+        enrolledAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        completedCourseIds: [],
+        dropOutPenaltyUntil: null
+      },
+      'Gabriel Rodrigues': {
+        enrolledCourseId: 'course-2',
+        enrolledAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        completedCourseIds: [],
+        dropOutPenaltyUntil: null
+      },
+      'Beatriz Costa': {
+        enrolledCourseId: null,
+        enrolledAt: null,
+        completedCourseIds: ['course-1'],
+        dropOutPenaltyUntil: null
+      },
+      'Sofia Rocha': {
+        enrolledCourseId: null,
+        enrolledAt: null,
+        completedCourseIds: [],
+        dropOutPenaltyUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ava_student_enrollments', JSON.stringify(studentEnrollments));
+  }, [studentEnrollments]);
 
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => {
     const saved = localStorage.getItem('ava_quizzes');
@@ -416,6 +463,73 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
 
+  const [forumMessages, setForumMessages] = useState<ForumMessage[]>(() => {
+    const saved = localStorage.getItem('ava_forum_messages');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [
+      {
+        id: 'forum-msg-1',
+        courseId: 'course-1',
+        senderName: 'Sofia Rocha',
+        senderRole: 'student',
+        text: 'Oi pessoal! Alguém tem dicas sobre como aplicar a heurística de Prevenção de Erros em formulários longos em nossa aplicação?',
+        timestamp: '15/06/2026, 14:32',
+        likes: 3,
+        likedBy: ['João Silva', 'Gabriel Rodrigues']
+      },
+      {
+        id: 'forum-msg-2',
+        courseId: 'course-1',
+        senderName: 'João Silva',
+        senderRole: 'student',
+        text: 'Oi Sofia! Geralmente desabilitar o botão de continuar até que os campos de inputs obrigatórios estejam com formatos válidos ajuda imensamente, além de exibir feedback visual imediato.',
+        timestamp: '15/06/2026, 14:48',
+        likes: 5,
+        likedBy: ['Sofia Rocha', 'Gabriel Rodrigues', 'Beatriz Costa']
+      },
+      {
+        id: 'forum-msg-3',
+        courseId: 'course-1',
+        senderName: 'Gestor de Cursos',
+        senderRole: 'instructor',
+        text: 'Excelente discussão e fomento de ideias! Lembrem-se também de detalhar os erros de forma humanizada ao invés de usar códigos enigmáticos como "Error 412: Campo Requerido" (Heurística de Diagnóstico e Recuperação de Erros).',
+        timestamp: '15/06/2026, 16:10',
+        likes: 8,
+        likedBy: ['Sofia Rocha', 'João Silva', 'Gabriel Rodrigues', 'Beatriz Costa']
+      },
+      {
+        id: 'forum-msg-4',
+        courseId: 'course-2',
+        senderName: 'Gabriel Rodrigues',
+        senderRole: 'student',
+        text: 'Fala galera de Vídeo Mapping! Alguém que já trabalha na área indica algum projetor bacana para início de carreira ou instalações domésticas em paredes brancas simples?',
+        timestamp: '16/06/2026, 10:15',
+        likes: 2,
+        likedBy: ['João Silva']
+      },
+      {
+        id: 'forum-msg-5',
+        courseId: 'course-2',
+        senderName: 'Gestor de Cursos',
+        senderRole: 'instructor',
+        text: 'Olá Gabriel! Para superfícies brancas internas convencionais de baixa iluminação, projetores Epson de curta distância (Short Throw) com pelo menos 3000 ANSI Lumens atendem o alinhamento com folga. Desative o HMR e aproveite o alinhamento de canais!',
+        timestamp: '16/06/2026, 11:02',
+        likes: 4,
+        likedBy: ['Gabriel Rodrigues', 'João Silva']
+      }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ava_forum_messages', JSON.stringify(forumMessages));
+  }, [forumMessages]);
+
   const [academicRequests, setAcademicRequests] = useState<AcademicRequest[]>(() => {
     const saved = localStorage.getItem('ava_academic_requests');
     if (saved) return JSON.parse(saved);
@@ -456,7 +570,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'msg-1',
         sessionId: 'live-1-1',
-        senderName: 'Prof. Alessandro Pinto',
+        senderName: 'Gestor de Cursos',
         senderRole: 'instructor',
         text: 'Sejam bem-vindos à aula ao vivo sobre UX de Alta Performance! Podem enviar dúvidas aqui no chat.',
         timestamp: new Date().toISOString()
@@ -466,13 +580,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sessionId: 'live-1-1',
         senderName: 'João Silva',
         senderRole: 'student',
-        text: 'Olá Professor! Esse grid de 8pt se aplica também para design mobile ou focamos em layouts web no Figma?',
+        text: 'Olá Gestor! Esse grid de 8pt se aplica também para design mobile ou focamos em layouts web no Figma?',
         timestamp: new Date().toISOString()
       },
       {
         id: 'msg-3',
         sessionId: 'live-2-1',
-        senderName: 'Profª. Mariana Santos',
+        senderName: 'Gestor de Cursos',
         senderRole: 'instructor',
         text: 'Iniciando em breve nossa aula prática de Express APIs!',
         timestamp: new Date().toISOString()
@@ -487,13 +601,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         studentName: 'João Silva',
         senderName: 'João Silva',
         senderRole: 'student',
-        text: 'Olá Professor Alessandro, tudo bem? Estou gostando muito do curso de UX! Quando teremos o próximo feedback de portfólios?',
+        text: 'Olá Gestor, tudo bem? Estou gostando muito do curso de UX! Quando teremos o próximo feedback de portfólios?',
         timestamp: new Date(Date.now() - 3600000 * 5).toISOString() // 5h ago
       },
       {
         id: 'dm-2',
         studentName: 'João Silva',
-        senderName: 'Alessandro Pinto',
+        senderName: 'Gestor de Cursos',
         senderRole: 'instructor',
         text: 'Olá João! Que ótimo que está curtindo. Teremos uma mentoria sobre isso hoje mesmo às 19:30, mas você pode também agendar um horário direto comigo se precisar!',
         timestamp: new Date(Date.now() - 3600000 * 4).toISOString() // 4h ago
@@ -503,7 +617,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         studentName: 'Gabriel Rodrigues',
         senderName: 'Gabriel Rodrigues',
         senderRole: 'student',
-        text: 'Olá tutor Alessandro! Enviei o link do meu protótipo no Figma para avaliação. Poderia dar uma olhada no fluxo de navegação?',
+        text: 'Olá tutor Gestor! Enviei o link do meu protótipo no Figma para avaliação. Poderia dar uma olhada no fluxo de navegação?',
         timestamp: new Date(Date.now() - 3600000 * 3).toISOString() // 3h ago
       },
       {
@@ -590,7 +704,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'log-2',
         timestamp: new Date(Date.now() - 3600000 * 3).toLocaleTimeString('pt-BR') + ' ' + new Date(Date.now() - 3600000 * 3).toLocaleDateString('pt-BR'),
-        user: 'Alessandro Pinto',
+        user: 'Gestor de Cursos',
         role: 'instructor',
         ipAddress: '172.16.254.12',
         device: 'Firefox / Windows 11',
@@ -766,7 +880,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleUserRole = () => {
     setActiveUser((prev) => {
       const newRole = prev.role === 'student' ? 'instructor' : 'student';
-      const newName = newRole === 'student' ? 'João Silva' : 'Alessandro Pinto';
+      const newName = newRole === 'student' ? 'João Silva' : 'Gestor de Cursos';
       return { name: newName, role: newRole };
     });
   };
@@ -797,15 +911,16 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return percent;
   };
 
-  // Automatic Certificate Issuance Logic when attendance hits 70% or more!
+  // Automatic Certificate Issuance Logic when attendance hits the custom required or default 70% minimum!
   useEffect(() => {
     if (activeUser.role !== 'student') return;
 
     courses.forEach((course) => {
       const attendance = calculateAttendancePercent(course.id);
+      const minAttendance = course.minAttendance !== undefined ? course.minAttendance : 70;
       
-      // If student has at least 70% attendance and doesn't have a certificate for this course yet, issue it automatically!
-      if (attendance >= 70) {
+      // If student has at least required minimum attendance and doesn't have a certificate for this course yet, issue it automatically!
+      if (attendance >= minAttendance) {
         setCertificates((prev) => {
           const alreadyIssued = prev.some(
             (cert) => cert.courseId === course.id && cert.studentName === activeUser.name
@@ -836,7 +951,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return [...prev, newCertificate];
         });
       } else {
-        // If they became un-qualified (unselected lesson and went below 70%), remove certificate
+        // If they became un-qualified (unselected lesson and went below minAttendance), remove certificate
         // to stay dynamically accurate in state simulation, unless they like it
         setCertificates((prev) => {
           const alreadyIssued = prev.some(
@@ -976,7 +1091,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
   
-  const updateLesson = (courseId: string, lessonId: string, updates: Partial<{ title: string; duration: string; content: string; videoUrl: string }>) => {
+  const updateLesson = (courseId: string, lessonId: string, updates: Partial<Lesson>) => {
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id === courseId) {
@@ -1227,6 +1342,120 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAdmissionRequests(prev => [...prev, newReq]);
   };
 
+  const enrollStudentInCourse = (studentName: string, courseId: string, customEnrolledAt?: string) => {
+    setStudentEnrollments(prev => {
+      const current = prev[studentName] || { enrolledCourseId: null, enrolledAt: null, completedCourseIds: [], dropOutPenaltyUntil: null };
+      return {
+        ...prev,
+        [studentName]: {
+          ...current,
+          enrolledCourseId: courseId,
+          enrolledAt: customEnrolledAt || new Date().toISOString(),
+          dropOutPenaltyUntil: null
+        }
+      };
+    });
+  };
+
+  const dropStudentFromCourse = (studentName: string, courseId: string, simulatedDaysElapsed?: number): boolean => {
+    let penalty = false;
+    setStudentEnrollments(prev => {
+      const current = prev[studentName] || { enrolledCourseId: null, enrolledAt: null, completedCourseIds: [], dropOutPenaltyUntil: null };
+      let days = 0;
+      if (simulatedDaysElapsed !== undefined) {
+        days = simulatedDaysElapsed;
+      } else if (current.enrolledAt) {
+        const diffTime = Math.abs(Date.now() - new Date(current.enrolledAt).getTime());
+        days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      }
+      
+      const isPastLimit = days > 5;
+      let penaltyDate: string | null = null;
+      if (isPastLimit) {
+        penalty = true;
+        const d = new Date();
+        d.setMonth(d.getMonth() + 1);
+        penaltyDate = d.toISOString();
+      }
+      
+      return {
+        ...prev,
+        [studentName]: {
+          ...current,
+          enrolledCourseId: null,
+          enrolledAt: null,
+          dropOutPenaltyUntil: penaltyDate
+        }
+      };
+    });
+    return penalty;
+  };
+
+  const completeStudentCourse = (studentName: string, courseId: string) => {
+    setStudentEnrollments(prev => {
+      const current = prev[studentName] || { enrolledCourseId: null, enrolledAt: null, completedCourseIds: [], dropOutPenaltyUntil: null };
+      const completed = Array.from(new Set([...current.completedCourseIds, courseId]));
+      return {
+        ...prev,
+        [studentName]: {
+          ...current,
+          enrolledCourseId: null,
+          enrolledAt: null,
+          completedCourseIds: completed
+        }
+      };
+    });
+  };
+
+  const clearStudentPenalty = (studentName: string) => {
+    setStudentEnrollments(prev => {
+      const current = prev[studentName] || { enrolledCourseId: null, enrolledAt: null, completedCourseIds: [], dropOutPenaltyUntil: null };
+      return {
+        ...prev,
+        [studentName]: {
+          ...current,
+          dropOutPenaltyUntil: null
+        }
+      };
+    });
+  };
+
+  const addForumMessage = (courseId: string, text: string) => {
+    if (!text.trim()) return;
+    const newMessage: ForumMessage = {
+      id: `forum-msg-${Date.now()}`,
+      courseId,
+      senderName: activeUser.name,
+      senderRole: activeUser.role,
+      text: text.trim(),
+      timestamp: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      likes: 0,
+      likedBy: []
+    };
+    setForumMessages(prev => [...prev, newMessage]);
+  };
+
+  const toggleForumMessageLike = (messageId: string, userName: string) => {
+    setForumMessages(prev => prev.map(msg => {
+      if (msg.id === messageId) {
+        const hasLiked = msg.likedBy.includes(userName);
+        const newLikedBy = hasLiked 
+          ? msg.likedBy.filter(u => u !== userName)
+          : [...msg.likedBy, userName];
+        return {
+          ...msg,
+          likedBy: newLikedBy,
+          likes: newLikedBy.length
+        };
+      }
+      return msg;
+    }));
+  };
+
+  const deleteForumMessage = (messageId: string) => {
+    setForumMessages(prev => prev.filter(msg => msg.id !== messageId));
+  };
+
   const getYouTubeEmbedUrl = (url: string): string | null => {
     if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
@@ -1303,6 +1532,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         securityLogs,
         addSecurityLog,
         clearSecurityLogs,
+        studentEnrollments,
+        enrollStudentInCourse,
+        dropStudentFromCourse,
+        completeStudentCourse,
+        clearStudentPenalty,
+        forumMessages,
+        addForumMessage,
+        toggleForumMessageLike,
+        deleteForumMessage,
       }}
     >
       {children}

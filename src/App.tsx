@@ -268,7 +268,7 @@ function DashboardSwitcher() {
     {
       title: 'Inteligência Artificial e Cultura 2ª Oferta',
       category: 'Economia Criativa & IA',
-      instructor: 'Rodrigo Sampaio',
+      instructor: 'Gestor de Cursos',
       iconType: 'mic',
       iconBg: 'bg-[#540D6E]',
       image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=500&auto=format&fit=crop&q=60',
@@ -277,7 +277,7 @@ function DashboardSwitcher() {
     {
       title: 'Produção Audiovisual 2ª Oferta',
       category: 'Áreas Técnicas',
-      instructor: 'Mariana Santos',
+      instructor: 'Gestor de Cursos',
       iconType: 'video',
       iconBg: 'bg-[#540D6E]',
       image: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=500&auto=format&fit=crop&q=60',
@@ -286,7 +286,7 @@ function DashboardSwitcher() {
     {
       title: 'Submissão de Propostas Simplificadas 2ª Oferta',
       category: 'Políticas e Gestão Culturais',
-      instructor: 'Alessandro Pinto',
+      instructor: 'Gestor de Cursos',
       iconType: 'building',
       iconBg: 'bg-[#FFD23F]',
       image: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=500&auto=format&fit=crop&q=60',
@@ -295,7 +295,7 @@ function DashboardSwitcher() {
     {
       title: 'Prestação de Contas de Propostas Simplificadas 2ª Oferta',
       category: 'Políticas e Gestão Culturais',
-      instructor: 'Juliana Rezende',
+      instructor: 'Gestor de Cursos',
       iconType: 'columns',
       iconBg: 'bg-[#FFD23F]',
       image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500&auto=format&fit=crop&q=60',
@@ -827,8 +827,8 @@ function DashboardSwitcher() {
                     <span className="block text-xs font-bold text-slate-800 leading-none">{activeUser.name}</span>
                     <span className="text-[9px] text-[#540D6E] font-bold block mt-0.5">
                       {activeUser.role === 'student' && 'Aluno Credenciado'}
-                      {activeUser.role === 'instructor' && 'Professor Avaliador'}
-                      {activeUser.role === 'admin' && 'Moderação Coordenadora'}
+                      {activeUser.role === 'instructor' && 'Gestor de Cursos'}
+                      {activeUser.role === 'admin' && 'Moderação Coordenação'}
                     </span>
                   </div>
                   <span className={`h-2.5 w-2.5 rounded-full ${
@@ -892,11 +892,11 @@ function DashboardSwitcher() {
                           if (activeUser.role === 'admin') {
                             speakText("Acessando a sua Gestão da Plataforma.");
                           } else {
-                            speakText("Acessando a sua Gestão de Cursos e Alunos.");
+                            speakText("Acessando a sua Gestão de Cursos.");
                           }
                         }}
                         className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 font-extrabold px-3.5 py-2 text-xs uppercase tracking-wider transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
-                        title={activeUser.role === 'admin' ? "Acessar Coordenação / Gestão da Plataforma" : "Acessar Docência / Gestão de Cursos e Alunos"}
+                        title={activeUser.role === 'admin' ? "Acessar Coordenação / Gestão da Plataforma" : "Acessar Gestão de Cursos e Conteúdos"}
                       >
                         <GraduationCap className="h-4 w-4 text-slate-900 shrink-0" />
                         <span className="hidden sm:inline">
@@ -1386,7 +1386,7 @@ function DashboardSwitcher() {
 
                       return (
                         <div 
-                          key={course.title}
+                          key={`${course.title}-${idx}`}
                           className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md ${
                             isFocus ? 'border-[#540D6E] ring-1.5 ring-[#540D6E]' : 'border-slate-200'
                           }`}
@@ -2111,10 +2111,10 @@ function DashboardSwitcher() {
                       <span className="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-mono uppercase">Mapeado</span>
                     </button>
                     <button 
-                      onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Prof. Paulo de Souza', 'instructor'); speakText("Acesso de Professor Homologado"); }}
+                      onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Gestor de Cursos', 'instructor'); speakText("Acesso de Gestão Homologado"); }}
                       className="text-left py-1.5 px-2 hover:bg-blue-50 rounded text-teal-700 transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
-                      <span>• Dashboard do Professor</span>
+                      <span>• Dashboard de Gestão</span>
                       <span className="text-[8px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-mono uppercase">Mapeado</span>
                     </button>
                     <button 
@@ -2194,7 +2194,7 @@ function DashboardSwitcher() {
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  Professor
+                  Gestão
                 </button>
                 <button
                   onClick={() => setLoginRoleTab('admin')}
@@ -2244,7 +2244,7 @@ function DashboardSwitcher() {
                 {/* 2. Professor choices list */}
                 {loginRoleTab === 'instructor' && (
                   <div className="space-y-2.5 animate-in fade-in duration-200">
-                    <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Trilhas de Tutores Credenciados ({professorsList.length}):</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Gestor de Cursos ({professorsList.length}):</span>
                     <div className="grid grid-cols-1 gap-2.5">
                       {professorsList.map((prof) => (
                         <div
@@ -2253,16 +2253,16 @@ function DashboardSwitcher() {
                           className="group border border-slate-200 hover:border-slate-350 bg-slate-50/40 hover:bg-slate-50 p-3 rounded-xl cursor-pointer flex justify-between items-center transition-all"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-green-50 border border-green-100 flex items-center justify-center font-extrabold text-xs text-[#3BCEAC]">
-                              P
+                            <div className="h-8 w-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center font-extrabold text-xs text-emerald-500">
+                              G
                             </div>
                             <div className="text-left leading-normal">
                               <strong className="text-slate-900 text-xs font-bold block">{prof}</strong>
-                              <span className="text-[9px] text-slate-400 block font-sans">Professor Credenciado Habilitado</span>
+                              <span className="text-[9px] text-slate-400 block font-sans">Gestor de Cursos</span>
                             </div>
                           </div>
                           <span className="rounded-lg bg-white border border-slate-200 text-slate-650 font-black text-[9px] px-3 py-1.5 uppercase tracking-wide group-hover:bg-[#540D6E] group-hover:text-white transition-all flex items-center gap-1">
-                            <span>Painel</span>
+                            <span>Acessar</span>
                             <ArrowRight className="h-3 w-3" />
                           </span>
                         </div>
@@ -2775,7 +2775,7 @@ function DashboardSwitcher() {
               <div className="mt-5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-left text-[9.5px] text-slate-500 leading-relaxed font-mono">
                 <span className="font-bold text-indigo-700 block mb-0.5 uppercase tracking-wide">Dica para Avaliação do Fluxo:</span>
                 • Aluno: <code className="font-extrabold text-slate-800">1234</code><br />
-                • Professor: <code className="font-extrabold text-slate-800">5678</code><br />
+                • Gestão: <code className="font-extrabold text-slate-800">5678</code><br />
                 • Admin Superior: <code className="font-extrabold text-[#540D6E]">9999</code><br />
                 <span className="text-[8.5px] text-slate-400 block mt-1 leading-normal">
                   (Senhas customizadas no perfil também servem para desbloqueio do aluno).
