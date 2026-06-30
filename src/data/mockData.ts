@@ -12,7 +12,7 @@ export const INITIAL_COURSES: Course[] = [
     description: 'Aprenda do zero ao avançado como planejar, estruturar e prototipar sistemas complexos utilizando as melhores práticas do Figma, Design Systems e testes de usabilidade para alta conversão.',
     category: 'Design Digital',
     thumbnail: 'https://images.unsplash.com/photo-1561070791-26c113006238?w=800&auto=format&fit=crop&q=60',
-    instructorName: 'Alessandro Pinto',
+    instructorName: 'Gestor de Cursos',
     lessons: [
       {
         id: 'lesson-1-1',
@@ -30,7 +30,11 @@ Nesta aula introdutória, vamos cobrir os seguintes pontos:
 
 ### Atividade de Fixação
 Pense em um aplicativo que você usa diariamente. Identifique uma dor ou atrito que você enfrenta nele e escreva 3 possíveis melhorias focadas na facilidade de uso.`,
-        order: 1
+        order: 1,
+        documents: [
+          { id: 'doc-1-1', title: 'Fundamentos de UX - Slides da Aula.pdf', type: 'pdf', url: 'https://example.com/slides-ux.pdf', size: '2.4 MB' },
+          { id: 'doc-1-2', title: 'Link de Apoio: Heurísticas de Nielsen', type: 'url', url: 'https://www.nngroup.com/articles/ten-usability-heuristics/' }
+        ]
       },
       {
         id: 'lesson-1-2',
@@ -47,7 +51,10 @@ A arquitetura de informação lida com a organização dos conteúdos digitais d
 - **Fluxogramas do Usuário (User Flows)**: O caminho exato que uma pessoa traça para atingir um objetivo (ex: comprar um curso, emitir um certificado).
 
 *Dica do instrutor*: Mantenha sempre a hierarquia clara, minimizando cliques!`,
-        order: 2
+        order: 2,
+        documents: [
+          { id: 'doc-1-3', title: 'Guia de Arquitetura de Informação.pdf', type: 'pdf', url: 'https://example.com/arquitetura.pdf', size: '1.8 MB' }
+        ]
       },
       {
         id: 'lesson-1-3',
@@ -123,7 +130,7 @@ Um design nunca está 100% pronto até que passe pelo teste empírico de um usu�
     description: 'Domine a stack dominante do mercado. Construa aplicações robustas do backend ao frontend com TypeScript, rotas autenticadas, segurança de dados e deploying real.',
     category: 'Desenvolvimento Web',
     thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=60',
-    instructorName: 'Mariana Santos',
+    instructorName: 'Gestor de Cursos',
     lessons: [
       {
         id: 'lesson-2-1',
@@ -208,7 +215,7 @@ O coração de qualquer AVA é o armazenamento persistente de dados. Vamos anali
     description: 'Transforme a gestão de entregas da sua equipe escolar ou corporativa utilizando Scrum, OKRs e Kanban estruturado para maximizar resultados.',
     category: 'Organização & Gestão',
     thumbnail: 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=800&auto=format&fit=crop&q=60',
-    instructorName: 'Rodrigo Sampaio',
+    instructorName: 'Gestor de Cursos',
     lessons: [
       {
         id: 'lesson-3-1',
