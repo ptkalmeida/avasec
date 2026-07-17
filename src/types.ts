@@ -45,6 +45,55 @@ export interface Course {
   courseType?: 'fixo' | 'ao_vivo';
   hasChat?: boolean;
   minAttendance?: number;
+  contractExpirationDate?: string; // YYYY-MM-DD or DD/MM/YYYY
+  areaTematica?: string;
+  cargaHoraria?: number;
+  modalidade?: string;
+  nivel?: string;
+  emiteCertificado?: boolean;
+  statusCurso?: string;
+}
+
+export function isCourseExpired(contractExpirationDate?: string): boolean {
+  if (!contractExpirationDate) return false;
+  try {
+    let expDate: Date;
+    if (contractExpirationDate.includes('-')) {
+      // YYYY-MM-DD
+      const parts = contractExpirationDate.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        expDate = new Date(year, month, day, 23, 59, 59);
+      } else {
+        expDate = new Date(contractExpirationDate + 'T23:59:59');
+      }
+    } else if (contractExpirationDate.includes('/')) {
+      // DD/MM/YYYY
+      const parts = contractExpirationDate.split('/');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        expDate = new Date(year, month, day, 23, 59, 59);
+      } else {
+        return false;
+      }
+    } else {
+      expDate = new Date(contractExpirationDate);
+    }
+    
+    if (isNaN(expDate.getTime())) return false;
+    
+    // Set current date to 2026-07-01 (based on additional metadata local time 2026-07-01) or standard system Date.
+    // Let's use current Date, but ensure it works.
+    const today = new Date();
+    return today > expDate;
+  } catch (e) {
+    console.error("Error parsing expiration date", e);
+    return false;
+  }
 }
 
 export interface StudentEnrollment {
@@ -93,6 +142,10 @@ export interface QuizQuestion {
   questionText: string;
   options: string[];
   correctOptionIndex: number;
+  explanation?: string;
+  reviewMessage?: string;
+  recommendedModule?: string;
+  allowRetry?: boolean;
 }
 
 export interface Quiz {
@@ -153,6 +206,31 @@ export interface AdmissionRequest {
   courseId: string;
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string;
+}
+
+export interface PracticalExercise {
+  id: string;
+  courseId: string;
+  title: string;
+  description: string;
+  instructions: string;
+  maxPoints: number;
+  dueDate?: string;
+}
+
+export interface ExerciseSubmission {
+  id: string;
+  exerciseId: string;
+  studentName: string;
+  submissionText: string;
+  fileUrl?: string;
+  fileName?: string;
+  submittedAt: string;
+  status: 'pending' | 'approved' | 'rejected' | 'revision';
+  score?: number;
+  feedback?: string;
+  gradedAt?: string;
+  gradedBy?: string;
 }
 
 export interface LMSState {

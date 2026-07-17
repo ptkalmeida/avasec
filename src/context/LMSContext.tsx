@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson } from '../types';
+import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS } from '../data/mockData';
 
 interface LMSContextProps {
@@ -17,7 +17,7 @@ interface LMSContextProps {
   quizzes: Quiz[];
   quizSubmissions: QuizSubmission[];
   professorsList: string[];
-  studentsList: { name: string; email: string; password?: string }[];
+  studentsList: { name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[];
   academicRequests: AcademicRequest[];
   libraryItems: LibraryItem[];
   webinarEvents: WebinarEvent[];
@@ -51,7 +51,7 @@ interface LMSContextProps {
   submitQuiz: (studentName: string, courseId: string, quizId: string, scorePercent: number, passed: boolean) => QuizSubmission;
   addProfessor: (name: string, password?: string) => void;
   deleteProfessor: (name: string) => void;
-  addStudent: (name: string, email: string, password?: string) => void;
+  addStudent: (name: string, email: string, password?: string, municipio?: string, uf?: string, areaInteresse?: string, dataCadastro?: string) => void;
   deleteStudent: (name: string) => void;
   setUserProfile: (name: string, role: 'student' | 'instructor' | 'admin') => void;
   addAcademicRequest: (req: Omit<AcademicRequest, 'id' | 'status' | 'submittedAt'>) => void;
@@ -69,8 +69,8 @@ interface LMSContextProps {
     liveClassRecording: boolean;
   };
   updateSystemSettings: (updates: Partial<LMSContextProps['systemSettings']>) => void;
-  activeDashboardTab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students';
-  setActiveDashboardTab: (tab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students') => void;
+  activeDashboardTab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq';
+  setActiveDashboardTab: (tab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq') => void;
   getYouTubeEmbedUrl: (url: string) => string | null;
   admissionRequests: AdmissionRequest[];
   addAdmissionRequest: (studentName: string, courseId: string, status?: 'pending' | 'approved' | 'rejected') => void;
@@ -87,6 +87,13 @@ interface LMSContextProps {
   addForumMessage: (courseId: string, text: string) => void;
   toggleForumMessageLike: (messageId: string, userName: string) => void;
   deleteForumMessage: (messageId: string) => void;
+  practicalExercises: PracticalExercise[];
+  exerciseSubmissions: ExerciseSubmission[];
+  addPracticalExercise: (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => void;
+  updatePracticalExercise: (exerciseId: string, updates: Partial<PracticalExercise>) => void;
+  deletePracticalExercise: (exerciseId: string) => void;
+  submitExercise: (exerciseId: string, studentName: string, submissionText: string, fileUrl?: string, fileName?: string) => void;
+  gradeSubmission: (submissionId: string, score: number, feedback: string, graderName: string, status: 'approved' | 'rejected' | 'revision') => void;
 }
 
 const LMSContext = createContext<LMSContextProps | undefined>(undefined);
@@ -142,7 +149,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const parsed = JSON.parse(saved);
         if (parsed.role === 'instructor') {
-          parsed.name = 'Gestor de Cursos';
+          parsed.name = 'Gestor de Conteúdos';
         }
         return parsed;
       } catch (e) {}
@@ -151,18 +158,18 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [professorsList, setProfessorsList] = useState<string[]>(() => {
-    return ['Gestor de Cursos'];
+    return ['Gestor de Conteúdos'];
   });
 
-  const [studentsList, setStudentsList] = useState<{ name: string; email: string; password?: string }[]>(() => {
+  const [studentsList, setStudentsList] = useState<{ name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[]>(() => {
     const defaultStudents = [
-      { name: 'João Silva', email: 'joao.silva@lms.edu', password: '1234' },
-      { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', password: '1234' },
-      { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu', password: '1234' },
-      { name: 'Sofia Rocha', email: 'sofia.rocha@lms.edu', password: '1234' },
-      { name: 'Ana Souza', email: 'ana.souza@lms.edu', password: '1234' },
-      { name: 'Lucas Santana', email: 'lucas.santana@lms.edu', password: '1234' },
-      { name: 'Carolina Mendes', email: 'carol.mendes@lms.edu', password: '1234' }
+      { name: 'João Silva', email: 'joao.silva@lms.edu', password: '1234', municipio: 'São Paulo', uf: 'SP', areaInteresse: 'Design Digital', dataCadastro: '2026-01-10' },
+      { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', password: '1234', municipio: 'Recife', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-02-14' },
+      { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu', password: '1234', municipio: 'Rio de Janeiro', uf: 'RJ', areaInteresse: 'Design Digital', dataCadastro: '2026-03-05' },
+      { name: 'Sofia Rocha', email: 'sofia.rocha@lms.edu', password: '1234', municipio: 'Salvador', uf: 'BA', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-03-12' },
+      { name: 'Ana Souza', email: 'ana.souza@lms.edu', password: '1234', municipio: 'Olinda', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-04-01' },
+      { name: 'Lucas Santana', email: 'lucas.santana@lms.edu', password: '1234', municipio: 'Belo Horizonte', uf: 'MG', areaInteresse: 'Áreas Técnicas', dataCadastro: '2026-04-18' },
+      { name: 'Carolina Mendes', email: 'carol.mendes@lms.edu', password: '1234', municipio: 'Caruaru', uf: 'PE', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-05-02' }
     ];
     const saved = localStorage.getItem('ava_students');
     if (saved) {
@@ -170,7 +177,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           const seenEmails = new Set<string>();
-          const dedupedParsed: { name: string; email: string; password?: string }[] = [];
+          const dedupedParsed: { name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[] = [];
           
           parsed.forEach(p => {
             if (p && p.email && !seenEmails.has(p.email.toLowerCase())) {
@@ -301,8 +308,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [quizzes, setQuizzes] = useState<Quiz[]>(() => {
     const saved = localStorage.getItem('ava_quizzes');
-    if (saved) return JSON.parse(saved);
-    return [
+    let parsed: Quiz[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_quizzes:", e);
+      }
+    }
+    const defaults = [
       {
         id: 'quiz-1',
         courseId: 'course-1',
@@ -317,7 +331,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               'Prevenção de Erros',
               'Flexibilidade e Eficiência de Uso'
             ],
-            correctOptionIndex: 0
+            correctOptionIndex: 0,
+            explanation: 'A visibilidade do status do sistema garante que o usuário seja informado sobre o que está acontecendo por meio de feedbacks apropriados em tempo hábil.',
+            reviewMessage: 'A visibilidade ajuda o usuário a se situar no fluxo da interface.',
+            recommendedModule: 'Módulo 1 — Fundamentos de UX e Heurísticas de Nielsen',
+            allowRetry: true
           },
           {
             id: 'quiz-1-q2',
@@ -328,7 +346,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               'Grid de 12pt',
               'Grid de 10pt'
             ],
-            correctOptionIndex: 1
+            correctOptionIndex: 1,
+            explanation: 'O Material Design adota o grid de 8pt (e subdivisões de 4pt) como padrão por conta da consistência de renderização em diferentes resoluções de tela físicas.',
+            reviewMessage: 'O grid de 8pt ajuda no alinhamento espacial de margens, paddings e elementos de UI.',
+            recommendedModule: 'Módulo 2 — Construção de Grid e Layout no Figma',
+            allowRetry: true
           },
           {
             id: 'quiz-1-q3',
@@ -339,7 +361,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               'Incentivar o usuário a expressar seus pensamentos em voz alta sem direcionar suas escolhas',
               'Avaliar o usuário atribuindo uma nota de inteligência'
             ],
-            correctOptionIndex: 2
+            correctOptionIndex: 2,
+            explanation: 'O método Think Aloud visa extrair o fluxo mental consciente do usuário durante o uso. O facilitador deve lembrá-lo de verbalizar pensamentos de forma neutra.',
+            reviewMessage: 'O Think Aloud foca na escuta ativa e neutralidade para extrair insights reais de usabilidade.',
+            recommendedModule: 'Módulo 3 — Métodos de Testes de Usabilidade com Usuários',
+            allowRetry: true
           }
         ]
       },
@@ -357,7 +383,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               'PATCH',
               'DELETE'
             ],
-            correctOptionIndex: 2
+            correctOptionIndex: 2,
+            explanation: 'O método PATCH é recomendado para atualizações parciais, enquanto o PUT costuma ser usado para substituições completas do recurso.',
+            reviewMessage: 'Utilizar os verbos corretos mantém a consistência da arquitetura RESTful.',
+            recommendedModule: 'Módulo 1 — Rotas e Métodos de Requisição HTTP no Express',
+            allowRetry: true
           },
           {
             id: 'quiz-2-q2',
@@ -368,21 +398,86 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               'Criptografar automaticamente todas as senhas armazenadas no PostgreSQL',
               'Acelerar a renderização do React'
             ],
-            correctOptionIndex: 1
+            correctOptionIndex: 1,
+            explanation: 'CORS (Cross-Origin Resource Sharing) controla a segurança de navegadores permitindo que recursos restritos de um site sejam solicitados por domínios autorizados.',
+            reviewMessage: 'A configuração adequada de CORS evita brechas de segurança no acesso à API.',
+            recommendedModule: 'Módulo 2 — Middlewares Essenciais e Segurança no Express',
+            allowRetry: true
           }
         ]
       }
     ];
+
+    const source = parsed && Array.isArray(parsed) ? parsed : defaults;
+    if (parsed && Array.isArray(parsed)) {
+      parsed.forEach(q => {
+        const defQ = defaults.find(dq => dq.id === q.id);
+        if (defQ) {
+          q.questions.forEach(quest => {
+            const defQuest = defQ.questions.find(dqQuest => dqQuest.id === quest.id);
+            if (defQuest) {
+              if (quest.explanation === undefined) quest.explanation = defQuest.explanation;
+              if (quest.reviewMessage === undefined) quest.reviewMessage = defQuest.reviewMessage;
+              if (quest.recommendedModule === undefined) quest.recommendedModule = defQuest.recommendedModule;
+              if (quest.allowRetry === undefined) quest.allowRetry = defQuest.allowRetry;
+            }
+          });
+        }
+      });
+    }
+    const seen = new Set<string>();
+    const deduped: Quiz[] = [];
+    for (const q of source) {
+      if (q && q.id && !seen.has(q.id)) {
+        seen.add(q.id);
+        deduped.push(q);
+      }
+    }
+    return deduped;
   });
 
-  const [activeDashboardTab, setActiveDashboardTab] = useState<'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students'>('general');
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq'>('general');
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>(() => {
     const saved = localStorage.getItem('ava_library_items');
-    return saved ? JSON.parse(saved) : INITIAL_LIBRARY;
+    let parsed: LibraryItem[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_library_items:", e);
+      }
+    }
+    const source = parsed && Array.isArray(parsed) ? parsed : (INITIAL_LIBRARY as LibraryItem[]);
+    const seen = new Set<string>();
+    const deduped: LibraryItem[] = [];
+    for (const item of source) {
+      if (item && item.id && !seen.has(item.id)) {
+        seen.add(item.id);
+        deduped.push(item);
+      }
+    }
+    return deduped;
   });
   const [webinarEvents, setWebinarEvents] = useState<WebinarEvent[]>(() => {
     const saved = localStorage.getItem('ava_webinar_events');
-    return saved ? JSON.parse(saved) : INITIAL_WEBINARS;
+    let parsed: WebinarEvent[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_webinar_events:", e);
+      }
+    }
+    const source = parsed && Array.isArray(parsed) ? parsed : (INITIAL_WEBINARS as WebinarEvent[]);
+    const seen = new Set<string>();
+    const deduped: WebinarEvent[] = [];
+    for (const item of source) {
+      if (item && item.id && !seen.has(item.id)) {
+        seen.add(item.id);
+        deduped.push(item);
+      }
+    }
+    return deduped;
   });
 
   const addLibraryItem = (item: Omit<LibraryItem, 'id'>) => {
@@ -460,19 +555,37 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [quizSubmissions, setQuizSubmissions] = useState<QuizSubmission[]>(() => {
     const saved = localStorage.getItem('ava_quiz_submissions');
-    return saved ? JSON.parse(saved) : [];
+    let parsed: QuizSubmission[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_quiz_submissions:", e);
+      }
+    }
+    const source = parsed && Array.isArray(parsed) ? parsed : [];
+    const seen = new Set<string>();
+    const deduped: QuizSubmission[] = [];
+    for (const sub of source) {
+      if (sub && sub.id && !seen.has(sub.id)) {
+        seen.add(sub.id);
+        deduped.push(sub);
+      }
+    }
+    return deduped;
   });
 
   const [forumMessages, setForumMessages] = useState<ForumMessage[]>(() => {
     const saved = localStorage.getItem('ava_forum_messages');
+    let parsed: ForumMessage[] | null = null;
     if (saved) {
       try {
-        return JSON.parse(saved);
+        parsed = JSON.parse(saved);
       } catch (e) {
-        console.error(e);
+        console.error("Error parsing ava_forum_messages:", e);
       }
     }
-    return [
+    const defaults: ForumMessage[] = [
       {
         id: 'forum-msg-1',
         courseId: 'course-1',
@@ -496,7 +609,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'forum-msg-3',
         courseId: 'course-1',
-        senderName: 'Gestor de Cursos',
+        senderName: 'Gestor de Conteúdos',
         senderRole: 'instructor',
         text: 'Excelente discussão e fomento de ideias! Lembrem-se também de detalhar os erros de forma humanizada ao invés de usar códigos enigmáticos como "Error 412: Campo Requerido" (Heurística de Diagnóstico e Recuperação de Erros).',
         timestamp: '15/06/2026, 16:10',
@@ -516,7 +629,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'forum-msg-5',
         courseId: 'course-2',
-        senderName: 'Gestor de Cursos',
+        senderName: 'Gestor de Conteúdos',
         senderRole: 'instructor',
         text: 'Olá Gabriel! Para superfícies brancas internas convencionais de baixa iluminação, projetores Epson de curta distância (Short Throw) com pelo menos 3000 ANSI Lumens atendem o alinhamento com folga. Desative o HMR e aproveite o alinhamento de canais!',
         timestamp: '16/06/2026, 11:02',
@@ -524,16 +637,122 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         likedBy: ['Gabriel Rodrigues', 'João Silva']
       }
     ];
+
+    const source = parsed && Array.isArray(parsed) ? parsed : defaults;
+    const seen = new Set<string>();
+    const deduped: ForumMessage[] = [];
+    for (const msg of source) {
+      if (msg && msg.id && !seen.has(msg.id)) {
+        seen.add(msg.id);
+        deduped.push(msg);
+      }
+    }
+    return deduped;
   });
 
   useEffect(() => {
     localStorage.setItem('ava_forum_messages', JSON.stringify(forumMessages));
   }, [forumMessages]);
 
+  const [practicalExercises, setPracticalExercises] = useState<PracticalExercise[]>(() => {
+    const saved = localStorage.getItem('ava_practical_exercises');
+    let parsed: PracticalExercise[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_practical_exercises:", e);
+      }
+    }
+    const defaults = [
+      {
+        id: 'exercise-1',
+        courseId: 'course-1',
+        title: 'Análise de Heurísticas de Usabilidade',
+        description: 'Escolha um site ou aplicativo de sua preferência e faça um relatório identificando pelo menos 3 violações das heurísticas de usabilidade de Nielsen, justificando sua análise.',
+        instructions: 'Envie um relatório curto no campo de texto detalhando os pontos de atenção e propondo soluções de design simples para cada violação identificada.',
+        maxPoints: 100,
+        dueDate: '10/07/2026'
+      },
+      {
+        id: 'exercise-2',
+        courseId: 'course-2',
+        title: 'Planejamento de Máscaras e Alinhamento',
+        description: 'Elabore um plano de mapeamento de projeção para uma fachada de prédio geométrica simples contendo 3 janelas e uma porta central.',
+        instructions: 'Escreva um plano passo-a-passo detalhando como você organizaria as camadas de mascaramento de corte para as janelas e portas para evitar luz intrusiva nos vidros, e quais softwares usaria.',
+        maxPoints: 100,
+        dueDate: '15/07/2026'
+      }
+    ];
+
+    const source = parsed && Array.isArray(parsed) ? parsed : defaults;
+    const seen = new Set<string>();
+    const deduped: PracticalExercise[] = [];
+    for (const ex of source) {
+      if (ex && ex.id && !seen.has(ex.id)) {
+        seen.add(ex.id);
+        deduped.push(ex);
+      }
+    }
+    return deduped;
+  });
+
+  const [exerciseSubmissions, setExerciseSubmissions] = useState<ExerciseSubmission[]>(() => {
+    const saved = localStorage.getItem('ava_exercise_submissions');
+    let parsed: ExerciseSubmission[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_exercise_submissions:", e);
+      }
+    }
+    const defaults: ExerciseSubmission[] = [
+      {
+        id: 'submission-1',
+        exerciseId: 'exercise-1',
+        studentName: 'João Silva',
+        submissionText: 'Relatório de Usabilidade: Analisei o portal municipal da biblioteca.\n\n1. Visibilidade do status do sistema: Quando reservo um livro, a tela recarrega lentamente sem confirmação imediata, deixando o usuário sem saber se a operação deu certo.\n2. Prevenção de erros: O campo de busca de CPF aceita caracteres não-numéricos e quebra o banco.\n3. Consistência: Os botões de confirmação trocam de cor e lado dependendo da tela (às vezes verde na direita, às vezes azul na esquerda).\n\nRecomendação: Adicionar um Toast de sucesso e regex de validação de campo.',
+        submittedAt: '26/06/2026, 15:42',
+        status: 'approved',
+        score: 95,
+        feedback: 'Excelente análise, João! Você compreendeu perfeitamente as Heurísticas de Usabilidade de Nielsen e propôs correções elegantes e econômicas. Parabéns!',
+        gradedAt: '26/06/2026, 17:00',
+        gradedBy: 'Gestor de Conteúdos'
+      }
+    ];
+
+    const source = parsed && Array.isArray(parsed) ? parsed : defaults;
+    const seen = new Set<string>();
+    const deduped: ExerciseSubmission[] = [];
+    for (const sub of source) {
+      if (sub && sub.id && !seen.has(sub.id)) {
+        seen.add(sub.id);
+        deduped.push(sub);
+      }
+    }
+    return deduped;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('ava_practical_exercises', JSON.stringify(practicalExercises));
+  }, [practicalExercises]);
+
+  useEffect(() => {
+    localStorage.setItem('ava_exercise_submissions', JSON.stringify(exerciseSubmissions));
+  }, [exerciseSubmissions]);
+
   const [academicRequests, setAcademicRequests] = useState<AcademicRequest[]>(() => {
     const saved = localStorage.getItem('ava_academic_requests');
-    if (saved) return JSON.parse(saved);
-    return [
+    let parsed: AcademicRequest[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_academic_requests:", e);
+      }
+    }
+    const defaults: AcademicRequest[] = [
       {
         id: 'req-1',
         studentName: 'João Silva',
@@ -561,16 +780,34 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         courseTitle: 'Desenvolvimento de Servidores com Node.js e Express'
       }
     ];
+
+    const source = parsed && Array.isArray(parsed) ? parsed : defaults;
+    const seen = new Set<string>();
+    const deduped: AcademicRequest[] = [];
+    for (const r of source) {
+      if (r && r.id && !seen.has(r.id)) {
+        seen.add(r.id);
+        deduped.push(r);
+      }
+    }
+    return deduped;
   });
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     const saved = localStorage.getItem('ava_chat_messages');
-    if (saved) return JSON.parse(saved);
-    return [
+    let parsed: ChatMessage[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_chat_messages:", e);
+      }
+    }
+    const defaults: ChatMessage[] = [
       {
         id: 'msg-1',
         sessionId: 'live-1-1',
-        senderName: 'Gestor de Cursos',
+        senderName: 'Gestor de Conteúdos',
         senderRole: 'instructor',
         text: 'Sejam bem-vindos à aula ao vivo sobre UX de Alta Performance! Podem enviar dúvidas aqui no chat.',
         timestamp: new Date().toISOString()
@@ -586,16 +823,27 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'msg-3',
         sessionId: 'live-2-1',
-        senderName: 'Gestor de Cursos',
+        senderName: 'Gestor de Conteúdos',
         senderRole: 'instructor',
         text: 'Iniciando em breve nossa aula prática de Express APIs!',
         timestamp: new Date().toISOString()
       }
     ];
+
+    const source = parsed && Array.isArray(parsed) ? parsed : defaults;
+    const seen = new Set<string>();
+    const deduped: ChatMessage[] = [];
+    for (const msg of source) {
+      if (msg && msg.id && !seen.has(msg.id)) {
+        seen.add(msg.id);
+        deduped.push(msg);
+      }
+    }
+    return deduped;
   });
 
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>(() => {
-    const defaultDMs = [
+    const defaultDMs: DirectMessage[] = [
       {
         id: 'dm-1',
         studentName: 'João Silva',
@@ -607,7 +855,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'dm-2',
         studentName: 'João Silva',
-        senderName: 'Gestor de Cursos',
+        senderName: 'Gestor de Conteúdos',
         senderRole: 'instructor',
         text: 'Olá João! Que ótimo que está curtindo. Teremos uma mentoria sobre isso hoje mesmo às 19:30, mas você pode também agendar um horário direto comigo se precisar!',
         timestamp: new Date(Date.now() - 3600000 * 4).toISOString() // 4h ago
@@ -642,16 +890,24 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          const merged = [...parsed];
+          const merged: DirectMessage[] = [];
+          const seen = new Set<string>();
+          for (const dm of parsed) {
+            if (dm && dm.id && !seen.has(dm.id)) {
+              seen.add(dm.id);
+              merged.push(dm);
+            }
+          }
           defaultDMs.forEach(item => {
-            if (!merged.some(m => m.id === item.id)) {
+            if (!seen.has(item.id)) {
+              seen.add(item.id);
               merged.push(item);
             }
           });
           return merged;
         }
       } catch (e) {
-        console.error(e);
+        console.error("Error parsing ava_direct_messages:", e);
       }
     }
     return defaultDMs;
@@ -688,8 +944,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>(() => {
     const saved = localStorage.getItem('ava_security_logs');
-    if (saved) return JSON.parse(saved);
-    return [
+    let parsed: SecurityLog[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_security_logs:", e);
+      }
+    }
+    const defaults = [
       {
         id: 'log-1',
         timestamp: new Date(Date.now() - 3600000 * 5).toLocaleTimeString('pt-BR') + ' ' + new Date(Date.now() - 3600000 * 5).toLocaleDateString('pt-BR'),
@@ -704,7 +967,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'log-2',
         timestamp: new Date(Date.now() - 3600000 * 3).toLocaleTimeString('pt-BR') + ' ' + new Date(Date.now() - 3600000 * 3).toLocaleDateString('pt-BR'),
-        user: 'Gestor de Cursos',
+        user: 'Gestor de Conteúdos',
         role: 'instructor',
         ipAddress: '172.16.254.12',
         device: 'Firefox / Windows 11',
@@ -724,6 +987,17 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         status: 'SUCCESS' as const
       }
     ];
+
+    const source = parsed && Array.isArray(parsed) ? parsed : defaults;
+    const seen = new Set<string>();
+    const deduped: SecurityLog[] = [];
+    for (const log of source) {
+      if (log && log.id && !seen.has(log.id)) {
+        seen.add(log.id);
+        deduped.push(log);
+      }
+    }
+    return deduped;
   });
 
   const addSecurityLog = (action: string, details: string, status: 'SUCCESS' | 'WARNING' | 'FAILED' = 'SUCCESS') => {
@@ -880,7 +1154,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleUserRole = () => {
     setActiveUser((prev) => {
       const newRole = prev.role === 'student' ? 'instructor' : 'student';
-      const newName = newRole === 'student' ? 'João Silva' : 'Gestor de Cursos';
+      const newName = newRole === 'student' ? 'João Silva' : 'Gestor de Conteúdos';
       return { name: newName, role: newRole };
     });
   };
@@ -1084,7 +1358,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             videoUrl,
             order: newOrder
           };
-          return { ...course, lessons: [...course.lessons, newLesson] };
+          const updatedLessons = [...course.lessons, newLesson];
+          fetch(`/api/courses/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lessons: updatedLessons })
+          }).catch(err => console.error(err));
+          return { ...course, lessons: updatedLessons };
         }
         return course;
       })
@@ -1095,9 +1375,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id === courseId) {
+          const updatedLessons = course.lessons.map((l) => (l.id === lessonId ? { ...l, ...updates } : l));
+          fetch(`/api/courses/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lessons: updatedLessons })
+          }).catch(err => console.error(err));
           return {
             ...course,
-            lessons: course.lessons.map((l) => (l.id === lessonId ? { ...l, ...updates } : l))
+            lessons: updatedLessons
           };
         }
         return course;
@@ -1109,9 +1395,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCourses((prev) =>
       prev.map((course) => {
         if (course.id === courseId) {
+          const updatedLessons = course.lessons.filter((l) => l.id !== lessonId);
+          fetch(`/api/courses/${courseId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lessons: updatedLessons })
+          }).catch(err => console.error(err));
           return {
             ...course,
-            lessons: course.lessons.filter((l) => l.id !== lessonId)
+            lessons: updatedLessons
           };
         }
         return course;
@@ -1262,13 +1554,35 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProfessorsList((prev) => prev.filter((p) => p !== name));
   };
 
-  const addStudent = (name: string, email: string, password?: string) => {
+  const addStudent = (
+    name: string, 
+    email: string, 
+    password?: string, 
+    municipio?: string, 
+    uf?: string, 
+    areaInteresse?: string, 
+    dataCadastro?: string
+  ) => {
     setStudentsList((prev) => {
       if (prev.some((s) => s.name.toLowerCase() === name.toLowerCase() || s.email.toLowerCase() === email.toLowerCase())) return prev;
       const finalPassword = password && password.trim() ? password.trim() : '1234';
       // Store in localStorage so the login overlay / ProfileView immediately picks it up
       localStorage.setItem(`ava_active_password_${name}`, finalPassword);
-      return [...prev, { name, email, password: finalPassword }];
+      
+      const finalMunicipio = municipio?.trim() || 'São Paulo';
+      const finalUf = uf?.trim() || 'SP';
+      const finalArea = areaInteresse?.trim() || 'Tecnologia';
+      const finalData = dataCadastro?.trim() || new Date().toISOString().split('T')[0];
+
+      return [...prev, { 
+        name, 
+        email, 
+        password: finalPassword, 
+        municipio: finalMunicipio, 
+        uf: finalUf, 
+        areaInteresse: finalArea, 
+        dataCadastro: finalData 
+      }];
     });
   };
 
@@ -1308,12 +1622,30 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [admissionRequests, setAdmissionRequests] = useState<AdmissionRequest[]>(() => {
     const saved = localStorage.getItem('ava_admission_requests');
-    if (saved) return JSON.parse(saved);
-    return [
+    let parsed: AdmissionRequest[] | null = null;
+    if (saved) {
+      try {
+        parsed = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing ava_admission_requests:", e);
+      }
+    }
+    const defaults: AdmissionRequest[] = [
       { id: 'adm-1', studentName: 'Lucas Santana', courseId: 'course-1', status: 'pending', submittedAt: '03/06/2026' },
       { id: 'adm-2', studentName: 'Carolina Mendes', courseId: 'course-1', status: 'pending', submittedAt: '03/06/2026' },
       { id: 'adm-3', studentName: 'Ana Souza', courseId: 'course-2', status: 'pending', submittedAt: '03/06/2026' },
     ];
+
+    const source = parsed && Array.isArray(parsed) ? parsed : defaults;
+    const seen = new Set<string>();
+    const deduped: AdmissionRequest[] = [];
+    for (const req of source) {
+      if (req && req.id && !seen.has(req.id)) {
+        seen.add(req.id);
+        deduped.push(req);
+      }
+    }
+    return deduped;
   });
 
   useEffect(() => {
@@ -1456,6 +1788,65 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setForumMessages(prev => prev.filter(msg => msg.id !== messageId));
   };
 
+  const addPracticalExercise = (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => {
+    const newEx: PracticalExercise = {
+      id: `exercise-${Date.now()}`,
+      courseId,
+      title,
+      description,
+      instructions,
+      maxPoints,
+      dueDate
+    };
+    setPracticalExercises(prev => [...prev, newEx]);
+  };
+
+  const updatePracticalExercise = (exerciseId: string, updates: Partial<PracticalExercise>) => {
+    setPracticalExercises(prev => prev.map(ex => ex.id === exerciseId ? { ...ex, ...updates } : ex));
+  };
+
+  const deletePracticalExercise = (exerciseId: string) => {
+    setPracticalExercises(prev => prev.filter(ex => ex.id !== exerciseId));
+    setExerciseSubmissions(prev => prev.filter(sub => sub.exerciseId !== exerciseId));
+  };
+
+  const submitExercise = (exerciseId: string, studentName: string, submissionText: string, fileUrl?: string, fileName?: string) => {
+    const existingIndex = exerciseSubmissions.findIndex(sub => sub.exerciseId === exerciseId && sub.studentName === studentName);
+    
+    const newSub: ExerciseSubmission = {
+      id: existingIndex >= 0 ? exerciseSubmissions[existingIndex].id : `sub-${Date.now()}`,
+      exerciseId,
+      studentName,
+      submissionText,
+      fileUrl,
+      fileName,
+      submittedAt: new Date().toLocaleString('pt-BR'),
+      status: 'pending'
+    };
+
+    if (existingIndex >= 0) {
+      setExerciseSubmissions(prev => prev.map(sub => sub.id === newSub.id ? newSub : sub));
+    } else {
+      setExerciseSubmissions(prev => [...prev, newSub]);
+    }
+  };
+
+  const gradeSubmission = (submissionId: string, score: number, feedback: string, graderName: string, status: 'approved' | 'rejected' | 'revision') => {
+    setExerciseSubmissions(prev => prev.map(sub => {
+      if (sub.id === submissionId) {
+        return {
+          ...sub,
+          score,
+          feedback,
+          status,
+          gradedAt: new Date().toLocaleString('pt-BR'),
+          gradedBy: graderName
+        };
+      }
+      return sub;
+    }));
+  };
+
   const getYouTubeEmbedUrl = (url: string): string | null => {
     if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
@@ -1541,6 +1932,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addForumMessage,
         toggleForumMessageLike,
         deleteForumMessage,
+        practicalExercises,
+        exerciseSubmissions,
+        addPracticalExercise,
+        updatePracticalExercise,
+        deletePracticalExercise,
+        submitExercise,
+        gradeSubmission,
       }}
     >
       {children}

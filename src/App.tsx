@@ -71,7 +71,9 @@ function DashboardSwitcher() {
     setTextSizeMultiplier,
     addSecurityLog,
     securityLogs,
-    addStudent
+    addStudent,
+    certificates,
+    studentEnrollments
   } = useLMS();
   
   const isUserLoggedIn = activeUser && activeUser.name !== '';
@@ -109,6 +111,18 @@ function DashboardSwitcher() {
 
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Contact form state
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactSubject, setContactSubject] = useState('');
+  const [contactMessage, setContactMessage] = useState('');
+  const [contactSuccess, setContactSuccess] = useState(false);
+
+  // Certificate lookup state
+  const [certQuery, setCertQuery] = useState('');
+  const [certSearchClicked, setCertSearchClicked] = useState(false);
+  const [certLookupResult, setCertLookupResult] = useState<any | null>(null);
+
   // Accessibility & Multi-language Internationalization (Transient UI states only)
   const [isAccessibilityOpen, setIsAccessibilityOpen] = useState(false);
   const [isSiteMapOpen, setIsSiteMapOpen] = useState(false);
@@ -118,6 +132,19 @@ function DashboardSwitcher() {
   const [pinInput, setPinInput] = useState<string>('');
   const [pinError, setPinError] = useState<string | null>(null);
   const [isPinSuccess, setIsPinSuccess] = useState<boolean>(false);
+  const loginPinInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (pendingLogin) {
+      setPinInput('');
+      setPinError(null);
+      setIsPinSuccess(false);
+      const timer = setTimeout(() => {
+        loginPinInputRef.current?.focus();
+      }, 350);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingLogin]);
 
   useEffect(() => {
     const isLocked = localStorage.getItem('ava_session_locked') === 'true';
@@ -129,11 +156,15 @@ function DashboardSwitcher() {
 
   const speakText = (text: string) => {
     if (!isSpeechEnabled) return;
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = currentLang === 'pt' ? 'pt-BR' : currentLang === 'en' ? 'en-US' : 'es-ES';
-      window.speechSynthesis.speak(utterance);
+    if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = currentLang === 'pt' ? 'pt-BR' : currentLang === 'en' ? 'en-US' : 'es-ES';
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("Speech synthesis error:", err);
+      }
     }
   };
 
@@ -142,15 +173,15 @@ function DashboardSwitcher() {
       heroBadge: "Inscrições Abertas — Cursos Livres de Qualificação",
       heroTitleLine1: "Escola da Cultura",
       heroTitleLine2: "de Cultura e Economia Criativa",
-      heroDesc: "A AVASEC é uma plataforma de cursos on-line destinada à formação e qualificação profissional em Cultura e Economia Criativa exclusivamente por meio da oferta de Cursos Livres 100% gratuitos. Cadastre-se e comece já!",
+      heroDesc: "A AVASEC é uma plataforma de cursos on-line destinada à formação e qualificação profissional em Cultura e Economia Criativa por meio da oferta de Cursos Livres. Cadastre-se e comece já!",
       btnDiscover: "Descubra mais",
       btnStart: "Comece a estudar",
       gradeTitle: "Pilares do Aprendizado",
       gradeSubtitle: "Diferenciais do Ensino Livre",
       gradeCard1: "Alta Aplicabilidade",
       gradeCard1Desc: "Atividades pontuais de curta duração e alta aplicabilidade prática, ideais para sintonização rápida a novos processos tecnológicos e criativos do cenário nacional.",
-      gradeCard2: "Certificação Gratuita",
-      gradeCard2Desc: "Conclua as trilhas de estudo e emita seu certificado oficial digital gratuitamente, válido para comprovação de competência, editais e horas curriculares.",
+      gradeCard2: "Certificação Oficial",
+      gradeCard2Desc: "Conclua as trilhas de estudo e emita seu certificado oficial digital, válido para comprovação de competência, editais e horas curriculares.",
       gradeCard3: "Ritmo Flexível",
       gradeCard3Desc: "Estude de qualquer lugar, no seu tempo e estilo de vida, com nossa plataforma dinâmica de cursos livres projetada para seu sucesso profissional.",
       coursesTitle: "Investimento Formativo",
@@ -161,22 +192,22 @@ function DashboardSwitcher() {
       faqSubtitle: "Dúvidas Frequentes",
     },
     en: {
-      heroBadge: "Open Applications — Free Qualification Courses",
+      heroBadge: "Open Applications — Qualification Courses",
       heroTitleLine1: "Culture School",
       heroTitleLine2: "of Culture and Creative Economy",
-      heroDesc: "AVASEC is an online course platform dedicated to professional qualification in Culture and Creative Economy exclusively through the offer of 100% free Courses.",
+      heroDesc: "AVASEC is an online course platform dedicated to professional qualification in Culture and Creative Economy through the offer of Courses.",
       btnDiscover: "Discover more",
       btnStart: "Start Studying",
       gradeTitle: "Learning Pillars",
-      gradeSubtitle: "Free Course Benefits",
+      gradeSubtitle: "Course Benefits",
       gradeCard1: "High Applicability",
       gradeCard1Desc: "Short-term classes with immediate practical applicability, perfect for quickly tuning into new technological and creative workflows in the cultural market.",
-      gradeCard2: "Free Certification",
-      gradeCard2Desc: "Complete your study paths and issue your official digital certificate for free, fully valid for cultural grants, bids, and academic credentials.",
+      gradeCard2: "Official Certification",
+      gradeCard2Desc: "Complete your study paths and issue your official digital certificate, fully valid for cultural grants, bids, and academic credentials.",
       gradeCard3: "Flexible Pace",
       gradeCard3Desc: "Learn from anywhere, at your own pace and schedule, with our responsive online platform designed to fit your creative career.",
       coursesTitle: "Interactive Training",
-      coursesSubtitle: "Our Available Free Courses",
+      coursesSubtitle: "Our Available Courses",
       newsTitle: "Latest News",
       newsSubtitle: "Recent Notices",
       faqTitle: "Faq & Student Support",
@@ -186,15 +217,15 @@ function DashboardSwitcher() {
       heroBadge: "Inscripciones Abiertas — Cursos Libres de Calificación",
       heroTitleLine1: "Escuela de la Cultura",
       heroTitleLine2: "de Cultura y Economía Creativa",
-      heroDesc: "AVASEC es una plataforma de cursos en línea dedicada a la capacitación profesional en Cultura y Economía Creativa exclusivamente mediante la oferta de Cursos Libres 100% gratuitos.",
+      heroDesc: "AVASEC es una plataforma de cursos en línea dedicada a la capacitación profesional en Cultura y Economía Creativa mediante la oferta de Cursos Libres.",
       btnDiscover: "Descubre más",
       btnStart: "Comience a estudiar",
       gradeTitle: "Pilares del Aprendizaje",
       gradeSubtitle: "Beneficios de los Cursos Libres",
       gradeCard1: "Alta Aplicación",
       gradeCard1Desc: "Sesiones formativas cortas y de alta aplicación práctica, ideales para sintonizar rápidamente con nuevos flujos creativos y tecnológicos en el mercado.",
-      gradeCard2: "Certificado Gratuito",
-      gradeCard2Desc: "Complete las rutas de estudio y emita su certificado oficial digital de forma gratuita, ideal para convocatorias de incentivo y créditos curriculares.",
+      gradeCard2: "Certificación Oficial",
+      gradeCard2Desc: "Complete las rutas de estudio y emita su certificado oficial digital, ideal para convocatorias de incentivo y créditos curriculares.",
       gradeCard3: "Ritmo Flexible",
       gradeCard3Desc: "Estudie desde cualquier lugar, a su propio ritmo y horario, con nuestra plataforma móvil dinámica diseñada para el éxito de su carrera creativa.",
       coursesTitle: "Inversión Formativa",
@@ -241,7 +272,7 @@ function DashboardSwitcher() {
       id: 1,
       date: '20 mai. 2026',
       tag: 'Video Mapping',
-      title: 'AVASEC abre inscrições para curso gratuito de Video Mapping focado no cenário cultural',
+      title: 'AVASEC abre inscrições para curso de Video Mapping focado no cenário cultural',
       image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&auto=format&fit=crop&q=70',
       description: 'Uma imersão completa na arte digital e projeção mapeada para fachadas históricas, palcos e intervenções urbanas de impacto.'
     },
@@ -268,7 +299,7 @@ function DashboardSwitcher() {
     {
       title: 'Inteligência Artificial e Cultura 2ª Oferta',
       category: 'Economia Criativa & IA',
-      instructor: 'Gestor de Cursos',
+      instructor: 'Gestor de Conteúdos',
       iconType: 'mic',
       iconBg: 'bg-[#540D6E]',
       image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=500&auto=format&fit=crop&q=60',
@@ -277,7 +308,7 @@ function DashboardSwitcher() {
     {
       title: 'Produção Audiovisual 2ª Oferta',
       category: 'Áreas Técnicas',
-      instructor: 'Gestor de Cursos',
+      instructor: 'Gestor de Conteúdos',
       iconType: 'video',
       iconBg: 'bg-[#540D6E]',
       image: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=500&auto=format&fit=crop&q=60',
@@ -286,7 +317,7 @@ function DashboardSwitcher() {
     {
       title: 'Submissão de Propostas Simplificadas 2ª Oferta',
       category: 'Políticas e Gestão Culturais',
-      instructor: 'Gestor de Cursos',
+      instructor: 'Gestor de Conteúdos',
       iconType: 'building',
       iconBg: 'bg-[#FFD23F]',
       image: 'https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=500&auto=format&fit=crop&q=60',
@@ -295,7 +326,7 @@ function DashboardSwitcher() {
     {
       title: 'Prestação de Contas de Propostas Simplificadas 2ª Oferta',
       category: 'Políticas e Gestão Culturais',
-      instructor: 'Gestor de Cursos',
+      instructor: 'Gestor de Conteúdos',
       iconType: 'columns',
       iconBg: 'bg-[#FFD23F]',
       image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500&auto=format&fit=crop&q=60',
@@ -482,6 +513,45 @@ function DashboardSwitcher() {
     }
   };
 
+  const handleCertLookup = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCertSearchClicked(true);
+    if (!certQuery.trim()) {
+      setCertLookupResult(null);
+      return;
+    }
+    
+    const trimmed = certQuery.trim().toLowerCase();
+    const found = certificates.find(c => 
+      c.id.toLowerCase() === trimmed || 
+      c.verificationHash.toLowerCase() === trimmed ||
+      c.studentName.toLowerCase().includes(trimmed)
+    );
+    
+    if (found) {
+      setCertLookupResult(found);
+      speakText(`Certificado encontrado para o aluno ${found.studentName}.`);
+    } else {
+      setCertLookupResult(null);
+      speakText("Nenhum certificado correspondente a esta busca foi encontrado.");
+    }
+  };
+
+  const handleContactSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (contactName.trim() && contactEmail.trim()) {
+      setContactSuccess(true);
+      speakText("Sua mensagem foi enviada com sucesso para a Escola Estadual da Cultura.");
+      setTimeout(() => {
+        setContactSuccess(false);
+        setContactName('');
+        setContactEmail('');
+        setContactSubject('');
+        setContactMessage('');
+      }, 6000);
+    }
+  };
+
   const handleSmoothScroll = (elementId: string) => {
     const el = document.getElementById(elementId);
     if (el) {
@@ -579,25 +649,30 @@ function DashboardSwitcher() {
 
           {/* Desktop Navigation Links */}
           {currentView === 'landing' && !isSearchOpen && (
-            <nav className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-650 uppercase tracking-widest">
+            <nav className="hidden lg:flex items-center gap-5 text-[11px] font-black text-slate-650 uppercase tracking-widest">
               <button onClick={() => { 
                 window.scrollTo({ top: 0, behavior: 'smooth' }); 
                 speakText("Voltando para o topo da Página Inicial.");
-              }} className="hover:text-[#540D6E] transition-colors border-b-2 border-[#540D6E] pb-1 cursor-pointer">
-                Página Inicial
+              }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
+                Início
               </button>
-              <button onClick={() => { handleSmoothScroll('cursos'); speakText("Cursos"); }} className="hover:text-[#540D6E] transition-colors pb-1 cursor-pointer flex items-center gap-1.5">
-                <span>Cursos</span>
-                <span className="bg-[#FFD23F] text-[8px] font-mono tracking-normal font-extrabold px-1.5 py-0.2 rounded-full text-slate-950 animate-bounce">NOVO!</span>
+              <button onClick={() => { handleSmoothScroll('o-ava'); speakText("O AVA"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
+                O AVA
               </button>
-              <button onClick={() => { handleSmoothScroll('noticias'); speakText("Notícias"); }} className="hover:text-[#540D6E] transition-colors pb-1 cursor-pointer">
-                Notícias
+              <button onClick={() => { handleSmoothScroll('o-projeto'); speakText("O Projeto"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
+                O Projeto
               </button>
-              <button onClick={() => { handleSmoothScroll('duvidas'); speakText("Dúvidas"); }} className="hover:text-[#540D6E] transition-colors pb-1 cursor-pointer">
-                Dúvidas
+              <button onClick={() => { handleSmoothScroll('cursos'); speakText("Cursos"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
+                Cursos
               </button>
-              <button onClick={() => { handleSmoothScroll('quem-somos'); speakText("Sobre"); }} className="hover:text-[#540D6E] transition-colors pb-1 cursor-pointer">
-                Sobre
+              <button onClick={() => { handleSmoothScroll('certificados'); speakText("Certificados"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
+                Certificados
+              </button>
+              <button onClick={() => { handleSmoothScroll('calendario'); speakText("Calendário"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
+                Calendário
+              </button>
+              <button onClick={() => { handleSmoothScroll('contato'); speakText("Contato"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
+                Contato
               </button>
             </nav>
           )}
@@ -827,7 +902,7 @@ function DashboardSwitcher() {
                     <span className="block text-xs font-bold text-slate-800 leading-none">{activeUser.name}</span>
                     <span className="text-[9px] text-[#540D6E] font-bold block mt-0.5">
                       {activeUser.role === 'student' && 'Aluno Credenciado'}
-                      {activeUser.role === 'instructor' && 'Gestor de Cursos'}
+                      {activeUser.role === 'instructor' && 'Gestor de Conteúdos'}
                       {activeUser.role === 'admin' && 'Moderação Coordenação'}
                     </span>
                   </div>
@@ -964,7 +1039,27 @@ function DashboardSwitcher() {
                   }} 
                   className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
                 >
-                  Página Inicial
+                  Início
+                </button>
+                <button 
+                  onClick={() => { 
+                    handleSmoothScroll('o-ava'); 
+                    setIsMobileMenuOpen(false); 
+                    speakText("O AVA");
+                  }} 
+                  className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
+                >
+                  O AVA
+                </button>
+                <button 
+                  onClick={() => { 
+                    handleSmoothScroll('o-projeto'); 
+                    setIsMobileMenuOpen(false); 
+                    speakText("O Projeto");
+                  }} 
+                  className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
+                >
+                  O Projeto
                 </button>
                 <button 
                   onClick={() => { 
@@ -972,40 +1067,39 @@ function DashboardSwitcher() {
                     setIsMobileMenuOpen(false); 
                     speakText("Cursos");
                   }} 
-                  className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 flex items-center gap-2"
+                  className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
                 >
-                  <span>Cursos</span>
-                  <span className="bg-[#FFD23F] text-[8px] font-mono tracking-normal font-extrabold px-1.5 py-0.2 rounded-full text-slate-950">NOVO!</span>
+                  Cursos
                 </button>
                 <button 
                   onClick={() => { 
-                    handleSmoothScroll('noticias'); 
+                    handleSmoothScroll('certificados'); 
                     setIsMobileMenuOpen(false); 
-                    speakText("Notícias");
+                    speakText("Certificados");
                   }} 
                   className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
                 >
-                  Notícias
+                  Certificados
                 </button>
                 <button 
                   onClick={() => { 
-                    handleSmoothScroll('duvidas'); 
+                    handleSmoothScroll('calendario'); 
                     setIsMobileMenuOpen(false); 
-                    speakText("Dúvidas");
+                    speakText("Calendário");
                   }} 
                   className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
                 >
-                  Dúvidas
+                  Calendário
                 </button>
                 <button 
                   onClick={() => { 
-                    handleSmoothScroll('quem-somos'); 
+                    handleSmoothScroll('contato'); 
                     setIsMobileMenuOpen(false); 
-                    speakText("Sobre");
+                    speakText("Contato");
                   }} 
                   className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
                 >
-                  Sobre
+                  Contato
                 </button>
               </div>
             </motion.div>
@@ -1095,12 +1189,12 @@ function DashboardSwitcher() {
                   </div>
 
                   <h2 className="text-3xl md:text-5xl lg:text-[54px] font-extrabold tracking-tight leading-[1.08] font-serif">
-                    {translations[currentLang].heroTitleLine1} <br className="hidden sm:inline" />
-                    <span className="text-[#FFD23F]">{translations[currentLang].heroTitleLine2}</span>
+                    Escola Estadual da Cultura <br className="hidden sm:inline" />
+                    <span className="text-[#FFD23F]">Ambiente Virtual de Aprendizagem (AVASEC)</span>
                   </h2>
 
                   <p className="text-slate-100 text-sm md:text-base leading-relaxed max-w-2xl font-light">
-                    {translations[currentLang].heroDesc}
+                    A AVASEC é o portal de capacitação e qualificação profissional da Escola Estadual da Cultura. Oferecemos cursos livres e de excelência em Cultura, Gestão Cultural, Economia Criativa e Linguagens Artísticas com certificação digital homologada.
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -1158,96 +1252,196 @@ function DashboardSwitcher() {
               </div>
             </section>
 
-            {/* CURRICULAR MODAL MODES: Benefits & Pillars of Free Courses */}
-            <section className="bg-slate-50 py-16 px-4 border-b border-slate-150">
-              <div className="mx-auto max-w-7xl text-center space-y-12">
-                <div className="space-y-3">
+            {/* SECTION: MINHA APRENDIZAGEM (Condicional quando logado) */}
+            {isUserLoggedIn && activeUser.role === 'student' && (
+              <section id="minha-aprendizagem" className="bg-slate-50 py-10 px-4 border-b border-slate-200">
+                <div className="mx-auto max-w-7xl animate-in fade-in duration-200">
+                  <div className="bg-white rounded-3xl border border-slate-250/75 p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div className="space-y-4 text-left w-full">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-[#540D6E]/10 border border-[#540D6E]/20 text-[#540D6E] text-[10px] uppercase tracking-widest font-extrabold px-3 py-1 font-mono">
+                        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                        <span>Sua Área de Estudos</span>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-serif">
+                          Olá, {activeUser.name}!
+                        </h3>
+                        <p className="text-xs text-slate-500 max-w-2xl font-light">
+                          Continue de onde você parou. Acesse seu curso ativo ou acompanhe suas notas, presenças síncronas de mentoria e certificados homologados.
+                        </p>
+                      </div>
+
+                      {/* Display current active course if there is one */}
+                      {(() => {
+                        const enrollment = studentEnrollments[activeUser.name];
+                        const activeCourseId = enrollment?.enrolledCourseId;
+                        const activeCourse = activeCourseId ? courses.find(c => c.id === activeCourseId) : null;
+                        
+                        if (activeCourse) {
+                          return (
+                            <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-150 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
+                              <div className="space-y-1">
+                                <span className="text-[9px] uppercase font-bold text-slate-400 block font-mono">CURSO ATIVO</span>
+                                <strong className="text-sm font-bold text-[#540D6E] block font-serif">{activeCourse.title}</strong>
+                                <span className="text-xs text-slate-500 block">Ministrado por: Prof. {activeCourse.instructor}</span>
+                              </div>
+                              <button 
+                                onClick={() => { setCurrentView('active_app'); speakText(`Iniciando estudos no curso ${activeCourse.title}`); }}
+                                className="w-full sm:w-auto shrink-0 bg-[#540D6E] hover:bg-purple-950 text-white text-xs font-black uppercase tracking-wider py-2.5 px-5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                              >
+                                <span>Continuar Aula</span>
+                                <ArrowRight className="h-4 w-4" />
+                              </button>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-200/60 mt-2 text-xs text-slate-650 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                              <p>Você não tem nenhuma matrícula ativa de curso no momento. Explore nosso catálogo e matricule-se!</p>
+                              <button 
+                                onClick={() => handleSmoothScroll('cursos')}
+                                className="shrink-0 text-xs font-black uppercase tracking-wider text-[#540D6E] hover:underline"
+                              >
+                                Ver Cursos ➔
+                              </button>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 w-full md:w-80 shrink-0">
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+                        <strong className="text-2xl font-black text-[#540D6E] font-mono block">
+                          {studentEnrollments[activeUser.name]?.completedCourseIds?.length || 0}
+                        </strong>
+                        <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1 block">Cursos Concluídos</span>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
+                        <strong className="text-2xl font-black text-[#3BCEAC] font-mono block">
+                          {certificates.filter(c => c.studentName.toLowerCase() === activeUser.name.toLowerCase()).length || 0}
+                        </strong>
+                        <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1 block">Certificados Emitidos</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* SEÇÃO 3: O QUE É O AVA */}
+            <section id="o-ava" className="bg-white py-20 px-4 border-b border-slate-150">
+              <div className="mx-auto max-w-7xl space-y-12">
+                <div className="text-center space-y-3 max-w-3xl mx-auto">
                   <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">
-                    {translations[currentLang].gradeTitle}
+                    Ecossistema de Qualificação Digital
                   </span>
-                  <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif text-slate-900">
-                    {translations[currentLang].gradeSubtitle}
+                  <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">
+                    O que é o AVA?
                   </h3>
+                  <p className="text-xs md:text-sm text-slate-500 leading-relaxed font-light">
+                    O AVA (Ambiente Virtual de Aprendizagem) da Escola Estadual da Cultura é um ecossistema digital inteligente voltado para a formação continuada, democrático e acessível a todos os fazedores de cultura.
+                  </p>
                   <div className="h-1.5 w-16 bg-[#540D6E] mx-auto rounded-full" />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5.5xl mx-auto">
-                  
-                  {/* Card 1: Alta Aplicabilidade */}
-                  <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-slate-100 flex flex-col justify-between group">
-                    <div className="arch-card-[#540D6E] h-36 bg-[#540D6E]/5 relative flex items-end justify-center pb-6">
-                      <div className="absolute -bottom-10 h-20 w-20 rounded-full bg-[#EE4266] border-4 border-white flex items-center justify-center text-white shadow-md">
-                        <Activity className="h-8 w-8 text-white" />
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                  {/* Card 1: Aulas Assíncronas */}
+                  <div className="bg-slate-50 rounded-3xl p-6.5 border border-slate-200/60 hover:shadow-lg transition-all space-y-4 text-left">
+                    <div className="h-12 w-12 rounded-2xl bg-[#540D6E]/10 flex items-center justify-center text-[#540D6E]">
+                      <Video className="h-6 w-6" />
                     </div>
-                    <div className="p-6 pt-14 space-y-4 text-center flex-1 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">
-                          {translations[currentLang].gradeCard1}
-                        </h4>
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          {translations[currentLang].gradeCard1Desc}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => handleSmoothScroll('cursos')} 
-                        className="w-full mt-4 py-2.5 rounded-xl border border-[#540D6E] hover:bg-[#540D6E] hover:text-white text-[#540D6E] text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
-                      >
-                        {currentLang === 'pt' ? 'Conhecer' : currentLang === 'en' ? 'Learn More' : 'Conocer'}
-                      </button>
-                    </div>
+                    <h4 className="text-lg font-extrabold text-slate-900 font-serif">Aulas Assíncronas</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Assista às videoaulas gravadas quando e onde quiser, no seu próprio ritmo. Nosso player interativo permite que você retome os estudos exatamente de onde parou.
+                    </p>
                   </div>
 
-                  {/* Card 2: Certificação Gratuita */}
-                  <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-slate-100 flex flex-col justify-between group">
-                    <div className="arch-card-[#3BCEAC] h-36 bg-[#3BCEAC]/5 relative flex items-end justify-center pb-6">
-                      <div className="absolute -bottom-10 h-20 w-20 rounded-full bg-[#540D6E] border-4 border-white flex items-center justify-center text-white shadow-md">
-                        <Award className="h-8 w-8 text-white" />
-                      </div>
+                  {/* Card 2: Mentorias e Fóruns */}
+                  <div className="bg-slate-50 rounded-3xl p-6.5 border border-slate-200/60 hover:shadow-lg transition-all space-y-4 text-left">
+                    <div className="h-12 w-12 rounded-2xl bg-[#3BCEAC]/10 flex items-center justify-center text-[#3BCEAC]">
+                      <Users className="h-6 w-6" />
                     </div>
-                    <div className="p-6 pt-14 space-y-4 text-center flex-1 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">
-                          {translations[currentLang].gradeCard2}
-                        </h4>
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          {translations[currentLang].gradeCard2Desc}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => handleSmoothScroll('cursos')} 
-                        className="w-full mt-4 py-2.5 rounded-xl border border-[#3BCEAC] hover:bg-[#3BCEAC] hover:text-white text-[#3BCEAC] text-xs font-black uppercase tracking-wider transition-all cursor-pointer relative"
-                      >
-                        {currentLang === 'pt' ? 'Conhecer' : currentLang === 'en' ? 'Learn More' : 'Conocer'}
-                      </button>
-                    </div>
+                    <h4 className="text-lg font-extrabold text-slate-900 font-serif">Interação Próxima</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Participe de mentorias coletivas ao vivo através do nosso Calendário e envie mensagens diretas aos professores e tutores especializados de cada trilha.
+                    </p>
                   </div>
 
-                  {/* Card 3: Ritmo Flexível */}
-                  <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-slate-100 flex flex-col justify-between group">
-                    <div className="arch-card-[#FFD23F] h-36 bg-[#FFD23F]/5 relative flex items-end justify-center pb-6">
-                      <div className="absolute -bottom-10 h-20 w-20 rounded-full bg-[#FFD23F] border-4 border-white flex items-center justify-center text-slate-900 shadow-md">
-                        <BookOpen className="h-8 w-8 text-slate-900" />
-                      </div>
+                  {/* Card 3: Certificação Homologada */}
+                  <div className="bg-slate-50 rounded-3xl p-6.5 border border-slate-200/60 hover:shadow-lg transition-all space-y-4 text-left">
+                    <div className="h-12 w-12 rounded-2xl bg-[#EE4266]/10 flex items-center justify-center text-[#EE4266]">
+                      <Award className="h-6 w-6" />
                     </div>
-                    <div className="p-6 pt-14 space-y-4 text-center flex-1 flex flex-col justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-xl font-extrabold text-slate-900 font-serif">
-                          {translations[currentLang].gradeCard3}
-                        </h4>
-                        <p className="text-xs text-slate-500 leading-relaxed">
-                          {translations[currentLang].gradeCard3Desc}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={() => handleSmoothScroll('cursos')} 
-                        className="w-full mt-4 py-2.5 rounded-xl border border-[#EE4266] hover:bg-[#EE4266] hover:text-white text-[#EE4266] text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
-                      >
-                        {currentLang === 'pt' ? 'Conhecer' : currentLang === 'en' ? 'Learn More' : 'Conocer'}
-                      </button>
+                    <h4 className="text-lg font-extrabold text-slate-900 font-serif">Diplomas Válidos</h4>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Ao atingir os objetivos acadêmicos, emita um certificado oficial digital homologado pela Secretaria da Cultura do Estado com verificação em blockchain.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 4: O PROJETO */}
+            <section id="o-projeto" className="bg-slate-50 py-20 px-4 border-b border-slate-150">
+              <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                {/* Left image decoration */}
+                <div className="lg:col-span-5 relative flex items-center justify-center">
+                  <div className="relative w-80 h-80 sm:w-90 sm:h-90 shrink-0 flex items-center justify-center">
+                    <div className="absolute top-4 left-4 w-full h-full border-4 border-[#FFD23F]/30 rounded-3xl pointer-events-none" />
+                    <div className="w-full h-full rounded-3xl overflow-hidden border-4 border-white shadow-xl relative bg-slate-900">
+                      <img 
+                        src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&q=80&w=600" 
+                        alt="Escola Estadual da Cultura" 
+                        className="w-full h-full object-cover filter brightness-95"
+                        referrerPolicy="no-referrer"
+                      />
                     </div>
                   </div>
+                </div>
 
+                {/* Right side: text details */}
+                <div className="lg:col-span-7 space-y-6 text-left">
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">
+                      Iniciativa de fomento público
+                    </span>
+                    <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif text-slate-900">
+                      O Projeto Pedagógico
+                    </h3>
+                    <div className="h-1.5 w-12 bg-[#540D6E] rounded-full" />
+                  </div>
+
+                  <p className="text-xs md:text-sm text-slate-500 leading-relaxed font-light">
+                    A <strong>Escola Estadual da Cultura</strong> é um projeto estratégico estatal gerido pela Diretoria de Formação e Qualificação de Trabalhadores da Cultura. Nosso plano político-pedagógico tem como compromisso democratizar as ferramentas da Economia Criativa.
+                  </p>
+
+                  <div className="space-y-4 pt-2">
+                    <div className="flex gap-3.5">
+                      <div className="h-6.5 w-6.5 rounded-full bg-[#540D6E]/10 flex items-center justify-center text-[#540D6E] text-xs font-black shrink-0 font-mono mt-0.5">1</div>
+                      <div className="space-y-0.5">
+                        <strong className="text-xs text-slate-800 font-bold block">Foco na Descentralização e Acesso Público</strong>
+                        <p className="text-xs text-slate-400 font-light leading-relaxed">Trilhamos caminhos para alcançar comunidades distantes dos grandes eixos culturais, proporcionando qualificação técnica para jovens e adultos.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3.5">
+                      <div className="h-6.5 w-6.5 rounded-full bg-[#540D6E]/10 flex items-center justify-center text-[#540D6E] text-xs font-black shrink-0 font-mono mt-0.5">2</div>
+                      <div className="space-y-0.5">
+                        <strong className="text-xs text-slate-800 font-bold block">Fomento à Lei Paulo Gustavo e Editais Públicos</strong>
+                        <p className="text-xs text-slate-400 font-light leading-relaxed">Nossos conteúdos auxiliam o fazedor de cultura a elaborar propostas robustas, captar recursos em editais governamentais e prestar contas de forma simplificada.</p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3.5">
+                      <div className="h-6.5 w-6.5 rounded-full bg-[#540D6E]/10 flex items-center justify-center text-[#540D6E] text-xs font-black shrink-0 font-mono mt-0.5">3</div>
+                      <div className="space-y-0.5">
+                        <strong className="text-xs text-slate-800 font-bold block">Pedagogia Decolonial e Inclusiva</strong>
+                        <p className="text-xs text-slate-400 font-light leading-relaxed">Celebramos e nos inspiramos no grande educador patrono Paulo Freire e na vanguarda negra de Solano Trindade, integrando teoria crítica com prática imediata do fazer artístico.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
@@ -1577,7 +1771,7 @@ function DashboardSwitcher() {
                       <span className="text-[#EE4266] text-xs mt-0.5">●</span>
                       <div>
                         <strong className="text-xs text-white uppercase block tracking-wider">Pedagogia Centrada no Educando:</strong>
-                        <p className="text-slate-400 text-[10.5px] mt-0.5">O processo educativo fundamentado na amorosidade, no respeito e na bagagem prévia do discente.</p>
+                        <p className="text-slate-400 text-[10.5px] mt-0.5">O processo educativo fundamentado na amorosidade, no respeito e na bagagem prévia do aluno.</p>
                       </div>
                     </div>
 
@@ -1617,8 +1811,8 @@ function DashboardSwitcher() {
               <div className="mx-auto max-w-7xl space-y-8">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-6">
                   <div className="text-left space-y-1">
-                    <span className="text-[10px] font-extrabold text-[#EE4266] uppercase tracking-widest block font-mono">Informativos Recentes</span>
-                    <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">Últimas Notícias</h3>
+                    <span className="text-[10px] font-extrabold text-[#EE4266] uppercase tracking-widest block font-mono">Destaques Letivos</span>
+                    <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">Notícias & Novidades</h3>
                   </div>
 
                   <div className="flex gap-2.5 items-center self-stretch sm:self-auto justify-between w-full sm:w-auto">
@@ -1752,12 +1946,451 @@ function DashboardSwitcher() {
               </div>
             </section>
 
+            {/* SEÇÃO 6: CERTIFICADOS (Orientações de Emissão + Autenticador Digital) */}
+            <section id="certificados" className="bg-slate-50 py-20 px-4 border-b border-slate-150">
+              <div className="mx-auto max-w-7xl space-y-12">
+                <div className="text-center space-y-3 max-w-3xl mx-auto">
+                  <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">
+                    Qualificação Oficial Homologada
+                  </span>
+                  <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">
+                    Certificados e Emissão
+                  </h3>
+                  <p className="text-xs md:text-sm text-slate-500 leading-relaxed font-light">
+                    Todos os cursos da Escola Estadual da Cultura dão direito a certificados de conclusão oficiais. Entenda os critérios necessários para emissão e valide certificados existentes abaixo.
+                  </p>
+                  <div className="h-1.5 w-16 bg-[#540D6E] mx-auto rounded-full" />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                  
+                  {/* Left Column: Guidelines */}
+                  <div className="lg:col-span-6 space-y-6 text-left">
+                    <div className="bg-white p-6.5 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
+                      <h4 className="text-base font-extrabold text-slate-900 font-serif flex items-center gap-2">
+                        <Award className="h-5 w-5 text-[#EE4266]" />
+                        <span>Orientações de Aprovação & Emissão</span>
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Para estar elegível à geração do seu certificado digital, você deve atender aos seguintes critérios letivos na plataforma:
+                      </p>
+                      
+                      <div className="space-y-4 pt-2">
+                        <div className="flex gap-3 items-start">
+                          <CheckCircle className="h-4.5 w-4.5 text-[#3BCEAC] shrink-0 mt-0.5" />
+                          <div className="text-xs">
+                            <strong className="text-slate-800 block">70% de Frequência Mínima:</strong>
+                            <span className="text-slate-500 text-[11px] leading-normal block">Calculada automaticamente pelas videoaulas assistidas por completo e presenças nas mentorias síncronas do Calendário.</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3 items-start">
+                          <CheckCircle className="h-4.5 w-4.5 text-[#3BCEAC] shrink-0 mt-0.5" />
+                          <div className="text-xs">
+                            <strong className="text-slate-800 block">Nota no Questionário Final:</strong>
+                            <span className="text-slate-500 text-[11px] leading-normal block">Atingir nota igual ou superior a 70% de acertos nos questionários avaliativos de cada módulo do curso.</span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3 items-start">
+                          <CheckCircle className="h-4.5 w-4.5 text-[#3BCEAC] shrink-0 mt-0.5" />
+                          <div className="text-xs">
+                            <strong className="text-slate-800 block">Emissão Sem Complicações:</strong>
+                            <span className="text-slate-500 text-[11px] leading-normal block">O botão de download do certificado em PDF ficará visível na aba "Certificados" do seu Painel de Estudos assim que as metas forem cumpridas.</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-[#FFD23F]/10 border border-[#FFD23F]/30 p-5 rounded-2xl flex gap-3.5 items-start">
+                      <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-slate-700 leading-relaxed">
+                        <strong>Validação por Terceiros:</strong> Qualquer instituição pública ou parceira pode validar os certificados emitidos utilizando o nosso autenticador ao lado com o código de registro ou nome completo.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Autenticador form */}
+                  <div className="lg:col-span-6 bg-white p-6.5 rounded-3xl border border-slate-200 shadow-2xs space-y-6 text-left">
+                    <div className="space-y-1.5">
+                      <h4 className="text-base font-extrabold text-slate-900 font-serif flex items-center gap-2">
+                        <ShieldCheck className="h-5 w-5 text-[#3BCEAC]" />
+                        <span>Autenticador de Certificados</span>
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Insira o código de validação de 10 dígitos ou o nome completo do aluno para verificar sua autenticidade.
+                      </p>
+                    </div>
+
+                    <form onSubmit={handleCertLookup} className="flex gap-2.5">
+                      <input
+                        type="text"
+                        placeholder="Ex: CERT-JOAO-123 ou João Silva..."
+                        value={certQuery}
+                        onChange={(e) => setCertQuery(e.target.value)}
+                        className="flex-1 bg-slate-50 border border-slate-250 text-slate-850 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#540D6E] placeholder-slate-400"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-xl bg-[#540D6E] hover:bg-purple-950 text-white font-black text-xs px-5 py-2.5 uppercase tracking-wider transition-all shadow-xs cursor-pointer shrink-0"
+                      >
+                        Verificar
+                      </button>
+                    </form>
+
+                    <AnimatePresence mode="wait">
+                      {certSearchClicked && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="pt-4 border-t border-slate-100 font-sans"
+                        >
+                          {certLookupResult ? (
+                            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4.5 space-y-3.5">
+                              <div className="flex items-center gap-2.5 text-emerald-800">
+                                <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                                <strong className="text-xs uppercase tracking-wide font-black">Certificado Válido e Homologado</strong>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-3 text-[11px] leading-relaxed border-t border-emerald-100 pt-3">
+                                <div>
+                                  <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Aluno</span>
+                                  <span className="text-slate-800 font-bold block">{certLookupResult.studentName}</span>
+                                </div>
+                                <div>
+                                  <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Curso</span>
+                                  <span className="text-slate-800 font-bold block">{certLookupResult.courseTitle}</span>
+                                </div>
+                                <div>
+                                  <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Data de Emissão</span>
+                                  <span className="text-slate-800 font-medium block">{new Date(certLookupResult.issueDate).toLocaleDateString('pt-BR')}</span>
+                                </div>
+                                <div>
+                                  <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Registro de Autenticidade</span>
+                                  <span className="text-slate-850 font-mono font-bold block select-all">{certLookupResult.verificationHash}</span>
+                                </div>
+                              </div>
+                              
+                              <p className="text-[10px] text-emerald-700 leading-normal font-medium bg-white/50 p-2.5 rounded-lg border border-emerald-100/50">
+                                Certificado emitido em conformidade com as diretrizes do AVA da Escola de Cultura e Economia Criativa do Estado. Registro de presença homologado: {certLookupResult.attendancePercent}%.
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4.5 flex gap-3 items-start">
+                              <X className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
+                              <div className="text-xs space-y-1">
+                                <strong className="text-rose-900 uppercase block tracking-wider font-extrabold">Código Não Encontrado</strong>
+                                <p className="text-rose-700 font-light leading-relaxed">
+                                  Nenhum registro correspondente ao termo "{certQuery}" foi encontrado em nosso banco de dados. Verifique a grafia do nome ou o hash de verificação de 10 dígitos impresso no verso do documento.
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 7: CALENDÁRIO (Sincronicidade de Aulas ao Vivo) */}
+            <section id="calendario" className="bg-white py-20 px-4 border-b border-slate-150">
+              <div className="mx-auto max-w-7xl space-y-12">
+                <div className="text-center space-y-3 max-w-3xl mx-auto">
+                  <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">
+                    Encontros Síncronos Interativos
+                  </span>
+                  <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">
+                    Calendário de Aulas ao Vivo
+                  </h3>
+                  <p className="text-xs md:text-sm text-slate-500 leading-relaxed font-light">
+                    Nossos cursos livres oferecem encontros ao vivo periódicos para tirar dúvidas, realizar mentorias de projetos e debater temas contemporâneos da cultura. Acompanhe a nossa agenda síncrona:
+                  </p>
+                  <div className="h-1.5 w-16 bg-[#540D6E] mx-auto rounded-full" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    {
+                      day: "10",
+                      month: "JUL",
+                      time: "19:00",
+                      title: "Mentoria de Elaboração de Editais (Lei Paulo Gustavo)",
+                      tutor: "Profª Helena Ribeiro",
+                      type: "Sessão Aberta",
+                      color: "border-l-4 border-l-[#540D6E]"
+                    },
+                    {
+                      day: "15",
+                      month: "JUL",
+                      time: "18:30",
+                      title: "Aula Prática: Fotografia Digital Básica com Smartphones",
+                      tutor: "Prof. Marcos Souza",
+                      type: "Exclusivo de Trilha",
+                      color: "border-l-4 border-l-[#3BCEAC]"
+                    },
+                    {
+                      day: "22",
+                      month: "JUL",
+                      time: "20:00",
+                      title: "Fórum Geral: Elaboração e Gestão de Projetos Culturais",
+                      tutor: "Prof. Daniel Costa",
+                      type: "Aberto a Todos",
+                      color: "border-l-4 border-l-[#EE4266]"
+                    }
+                  ].map((evt, idx) => (
+                    <div key={idx} className={`bg-slate-50 rounded-2xl p-5 border border-slate-200/60 ${evt.color} hover:shadow-md transition-all flex flex-col justify-between text-left h-full`}>
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] font-mono font-black uppercase bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-md">
+                            {evt.type}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-450 flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            {evt.time}
+                          </span>
+                        </div>
+                        
+                        <div className="flex gap-4 items-start">
+                          <div className="h-14 w-14 shrink-0 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center font-mono">
+                            <span className="text-xl font-black text-[#540D6E] leading-none">{evt.day}</span>
+                            <span className="text-[9px] text-slate-400 font-extrabold">{evt.month}</span>
+                          </div>
+                          <div className="space-y-1">
+                            <strong className="text-xs font-bold text-slate-800 line-clamp-2 leading-snug">{evt.title}</strong>
+                            <span className="text-[11px] text-slate-550 block">Ministrado por: {evt.tutor}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-4 mt-4 border-t border-slate-200/50 flex items-center justify-between">
+                        <button 
+                          onClick={() => {
+                            if (isUserLoggedIn) {
+                              speakText("Transmissão iniciará em breve! O link ficará ativo no seu painel de estudos.");
+                            } else {
+                              setIsLoginModalOpen(true);
+                              speakText("Acesso restrito. Faça login para participar das mentorias.");
+                            }
+                          }}
+                          className="text-[10px] font-black uppercase text-[#540D6E] hover:text-purple-950 flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Participar Aula</span>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 8: ORIENTAÇÕES GERAIS */}
+            <section id="orientacoes-gerais" className="bg-[#540D6E]/5 py-20 px-4 border-b border-slate-150">
+              <div className="mx-auto max-w-7xl space-y-12">
+                <div className="text-center space-y-3 max-w-3xl mx-auto">
+                  <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">
+                    Manual do Estudante
+                  </span>
+                  <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">
+                    Orientações Gerais
+                  </h3>
+                  <p className="text-xs md:text-sm text-slate-500 leading-relaxed font-light">
+                    Consulte as orientações e diretrizes de como interagir com o AVA da Escola Estadual da Cultura e garanta uma experiência de aprendizado transformadora.
+                  </p>
+                  <div className="h-1.5 w-16 bg-[#540D6E] mx-auto rounded-full" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
+                  {[
+                    {
+                      idx: "I",
+                      title: "Matrícula Simples",
+                      desc: "Qualquer aluno cadastrado pode se matricular em um curso ativo por vez. A troca de cursos é permitida de forma simples pelo painel."
+                    },
+                    {
+                      idx: "II",
+                      title: "Roteiro Letivo",
+                      desc: "Os módulos são sequenciais. É altamente recomendável assistir às videoaulas na ordem cronológica proposta para melhor absorção."
+                    },
+                    {
+                      idx: "III",
+                      title: "Apoio e Tutoria",
+                      desc: "Caso tenha dúvidas nas aulas, envie mensagens diretas aos tutores através da aba de Suporte ou utilize as salas de chat comunitárias."
+                    },
+                    {
+                      idx: "IV",
+                      title: "Acessibilidade Total",
+                      desc: "A plataforma conta com leitor de tela nativo, reguladores de contraste e aumentador de fontes para garantir a inclusão de todos."
+                    }
+                  ].map((o, index) => (
+                    <div key={index} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-3xs hover:shadow-xs transition-all space-y-3">
+                      <span className="text-[10px] font-mono font-extrabold text-[#EE4266] uppercase bg-rose-50 border border-rose-100 rounded-md px-2 py-0.5 inline-block">
+                        Diretriz {o.idx}
+                      </span>
+                      <h4 className="text-sm font-bold text-slate-900 font-serif">{o.title}</h4>
+                      <p className="text-[11px] text-slate-500 leading-relaxed font-light">{o.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 9: CONTATOS */}
+            <section id="contato" className="bg-slate-900 text-white py-20 px-4">
+              <div className="mx-auto max-w-7xl">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                  
+                  {/* Left Column: School Information */}
+                  <div className="lg:col-span-5 space-y-8 text-left">
+                    <div className="space-y-3">
+                      <span className="text-[10px] font-extrabold text-[#FFD23F] uppercase tracking-widest block font-mono">Canais de Atendimento</span>
+                      <h3 className="text-2xl md:text-3.5xl font-black text-white uppercase tracking-tight font-serif">Contatos</h3>
+                      <p className="text-xs text-slate-400 leading-relaxed font-light">
+                        A equipe de coordenação e suporte técnico da Escola de Cultura está de braços abertos para ajudar você. Entre em contato por meio de qualquer um dos canais disponíveis.
+                      </p>
+                      <div className="h-1.5 w-12 bg-[#FFD23F] rounded-full" />
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex gap-4.5 items-center">
+                        <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#FFD23F]">
+                          <Mail className="h-5 w-5" />
+                        </div>
+                        <div className="text-xs">
+                          <span className="text-slate-400 block font-mono text-[9px] uppercase">Email Principal</span>
+                          <a href="mailto:contato@escoladecultura.edu.br" className="text-white hover:underline font-bold">contato@escoladecultura.edu.br</a>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4.5 items-center">
+                        <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#FFD23F]">
+                          <Globe className="h-5 w-5" />
+                        </div>
+                        <div className="text-xs">
+                          <span className="text-slate-400 block font-mono text-[9px] uppercase">Telefone / WhatsApp</span>
+                          <span className="text-white font-bold block">(81) 3224-5566 / (81) 98877-0022</span>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-4.5 items-center">
+                        <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#FFD23F]">
+                          <MapPin className="h-5 w-5" />
+                        </div>
+                        <div className="text-xs">
+                          <span className="text-slate-400 block font-mono text-[9px] uppercase">Endereço Físico</span>
+                          <span className="text-white font-medium block leading-normal">
+                            Av. da Cultura, nº 120 - Bairro das Artes<br />
+                            Recife - PE, CEP: 50010-000
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                      <a href="#" className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-slate-300 transition-colors"><Instagram className="h-4 w-4" /></a>
+                      <a href="#" className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-slate-300 transition-colors"><Youtube className="h-4 w-4" /></a>
+                      <a href="#" className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-slate-300 transition-colors"><Facebook className="h-4 w-4" /></a>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Contact Message Form */}
+                  <div className="lg:col-span-7 bg-white/5 border border-white/10 p-6 md:p-8 rounded-3xl text-left space-y-6">
+                    <div className="space-y-1.5">
+                      <h4 className="text-lg font-bold text-white font-serif">Formulário de Mensagem</h4>
+                      <p className="text-xs text-slate-400">Envie suas sugestões, críticas ou solicite suporte especial.</p>
+                    </div>
+
+                    {contactSuccess ? (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-6 rounded-2xl bg-[#3BCEAC]/10 border border-[#3BCEAC]/30 text-center space-y-3"
+                      >
+                        <CheckCircle className="h-10 w-10 text-[#3BCEAC] mx-auto animate-bounce" />
+                        <strong className="text-sm font-bold text-[#3BCEAC] uppercase tracking-wider block font-serif">Mensagem Enviada!</strong>
+                        <p className="text-xs text-slate-300 font-light leading-relaxed max-w-md mx-auto">
+                          Agradecemos o seu contato. Nossa equipe de coordenação analisará sua mensagem e responderá ao email informado em até 24 horas úteis.
+                        </p>
+                      </motion.div>
+                    ) : (
+                      <form onSubmit={handleContactSubmit} className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Nome</label>
+                            <input
+                              type="text"
+                              required
+                              value={contactName}
+                              onChange={(e) => setContactName(e.target.value)}
+                              placeholder="Seu nome completo"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#FFD23F] placeholder-slate-600"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Email</label>
+                            <input
+                              type="email"
+                              required
+                              value={contactEmail}
+                              onChange={(e) => setContactEmail(e.target.value)}
+                              placeholder="seu.email@exemplo.com"
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#FFD23F] placeholder-slate-600"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Assunto</label>
+                          <input
+                            type="text"
+                            required
+                            value={contactSubject}
+                            onChange={(e) => setContactSubject(e.target.value)}
+                            placeholder="Ex: Dúvida sobre matrícula"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#FFD23F] placeholder-slate-600"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Mensagem</label>
+                          <textarea
+                            rows={4}
+                            required
+                            value={contactMessage}
+                            onChange={(e) => setContactMessage(e.target.value)}
+                            placeholder="Escreva sua mensagem aqui..."
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#FFD23F] placeholder-slate-600 resize-none"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="w-full rounded-xl bg-[#FFD23F] hover:bg-amber-400 text-slate-950 font-black text-xs py-3 uppercase tracking-wider transition-all shadow-md cursor-pointer"
+                        >
+                          Enviar Mensagem
+                        </button>
+                      </form>
+                    )}
+                  </div>
+
+                </div>
+              </div>
+            </section>
+
           </div>
         ) : currentView === 'perfil' ? (
           /* NEW PROFILE VIEW */
           <ProfileView 
             onBack={() => {
-              setCurrentView(previousView);
+              if (isUserLoggedIn) {
+                setCurrentView('active_app');
+              } else {
+                setCurrentView('landing');
+              }
             }}
             onLogout={handleLogout}
             speakText={speakText}
@@ -1991,11 +2624,15 @@ function DashboardSwitcher() {
                       setIsSpeechEnabled(nextState);
                       if (nextState) {
                         setTimeout(() => {
-                          if ('speechSynthesis' in window) {
-                            window.speechSynthesis.cancel();
-                            const utterance = new SpeechSynthesisUtterance("Leitor de tela simulado ativado com sucesso.");
-                            utterance.lang = 'pt-BR';
-                            window.speechSynthesis.speak(utterance);
+                          if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
+                            try {
+                              window.speechSynthesis.cancel();
+                              const utterance = new SpeechSynthesisUtterance("Leitor de tela simulado ativado com sucesso.");
+                              utterance.lang = 'pt-BR';
+                              window.speechSynthesis.speak(utterance);
+                            } catch (err) {
+                              console.warn("Speech synthesis error:", err);
+                            }
                           }
                         }, 200);
                       }
@@ -2111,7 +2748,7 @@ function DashboardSwitcher() {
                       <span className="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-mono uppercase">Mapeado</span>
                     </button>
                     <button 
-                      onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Gestor de Cursos', 'instructor'); speakText("Acesso de Gestão Homologado"); }}
+                      onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Gestor de Conteúdos', 'instructor'); speakText("Acesso de Gestão Homologado"); }}
                       className="text-left py-1.5 px-2 hover:bg-blue-50 rounded text-teal-700 transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
                       <span>• Dashboard de Gestão</span>
@@ -2216,9 +2853,9 @@ function DashboardSwitcher() {
                   <div className="space-y-2.5 animate-in fade-in duration-200">
                     <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Estudantes Cadastrados ativos:</span>
                     <div className="grid grid-cols-1 gap-2.5">
-                      {mockStudentProfiles.map((student) => (
+                      {mockStudentProfiles.map((student, idx) => (
                         <div
-                          key={student.email}
+                          key={`${student.email}-${idx}`}
                           onClick={() => handleProfileLogin(student.name, 'student')}
                           className="group border border-slate-200 hover:border-slate-350 bg-slate-50/40 hover:bg-slate-50 p-3 rounded-xl cursor-pointer flex justify-between items-center transition-all"
                         >
@@ -2244,11 +2881,11 @@ function DashboardSwitcher() {
                 {/* 2. Professor choices list */}
                 {loginRoleTab === 'instructor' && (
                   <div className="space-y-2.5 animate-in fade-in duration-200">
-                    <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Gestor de Cursos ({professorsList.length}):</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Gestor de Conteúdos ({professorsList.length}):</span>
                     <div className="grid grid-cols-1 gap-2.5">
-                      {professorsList.map((prof) => (
+                      {professorsList.map((prof, idx) => (
                         <div
-                          key={prof}
+                          key={`${prof}-${idx}`}
                           onClick={() => handleProfileLogin(prof, 'instructor')}
                           className="group border border-slate-200 hover:border-slate-350 bg-slate-50/40 hover:bg-slate-50 p-3 rounded-xl cursor-pointer flex justify-between items-center transition-all"
                         >
@@ -2258,7 +2895,7 @@ function DashboardSwitcher() {
                             </div>
                             <div className="text-left leading-normal">
                               <strong className="text-slate-900 text-xs font-bold block">{prof}</strong>
-                              <span className="text-[9px] text-slate-400 block font-sans">Gestor de Cursos</span>
+                              <span className="text-[9px] text-slate-400 block font-sans">Gestor de Conteúdos</span>
                             </div>
                           </div>
                           <span className="rounded-lg bg-white border border-slate-200 text-slate-650 font-black text-[9px] px-3 py-1.5 uppercase tracking-wide group-hover:bg-[#540D6E] group-hover:text-white transition-all flex items-center gap-1">
@@ -2567,7 +3204,7 @@ function DashboardSwitcher() {
                     <p className="text-[11px] text-slate-400 leading-relaxed">
                       {validationStep === 'matching' && "Localizando cadastros sob a infraestrutura do Portal da Cultura e Economia Criativa."}
                       {validationStep === 'verifying' && `Submetendo credencial biométrica do CPF ${registerCpf || "Federal"} aos órgãos de validação.`}
-                      {validationStep === 'syncing' && `Sucesso na assinatura digital! Gravando acesso estudantil no AVASEC de ${registerName}.`}
+                      {validationStep === 'syncing' && `Sucesso no registro digital! Gravando acesso estudantil no AVASEC de ${registerName}.`}
                     </p>
                   </div>
 
@@ -2698,7 +3335,30 @@ function DashboardSwitcher() {
               </div>
 
               {/* Password dot-display indicators */}
-              <div className="my-5 space-y-2 text-center">
+              <div className="my-5 p-2 rounded-xl transition-all border border-transparent focus-within:border-indigo-150 focus-within:bg-slate-50/50 space-y-2 text-center cursor-pointer relative">
+                {/* Hidden input to receive keyboard and mobile numeric keypad focus */}
+                <input
+                  ref={loginPinInputRef}
+                  type="password"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={8}
+                  value={pinInput}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    setPinInput(val);
+                    setPinError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && pinInput.length > 0 && !isPinSuccess) {
+                      verifyPinAndLogin();
+                    }
+                  }}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                  disabled={isPinSuccess}
+                  id="inp-login-pin-hidden"
+                />
+
                 <div className="flex justify-center gap-3.5 h-6 items-center">
                   {[...Array(Math.max(4, pinInput.length))].map((_, idx) => (
                     <motion.div 
@@ -2721,6 +3381,10 @@ function DashboardSwitcher() {
                     ✓ Credencial Homologada!
                   </span>
                 )}
+
+                <p className="text-[8px] font-mono text-slate-450 tracking-wider">
+                  Clique na área acima para digitar com seu teclado
+                </p>
               </div>
 
               {/* Tactical 10-key PIN numerical keyboard Pad */}

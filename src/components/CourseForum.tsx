@@ -183,13 +183,13 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
             <p className="text-[11px] text-slate-500">Seja o primeiro a inaugurar o debate enviando uma observação abaixo!</p>
           </div>
         ) : (
-          filteredMessages.map((msg) => {
+          filteredMessages.map((msg, idx) => {
             const hasLiked = msg.likedBy.includes(activeUser.name);
             const isOwnMsg = msg.senderName === activeUser.name;
             const canDelete = isOwnMsg || activeUser.role === 'instructor' || activeUser.role === 'admin';
 
             return (
-              <div key={msg.id} className="pt-4 first:pt-0 flex gap-3.5 group animate-in fade-in duration-200 text-xs">
+              <div key={`${msg.id}-${typeof idx !== "undefined" ? idx : 0}`} className="pt-4 first:pt-0 flex gap-3.5 group animate-in fade-in duration-200 text-xs">
                 
                 {/* User Avatar Circle */}
                 <div className={`w-9 h-9 rounded-full ${getAvatarBg(msg.senderName)} text-white text-xs font-black flex items-center justify-center shrink-0 shadow-xs`}>
