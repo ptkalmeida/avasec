@@ -19,7 +19,12 @@ interface LiveClassroomProps {
 }
 
 export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, onClose }) => {
-  const { chatMessages, sendLiveChatMessage, attendLiveSession, progress, activeUser } = useLMS();
+  const { chatMessages, sendLiveChatMessage, attendLiveSession, progress, activeUser, courses, setLiveSessionStatus } = useLMS();
+
+  const currentCourse = courses.find((c) => c.id === course.id);
+  const reactiveSession = currentCourse?.liveSessions.find((s) => s.id === session.id) || session;
+  const isSessionLive = reactiveSession.isLive;
+
   const [inputText, setInputText] = useState('');
   const [cameraOn, setCameraOn] = useState(true);
   const [micOn, setMicOn] = useState(true);
@@ -36,10 +41,14 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
     if (next) {
       setActiveTab('chat');
     }
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(next ? "Modo foco ativado" : "Modo foco desativado");
-      window.speechSynthesis.speak(utterance);
+    if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(next ? "Modo foco ativado" : "Modo foco desativado");
+        window.speechSynthesis.speak(utterance);
+      } catch (err) {
+        console.warn("Speech synthesis error:", err);
+      }
     }
   };
 
@@ -114,10 +123,17 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
       {!isFocusMode && (
         <header className="flex h-16 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 md:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-400 border border-red-500/20 animate-pulse">
-              <Radio className="h-3 w-3" />
-              <span>AO VIVO</span>
-            </div>
+            {isSessionLive ? (
+              <div className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-400 border border-red-500/20 animate-pulse">
+                <Radio className="h-3 w-3" />
+                <span>AO VIVO</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-400 border border-slate-700">
+                <VideoOff className="h-3 w-3 text-slate-400" />
+                <span>OFFLINE</span>
+              </div>
+            )}
             <div className="text-left">
               <h1 className="text-sm font-bold text-slate-100 max-w-xs md:max-w-xl truncate leading-tight">
                 {session.title}
@@ -129,9 +145,24 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
+            {/* Start / Stop Transmission controls for instructor or admin */}
+            {(activeUser.role === 'instructor' || activeUser.role === 'admin') && (
+              <button
+                onClick={() => setLiveSessionStatus(course.id, session.id, !isSessionLive)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                  isSessionLive
+                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                }`}
+              >
+                <Radio className="h-3.5 w-3.5" />
+                <span>{isSessionLive ? 'Encerrar Transmissão' : 'Iniciar Transmissão'}</span>
+              </button>
+            )}
+
             <div className="hidden items-center gap-1.5 text-xs text-slate-400 sm:flex">
               <Users className="h-4 w-4 text-slate-400" />
-              <span>42 alunos assistindo</span>
+              <span>{isSessionLive ? '42 alunos assistindo' : 'Aguardando transmissão'}</span>
             </div>
             
             <button
@@ -198,7 +229,17 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
               )}
               
               {/* Virtual Presentation background */}
-              {isScreenSharing ? (
+              {!isSessionLive && activeUser.role === 'student' ? (
+                <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+                  <div className="p-4 bg-slate-850 rounded-full border border-slate-800 text-slate-500 mb-4 animate-pulse">
+                    <VideoOff className="h-10 w-10 text-slate-400" />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-200">Aguardando o início da transmissão</h3>
+                  <p className="text-xs text-slate-400 max-w-sm mt-1.5 leading-relaxed">
+                    O professor ainda não iniciou a transmissão ao vivo desta aula virtual. Você pode utilizar o chat ao lado para interagir com seus colegas e professores enquanto aguarda.
+                  </p>
+                </div>
+              ) : isScreenSharing ? (
                 <div className="absolute inset-0 bg-slate-900 flex flex-col p-6 text-left border border-teal-500/40">
                   <div className="flex items-center justify-between border-b border-teal-950 pb-3 mb-4">
                     <span className="text-xs font-semibold text-teal-400 flex items-center gap-2">
@@ -238,13 +279,23 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                       </div>
                     )}
                     {/* Pulsing indicator */}
-                    <div className="absolute top-4 right-4 h-3 w-3 rounded-full bg-emerald-500 animate-pulse border-2 border-slate-900" />
+                    {isSessionLive && (
+                      <div className="absolute top-4 right-4 h-3 w-3 rounded-full bg-emerald-500 animate-pulse border-2 border-slate-900" />
+                    )}
                   </div>
                   
                   <div className="mt-4 text-center">
                     <h4 className="font-semibold text-slate-100">{course.instructorName}</h4>
-                    <span className="text-xs text-teal-300">Instrutor Responsável • Transmitindo ao Vivo</span>
+                    <span className="text-xs text-teal-300">
+                      {isSessionLive ? 'Instrutor Responsável • Transmitindo ao Vivo' : 'Prévia da Câmera (Você está Offline)'}
+                    </span>
                   </div>
+
+                  {!isSessionLive && (activeUser.role === 'instructor' || activeUser.role === 'admin') && (
+                    <div className="absolute bottom-4 left-4 right-4 bg-amber-500/90 text-slate-950 font-bold text-[11px] px-4 py-2.5 rounded-lg flex items-center justify-between gap-3 shadow-lg">
+                      <span>⚠️ Você está offline. Clique em "Iniciar Transmissão" no cabeçalho acima para iniciar a aula letiva.</span>
+                    </div>
+                  )}
                 </div>
               )}
 

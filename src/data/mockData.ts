@@ -12,7 +12,13 @@ export const INITIAL_COURSES: Course[] = [
     description: 'Aprenda do zero ao avançado como planejar, estruturar e prototipar sistemas complexos utilizando as melhores práticas do Figma, Design Systems e testes de usabilidade para alta conversão.',
     category: 'Design Digital',
     thumbnail: 'https://images.unsplash.com/photo-1561070791-26c113006238?w=800&auto=format&fit=crop&q=60',
-    instructorName: 'Gestor de Cursos',
+    instructorName: 'Gestor de Conteúdos',
+    areaTematica: 'Artes, Comunicação e Design',
+    cargaHoraria: 40,
+    modalidade: 'EAD',
+    nivel: 'Intermediário',
+    emiteCertificado: true,
+    statusCurso: 'Ativo',
     lessons: [
       {
         id: 'lesson-1-1',
@@ -48,7 +54,7 @@ A arquitetura de informação lida com a organização dos conteúdos digitais d
 ### Tópicos Abordados:
 - **Card Sorting**: Técnica para entender como os usuários agrupam categorias em suas mentes.
 - **Sitemaps**: O mapa visual das telas e links do seu sistema.
-- **Fluxogramas do Usuário (User Flows)**: O caminho exato que uma pessoa traça para atingir um objetivo (ex: comprar um curso, emitir um certificado).
+- **Fluxogramas do Usuário (User Flows)**: O caminho exato que uma pessoa traça para atingir um objetivo (ex: realizar inscrição em um curso, emitir um certificado).
 
 *Dica do instrutor*: Mantenha sempre a hierarquia clara, minimizando cliques!`,
         order: 2,
@@ -122,7 +128,8 @@ Um design nunca está 100% pronto até que passe pelo teste empírico de um usu�
         meetingLink: 'https://meet.google.com/xyz-wdsa-qwe',
         isLive: false
       }
-    ]
+    ],
+    contractExpirationDate: '2027-12-31'
   },
   {
     id: 'course-2',
@@ -130,7 +137,13 @@ Um design nunca está 100% pronto até que passe pelo teste empírico de um usu�
     description: 'Domine a stack dominante do mercado. Construa aplicações robustas do backend ao frontend com TypeScript, rotas autenticadas, segurança de dados e deploying real.',
     category: 'Desenvolvimento Web',
     thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=60',
-    instructorName: 'Gestor de Cursos',
+    instructorName: 'Gestor de Conteúdos',
+    areaTematica: 'Tecnologia & Programação',
+    cargaHoraria: 60,
+    modalidade: 'EAD',
+    nivel: 'Avançado',
+    emiteCertificado: true,
+    statusCurso: 'Ativo',
     lessons: [
       {
         id: 'lesson-2-1',
@@ -207,7 +220,8 @@ O coração de qualquer AVA é o armazenamento persistente de dados. Vamos anali
         meetingLink: 'https://meet.google.com/mno-abcd-efg',
         isLive: false
       }
-    ]
+    ],
+    contractExpirationDate: '2028-06-30'
   },
   {
     id: 'course-3',
@@ -215,7 +229,13 @@ O coração de qualquer AVA é o armazenamento persistente de dados. Vamos anali
     description: 'Transforme a gestão de entregas da sua equipe escolar ou corporativa utilizando Scrum, OKRs e Kanban estruturado para maximizar resultados.',
     category: 'Organização & Gestão',
     thumbnail: 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=800&auto=format&fit=crop&q=60',
-    instructorName: 'Gestor de Cursos',
+    instructorName: 'Gestor de Conteúdos',
+    areaTematica: 'Gestão & Negócios',
+    cargaHoraria: 30,
+    modalidade: 'Híbrido',
+    nivel: 'Intermediário',
+    emiteCertificado: true,
+    statusCurso: 'Ativo',
     lessons: [
       {
         id: 'lesson-3-1',
@@ -259,7 +279,8 @@ Kanban não é apenas colar post-its na parede! É sobre gerenciar um fluxo cont
         meetingLink: 'https://meet.google.com/klm-nopq-rst',
         isLive: false
       }
-    ]
+    ],
+    contractExpirationDate: '2026-05-15'
   }
 ];
 

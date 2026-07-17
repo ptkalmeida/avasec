@@ -671,7 +671,14 @@ export function ProfileView({
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <button
           onClick={() => {
-            window.dispatchEvent(new Event('reset-dashboard'));
+            let resetEvent;
+            try {
+              resetEvent = new Event('reset-dashboard');
+            } catch (e) {
+              resetEvent = document.createEvent('Event');
+              resetEvent.initEvent('reset-dashboard', true, true);
+            }
+            window.dispatchEvent(resetEvent);
             speakText("Voltando para o painel anterior.");
             onBack();
           }}
@@ -732,7 +739,7 @@ export function ProfileView({
                   {activeUser.name}
                 </h4>
                 <p className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider mt-0.5">
-                  {activeUser.role === 'student' && 'Discente Credenciado'}
+                  {activeUser.role === 'student' && 'Aluno Credenciado'}
                   {activeUser.role === 'instructor' && 'Docente Avaliador'}
                   {activeUser.role === 'admin' && 'Moderação Coordenadora'}
                 </p>
@@ -1200,7 +1207,7 @@ export function ProfileView({
                       setIsDossierOpen(true);
                       speakText(currentLang === 'pt' ? 'Exportando histórico escolar e certificados de conclusão' : 'Exporting academic record and printable transcript');
                     }}
-                    className="px-5 py-2.5 bg-indigo-650 hover:bg-indigo-700 active:bg-indigo-800 text-[#FFFFFF] font-bold text-xs rounded-xl transition-all shadow-3xs flex items-center justify-center gap-2 cursor-pointer shrink-0 uppercase tracking-wider hover:scale-[1.02] duration-150 border border-transparent"
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs rounded-xl transition-all shadow-3xs flex items-center justify-center gap-2 cursor-pointer shrink-0 uppercase tracking-wider hover:scale-[1.02] duration-150 border border-transparent"
                   >
                     <FileText className="h-4.5 w-4.5 text-[#FFD23F]" />
                     <span>
@@ -1242,7 +1249,7 @@ export function ProfileView({
                 <div className="space-y-2">
                   {studentCerts.map((cert, index) => (
                     <div 
-                      key={cert.id}
+                      key={`${cert.id}-${index}`}
                       className="bg-slate-50 border border-slate-205 p-3.5 rounded-xl flex justify-between items-center hover:bg-slate-100/50 transition-colors"
                     >
                       <div className="min-w-0 pr-2">
@@ -1273,162 +1280,6 @@ export function ProfileView({
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Bento-block 4: Security and Audit Trail Logs (LGPD) */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl shadow-3xs p-6 text-left relative overflow-hidden">
-            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-4 flex items-center justify-between">
-              <span>Fluxo de Segurança e Trilhas LGPD</span>
-              <span className="bg-emerald-50 text-emerald-700 text-[8px] font-bold px-2 py-0.5 rounded border border-emerald-200">
-                Homologado AVA
-              </span>
-            </span>
-
-            <div className="space-y-4">
-              <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-2">
-                <h4 className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                  <ShieldCheck className="h-4.5 w-4.5 text-indigo-600" />
-                  <span>Configuração de Segurança do Fluxo</span>
-                </h4>
-                <p className="text-[10.5px] text-slate-500 leading-snug">
-                  Este sistema implementa controles e bloqueios preventivos para ambientes corporativos e acadêmicos compartilhados. Ative recursos de proteção em tempo real abaixo:
-                </p>
-
-                <div className="pt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="bg-white p-3 border border-slate-150 rounded-lg flex items-center justify-between gap-3">
-                    <div>
-                      <strong className="text-[11px] text-slate-800 block leading-tight font-bold">Bloqueio de Sessão Rápido</strong>
-                      <span className="text-[9.5px] text-slate-400 block leading-tight mt-0.5">Retornar à tela de autenticação</span>
-                    </div>
-                    <button
-                      onClick={() => {
-                        addSecurityLog('Bloqueio Manual', 'O usuário solicitou o bloqueio manual da sessão.', 'SUCCESS');
-                        speakText('Sessão bloqueada com segurança.');
-                        setTimeout(() => {
-                          // Simulates locking the terminal by forcing a reload of the connection page
-                          localStorage.setItem('ava_session_locked', 'true');
-                          window.location.reload();
-                        }, 500);
-                      }}
-                      className="px-2.5 py-1.5 bg-slate-900 text-white font-mono hover:bg-slate-850 text-[10px] font-black rounded-lg uppercase tracking-wide cursor-pointer transition-all border border-transparent shadow-3xs"
-                    >
-                      Bloquear
-                    </button>
-                  </div>
-
-                  <div className="bg-white p-3 border border-slate-150 rounded-lg flex items-center justify-between gap-2">
-                    <div>
-                      <strong className="text-[11px] text-slate-800 block leading-tight font-bold">PIN de Acesso Obrigatório</strong>
-                      <span className="text-[9.5px] text-slate-400 block leading-tight mt-0.5">Controla os dashboards corporativos</span>
-                    </div>
-                    <span className="text-[10px] font-mono bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold px-2 py-1 rounded">
-                      ATIVADO
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Security Logs Section */}
-              <div className="space-y-2.5 pt-1.5">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                    <Clock className="h-4.5 w-4.5 text-slate-500" />
-                    <span>Trilha de Eventos e Auditoria de Acesso ({securityLogs.length})</span>
-                  </h4>
-                  {securityLogs.length > 0 && (
-                    <button
-                      onClick={() => {
-                        clearSecurityLogs();
-                        addSecurityLog('Limpeza de Logs', 'O histórico de auditoria local foi limpo pelo usuário.', 'WARNING');
-                        speakText('Trilha de logs de segurança reiniciada.');
-                      }}
-                      className="text-[9.2px] font-black text-rose-600 hover:text-rose-800 uppercase tracking-wider flex items-center gap-1 cursor-pointer bg-transparent border border-transparent"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      <span>Limpar Logs</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="max-h-[195px] overflow-y-auto border border-slate-180 rounded-xl divide-y divide-slate-100 bg-slate-50/30 pr-1">
-                  {securityLogs.length === 0 ? (
-                    <div className="p-4 text-center text-slate-400 italic text-[10.5px]">
-                      Nenhum registro de segurança catalogado no dispositivo.
-                    </div>
-                  ) : (
-                    securityLogs.map((log) => (
-                      <div key={log.id} className="p-3 hover:bg-slate-50/80 transition-colors text-left flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-                        <div className="space-y-0.5 text-left">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-850 font-sans block">{log.action}</span>
-                            <span className={`text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded border ${
-                              log.status === 'SUCCESS' 
-                                ? 'bg-emerald-50 border-emerald-250 text-emerald-700' 
-                                : log.status === 'WARNING' 
-                                  ? 'bg-amber-50 border-amber-250 text-amber-700' 
-                                  : 'bg-rose-50 border-rose-250 text-rose-700'
-                            }`}>
-                              {log.status}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-slate-500 leading-normal">{log.details}</p>
-                          <div className="flex flex-wrap items-center gap-x-2 text-[9px] text-slate-400 font-mono pt-0.5">
-                            <span className="font-bold text-slate-450">{log.user} ({log.role.toUpperCase()})</span>
-                            <span>•</span>
-                            <span>IP: {log.ipAddress}</span>
-                            <span>•</span>
-                            <span className="truncate max-w-[150px]">{log.device}</span>
-                          </div>
-                        </div>
-                        <span className="text-[9px] font-mono text-slate-450 shrink-0 self-end sm:self-auto font-bold bg-white px-1.5 py-0.5 rounded border border-slate-150">
-                          {log.timestamp}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-                <span className="text-[8.5px] text-slate-400 block font-mono">
-                  SISTEMA DE AUDITORIA COMPATÍVEL COM COMUNICAÇÃO CRIPTOGRAFADA E DIRETRIZES DA ANPD.
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Bento-block 5: Advanced Controls area - Toggle test identity & purge options */}
-          <div className="bg-amber-50/30 border border-amber-250 p-6 rounded-2xl text-left relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-100/15 rounded-full filter blur-xl pointer-events-none" />
-            
-            <h4 className="font-extrabold text-amber-900 text-xs uppercase tracking-wider mb-2 flex items-center gap-2">
-              <Settings className="h-4.5 w-4.5 text-amber-600 animate-spin" style={{ animationDuration: '6s' }} />
-              <span>Ferramentas de Engenharia Pedagógica do Simulador</span>
-            </h4>
-            <p className="text-[11px] text-amber-800 leading-relaxed font-normal mb-5">
-              Para validar o comportamento integrado de todas as abas das três identidades, você pode alternar rapidamente o perfil ativo ou redefinir a base de dados zerando alterações salvas em cookies/memória local.
-            </p>
-
-            <div className="flex flex-col xs:flex-row gap-3.5">
-              <button
-                onClick={() => {
-                  toggleUserRole();
-                  speakText(`Identidade de testes alternada com sucesso.`);
-                  onBack();
-                }}
-                className="bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-905 font-bold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 uppercase tracking-wide shadow-3xs"
-                title="Alternar Papel"
-              >
-                <RefreshCw className="h-3.5 w-3.5 text-amber-800" />
-                <span>Alternar Papel ({activeUser.role === 'student' ? 'Docente' : 'Discente'})</span>
-              </button>
-
-              <button
-                onClick={handleResetDatabase}
-                className="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold py-2 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0 uppercase tracking-wide shadow-3xs ml-auto"
-                title="Limpar Cache"
-              >
-                <Trash2 className="h-3.5 w-3.5 text-rose-500" />
-                <span>Zerar Cache do Simulador</span>
-              </button>
-            </div>
           </div>
 
         </div>
@@ -1558,7 +1409,7 @@ export function ProfileView({
                       {currentLang === 'pt' ? 'Histórico Escolar Oficial' : currentLang === 'es' ? 'Expediente Oficial' : 'Official Academic Transcript'}
                     </h1>
                     <p className="text-[10.5px] text-slate-400 uppercase tracking-widest font-extrabold mt-1">
-                      {currentLang === 'pt' ? 'Dossiê do Estudante e Registro de Qualificação Técnica' : 'Student Qualification & Course Registry Dossier'}
+                      {currentLang === 'pt' ? 'Histórico de Cursos e Registro de Qualificação Técnica' : 'Student Course History & Qualification Registry'}
                     </p>
                   </div>
                   
@@ -1588,7 +1439,7 @@ export function ProfileView({
                   </div>
                   
                   <div className="md:col-span-6 space-y-1 text-center md:text-left">
-                    <span className="text-[9px] font-black tracking-widest uppercase text-[#540D6E] font-mono">Registro Civil do Discente</span>
+                    <span className="text-[9px] font-black tracking-widest uppercase text-[#540D6E] font-mono">Registro Civil do Aluno</span>
                     <h3 className="text-lg font-black text-slate-900 leading-none">{activeUser.name}</h3>
                     <p className="text-xs text-slate-500 font-medium">{simulatedEmail}</p>
                   </div>
@@ -1671,14 +1522,14 @@ export function ProfileView({
                   {studentCerts.length === 0 ? (
                     <p className="text-xs italic text-slate-400 font-medium bg-slate-50 p-4 border border-dashed border-slate-200 rounded-xl text-center">
                       {currentLang === 'pt' 
-                        ? 'Nenhum certificado conclusivo foi emitido digitalmente por este discente até a presente data.'
+                        ? 'Nenhum certificado conclusivo foi emitido digitalmente por este aluno até a presente data.'
                         : 'No certificates have been issued to this student as of the current date.'}
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {studentCerts.map((cert) => (
+                      {studentCerts.map((cert, index) => (
                         <div 
-                          key={cert.id} 
+                          key={`${cert.id}-${index}`} 
                           className="bg-amber-50/20 border border-amber-200 p-4 rounded-xl relative overflow-hidden flex flex-col justify-between"
                         >
                           <div>
@@ -1710,7 +1561,7 @@ export function ProfileView({
                   <div className="flex items-center gap-3">
                     <ShieldCheck className="h-7 w-7 text-indigo-600 shrink-0" />
                     <div>
-                      <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest font-mono">Chaves de Assinatura Escolar Digital</h4>
+                      <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-widest font-mono">Chaves de Autenticação Escolar Digital</h4>
                       <p className="text-[9.5px] text-slate-500 leading-snug">
                         A veracidade do histórico curricular deste aluno de cultura pode ser confirmada a qualquer momento inserindo as chaves públicas nos portais de validação do sistema AVASEC.
                       </p>

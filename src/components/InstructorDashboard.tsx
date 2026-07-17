@@ -8,10 +8,13 @@ import {
   BookOpen, Calendar, CheckCircle, Award, Video, Plus, Trash2, Edit3, Users,
   Globe, Clock, Grid, ChevronRight, TrendingUp, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
-  ChevronDown, ChevronUp, ArrowUp, ArrowDown, Eye, EyeOff, File, Download
+  ChevronDown, ChevronUp, ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
-import { Course, Lesson, LiveSession } from '../types';
+import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
+import { LiveClassroom } from './LiveClassroom';
+import { features } from '../config/features';
+import { BackButton } from './BackButton';
 
 interface InstructorDashboardProps {
   onBackToLanding?: () => void;
@@ -46,7 +49,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     removeLiveSession,
     calculateAttendancePercent,
     admissionRequests,
-    updateAdmissionStatus
+    updateAdmissionStatus,
+    getYouTubeEmbedUrl
   } = useLMS();
 
   // Active form sections
@@ -61,6 +65,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editCategory, setEditCategory] = useState('');
+  const [editExpiration, setEditExpiration] = useState('');
 
   // Library Item Meta
   const [libTitle, setLibTitle] = useState('');
@@ -122,15 +127,20 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   };
 
   // Quiz Builder State
+  const [activeLiveSession, setActiveLiveSession] = useState<LiveSession | null>(null);
   const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
   const [quizTitle, setQuizTitle] = useState('');
-  const [quizQuestions, setQuizQuestions] = useState<{ id: string; questionText: string; options: string[]; correctOptionIndex: number }[]>([]);
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [tempQuestionText, setTempQuestionText] = useState('');
   const [tempOption0, setTempOption0] = useState('');
   const [tempOption1, setTempOption1] = useState('');
   const [tempOption2, setTempOption2] = useState('');
   const [tempOption3, setTempOption3] = useState('');
   const [tempCorrectIndex, setTempCorrectIndex] = useState(0);
+  const [tempExplanation, setTempExplanation] = useState('');
+  const [tempReviewMessage, setTempReviewMessage] = useState('');
+  const [tempRecommendedModule, setTempRecommendedModule] = useState('');
+  const [tempAllowRetry, setTempAllowRetry] = useState(true);
 
   // Create Course State
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
@@ -138,6 +148,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [newCourseDesc, setNewCourseDesc] = useState('');
   const [newCourseCategory, setNewCourseCategory] = useState('Programação');
   const [newCourseInstructor, setNewCourseInstructor] = useState(activeUser.name);
+  const [newCourseExpiration, setNewCourseExpiration] = useState('');
 
   // Create Lesson State
   const [isCreatingLesson, setIsCreatingLesson] = useState(false);
@@ -160,6 +171,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [newDocType, setNewDocType] = useState<'pdf' | 'doc' | 'url' | 'drive' | 'outro'>('pdf');
   const [newDocUrl, setNewDocUrl] = useState('');
   const [newDocSize, setNewDocSize] = useState('1.2 MB');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Create Live Session State
   const [isCreatingLive, setIsCreatingLive] = useState(false);
@@ -170,6 +183,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
   // Interactive Toast
   const [toastMsg, setToastMsg] = useState('');
+
+  // Preview Lesson State
+  const [previewLesson, setPreviewLesson] = useState<Lesson | null>(null);
 
   const handleCreateCourse = (e: React.FormEvent) => {
     e.preventDefault();
@@ -189,7 +205,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60',
       instructorName: newCourseInstructor.trim(),
       lessons: [],
-      liveSessions: []
+      liveSessions: [],
+      contractExpirationDate: newCourseExpiration.trim() || undefined
     };
 
     addCourse(newCourseObj);
@@ -199,6 +216,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     setNewCourseTitle('');
     setNewCourseDesc('');
     setCustomCategory('');
+    setNewCourseExpiration('');
     setIsCreatingCourse(false);
     showToast('Novo curso cadastrado com sucesso!');
   };
@@ -236,9 +254,57 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     }
   };
 
+  const handleFileChange = (file: File) => {
+    setUploadedFile(file);
+    
+    // Auto-detect properties
+    const rawName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+    const formattedTitle = rawName
+      .replace(/[_\-]+/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase());
+    setNewDocTitle(formattedTitle);
+    
+    // Format size
+    const sizeInMB = file.size / (1024 * 1024);
+    let sizeStr = '';
+    if (sizeInMB < 0.1) {
+      sizeStr = `${Math.round(file.size / 1024)} KB`;
+    } else {
+      sizeStr = `${sizeInMB.toFixed(1)} MB`;
+    }
+    setNewDocSize(sizeStr);
+    
+    // Format type
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext === 'pdf') {
+      setNewDocType('pdf');
+    } else if (ext === 'doc' || ext === 'docx') {
+      setNewDocType('doc');
+    } else {
+      setNewDocType('outro');
+    }
+
+    // Read file content as base64 data url
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (e.target?.result) {
+        setNewDocUrl(e.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearFile = () => {
+    setUploadedFile(null);
+    setNewDocTitle('');
+    setNewDocUrl('');
+    setNewDocSize('1.2 MB');
+    setNewDocType('pdf');
+  };
+
   const handleAddDocument = (lessonId: string) => {
     if (!newDocTitle.trim() || !newDocUrl.trim()) {
-      showToast("Preencha o título e link do documento!");
+      showToast("Preencha o título e link ou selecione um arquivo!");
       return;
     }
 
@@ -253,7 +319,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         title: newDocTitle.trim(),
         type: newDocType,
         url: newDocUrl.trim(),
-        size: newDocType === 'pdf' ? (newDocSize.trim() || '1.2 MB') : undefined
+        size: (newDocType === 'pdf' || newDocType === 'doc' || uploadedFile) ? (newDocSize.trim() || '1.2 MB') : undefined
       };
       const updatedDocs = [...docs, newDoc];
       
@@ -264,6 +330,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       setNewDocTitle('');
       setNewDocUrl('');
       setNewDocSize('1.2 MB');
+      setUploadedFile(null);
     }
   };
 
@@ -329,7 +396,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     updateCourseProps(selectedCourseId, {
       title: editTitle,
       description: editDesc,
-      category: editCategory
+      category: editCategory,
+      contractExpirationDate: editExpiration.trim() || undefined
     });
     setIsEditingCourse(false);
     showToast('Dados do curso atualizados com sucesso!');
@@ -407,11 +475,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       showToast('Por favor, preencha as 4 opções de resposta.');
       return;
     }
-    const newQuestion = {
+    const newQuestion: QuizQuestion = {
       id: `q-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
       questionText: tempQuestionText.trim(),
       options: [tempOption0.trim(), tempOption1.trim(), tempOption2.trim(), tempOption3.trim()],
-      correctOptionIndex: tempCorrectIndex
+      correctOptionIndex: tempCorrectIndex,
+      explanation: tempExplanation.trim() || undefined,
+      reviewMessage: tempReviewMessage.trim() || undefined,
+      recommendedModule: tempRecommendedModule.trim() || undefined,
+      allowRetry: tempAllowRetry
     };
     setQuizQuestions((prev) => [...prev, newQuestion]);
 
@@ -422,6 +494,10 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     setTempOption2('');
     setTempOption3('');
     setTempCorrectIndex(0);
+    setTempExplanation('');
+    setTempReviewMessage('');
+    setTempRecommendedModule('');
+    setTempAllowRetry(true);
     showToast('Questão adicionada ao rascunho do teste!');
   };
 
@@ -487,7 +563,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               Gestão Pedagógica do AVA
             </h2>
             <p className="text-xs text-slate-400 mt-1">
-              Gestor de Cursos • Controle de conteúdos, encontros e acompanhamento acadêmico.
+              Gestor de Conteúdos • Controle de conteúdos, encontros e acompanhamento acadêmico.
             </p>
           </div>
         </div>
@@ -515,44 +591,63 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             <Layout className="h-4 w-4" />
             <span>Gestão do Curso</span>
           </button>
-          <button
-            onClick={() => setActiveDashboardTab('curriculum')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
-              activeDashboardTab === 'curriculum'
-                ? 'bg-[#540D6E] text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold'
-            }`}
-          >
-            <BookOpen className="h-4 w-4" />
-            <span>Grade Curricular</span>
-          </button>
-          <button
-            onClick={() => setActiveDashboardTab('messages')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer relative ${
-              activeDashboardTab === 'messages'
-                ? 'bg-[#540D6E] text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold'
-            }`}
-          >
-            <MessageSquare className="h-4 w-4" />
-            <span>Mensagens Recebidas</span>
-            {unrepliedStudents.length > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-rose-600 text-[9px] font-black text-white ring-2 ring-white">
-                {unrepliedStudents.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveDashboardTab('students')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
-              activeDashboardTab === 'students'
-                ? 'bg-[#540D6E] text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold'
-            }`}
-          >
-            <Users className="h-4 w-4" />
-            <span>Gestão de Alunos</span>
-          </button>
+          
+          {features.modulosAulas && (
+            <button
+              onClick={() => setActiveDashboardTab('curriculum')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+                activeDashboardTab === 'curriculum'
+                  ? 'bg-[#540D6E] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold'
+              }`}
+            >
+              <BookOpen className="h-4 w-4" />
+              <span>Grade Curricular</span>
+            </button>
+          )}
+
+          {features.forum && (
+            <button
+              onClick={() => setActiveDashboardTab('messages')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer relative ${
+                activeDashboardTab === 'messages'
+                  ? 'bg-[#540D6E] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold'
+              }`}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>Mensagens Recebidas</span>
+              {unrepliedStudents.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-rose-600 text-[9px] font-black text-white ring-2 ring-white">
+                  {unrepliedStudents.length}
+                </span>
+              )}
+            </button>
+          )}
+
+          {features.dadosGerenciais && (
+            <button
+              onClick={() => setActiveDashboardTab('students')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+                activeDashboardTab === 'students'
+                  ? 'bg-[#540D6E] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold'
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              <span>Gestão de Alunos</span>
+            </button>
+          )}
+        </div>
+      )}
+
+      {((!features.modulosAulas && activeDashboardTab === 'curriculum') ||
+        (!features.forum && activeDashboardTab === 'messages') ||
+        (!features.dadosGerenciais && activeDashboardTab === 'students')) && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-8 text-center max-w-xl mx-auto my-12 shadow-3xs space-y-3">
+          <Lock className="h-10 w-10 text-amber-600 mx-auto" />
+          <h3 className="font-extrabold text-base">Esta funcionalidade está temporariamente indisponível.</h3>
+          <p className="text-xs text-slate-500">Estamos trabalhando em melhorias e atualizações para esta seção. Por favor, tente novamente mais tarde.</p>
         </div>
       )}
 
@@ -571,9 +666,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               onChange={(e) => setSelectedCourseId(e.target.value)}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-teal-500 transition-colors"
             >
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.category} • {c.title}
+              {courses.map((c, idx) => (
+                <option key={`${c.id}-${idx}`} value={c.id}>
+                  {isCourseExpired(c.contractExpirationDate) ? '⚠️ [VIGÊNCIA ENCERRADA] ' : ''}{c.category} • {c.title}
                 </option>
               ))}
             </select>
@@ -582,6 +677,79 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           {activeCourse && (
             <div className="rounded-2xl border border-slate-250 bg-white p-6 shadow-xs space-y-6">
               
+              {isCourseExpired(activeCourse.contractExpirationDate) && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 text-left space-y-3">
+                  <div className="flex items-start gap-3">
+                    <Archive className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider">⚠️ Vigência de Direitos Encerrada (Arquivado Preventivamente)</h4>
+                      <p className="text-xs text-amber-700 mt-1 leading-normal">
+                        O contrato de licença/exibição expirou em <strong className="font-bold underline">{activeCourse.contractExpirationDate}</strong>. 
+                        Este curso foi <strong>arquivado preventivamente</strong> para novos acessos e está bloqueado no catálogo de alunos para proteção jurídica contra distribuição ilegal de direitos autorais expirados.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Quick Activation Action Center */}
+                  <div className="border-t border-amber-200/50 pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white/50 p-3 rounded-lg border border-amber-100">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] font-extrabold uppercase text-slate-500 block">Renovação e Reativação de Vigência</span>
+                      <p className="text-[11px] text-slate-500 leading-normal">Defina um novo prazo de licenciamento para disponibilizar o curso no AVA imediatamente.</p>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => {
+                          const future = new Date();
+                          future.setMonth(future.getMonth() + 6);
+                          const dateStr = future.toISOString().split('T')[0];
+                          updateCourseProps(activeCourse.id, { contractExpirationDate: dateStr });
+                          speakText(`Contrato renovado por mais 6 meses. O curso está ativo novamente.`);
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        +6 Meses
+                      </button>
+                      <button
+                        onClick={() => {
+                          const future = new Date();
+                          future.setFullYear(future.getFullYear() + 1);
+                          const dateStr = future.toISOString().split('T')[0];
+                          updateCourseProps(activeCourse.id, { contractExpirationDate: dateStr });
+                          speakText(`Contrato renovado por mais 1 ano. O curso está ativo novamente.`);
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        +1 Ano
+                      </button>
+                      <button
+                        onClick={() => {
+                          updateCourseProps(activeCourse.id, { contractExpirationDate: undefined });
+                          speakText(`Vigência do curso definida como permanente. O curso está ativo novamente.`);
+                        }}
+                        className="bg-slate-950 hover:bg-slate-800 text-white text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                      >
+                        Tornar Permanente
+                      </button>
+                      
+                      <div className="flex items-center gap-1.5 border border-slate-200 bg-white rounded-lg p-1.5 shadow-2xs">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Ou Data:</span>
+                        <input
+                          type="date"
+                          className="text-[10px] font-bold text-slate-700 border-none bg-transparent p-0 w-28 focus:outline-hidden cursor-pointer"
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              updateCourseProps(activeCourse.id, { contractExpirationDate: e.target.value });
+                              speakText(`Vigência do curso estendida até ${e.target.value}. O curso está ativo novamente.`);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Course Title metadata header */}
               <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
@@ -590,6 +758,17 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   </span>
                   <h3 className="text-xl font-bold text-slate-900 mt-2">{activeCourse.title}</h3>
                   <p className="text-xs text-slate-500 mt-1">Instrutor ativo: {activeCourse.instructorName}</p>
+                  {activeCourse.contractExpirationDate ? (
+                    <p className="text-[11px] text-indigo-600 mt-1.5 flex items-center gap-1 font-semibold">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Vigência de Exibição até: <strong className="font-bold bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">{activeCourse.contractExpirationDate}</strong></span>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      <span>Vigência de Exibição: <strong className="font-bold bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded">Sem limite contratual / Permanente</strong></span>
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex gap-2 flex-wrap sm:flex-nowrap">
@@ -598,6 +777,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       setEditTitle(activeCourse.title);
                       setEditDesc(activeCourse.description);
                       setEditCategory(activeCourse.category);
+                      setEditExpiration(activeCourse.contractExpirationDate || '');
                       setIsEditingCourse(true);
                     }}
                     className="rounded-lg bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 px-2 sm:px-3 py-2 text-[11px] font-bold text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer"
@@ -702,22 +882,39 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           </div>
 
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-150">
-                            <span className="text-[9px] text-slate-500 flex items-center gap-1 font-mono truncate max-w-[120px]">
-                              <Link className="h-3 w-3 inline" />
-                              {session.meetingLink}
-                            </span>
-                            
-                            <button
-                              onClick={() => toggleLiveTransmit(activeCourse.id, session.id, session.isLive)}
-                              className={`px-3 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                                session.isLive 
-                                  ? 'bg-amber-600 hover:bg-amber-500 text-white' 
-                                  : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                              }`}
+                            <a
+                              href={session.meetingLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[9px] text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 font-mono truncate max-w-[150px] cursor-pointer"
+                              title="Abrir no Google Meet"
                             >
-                              <Play className="h-3 w-3 shrink-0" />
-                              <span>{session.isLive ? 'Finalizar' : 'Iniciar'}</span>
-                            </button>
+                              <ExternalLink className="h-3 w-3 shrink-0 text-teal-600" />
+                              <span className="truncate">{session.meetingLink}</span>
+                            </a>
+                            
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => setActiveLiveSession(session)}
+                                className="px-2.5 py-1 rounded text-[10px] font-bold bg-[#540D6E]/95 hover:bg-[#540D6E] text-white transition-all flex items-center gap-1 cursor-pointer shadow-3xs"
+                                title="Entrar na Sala de Aula Virtual interna"
+                              >
+                                <Video className="h-3 w-3 shrink-0" />
+                                <span>Acessar Sala</span>
+                              </button>
+
+                              <button
+                                onClick={() => toggleLiveTransmit(activeCourse.id, session.id, session.isLive)}
+                                className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                                  session.isLive 
+                                    ? 'bg-amber-600 hover:bg-amber-500 text-white' 
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                }`}
+                              >
+                                <Play className="h-3 w-3 shrink-0" />
+                                <span>{session.isLive ? 'Finalizar' : 'Iniciar'}</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -817,6 +1014,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       {/* NEW: Dedicated Curriculum Tab Content */}
       {activeDashboardTab === 'curriculum' && (
         <div className="animate-in slide-in-from-bottom-2 duration-300 space-y-6">
+          <div className="text-left">
+            <BackButton onClick={() => setActiveDashboardTab('general')} text="Voltar ao Painel do Instrutor" />
+          </div>
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs text-left">
             <div>
               <span className="text-[10px] font-black text-teal-600 uppercase tracking-widest bg-teal-50 px-2 py-0.5 rounded-full mb-2 inline-block">Módulo de Edição Total</span>
@@ -856,10 +1056,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               activeCourse.lessons.map((lesson, index) => {
                 const isExpanded = expandedLessonId === lesson.id;
                 const docs = lesson.documents || [];
-                
                 return (
                   <div 
-                    key={lesson.id} 
+                    key={`${lesson.id}-${index}`} 
                     className={`bg-white border rounded-2xl transition-all duration-200 shadow-3xs overflow-hidden ${
                       isExpanded ? 'border-teal-500 ring-1 ring-teal-400/30' : 'border-slate-205 hover:border-teal-300'
                     }`}
@@ -984,7 +1183,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                               </div>
                             ) : (
                               <div className="bg-white border border-slate-150 rounded-xl divide-y divide-slate-100 shadow-3xs overflow-hidden">
-                                {docs.map((doc) => {
+                                {docs.map((doc, docIdx) => {
                                   let typeColor = 'bg-slate-100 text-slate-700';
                                   if (doc.type === 'pdf') typeColor = 'bg-rose-50 text-rose-700 border border-rose-100/40';
                                   if (doc.type === 'doc') typeColor = 'bg-blue-50 text-blue-700 border border-blue-100/40';
@@ -992,7 +1191,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                                   if (doc.type === 'drive') typeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-100/40';
                                   
                                   return (
-                                    <div key={doc.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+                                    <div key={`${doc.id}-${typeof docIdx !== "undefined" ? docIdx : 0}`} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
                                       <div className="flex items-center gap-3 min-w-0">
                                         <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${typeColor}`}>
                                           {doc.type}
@@ -1040,7 +1239,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                               </div>
                               <button 
                                 onClick={() => {
-                                  alert(`Pré-visualização da Aula:\n\nTítulo: ${lesson.title}\nDuração: ${lesson.duration}\nVídeo: ${lesson.videoUrl || 'Sem vídeo cadastrado'}\nDocumentos: ${docs.length} arquivo(s) anexado(s).\n\nConteúdo Markdown:\n${lesson.content ? lesson.content.substring(0, 180) + '...' : 'Vazio'}`);
+                                  setPreviewLesson(lesson);
                                 }}
                                 className="bg-white text-[#540D6E] font-extrabold hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-purple-200/50 text-[10px] cursor-pointer"
                               >
@@ -1053,7 +1252,73 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-3xs space-y-3">
                             <span className="text-[10px] font-black text-[#540D6E] uppercase tracking-wider block mb-1">Anexar Novo Arquivo / Link</span>
                             
-                            <div className="space-y-2 text-xs">
+                            <div className="space-y-3 text-xs">
+                              {/* File Upload Dropzone */}
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Upload de Arquivo Local</label>
+                                {uploadedFile ? (
+                                  <div className="flex items-center justify-between p-3 rounded-xl border border-teal-200 bg-teal-50/50 animate-in fade-in duration-200">
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="p-2 bg-teal-600 text-white rounded-lg">
+                                        <File className="h-4 w-4" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="font-bold text-slate-800 text-xs truncate">{uploadedFile.name}</p>
+                                        <p className="text-[10px] font-mono text-teal-600 font-semibold">{newDocSize}</p>
+                                      </div>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={handleClearFile}
+                                      className="p-1.5 hover:bg-teal-100 text-slate-500 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                                      title="Remover arquivo"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      setIsDragging(true);
+                                    }}
+                                    onDragLeave={() => setIsDragging(false)}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      setIsDragging(false);
+                                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                                        handleFileChange(e.dataTransfer.files[0]);
+                                      }
+                                    }}
+                                    className={`relative border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                                      isDragging
+                                        ? 'border-teal-500 bg-teal-50/30'
+                                        : 'border-slate-200 hover:border-teal-500 hover:bg-slate-50/50'
+                                    }`}
+                                    onClick={() => {
+                                      const input = document.createElement('input');
+                                      input.type = 'file';
+                                      input.onchange = (e: any) => {
+                                        if (e.target?.files && e.target.files[0]) {
+                                          handleFileChange(e.target.files[0]);
+                                        }
+                                      };
+                                      input.click();
+                                    }}
+                                  >
+                                    <Upload className="h-5 w-5 text-slate-400 mb-1.5 animate-bounce" />
+                                    <span className="font-semibold text-slate-700 text-[11px] block">Arraste um arquivo ou clique para fazer upload</span>
+                                    <span className="text-[9px] text-slate-400 block mt-0.5">Suporta PDF, Word, Imagens e outros</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="relative flex py-1 items-center">
+                                <div className="flex-grow border-t border-slate-100"></div>
+                                <span className="flex-shrink mx-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">OU preencha manualmente</span>
+                                <div className="flex-grow border-t border-slate-100"></div>
+                              </div>
+
                               <div>
                                 <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Título do Recurso</label>
                                 <input
@@ -1067,7 +1332,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tipo de Link</label>
+                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tipo de Link / Arquivo</label>
                                   <select
                                     value={newDocType}
                                     onChange={(e) => setNewDocType(e.target.value as any)}
@@ -1085,7 +1350,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                                   <input
                                     type="text"
                                     placeholder="Ex: 2.1 MB / Opcional"
-                                    disabled={newDocType !== 'pdf' && newDocType !== 'doc'}
+                                    disabled={!uploadedFile && newDocType !== 'pdf' && newDocType !== 'doc'}
                                     value={newDocSize}
                                     onChange={(e) => setNewDocSize(e.target.value)}
                                     className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-mono text-center px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all disabled:opacity-40"
@@ -1094,17 +1359,18 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                               </div>
 
                               <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Enderço URL do Conteúdo</label>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Endereço URL do Conteúdo</label>
                                 <input
                                   type="text"
-                                  placeholder="https://exemplo.com/material-aula-1"
-                                  value={newDocUrl}
+                                  placeholder={uploadedFile ? "Arquivo carregado localmente" : "https://exemplo.com/material-aula-1"}
+                                  disabled={!!uploadedFile}
+                                  value={uploadedFile ? "Arquivo carregado localmente" : newDocUrl}
                                   onChange={(e) => setNewDocUrl(e.target.value)}
-                                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-slate-400"
+                                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-slate-400 disabled:opacity-50"
                                 />
                               </div>
 
-                              <div className="pt-2">
+                              <div className="pt-1">
                                 <button
                                   type="button"
                                   onClick={() => handleAddDocument(lesson.id)}
@@ -1168,7 +1434,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         </div>
       )}
       {activeDashboardTab === 'messages' && (
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xs space-y-6 text-left animate-in fade-in duration-300">
+        <div className="space-y-4 text-left animate-in fade-in duration-300">
+          <div>
+            <BackButton onClick={() => setActiveDashboardTab('general')} text="Voltar ao Painel do Instrutor" />
+          </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xs space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div className="space-y-1">
               <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-wider font-mono">Central Pedagógica de Comunicação</span>
@@ -1200,7 +1470,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block font-mono pl-1">Selecione o Estudante</span>
               
               <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-1">
-                {studentsList.map((student) => {
+                {studentsList.map((student, idx) => {
                   const isSelected = selectedStudentName === student.name;
                   const isUnreplied = unrepliedStudents.includes(student.name);
                   const studentDMs = directMessages.filter(m => m.studentName === student.name);
@@ -1209,7 +1479,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   
                   return (
                     <button
-                      key={student.name}
+                      key={`${student.name}-${idx}`}
                       onClick={() => setSelectedStudentName(student.name)}
                       className={`w-full p-3.5 rounded-xl border text-left transition-all duration-150 flex items-start gap-3 cursor-pointer ${
                         isSelected 
@@ -1301,10 +1571,10 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           <p className="text-[10pt] text-[10px] text-slate-400">Comece enviando uma mensagem instrutiva de feedback abaixo!</p>
                         </div>
                       ) : (
-                        studentDMs.map((msg) => {
+                        studentDMs.map((msg, idx) => {
                           const isInstructor = msg.senderRole === 'instructor';
                           return (
-                            <div key={msg.id} className={`flex flex-col ${isInstructor ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
+                            <div key={`${msg.id}-${idx}`} className={`flex flex-col ${isInstructor ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
                               <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-normal ${
                                 isInstructor 
                                   ? 'bg-teal-600 text-white rounded-tr-none shadow-3xs' 
@@ -1357,11 +1627,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               })()}
             </div>
           </div>
+          </div>
         </div>
       )}
 
       {activeDashboardTab === 'students' && (
         <div className="space-y-6 text-left animate-in fade-in duration-300">
+          <div>
+            <BackButton onClick={() => setActiveDashboardTab('general')} text="Voltar ao Painel do Instrutor" />
+          </div>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div className="space-y-1">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Gestão de Alunos</h1>
@@ -1483,7 +1757,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         >
                           <option value="">Matricular em...</option>
                           {courses.filter(c => c.instructorName === activeUser.name).map(c => (
-                            <option key={c.id} value={c.id}>{c.title}</option>
+                            <option key={`${c.id}-${idx}`} value={c.id}>{c.title}</option>
                           ))}
                         </select>
                       </div>
@@ -1545,7 +1819,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       className="w-full rounded-lg border border-slate-200 p-2.5 text-xs font-semibold text-slate-800"
                     >
                       {/* Extract categories dynamically */}
-                      {Array.from(new Set([...courses.map(c => c.category), 'Programação', 'Design Digital', 'Organização & Gestão', 'Marketing'])).map(cat => (
+                      {Array.from(new Set([...courses.map((c, idx) => c.category), 'Programação', 'Design Digital', 'Organização & Gestão', 'Marketing'])).map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
                       <option value="Escrever Outra...">+ Criar outra categoria...</option>
@@ -1574,6 +1848,22 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                     className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                  <span>Vigência de Exibição / Validade do Contrato</span>
+                  <span className="text-[9px] font-normal text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 uppercase font-black shrink-0">Proteção Jurídica</span>
+                </label>
+                <input
+                  type="date"
+                  value={newCourseExpiration}
+                  onChange={(e) => setNewCourseExpiration(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800"
+                />
+                <p className="text-[10px] text-slate-450 mt-1 leading-normal">
+                  Após esse prazo, o sistema arquiva o curso automaticamente. Impede novos acessos e downloads para segurança de licenças de terceiros.
+                </p>
               </div>
             </div>
 
@@ -1860,6 +2150,57 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   </div>
                 </div>
 
+                <div className="space-y-2 border-t border-amber-100/40 pt-2 text-[10px]">
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide block">Feedback e Direcionamento (Opcionais)</span>
+                  
+                  <div>
+                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Explicação Curta (Explicar por que a resposta está certa)</label>
+                    <textarea
+                      placeholder="Ex: A economia criativa envolve atividades que geram valor a partir da cultura, da criatividade..."
+                      value={tempExplanation}
+                      onChange={(e) => setTempExplanation(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px] text-slate-700"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Mensagem de Revisão (Mensagem se errar)</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Revise o conteúdo indicado para consolidar este pilar."
+                        value={tempReviewMessage}
+                        onChange={(e) => setTempReviewMessage(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px] text-slate-700"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Recomendar Módulo ou Aula</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Módulo 1 — Introdução à Economia Criativa"
+                        value={tempRecommendedModule}
+                        onChange={(e) => setTempRecommendedModule(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px] text-slate-700"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 py-0.5">
+                    <input
+                      type="checkbox"
+                      id="tempAllowRetry"
+                      checked={tempAllowRetry}
+                      onChange={(e) => setTempAllowRetry(e.target.checked)}
+                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5"
+                    />
+                    <label htmlFor="tempAllowRetry" className="text-[10px] text-slate-600 font-bold cursor-pointer select-none">
+                      Permitir tentar responder novamente esta questão
+                    </label>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Qual alternativa está correta?</label>
@@ -1951,6 +2292,22 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   onChange={(e) => setEditDesc(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
                 />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                  <span>Vigência de Exibição / Validade do Contrato</span>
+                  <span className="text-[9px] font-normal text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 uppercase font-black shrink-0">Proteção Jurídica</span>
+                </label>
+                <input
+                  type="date"
+                  value={editExpiration}
+                  onChange={(e) => setEditExpiration(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm text-slate-800"
+                />
+                <p className="text-[10px] text-slate-450 mt-1 leading-normal">
+                  Data limite contratual de exibição. Se atingida, o curso ficará indisponível para novos acessos e arquivado preventivamente para evitar inconformidades de direitos autorais.
+                </p>
               </div>
             </div>
 
@@ -2308,12 +2665,161 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         </div>
       )}
 
+       {/* Modal: Pré-visualização do Aluno */}
+      {previewLesson && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-3xl rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl relative text-left animate-in fade-in zoom-in-95 duration-200 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-400 animate-pulse" />
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-purple-500/15 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30">
+                    Modo Pré-visualização do Aluno
+                  </span>
+                  <h3 className="text-sm font-bold text-slate-200 mt-1">{previewLesson.title}</h3>
+                </div>
+              </div>
+              <button
+                onClick={() => setPreviewLesson(null)}
+                className="text-slate-400 hover:text-slate-100 p-1.5 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer animate-none"
+                title="Fechar Pré-visualização"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="p-5 overflow-y-auto space-y-5 flex-1">
+              {/* Video Player Section */}
+              {previewLesson.videoUrl ? (
+                <div>
+                  {getYouTubeEmbedUrl(previewLesson.videoUrl) ? (
+                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-slate-800 shadow-lg">
+                      <iframe 
+                        className="w-full h-full"
+                        src={getYouTubeEmbedUrl(previewLesson.videoUrl)!}
+                        title="YouTube video player"
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                  ) : (
+                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-slate-800 shadow-lg flex items-center justify-center relative">
+                      <video 
+                        controls
+                        className="w-full h-full object-contain"
+                        src={previewLesson.videoUrl}
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="aspect-video w-full rounded-xl bg-slate-950 border border-slate-800/80 flex flex-col items-center justify-center gap-2 text-slate-500">
+                  <Video className="h-10 w-10 text-slate-600" />
+                  <span className="text-xs font-semibold">Sem vídeo associado a esta aula</span>
+                </div>
+              )}
+
+              {/* Lesson Metadata */}
+              <div className="flex items-center gap-4 text-xs text-slate-400 border-b border-slate-800/80 pb-4">
+                <span className="flex items-center gap-1.5 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700/30">
+                  <Clock className="h-3.5 w-3.5 text-teal-400" />
+                  Duração: <strong className="text-slate-200">{previewLesson.duration}</strong>
+                </span>
+                <span className="flex items-center gap-1.5 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700/30">
+                  <BookOpen className="h-3.5 w-3.5 text-purple-400" />
+                  Ordem: <strong className="text-slate-200">Aula {previewLesson.order}</strong>
+                </span>
+              </div>
+
+              {/* Lesson Content Text */}
+              <div className="space-y-3 text-left">
+                <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-purple-400" />
+                  Roteiro de Estudos / Conteúdo Teórico
+                </h4>
+                <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/60 text-slate-300 text-xs font-sans leading-relaxed whitespace-pre-line max-h-[250px] overflow-y-auto">
+                  {previewLesson.content || "Nenhum conteúdo de texto cadastrado para esta aula."}
+                </div>
+              </div>
+
+              {/* Lesson Documents (Materials) */}
+              <div className="space-y-3 text-left pt-2">
+                <h4 className="font-extrabold text-xs uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <Archive className="h-4 w-4 text-teal-400" />
+                  Material de Apoio e Arquivos ({previewLesson.documents?.length || 0})
+                </h4>
+                {!previewLesson.documents || previewLesson.documents.length === 0 ? (
+                  <p className="text-xs text-slate-500 italic pl-1">Nenhum documento ou link anexado a esta aula.</p>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {previewLesson.documents.map((doc, docIdx) => {
+                      let docColor = 'bg-slate-800/40 border-slate-800 hover:bg-slate-850';
+                      let tagColor = 'bg-slate-700 text-slate-300';
+                      if (doc.type === 'pdf') { docColor = 'bg-rose-950/20 border-rose-900/30 hover:bg-rose-950/30'; tagColor = 'bg-rose-900/40 text-rose-300'; }
+                      if (doc.type === 'doc') { docColor = 'bg-blue-950/20 border-blue-900/30 hover:bg-blue-950/30'; tagColor = 'bg-blue-900/40 text-blue-300'; }
+                      if (doc.type === 'url') { docColor = 'bg-amber-950/20 border-amber-900/30 hover:bg-amber-950/30'; tagColor = 'bg-amber-900/40 text-amber-300'; }
+                      if (doc.type === 'drive') { docColor = 'bg-emerald-950/20 border-emerald-900/30 hover:bg-emerald-950/30'; tagColor = 'bg-emerald-900/40 text-emerald-300'; }
+
+                      return (
+                        <a
+                          key={`${doc.id}-${typeof docIdx !== "undefined" ? docIdx : 0}`}
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          referrerPolicy="no-referrer"
+                          className={`flex items-center justify-between p-3 rounded-xl border text-left transition-all ${docColor} group`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${tagColor}`}>
+                              {doc.type}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-slate-200 text-xs truncate group-hover:text-white">{doc.title}</p>
+                              <p className="text-[9px] text-slate-500 truncate mt-0.5">{doc.size || 'Link Externo'}</p>
+                            </div>
+                          </div>
+                          <Download className="h-3.5 w-3.5 text-slate-500 group-hover:text-slate-300 shrink-0" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-800 bg-slate-950 text-right">
+              <button
+                onClick={() => setPreviewLesson(null)}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold px-5 py-2 rounded-xl text-xs cursor-pointer transition-colors"
+              >
+                Fechar Visualização
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Success Toast Notification */}
       {toastMsg && (
         <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 px-5 py-3 shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-sm">
           <Check className="h-4.5 w-4.5 text-emerald-400 shrink-0" />
           <span className="text-xs font-semibold">{toastMsg}</span>
         </div>
+      )}
+
+      {/* Live Classroom modal overlay */}
+      {activeCourse && activeLiveSession && (
+        <LiveClassroom
+          course={activeCourse}
+          session={activeLiveSession}
+          onClose={() => {
+            setActiveLiveSession(null);
+          }}
+        />
       )}
     </div>
   );
