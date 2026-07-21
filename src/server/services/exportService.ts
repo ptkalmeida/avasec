@@ -20,8 +20,9 @@ export async function exportDataset(dataset: ExportableDataset) {
     case 'courses':
       return prisma.course.findMany({
         select: {
-          id: true, title: true, category: true, instructorName: true, cargaHoraria: true,
-          modalidade: true, nivel: true, statusCurso: true, emiteCertificado: true,
+          id: true, title: true, category: true, areaTematica: true, instructorName: true,
+          instructorId: true, cargaHoraria: true, modalidade: true, nivel: true,
+          statusCurso: true, emiteCertificado: true, minAttendance: true,
         },
       });
     case 'enrollments':
