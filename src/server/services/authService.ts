@@ -169,10 +169,21 @@ export async function listUsersByRole(role: string | undefined, skip: number, ta
 }
 
 /** Regra de escopo por perfil: instrutor só vê alunos matriculados/admitidos em cursos
- * que ele próprio leciona (não a base inteira de alunos da escola). */
-export async function listStudentsForInstructor(instructorName: string, skip: number, take: number) {
+ * que ele próprio leciona (não a base inteira de alunos da escola).
+ * Identifica os cursos por FK (instructorId) com fallback por nome para cursos legados,
+ * e os alunos por FK (userId) com fallback por nome para registros legados. */
+export async function listStudentsForInstructor(
+  instructor: { sub: string; name: string },
+  skip: number,
+  take: number
+) {
   const instructorCourses = await prisma.course.findMany({
-    where: { instructorName },
+    where: {
+      OR: [
+        { instructorId: instructor.sub },
+        { AND: [{ instructorId: null }, { instructorName: instructor.name }] },
+      ],
+    },
     select: { id: true },
   });
   const courseIds = instructorCourses.map((c) => c.id);
@@ -184,23 +195,29 @@ export async function listStudentsForInstructor(instructorName: string, skip: nu
   const [admissions, enrollments] = await Promise.all([
     prisma.admissionRequest.findMany({
       where: { courseId: { in: courseIds }, status: 'approved' },
-      select: { studentName: true },
+      select: { studentName: true, userId: true },
     }),
     prisma.studentEnrollment.findMany({
       where: { enrolledCourseId: { in: courseIds } },
-      select: { studentName: true },
+      select: { studentName: true, userId: true },
     }),
   ]);
 
-  const studentNames = Array.from(
-    new Set([...admissions.map((a) => a.studentName), ...enrollments.map((e) => e.studentName)])
-  );
+  const linked = [...admissions, ...enrollments];
+  const studentIds = Array.from(new Set(linked.map((r) => r.userId).filter((id): id is string => !!id)));
+  const legacyNames = Array.from(new Set(linked.filter((r) => !r.userId).map((r) => r.studentName)));
 
-  if (studentNames.length === 0) {
+  if (studentIds.length === 0 && legacyNames.length === 0) {
     return { items: [], total: 0 };
   }
 
-  const where = { role: 'student' as const, name: { in: studentNames } };
+  const where = {
+    role: 'student' as const,
+    OR: [
+      ...(studentIds.length ? [{ id: { in: studentIds } }] : []),
+      ...(legacyNames.length ? [{ name: { in: legacyNames } }] : []),
+    ],
+  };
   const [items, total] = await Promise.all([
     prisma.user.findMany({ where, skip, take, orderBy: { createdAt: 'asc' }, select: USER_LIST_SELECT }),
     prisma.user.count({ where }),

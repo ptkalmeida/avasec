@@ -93,6 +93,21 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // Relações reais (fase de transição: os campos *Name continuam existindo para exibição,
+  // mas a autorização e a integridade referencial passam a usar estas FKs).
+  coursesTaught       Course[]             @relation("InstructorCourses")
+  enrollment          StudentEnrollment?
+  progress            StudentProgress[]
+  certificates        Certificate[]
+  quizSubmissions     QuizSubmission[]
+  exerciseSubmissions ExerciseSubmission[]
+  academicRequests    AcademicRequest[]
+  admissionRequests   AdmissionRequest[]
+  chatMessages        ChatMessage[]
+  dmsAsStudent        DirectMessage[]      @relation("DMStudent")
+  dmsSent             DirectMessage[]      @relation("DMSender")
+  forumMessages       ForumMessage[]
+
   @@index([role])
   @@index([status])
   @@index([role, status])
@@ -107,6 +122,9 @@ model Course {
   category               String
   thumbnail              String        @db.Text
   instructorName         String
+  // FK real para o instrutor. Anulável durante a transição; instructorName permanece para exibição.
+  instructorId           String?
+  instructor             User?         @relation("InstructorCourses", fields: [instructorId], references: [id], onDelete: SetNull)
   coverImage             String?       @db.Text
   courseType             CourseType?
   hasChat                Boolean?
@@ -123,6 +141,7 @@ model Course {
   liveSessions LiveSession[]
 
   @@index([instructorName])
+  @@index([instructorId])
 }
 
 model Lesson {
@@ -171,26 +190,43 @@ model LiveSession {
 
 model StudentEnrollment {
   studentName        String   @id
+  // Identificador estável (enrollmentId) para as FKs de progresso/certificado.
+  id                 String?  @unique
+  userId             String?  @unique
+  user               User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   enrolledCourseId   String?
   enrolledAt         String?
   completedCourseIds Json // string[]
   dropOutPenaltyUntil String?
+
+  progress     StudentProgress[]
+  certificates Certificate[]
 }
 
 model StudentProgress {
   id                   String @id @default(cuid())
   studentName          String
+  userId               String?
+  user                 User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  enrollmentId         String?
+  enrollmentRecord     StudentEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
   courseId             String
   completedLessons     Json // string[] (lessonIds)
   attendedLiveSessions Json // string[] (liveSessionIds)
 
   @@unique([studentName, courseId])
   @@index([courseId])
+  @@index([userId])
+  @@index([enrollmentId])
 }
 
 model Certificate {
   id               String @id
   studentName      String
+  userId           String?
+  user             User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  enrollmentId     String?
+  enrollmentRecord StudentEnrollment? @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
   courseId         String
   courseTitle      String
   issueDate        String
@@ -199,6 +235,8 @@ model Certificate {
 
   @@index([studentName])
   @@index([courseId])
+  @@index([userId])
+  @@index([enrollmentId])
   @@unique([studentName, courseId])
 }
 
@@ -233,6 +271,8 @@ model QuizQuestion {
 model QuizSubmission {
   id           String  @id
   studentName  String
+  userId       String?
+  user         User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
   courseId     String
   quizId       String
   scorePercent Float
@@ -242,43 +282,56 @@ model QuizSubmission {
   @@index([studentName])
   @@index([quizId])
   @@index([courseId])
+  @@index([userId])
 }
 
 // ---------- MENSAGENS ----------
 
 model ChatMessage {
-  id         String @id
-  sessionId  String
-  senderName String
-  senderRole Role
-  text       String @db.Text
-  timestamp  String
+  id           String @id
+  sessionId    String
+  senderName   String
+  senderUserId String?
+  sender       User?  @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+  senderRole   Role
+  text         String @db.Text
+  timestamp    String
 
   @@index([sessionId])
+  @@index([senderUserId])
 }
 
 model DirectMessage {
-  id          String @id
-  studentName String
-  senderName  String
-  senderRole  Role
-  text        String @db.Text
-  timestamp   String
+  id            String @id
+  studentName   String
+  studentUserId String?
+  student       User?  @relation("DMStudent", fields: [studentUserId], references: [id], onDelete: SetNull)
+  senderName    String
+  senderUserId  String?
+  sender        User?  @relation("DMSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  senderRole    Role
+  text          String @db.Text
+  timestamp     String
 
   @@index([studentName])
+  @@index([studentUserId])
+  @@index([senderUserId])
 }
 
 model ForumMessage {
-  id         String @id
-  courseId   String
-  senderName String
-  senderRole Role
-  text       String @db.Text
-  timestamp  String
-  likes      Int    @default(0)
-  likedBy    Json // string[]
+  id           String @id
+  courseId     String
+  senderName   String
+  senderUserId String?
+  sender       User?  @relation(fields: [senderUserId], references: [id], onDelete: SetNull)
+  senderRole   Role
+  text         String @db.Text
+  timestamp    String
+  likes        Int    @default(0)
+  likedBy      Json // string[]
 
   @@index([courseId])
+  @@index([senderUserId])
 }
 
 // ---------- SOLICITAÇÕES ----------
@@ -286,6 +339,8 @@ model ForumMessage {
 model AcademicRequest {
   id          String              @id
   studentName String
+  userId      String?
+  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
   type        AcademicRequestType
   description String              @db.Text
   status      RequestStatus       @default(pending)
@@ -294,11 +349,14 @@ model AcademicRequest {
 
   @@index([studentName])
   @@index([status])
+  @@index([userId])
 }
 
 model AdmissionRequest {
   id          String        @id
   studentName String
+  userId      String?
+  user        User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   courseId    String
   status      RequestStatus @default(pending)
   submittedAt String
@@ -306,6 +364,7 @@ model AdmissionRequest {
   @@index([studentName])
   @@index([courseId])
   @@index([studentName, courseId, status])
+  @@index([userId])
 }
 
 // ---------- EXERCÍCIOS PRÁTICOS ----------
@@ -328,6 +387,8 @@ model ExerciseSubmission {
   id             String           @id
   exerciseId     String
   studentName    String
+  userId         String?
+  user           User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
   submissionText String           @db.Text
   fileUrl        String?          @db.Text
   fileName       String?
@@ -342,6 +403,7 @@ model ExerciseSubmission {
 
   @@index([exerciseId])
   @@index([studentName])
+  @@index([userId])
 }
 
 // ---------- BIBLIOTECA E EVENTOS ----------

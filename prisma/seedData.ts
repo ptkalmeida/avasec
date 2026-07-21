@@ -361,6 +361,55 @@ async function seedSecurityLogs() {
   console.log(`✓ ${logs.length} logs de auditoria populados`);
 }
 
+// Associa as FKs reais (userId/instructorId/enrollmentId) aos registros seedados por nome —
+// mesma semântica do backfill da migration real_foreign_keys_expand, de forma idempotente.
+async function linkForeignKeys() {
+  await prisma.$executeRawUnsafe("UPDATE StudentEnrollment SET id = UUID() WHERE id IS NULL");
+  await prisma.$executeRawUnsafe(
+    "UPDATE Course c JOIN User u ON u.name = c.instructorName AND u.role IN ('instructor','admin') SET c.instructorId = u.id WHERE c.instructorId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE StudentEnrollment e JOIN User u ON u.name = e.studentName AND u.role = 'student' SET e.userId = u.id WHERE e.userId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE StudentProgress p JOIN User u ON u.name = p.studentName AND u.role = 'student' SET p.userId = u.id WHERE p.userId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE StudentProgress p JOIN StudentEnrollment e ON e.studentName = p.studentName SET p.enrollmentId = e.id WHERE p.enrollmentId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE Certificate c JOIN User u ON u.name = c.studentName AND u.role = 'student' SET c.userId = u.id WHERE c.userId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE Certificate c JOIN StudentEnrollment e ON e.studentName = c.studentName SET c.enrollmentId = e.id WHERE c.enrollmentId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE QuizSubmission q JOIN User u ON u.name = q.studentName AND u.role = 'student' SET q.userId = u.id WHERE q.userId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE ExerciseSubmission s JOIN User u ON u.name = s.studentName AND u.role = 'student' SET s.userId = u.id WHERE s.userId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE AcademicRequest r JOIN User u ON u.name = r.studentName AND u.role = 'student' SET r.userId = u.id WHERE r.userId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE AdmissionRequest r JOIN User u ON u.name = r.studentName AND u.role = 'student' SET r.userId = u.id WHERE r.userId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE ChatMessage m JOIN User u ON u.name = m.senderName AND u.role = m.senderRole SET m.senderUserId = u.id WHERE m.senderUserId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE DirectMessage m JOIN User u ON u.name = m.studentName AND u.role = 'student' SET m.studentUserId = u.id WHERE m.studentUserId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE DirectMessage m JOIN User u ON u.name = m.senderName AND u.role = m.senderRole SET m.senderUserId = u.id WHERE m.senderUserId IS NULL"
+  );
+  await prisma.$executeRawUnsafe(
+    "UPDATE ForumMessage m JOIN User u ON u.name = m.senderName AND u.role = m.senderRole SET m.senderUserId = u.id WHERE m.senderUserId IS NULL"
+  );
+  console.log('✓ FKs reais associadas aos registros seedados');
+}
+
 export async function runSeed(client: PrismaClient) {
   prisma = client;
   console.log('Iniciando seed do AVASEC...');
@@ -377,5 +426,6 @@ export async function runSeed(client: PrismaClient) {
   await seedChatAndDirectMessages();
   await seedAcademicRequests();
   await seedSecurityLogs();
+  await linkForeignKeys();
   console.log('Seed concluído com sucesso.');
 }

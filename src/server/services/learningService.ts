@@ -3,8 +3,7 @@
 // usuário publique mensagens ou submissões em nome de outra pessoa.
 import { prisma } from '../prisma';
 import { Errors } from '../utils/ApiError';
-
-type Requester = { role: string; name: string };
+import { Requester, ownRowsWhere } from '../utils/identity';
 
 // ---------- QUIZZES ----------
 
@@ -33,7 +32,7 @@ export async function deleteQuiz(id: string) {
 
 export async function listQuizSubmissions(requester: Requester) {
   if (requester.role === 'student') {
-    return prisma.quizSubmission.findMany({ where: { studentName: requester.name } });
+    return prisma.quizSubmission.findMany({ where: ownRowsWhere(requester) });
   }
   return prisma.quizSubmission.findMany();
 }
@@ -50,6 +49,7 @@ export async function submitQuiz(
     data: {
       id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       studentName: requester.name,
+      userId: requester.sub,
       courseId: input.courseId,
       quizId: input.quizId,
       scorePercent: input.scorePercent,
@@ -69,6 +69,7 @@ export async function createForumMessage(input: { courseId: string; text: string
       id: `forum-msg-${Date.now()}`,
       courseId: input.courseId,
       senderName: requester.name,
+      senderUserId: requester.sub,
       senderRole: requester.role as any,
       text: input.text,
       timestamp: new Date().toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
@@ -90,7 +91,8 @@ export async function toggleForumLike(messageId: string, requester: Requester) {
 export async function deleteForumMessage(id: string, requester: Requester) {
   const msg = await prisma.forumMessage.findUnique({ where: { id } });
   if (!msg) return;
-  if (requester.role !== 'admin' && msg.senderName !== requester.name) {
+  const owns = msg.senderUserId ? msg.senderUserId === requester.sub : msg.senderName === requester.name;
+  if (requester.role !== 'admin' && !owns) {
     throw Errors.forbidden('Você só pode remover as próprias mensagens.');
   }
   await prisma.forumMessage.delete({ where: { id } });
@@ -117,7 +119,7 @@ export async function deleteExercise(id: string) {
 
 export async function listExerciseSubmissions(requester: Requester) {
   if (requester.role === 'student') {
-    return prisma.exerciseSubmission.findMany({ where: { studentName: requester.name } });
+    return prisma.exerciseSubmission.findMany({ where: ownRowsWhere(requester) });
   }
   return prisma.exerciseSubmission.findMany();
 }
@@ -135,6 +137,7 @@ export async function submitExercise(
   const data = {
     exerciseId: input.exerciseId,
     studentName: requester.name,
+    userId: requester.sub,
     submissionText: input.submissionText,
     fileUrl: input.fileUrl,
     fileName: input.fileName,

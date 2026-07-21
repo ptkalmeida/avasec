@@ -3,6 +3,7 @@
 import crypto from 'crypto';
 import { prisma } from '../prisma';
 import { Errors } from '../utils/ApiError';
+import { Requester, resolveStudentUserId, ownRowsWhere } from '../utils/identity';
 
 function computeAttendancePercent(course: { lessons: unknown[]; liveSessions: unknown[] }, progress: {
   completedLessons: unknown;
@@ -15,8 +16,8 @@ function computeAttendancePercent(course: { lessons: unknown[]; liveSessions: un
   return Math.min(100, Math.round(((completedLessons + attendedLive) / totalActivities) * 100));
 }
 
-export async function listCertificates(requester: { role: string; name: string }, skip: number, take: number) {
-  const where = requester.role === 'student' ? { studentName: requester.name } : undefined;
+export async function listCertificates(requester: Requester, skip: number, take: number) {
+  const where = requester.role === 'student' ? ownRowsWhere(requester) : undefined;
   const [items, total] = await Promise.all([
     prisma.certificate.findMany({ where, skip, take, orderBy: { issueDate: 'desc' } }),
     prisma.certificate.count({ where }),
@@ -42,7 +43,7 @@ export async function verifyCertificatePublic(query: string) {
 
 export async function issueCertificate(
   input: { studentName: string; courseId: string },
-  requester: { role: string; name: string }
+  requester: Requester
 ) {
   if (requester.role === 'student' && input.studentName !== requester.name) {
     throw Errors.forbidden('Você só pode emitir certificado para si mesmo.');
@@ -73,11 +74,19 @@ export async function issueCertificate(
     );
   }
 
+  const userId = await resolveStudentUserId(input.studentName, requester);
+  const enrollment = await prisma.studentEnrollment.findUnique({
+    where: { studentName: input.studentName },
+    select: { id: true },
+  });
+
   const hashHex = crypto.randomBytes(8).toString('hex').toUpperCase();
   const certificate = await prisma.certificate.create({
     data: {
       id: `cert-${course.id}-${hashHex}`,
       studentName: input.studentName,
+      userId,
+      enrollmentId: enrollment?.id ?? null,
       courseId: course.id,
       courseTitle: course.title,
       issueDate: new Date().toLocaleDateString('pt-BR'),
