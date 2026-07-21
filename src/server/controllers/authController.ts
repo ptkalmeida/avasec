@@ -49,7 +49,11 @@ export const listUsers = asyncHandler(async (req: AuthedRequest, res: Response) 
       throw Errors.forbidden('Alunos não podem listar dados de outros alunos.');
     }
     if (req.user!.role === 'instructor') {
-      const { items, total } = await authService.listStudentsForInstructor(req.user!.name, pageParams.skip, pageParams.take);
+      const { items, total } = await authService.listStudentsForInstructor(
+        { sub: req.user!.sub, name: req.user!.name },
+        pageParams.skip,
+        pageParams.take
+      );
       res.json(paginatedResponse(items, total, pageParams));
       return;
     }

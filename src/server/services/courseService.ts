@@ -2,6 +2,7 @@
 // aninhadas, sempre em transação para não deixar o curso em estado parcial.
 import { prisma } from '../prisma';
 import { Errors } from '../utils/ApiError';
+import type { Requester } from '../utils/identity';
 import type { Course, Lesson } from '../../types';
 
 const COURSE_INCLUDE = { lessons: { include: { documents: true } }, liveSessions: true } as const;
@@ -27,24 +28,41 @@ export async function getCourseById(id: string) {
   return toCourseDTO(course);
 }
 
-async function assertCourseOwnership(courseId: string, requester: { role: string; name: string }) {
-  const course = await prisma.course.findUnique({ where: { id: courseId }, select: { instructorName: true } });
+async function assertCourseOwnership(courseId: string, requester: Requester) {
+  const course = await prisma.course.findUnique({
+    where: { id: courseId },
+    select: { instructorName: true, instructorId: true },
+  });
   if (!course) throw Errors.notFound('Curso não encontrado.');
   if (requester.role === 'admin') return;
-  if (requester.role === 'instructor' && course.instructorName === requester.name) return;
+  // FK primeiro; nome só para cursos legados ainda sem instructorId.
+  const owns = course.instructorId ? course.instructorId === requester.sub : course.instructorName === requester.name;
+  if (requester.role === 'instructor' && owns) return;
   throw Errors.forbidden('Você só pode gerenciar cursos vinculados ao seu próprio perfil de instrutor.');
 }
 
-export async function createCourse(input: Partial<Course>, requester: { role: string; name: string }) {
+export async function createCourse(input: Partial<Course>, requester: Requester) {
   const { lessons = [], liveSessions = [], ...courseData } = input;
 
   // Instrutor só pode criar curso em seu próprio nome — impede assumir a autoria de outro professor.
-  const instructorName = requester.role === 'admin' ? courseData.instructorName ?? requester.name : requester.name;
+  let instructorName: string;
+  let instructorId: string | null;
+  if (requester.role === 'admin' && courseData.instructorName && courseData.instructorName !== requester.name) {
+    instructorName = courseData.instructorName;
+    const instructorUser = await prisma.user.findFirst({
+      where: { name: instructorName, role: { in: ['instructor', 'admin'] } },
+      select: { id: true },
+    });
+    instructorId = instructorUser?.id ?? null;
+  } else {
+    instructorName = requester.name;
+    instructorId = requester.sub;
+  }
 
   const id = courseData.id || `course-${Date.now()}`;
 
   await prisma.$transaction(async (tx) => {
-    await tx.course.create({ data: { ...(courseData as any), id, instructorName } });
+    await tx.course.create({ data: { ...(courseData as any), id, instructorName, instructorId } });
 
     for (const lesson of lessons) {
       const { documents, ...lessonData } = lesson;
@@ -103,14 +121,24 @@ async function syncCourseLiveSessions(tx: any, courseId: string, liveSessions: a
 export async function updateCourse(
   courseId: string,
   updates: Partial<Course>,
-  requester: { role: string; name: string }
+  requester: Requester
 ) {
   await assertCourseOwnership(courseId, requester);
   const { lessons, liveSessions, ...scalarUpdates } = updates;
 
+  // Se a autoria mudou (admin reatribuindo o curso), re-resolve a FK do instrutor junto.
+  let instructorIdUpdate: { instructorId: string | null } | {} = {};
+  if (scalarUpdates.instructorName) {
+    const instructorUser = await prisma.user.findFirst({
+      where: { name: scalarUpdates.instructorName, role: { in: ['instructor', 'admin'] } },
+      select: { id: true },
+    });
+    instructorIdUpdate = { instructorId: instructorUser?.id ?? null };
+  }
+
   await prisma.$transaction(async (tx) => {
     if (Object.keys(scalarUpdates).length > 0) {
-      await tx.course.update({ where: { id: courseId }, data: scalarUpdates as any });
+      await tx.course.update({ where: { id: courseId }, data: { ...scalarUpdates, ...instructorIdUpdate } as any });
     }
     if (lessons) await syncCourseLessons(tx, courseId, lessons);
     if (liveSessions) await syncCourseLiveSessions(tx, courseId, liveSessions);
@@ -119,7 +147,7 @@ export async function updateCourse(
   return getCourseById(courseId);
 }
 
-export async function deleteCourse(courseId: string, requester: { role: string; name: string }) {
+export async function deleteCourse(courseId: string, requester: Requester) {
   await assertCourseOwnership(courseId, requester);
   // onDelete: Cascade remove aulas, documentos e sessões ao vivo na mesma operação atômica do banco.
   await prisma.course.delete({ where: { id: courseId } });

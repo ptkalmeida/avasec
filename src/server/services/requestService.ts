@@ -1,12 +1,11 @@
 // Solicitações acadêmicas (certificado, histórico, matrícula, outro) — "justificativas" do aluno.
 import { prisma } from '../prisma';
 import { Errors } from '../utils/ApiError';
-
-type Requester = { role: string; name: string };
+import { Requester, resolveStudentUserId, ownRowsWhere } from '../utils/identity';
 
 export async function listAcademicRequests(requester: Requester) {
   if (requester.role === 'student') {
-    return prisma.academicRequest.findMany({ where: { studentName: requester.name }, orderBy: { submittedAt: 'desc' } });
+    return prisma.academicRequest.findMany({ where: ownRowsWhere(requester), orderBy: { submittedAt: 'desc' } });
   }
   // Instrutor e admin acompanham todas as solicitações (secretaria acadêmica é centralizada).
   return prisma.academicRequest.findMany({ orderBy: { submittedAt: 'desc' } });
@@ -20,10 +19,13 @@ export async function createAcademicRequest(
     throw Errors.forbidden('Você só pode enviar solicitações em seu próprio nome.');
   }
 
+  const userId = await resolveStudentUserId(input.studentName, requester);
+
   return prisma.academicRequest.create({
     data: {
       id: `req-${Date.now()}`,
       studentName: input.studentName,
+      userId,
       type: input.type as any,
       description: input.description,
       courseTitle: input.courseTitle,
