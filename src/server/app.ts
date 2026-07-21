@@ -8,7 +8,7 @@ import { env } from './config/env';
 import { corsOptions } from './config/cors';
 import { globalApiLimiter } from './middlewares/rateLimiters';
 import { notFoundHandler, errorHandler } from './middlewares/errorHandler';
-import { uploadRouter, UPLOADS_DIR } from './upload';
+import { uploadRouter, fileRouter, UPLOADS_PUBLIC_DIR } from './upload';
 import { authRouter } from './routes/authRoutes';
 import { courseRouter } from './routes/courseRoutes';
 import { progressRouter, enrollmentRouter, admissionRouter } from './routes/enrollmentRoutes';
@@ -44,7 +44,9 @@ export function createApiApp() {
 
   app.use('/api/auth', authRouter);
   app.use('/api/upload', uploadRouter);
-  app.use('/uploads', express.static(UPLOADS_DIR));
+  // Estático serve APENAS a subpasta pública; arquivos privados só saem via /api/files (autorizado).
+  app.use('/uploads', express.static(UPLOADS_PUBLIC_DIR));
+  app.use('/api/files', fileRouter);
 
   app.use('/api/courses', courseRouter);
   app.use('/api/progress', progressRouter);

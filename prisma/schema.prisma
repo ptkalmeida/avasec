@@ -73,6 +73,13 @@ enum AcademicRequestType {
   outro
 }
 
+// public: material de curso/biblioteca, servido estaticamente em /uploads.
+// private: entregas de exercício e afins, servido apenas via /api/files/:id com autorização.
+enum FileVisibility {
+  public
+  private
+}
+
 // ---------- USUÁRIOS / AUTENTICAÇÃO ----------
 
 model User {
@@ -107,6 +114,7 @@ model User {
   dmsAsStudent        DirectMessage[]      @relation("DMStudent")
   dmsSent             DirectMessage[]      @relation("DMSender")
   forumMessages       ForumMessage[]
+  storedFiles         StoredFile[]
 
   @@index([role])
   @@index([status])
@@ -443,6 +451,19 @@ model SecurityLog {
   @@index([timestamp])
   @@index([user])
   @@index([action])
+}
+
+// Registro de todo arquivo enviado: quem enviou, visibilidade e nome original.
+// A autorização de download de arquivos privados é decidida a partir desta tabela.
+model StoredFile {
+  id           String         @id // nome do arquivo em disco (gerado pelo servidor)
+  originalName String
+  visibility   FileVisibility
+  ownerUserId  String?
+  owner        User?          @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now())
+
+  @@index([ownerUserId])
 }
 
 // Armazenamento chave-única de configurações (formato livre em JSON, definido pelo frontend).

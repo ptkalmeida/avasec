@@ -10,7 +10,7 @@ import {
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
   ChevronDown, ChevronUp, ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X
 } from 'lucide-react';
-import { useLMS } from '../context/LMSContext';
+import { useLMS, authFetch } from '../context/LMSContext';
 import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
@@ -288,7 +288,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const res = await fetch('/api/upload', { method: 'POST', body: formData });
+      const res = await authFetch('/api/upload?visibility=public', { method: 'POST', body: formData });
       if (res.ok) {
         const data = await res.json();
         setNewDocUrl(data.url);
@@ -428,7 +428,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       try {
         const formData = new FormData();
         formData.append('file', libFile);
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await authFetch('/api/upload?visibility=public', { method: 'POST', body: formData });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           showToast(err.error || 'Falha ao enviar o arquivo para o servidor.');

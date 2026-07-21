@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { useLMS } from '../context/LMSContext';
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
+import { downloadSubmissionFile } from '../utils/fileDownload';
 import { isCourseExpired, StudentEnrollment } from '../types';
 import { BackButton } from './BackButton';
 import { 
@@ -3195,9 +3196,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <div className="flex items-center gap-1.5 text-[10px] bg-teal-50/50 p-1.5 rounded border border-teal-100 mt-1">
                               <FileText className="h-3.5 w-3.5 text-teal-600" />
                               <span>Anexo: <strong className="text-slate-800">{sub.fileName}</strong></span>
-                              <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer" className="text-teal-650 font-bold hover:underline ml-auto flex items-center gap-0.5">
-                                Abrir Documento <Printer className="h-3 w-3" />
-                              </a>
+                              <button
+                                onClick={async () => {
+                                  const err = await downloadSubmissionFile(sub.fileUrl || '', sub.fileName);
+                                  if (err) showToast(err);
+                                }}
+                                className="text-teal-650 font-bold hover:underline ml-auto flex items-center gap-0.5 cursor-pointer"
+                              >
+                                Baixar Documento <Printer className="h-3 w-3" />
+                              </button>
                             </div>
                           )}
                         </div>

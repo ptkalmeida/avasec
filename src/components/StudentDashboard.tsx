@@ -11,7 +11,8 @@ import {
   Lock, MessageSquare, Send, ChevronDown, Check, Play, FileText, Notebook, Layers, HelpCircle, CheckSquare, ExternalLink, Archive, Library, Info,
   Bell, Shield, Smartphone, X
 } from 'lucide-react';
-import { useLMS } from '../context/LMSContext';
+import { useLMS, authFetch } from '../context/LMSContext';
+import { downloadSubmissionFile } from '../utils/fileDownload';
 import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQuestion } from '../types';
 import { CertificateTemplate } from './CertificateTemplate';
 import { LiveClassroom } from './LiveClassroom';
@@ -1365,9 +1366,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                               <div className="flex items-center gap-1.5 mt-2 text-[10px] bg-white/40 p-1.5 rounded-md border border-dashed border-slate-200">
                                                 <FileText className="h-3.5 w-3.5 text-slate-500" />
                                                 <span>Documento anexado: <strong className="text-slate-800 font-bold">{sub.fileName}</strong></span>
-                                                <a href={sub.fileUrl} target="_blank" rel="noopener noreferrer" className="text-teal-650 hover:underline flex items-center gap-0.5 ml-auto font-bold">
-                                                  Visualizar <ExternalLink className="h-2.5 w-2.5" />
-                                                </a>
+                                                <button
+                                                  onClick={async () => {
+                                                    const err = await downloadSubmissionFile(sub.fileUrl || '', sub.fileName);
+                                                    if (err) showAlert(err);
+                                                  }}
+                                                  className="text-teal-650 hover:underline flex items-center gap-0.5 ml-auto font-bold cursor-pointer"
+                                                >
+                                                  Baixar <ExternalLink className="h-2.5 w-2.5" />
+                                                </button>
                                               </div>
                                             )}
 
@@ -1399,13 +1406,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                               />
                                             </div>
 
-                                            {/* File Upload Simulator (doc, pdf, etc.) */}
+                                            {/* Upload REAL de anexo: enviado ao servidor como arquivo PRIVADO
+                                                (acessível somente ao próprio aluno, instrutores e coordenação). */}
                                             {features.uploadArquivos && (
                                             <div className="space-y-1.5">
                                               <label className="text-[10.5px] font-bold text-slate-700 block">
-                                                Anexar Documento (.doc, .pdf, .zip):
+                                                Anexar Documento (.pdf, .docx, imagens):
                                               </label>
-                                              
+
                                               {attachedFile || (sub && sub.fileName) ? (
                                                 <div className="flex items-center justify-between bg-slate-100 rounded-xl p-2.5 border border-slate-200 text-[10.5px]">
                                                   <div className="flex items-center gap-1.5 text-slate-700">
@@ -1423,28 +1431,40 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                                   </button>
                                                 </div>
                                               ) : (
-                                                <div className="flex gap-2">
-                                                  <button
-                                                    onClick={() => {
-                                                      setSimulatedUploading(prev => ({ ...prev, [ex.id]: true }));
-                                                      setTimeout(() => {
-                                                        setSimulatedUploading(prev => ({ ...prev, [ex.id]: false }));
-                                                        setTypedFiles(prev => ({ 
-                                                          ...prev, 
-                                                          [ex.id]: { 
-                                                            name: `trabalho_pratico_${ex.id === 'exercise-1' ? 'heuristica' : 'video_mapping'}.pdf`, 
-                                                            url: '#' 
-                                                          } 
-                                                        }));
-                                                      }, 1000);
-                                                    }}
-                                                    disabled={isUploading}
-                                                    className="bg-white hover:bg-slate-50 text-slate-700 font-semibold px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                                                  >
+                                                <div className="flex gap-2 items-center">
+                                                  <label className={`bg-white hover:bg-slate-50 text-slate-700 font-semibold px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] transition-colors flex items-center gap-1.5 cursor-pointer ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
                                                     <Download className="h-3.5 w-3.5 text-slate-500 rotate-180" />
-                                                    <span>{isUploading ? 'Anexando arquivo...' : 'Simular Upload de PDF / DOC'}</span>
-                                                  </button>
-                                                  <span className="text-[10px] text-slate-400 self-center">Opcional. Suba uploads em doc ou pdf</span>
+                                                    <span>{isUploading ? 'Enviando arquivo...' : 'Selecionar arquivo (PDF / DOCX)'}</span>
+                                                    <input
+                                                      type="file"
+                                                      accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.gif"
+                                                      className="hidden"
+                                                      disabled={isUploading}
+                                                      onChange={async (e) => {
+                                                        const file = e.target.files?.[0];
+                                                        e.target.value = '';
+                                                        if (!file) return;
+                                                        setSimulatedUploading(prev => ({ ...prev, [ex.id]: true }));
+                                                        try {
+                                                          const formData = new FormData();
+                                                          formData.append('file', file);
+                                                          const res = await authFetch('/api/upload?visibility=private', { method: 'POST', body: formData });
+                                                          if (!res.ok) {
+                                                            const err = await res.json().catch(() => ({} as any));
+                                                            showAlert(err.message || 'Falha ao enviar o arquivo. Verifique o formato e o tamanho.');
+                                                            return;
+                                                          }
+                                                          const data = await res.json();
+                                                          setTypedFiles(prev => ({ ...prev, [ex.id]: { name: data.fileName, url: data.url } }));
+                                                        } catch {
+                                                          showAlert('Servidor indisponível para envio de arquivos.');
+                                                        } finally {
+                                                          setSimulatedUploading(prev => ({ ...prev, [ex.id]: false }));
+                                                        }
+                                                      }}
+                                                    />
+                                                  </label>
+                                                  <span className="text-[10px] text-slate-400 self-center">Opcional. O arquivo fica visível apenas para você e para os professores.</span>
                                                 </div>
                                               )}
                                             </div>
