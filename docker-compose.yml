@@ -1,0 +1,29 @@
+# Sobe um MySQL 8 local para desenvolvimento do AVASEC.
+# Uso:
+#   docker compose up -d      -> sobe o banco em segundo plano
+#   docker compose down       -> para o banco (dados preservados no volume)
+#   docker compose down -v    -> para e APAGA os dados (recomeçar do zero)
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: avasec-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: avasec
+      MYSQL_USER: avasec
+      MYSQL_PASSWORD: avasec
+    volumes:
+      - avasec_mysql_data:/var/lib/mysql
+      # Scripts .sql aqui rodam automaticamente na primeira criação do volume
+      - ./db/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  avasec_mysql_data:
