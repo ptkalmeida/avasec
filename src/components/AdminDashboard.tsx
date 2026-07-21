@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { useLMS } from '../context/LMSContext';
+import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
 import { isCourseExpired, StudentEnrollment } from '../types';
 import { BackButton } from './BackButton';
 import { 
@@ -3465,177 +3466,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </p>
             </div>
             <button
-              onClick={() => {
-                // Compile all 5 bases
-                const alunos = studentsList.map((st, index) => ({
-                  id_aluno: `ALU_${String(index + 1).padStart(3, '0')}`,
-                  nome: st.name,
-                  email: st.email,
-                  municipio: st.municipio || 'São Paulo',
-                  uf: st.uf || 'SP',
-                  area_de_interesse: st.areaInteresse || 'Design Digital',
-                  data_de_cadastro: st.dataCadastro || '2026-01-10'
-                }));
-
-                const cursos = courses.map(c => ({
-                  id_curso: c.id,
-                  titulo: c.title,
-                  categoria: c.category,
-                  area_tematica: c.areaTematica || 'Design Digital',
-                  carga_horaria: c.cargaHoraria || 40,
-                  modalidade: c.modalidade || 'EAD',
-                  nivel: c.nivel || 'Intermediário',
-                  professor_responsavel: c.instructorName,
-                  emite_certificado: c.emiteCertificado !== false ? 'Sim' : 'Não',
-                  percentual_minimo: c.minAttendance || 75,
-                  status_do_curso: c.statusCurso || 'Ativo'
-                }));
-
-                // Compiling enrollment records
-                const enrollments: any[] = [];
-                let matCounter = 1;
-                Object.entries(studentEnrollments || {}).forEach(([studentName, enrollmentVal]) => {
-                  const enrollment = enrollmentVal as any;
-                  const studentIndex = studentsList.findIndex(s => s.name === studentName);
-                  const studentId = studentIndex >= 0 ? `ALU_${String(studentIndex + 1).padStart(3, '0')}` : 'ALU_001';
-                  const studentObj = studentsList.find(s => s.name === studentName);
-
-                  if (enrollment.enrolledCourseId) {
-                    const courseId = enrollment.enrolledCourseId;
-                    const course = courses.find(c => c.id === courseId);
-                    if (course) {
-                      const userProg = progress.find(p => p.courseId === courseId && p.studentName === studentName);
-                      const compCount = userProg ? userProg.completedLessons.length : 0;
-                      const totalCount = course.lessons.length;
-                      const percent = totalCount > 0 ? Math.round((compCount / totalCount) * 100) : 0;
-                      const hasCert = certificates.some(cert => cert.courseId === courseId && cert.studentName === studentName);
-
-                      enrollments.push({
-                        id_matricula: `MAT_${String(matCounter++).padStart(3, '0')}`,
-                        id_aluno: studentId,
-                        id_curso: courseId,
-                        data_matricula: enrollment.enrolledAt ? new Date(enrollment.enrolledAt).toISOString().split('T')[0] : '2026-06-01',
-                        data_inicio: enrollment.enrolledAt ? new Date(enrollment.enrolledAt).toISOString().split('T')[0] : '2026-06-01',
-                        ultimo_acesso: (studentObj as any)?.lastAccess || '2026-06-15',
-                        status_matricula: 'Ativa',
-                        progresso_percentual: percent,
-                        data_conclusao: '—',
-                        certificado_liberado: hasCert ? 'Sim' : 'Não',
-                        data_emissao: '—'
-                      });
-                    }
-                  }
-
-                  if (enrollment.completedCourseIds && enrollment.completedCourseIds.length > 0) {
-                    enrollment.completedCourseIds.forEach((courseId: string) => {
-                      const course = courses.find(c => c.id === courseId);
-                      if (course) {
-                        const cert = certificates.find(ct => ct.courseId === courseId && ct.studentName === studentName);
-                        const issueDate = cert ? cert.issueDate : '2026-06-25';
-
-                        enrollments.push({
-                          id_matricula: `MAT_${String(matCounter++).padStart(3, '0')}`,
-                          id_aluno: studentId,
-                          id_curso: courseId,
-                          data_matricula: enrollment.enrolledAt ? new Date(new Date(enrollment.enrolledAt).getTime() - 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : '2026-05-10',
-                          data_inicio: enrollment.enrolledAt ? new Date(new Date(enrollment.enrolledAt).getTime() - 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : '2026-05-10',
-                          ultimo_acesso: issueDate,
-                          status_matricula: 'Concluída',
-                          progresso_percentual: 100,
-                          data_conclusao: issueDate,
-                          certificado_liberado: 'Sim',
-                          data_emissao: issueDate
-                        });
-                      }
-                    });
-                  }
-                });
-
-                // Module progress compilation
-                const moduleProgress: any[] = [];
-                let prgCounter = 1;
-                enrollments.forEach(mat => {
-                  const course = courses.find(c => c.id === mat.id_curso);
-                  if (!course) return;
-
-                  const studentName = studentsList[parseInt(mat.id_aluno.split('_')[1], 10) - 1]?.name;
-                  const userProg = progress.find(p => p.courseId === mat.id_curso && p.studentName === studentName);
-
-                  course.lessons.forEach((lesson, index) => {
-                    const isCompleted = mat.status_matricula === 'Concluída' || (userProg && userProg.completedLessons.includes(lesson.id));
-                    const status = isCompleted ? 'Concluído' : (index === 0 || (userProg && userProg.completedLessons.length > 0 && index <= userProg.completedLessons.length) ? 'Em Andamento' : 'Não Iniciado');
-                    const completionDate = isCompleted ? (mat.status_matricula === 'Concluída' ? mat.data_conclusao : new Date(new Date(mat.data_matricula).getTime() + (index + 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) : '—';
-                    const startDate = mat.data_matricula;
-
-                    moduleProgress.push({
-                      id_progresso: `PRG_${String(prgCounter++).padStart(4, '0')}`,
-                      id_matricula: mat.id_matricula,
-                      id_modulo: lesson.id,
-                      titulo_modulo: lesson.title,
-                      status_modulo: status,
-                      data_inicio: startDate,
-                      data_conclusao: completionDate
-                    });
-                  });
-                });
-
-                // Certificates compilation
-                const certRecords: any[] = [];
-                let certCounter = 1;
-                certificates.forEach(c => {
-                  const studentIndex = studentsList.findIndex(st => st.name === c.studentName);
-                  const studentId = studentIndex >= 0 ? `ALU_${String(studentIndex + 1).padStart(3, '0')}` : 'ALU_001';
-                  const matchedMat = enrollments.find(mat => mat.id_aluno === studentId && mat.id_curso === c.courseId);
-                  const matriculaId = matchedMat ? matchedMat.id_matricula : 'MAT_001';
-                  const courseObj = courses.find(co => co.id === c.courseId);
-
-                  certRecords.push({
-                    id_certificado: `CRT_${String(certCounter++).padStart(3, '0')}`,
-                    id_matricula: matriculaId,
-                    codigo_validacao: c.verificationHash || 'VAL-MOCK-HASH',
-                    data_emissao: c.issueDate,
-                    status_certificado: 'Ativo',
-                    carga_horaria_certificada: courseObj?.cargaHoraria || 40
-                  });
-                });
-
-                // Helper to export CSV
-                const exportCSV = (filename: string, data: any[]) => {
-                  if (data.length === 0) return;
-                  const headers = Object.keys(data[0]);
-                  const delimiter = ';';
-                  const csvContent = "\uFEFF" + [
-                    headers.join(delimiter),
-                    ...data.map(row => headers.map(header => {
-                      const val = row[header];
-                      const strVal = val === undefined || val === null ? "" : String(val);
-                      const escaped = strVal.replace(/"/g, '""');
-                      if (escaped.includes(delimiter) || escaped.includes('\n') || escaped.includes('"')) {
-                        return `"${escaped}"`;
-                      }
-                      return escaped;
-                    }).join(delimiter))
-                  ].join('\n');
-
-                  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.setAttribute('href', url);
-                  link.setAttribute('download', filename);
-                  link.style.visibility = 'hidden';
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                };
-
-                // Trigger downloads
-                exportCSV('base_alunos.csv', alunos);
-                setTimeout(() => exportCSV('base_cursos.csv', cursos), 150);
-                setTimeout(() => exportCSV('base_matriculas.csv', enrollments), 300);
-                setTimeout(() => exportCSV('base_progresso_modulo.csv', moduleProgress), 450);
-                setTimeout(() => exportCSV('base_certificados.csv', certRecords), 600);
-
-                showToast('As 5 bases principais para BI foram geradas e baixadas com sucesso!');
+              onClick={async () => {
+                // Exportação consome EXCLUSIVAMENTE os endpoints seguros e auditados do
+                // backend (/api/export/:dataset) — nunca o estado local do navegador.
+                try {
+                  await exportAllManagementBases();
+                  showToast('As 5 bases de Dados Gerenciais foram exportadas com sucesso!');
+                } catch (err: any) {
+                  showToast(err?.message || 'Falha ao exportar as bases. Verifique sua sessão de administrador.');
+                }
               }}
               className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
             >
@@ -3836,33 +3675,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               currentDesc = 'Certidões e certificados emitidos, vinculados de forma relacional ao registro da matrícula correspondente e ao código de validação autenticado.';
             }
 
-            const exportSingleCSV = () => {
-              if (currentData.length === 0) return;
-              const headers = Object.keys(currentData[0]);
-              const delimiter = ';';
-              const csvContent = "\uFEFF" + [
-                headers.join(delimiter),
-                ...currentData.map(row => headers.map(header => {
-                  const val = row[header];
-                  const strVal = val === undefined || val === null ? "" : String(val);
-                  const escaped = strVal.replace(/"/g, '""');
-                  if (escaped.includes(delimiter) || escaped.includes('\n') || escaped.includes('"')) {
-                    return `"${escaped}"`;
-                  }
-                  return escaped;
-                }).join(delimiter))
-              ].join('\n');
-
-              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.setAttribute('href', url);
-              link.setAttribute('download', currentFilename);
-              link.style.visibility = 'hidden';
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              showToast(`Base ${currentTitle} exportada com sucesso!`);
+            // Exporta\u00E7\u00E3o individual: tamb\u00E9m consome exclusivamente o endpoint auditado do
+            // backend \u2014 os dados locais acima servem apenas para a pr\u00E9-visualiza\u00E7\u00E3o na tela.
+            const exportSingleCSV = async () => {
+              try {
+                const count = await exportManagementBase(selectedBiBase as ManagementBase);
+                showToast(`Base ${currentTitle} exportada com sucesso (${count} registros do servidor)!`);
+              } catch (err: any) {
+                showToast(err?.message || 'Falha ao exportar a base. Verifique sua sess\u00E3o de administrador.');
+              }
             };
 
             const keys = currentData.length > 0 ? Object.keys(currentData[0]) : [];

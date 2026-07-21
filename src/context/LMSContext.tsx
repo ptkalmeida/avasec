@@ -8,7 +8,8 @@ import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMess
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS } from '../data/mockData';
 
 // Wrapper de fetch que anexa o token JWT (quando existente) ao cabeçalho Authorization.
-function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
+// Exportado para uso em componentes que chamam rotas protegidas fora do contexto (ex.: uploads).
+export function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const token = localStorage.getItem('ava_auth_token');
   const headers = new Headers(options.headers || {});
   if (token) headers.set('Authorization', `Bearer ${token}`);
