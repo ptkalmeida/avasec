@@ -1,0 +1,390 @@
+// Schema do banco de dados do AVASEC (MySQL 8).
+// Modela as entidades definidas em src/types.ts.
+// Após editar: `npx prisma migrate dev` para aplicar as mudanças.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- ENUMS ----------
+
+enum Role {
+  student
+  instructor
+  admin
+}
+
+// active: acesso liberado às áreas internas.
+// blocked: acesso suspenso pela coordenação/administração.
+// pending_confirmation: cadastro público aguardando confirmação/aprovação.
+enum AccountStatus {
+  active
+  blocked
+  pending_confirmation
+}
+
+enum CourseType {
+  fixo
+  ao_vivo
+}
+
+enum DocType {
+  pdf
+  doc
+  url
+  drive
+  outro
+}
+
+enum LibraryType {
+  pdf
+  video
+  link
+}
+
+enum LogStatus {
+  SUCCESS
+  WARNING
+  FAILED
+}
+
+enum RequestStatus {
+  pending
+  approved
+  rejected
+}
+
+enum SubmissionStatus {
+  pending
+  approved
+  rejected
+  revision
+}
+
+enum AcademicRequestType {
+  certificado
+  historico
+  matricula
+  outro
+}
+
+// ---------- USUÁRIOS / AUTENTICAÇÃO ----------
+
+model User {
+  id            String        @id @default(cuid())
+  name          String
+  email         String        @unique
+  passwordHash  String
+  role          Role          @default(student)
+  status        AccountStatus @default(active)
+  cpf           String?
+  municipio     String?
+  uf            String?
+  areaInteresse String?
+  dataCadastro  String?
+  // Contenção de força-bruta por conta (além do rate limit por IP nas rotas de login).
+  failedLoginAttempts Int      @default(0)
+  lockedUntil         DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([role])
+  @@index([status])
+  @@index([role, status])
+}
+
+// ---------- CURSOS E CONTEÚDO ----------
+
+model Course {
+  id                     String        @id
+  title                  String
+  description            String        @db.Text
+  category               String
+  thumbnail              String        @db.Text
+  instructorName         String
+  coverImage             String?       @db.Text
+  courseType             CourseType?
+  hasChat                Boolean?
+  minAttendance          Int?
+  contractExpirationDate String?
+  areaTematica           String?
+  cargaHoraria           Int?
+  modalidade             String?
+  nivel                  String?
+  emiteCertificado       Boolean?
+  statusCurso            String?
+
+  lessons      Lesson[]
+  liveSessions LiveSession[]
+
+  @@index([instructorName])
+}
+
+model Lesson {
+  id       String  @id
+  courseId String
+  title    String
+  duration String
+  videoUrl String? @db.Text
+  content  String? @db.Text
+  order    Int     @map("lesson_order")
+
+  course    Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  documents LessonDocument[]
+
+  @@index([courseId])
+}
+
+model LessonDocument {
+  id       String  @id
+  lessonId String
+  title    String
+  type     DocType
+  url      String  @db.Text
+  size     String?
+
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+}
+
+model LiveSession {
+  id              String  @id
+  courseId        String
+  title           String
+  scheduledAt     String
+  durationMinutes Int
+  meetingLink     String  @db.Text
+  isLive          Boolean @default(false)
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+}
+
+// ---------- MATRÍCULA E PROGRESSO ----------
+
+model StudentEnrollment {
+  studentName        String   @id
+  enrolledCourseId   String?
+  enrolledAt         String?
+  completedCourseIds Json // string[]
+  dropOutPenaltyUntil String?
+}
+
+model StudentProgress {
+  id                   String @id @default(cuid())
+  studentName          String
+  courseId             String
+  completedLessons     Json // string[] (lessonIds)
+  attendedLiveSessions Json // string[] (liveSessionIds)
+
+  @@unique([studentName, courseId])
+  @@index([courseId])
+}
+
+model Certificate {
+  id               String @id
+  studentName      String
+  courseId         String
+  courseTitle      String
+  issueDate        String
+  attendancePercent Float
+  verificationHash String
+
+  @@index([studentName])
+  @@index([courseId])
+  @@unique([studentName, courseId])
+}
+
+// ---------- QUIZZES ----------
+
+model Quiz {
+  id       String @id
+  courseId String
+  title    String
+
+  questions QuizQuestion[]
+
+  @@index([courseId])
+}
+
+model QuizQuestion {
+  id                String  @id
+  quizId            String
+  questionText      String  @db.Text
+  options           Json // string[]
+  correctOptionIndex Int
+  explanation       String? @db.Text
+  reviewMessage     String? @db.Text
+  recommendedModule String?
+  allowRetry        Boolean?
+
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([quizId])
+}
+
+model QuizSubmission {
+  id           String  @id
+  studentName  String
+  courseId     String
+  quizId       String
+  scorePercent Float
+  passed       Boolean
+  submittedAt  String
+
+  @@index([studentName])
+  @@index([quizId])
+  @@index([courseId])
+}
+
+// ---------- MENSAGENS ----------
+
+model ChatMessage {
+  id         String @id
+  sessionId  String
+  senderName String
+  senderRole Role
+  text       String @db.Text
+  timestamp  String
+
+  @@index([sessionId])
+}
+
+model DirectMessage {
+  id          String @id
+  studentName String
+  senderName  String
+  senderRole  Role
+  text        String @db.Text
+  timestamp   String
+
+  @@index([studentName])
+}
+
+model ForumMessage {
+  id         String @id
+  courseId   String
+  senderName String
+  senderRole Role
+  text       String @db.Text
+  timestamp  String
+  likes      Int    @default(0)
+  likedBy    Json // string[]
+
+  @@index([courseId])
+}
+
+// ---------- SOLICITAÇÕES ----------
+
+model AcademicRequest {
+  id          String              @id
+  studentName String
+  type        AcademicRequestType
+  description String              @db.Text
+  status      RequestStatus       @default(pending)
+  submittedAt String
+  courseTitle String?
+
+  @@index([studentName])
+  @@index([status])
+}
+
+model AdmissionRequest {
+  id          String        @id
+  studentName String
+  courseId    String
+  status      RequestStatus @default(pending)
+  submittedAt String
+
+  @@index([studentName])
+  @@index([courseId])
+  @@index([studentName, courseId, status])
+}
+
+// ---------- EXERCÍCIOS PRÁTICOS ----------
+
+model PracticalExercise {
+  id           String @id
+  courseId     String
+  title        String
+  description  String @db.Text
+  instructions String @db.Text
+  maxPoints    Int
+  dueDate      String?
+
+  submissions ExerciseSubmission[]
+
+  @@index([courseId])
+}
+
+model ExerciseSubmission {
+  id             String           @id
+  exerciseId     String
+  studentName    String
+  submissionText String           @db.Text
+  fileUrl        String?          @db.Text
+  fileName       String?
+  submittedAt    String
+  status         SubmissionStatus @default(pending)
+  score          Int?
+  feedback       String?          @db.Text
+  gradedAt       String?
+  gradedBy       String?
+
+  exercise PracticalExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId])
+  @@index([studentName])
+}
+
+// ---------- BIBLIOTECA E EVENTOS ----------
+
+model LibraryItem {
+  id          String      @id
+  title       String
+  type        LibraryType
+  category    String
+  description String?     @db.Text
+  url         String      @db.Text
+}
+
+model WebinarEvent {
+  id          String  @id
+  title       String
+  date        String
+  time        String
+  description String  @db.Text
+  link        String  @db.Text
+  image       String? @db.Text
+}
+
+// ---------- AUDITORIA E CONFIGURAÇÕES ----------
+
+model SecurityLog {
+  id        String    @id
+  timestamp String
+  user      String
+  role      String
+  ipAddress String
+  device    String
+  action    String
+  details   String    @db.Text
+  status    LogStatus
+
+  @@index([timestamp])
+  @@index([user])
+  @@index([action])
+}
+
+// Armazenamento chave-única de configurações (formato livre em JSON, definido pelo frontend).
+model SystemSettings {
+  id   String @id @default("singleton")
+  data Json
+}
