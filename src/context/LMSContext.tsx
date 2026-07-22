@@ -22,7 +22,7 @@ interface LMSContextProps {
   activeUser: { name: string; role: 'student' | 'instructor' | 'admin' };
   authUser: AuthUser | null;
   loginWithPassword: (nameOrEmail: string, password: string) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
-  registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin') => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
+  registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin') => Promise<{ ok: boolean; pending?: boolean; user?: AuthUser; error?: string }>;
   logoutAuth: () => void;
   changePassword: (newPassword: string, currentPassword?: string) => Promise<{ ok: boolean; error?: string }>;
   progress: StudentProgress[];
@@ -184,7 +184,12 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify(isEmail ? { email: nameOrEmail, password } : { name: nameOrEmail, password }),
       });
       const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error || 'Falha na autenticação.' };
+      // Erros padronizados vêm como { error: true, code, message } — inclui os 403
+      // institucionais de conta bloqueada/pendente (sem emissão de token).
+      if (!res.ok) return { ok: false, error: data.message || 'Falha na autenticação.' };
+      if (!data.token) {
+        return { ok: false, error: data.message || 'Sua conta ainda não está liberada para acesso.' };
+      }
       localStorage.setItem('ava_auth_token', data.token);
       setAuthUser(data.user);
       return { ok: true, user: data.user as AuthUser };
@@ -207,7 +212,12 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify({ name, email, password, role }),
       });
       const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error || 'Falha ao cadastrar.' };
+      if (!res.ok) return { ok: false, error: data.message || 'Falha ao cadastrar.' };
+      // Cadastro público nasce pending_confirmation e NÃO recebe token — a pessoa só entra
+      // após homologação pela coordenação. Sinalizamos com pending=true para a UI.
+      if (!data.token) {
+        return { ok: true, pending: true, user: data.user as AuthUser };
+      }
       localStorage.setItem('ava_auth_token', data.token);
       setAuthUser(data.user);
       return { ok: true, user: data.user as AuthUser };
