@@ -27,6 +27,7 @@ import { chatRouter, dmRouter } from './routes/messagingRoutes';
 import { settingsRouter } from './routes/settingsRoutes';
 import { auditRouter } from './routes/auditRoutes';
 import { devRouter } from './routes/devRoutes';
+import { requireFeature } from './middlewares/featureGate';
 
 export function createApiApp() {
   const app = express();
@@ -43,27 +44,30 @@ export function createApiApp() {
   });
 
   app.use('/api/auth', authRouter);
-  app.use('/api/upload', uploadRouter);
+
+  // Cada domínio funcional é montado atrás da sua feature flag — flag desligada significa
+  // rota desligada (404 FEATURE_DISABLED), não apenas botão escondido no frontend.
+  app.use('/api/upload', requireFeature('uploadArquivos'), uploadRouter);
   // Estático serve APENAS a subpasta pública; arquivos privados só saem via /api/files (autorizado).
   app.use('/uploads', express.static(UPLOADS_PUBLIC_DIR));
-  app.use('/api/files', fileRouter);
+  app.use('/api/files', requireFeature('uploadArquivos'), fileRouter);
 
-  app.use('/api/courses', courseRouter);
-  app.use('/api/progress', progressRouter);
-  app.use('/api/enrollments', enrollmentRouter);
-  app.use('/api/admissions', admissionRouter);
-  app.use('/api/certificates', certificateRouter);
-  app.use('/api/academic-requests', academicRequestRouter);
-  app.use('/api/export', exportRouter);
-  app.use('/api/library', libraryRouter);
-  app.use('/api/webinars', webinarRouter);
-  app.use('/api/quizzes', quizRouter);
-  app.use('/api/quiz-submissions', quizSubmissionRouter);
-  app.use('/api/forum', forumRouter);
-  app.use('/api/exercises', exerciseRouter);
-  app.use('/api/exercise-submissions', exerciseSubmissionRouter);
-  app.use('/api/chat', chatRouter);
-  app.use('/api/dms', dmRouter);
+  app.use('/api/courses', requireFeature('catalogoCursos'), courseRouter);
+  app.use('/api/progress', requireFeature('progresso'), progressRouter);
+  app.use('/api/enrollments', requireFeature('matricula'), enrollmentRouter);
+  app.use('/api/admissions', requireFeature('matricula'), admissionRouter);
+  app.use('/api/certificates', requireFeature('certificados'), certificateRouter);
+  app.use('/api/academic-requests', requireFeature('solicitacoesAcademicas'), academicRequestRouter);
+  app.use('/api/export', requireFeature('dadosGerenciais'), exportRouter);
+  app.use('/api/library', requireFeature('materiaisComplementares'), libraryRouter);
+  app.use('/api/webinars', requireFeature('eventosWebinars'), webinarRouter);
+  app.use('/api/quizzes', requireFeature('quizSimples'), quizRouter);
+  app.use('/api/quiz-submissions', requireFeature('quizSimples'), quizSubmissionRouter);
+  app.use('/api/forum', requireFeature('forum'), forumRouter);
+  app.use('/api/exercises', requireFeature('atividadesPraticasAvancadas'), exerciseRouter);
+  app.use('/api/exercise-submissions', requireFeature('atividadesPraticasAvancadas'), exerciseSubmissionRouter);
+  app.use('/api/chat', requireFeature('liveClassroom'), chatRouter);
+  app.use('/api/dms', requireFeature('mensagensDiretas'), dmRouter);
   app.use('/api/system-settings', settingsRouter);
   app.use('/api/security-logs', auditRouter);
 

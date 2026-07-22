@@ -602,7 +602,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       </div>
 
       {/* Dynamic Tab Navigation System */}
-      {systemSettings.allowDirectMessages && (
+      {features.mensagensDiretas && systemSettings.allowDirectMessages && (
         <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1.5 mb-10 overflow-x-auto scrollbar-hide md:justify-center w-full max-w-4xl mx-auto shadow-3xs border border-slate-200">
           <button
             onClick={() => setActiveDashboardTab('general')}
@@ -2835,8 +2835,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         </div>
       )}
 
-      {/* Live Classroom modal overlay */}
-      {activeCourse && activeLiveSession && (
+      {/* Live Classroom modal overlay (controlado pela feature flag) */}
+      {features.liveClassroom && activeCourse && activeLiveSession && (
         <LiveClassroom
           course={activeCourse}
           session={activeLiveSession}

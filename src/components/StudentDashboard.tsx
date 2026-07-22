@@ -420,7 +420,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
       </div>
 
       {/* Dynamic Tab Navigation System */}
-      {systemSettings.allowDirectMessages && (
+      {features.mensagensDiretas && systemSettings.allowDirectMessages && (
         <div className="flex border-b border-slate-200 mb-8 gap-3 p-1.5 bg-slate-100 rounded-2xl w-full sm:w-fit flex-wrap overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveDashboardTab('general')}
@@ -490,6 +490,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
             </button>
           )}
 
+          {features.eventosWebinars && (
           <button
             onClick={() => setActiveDashboardTab('events')}
             className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
@@ -501,6 +502,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
             <Globe className="h-4 w-4" />
             <span>Eventos & Webinars</span>
           </button>
+          )}
 
           <button
             onClick={() => setIsFaqDrawerOpen(true)}
@@ -1246,7 +1248,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             </div>
                           )}
 
-                          {activeTab === 'forum' && (
+                          {features.forum && activeTab === 'forum' && (
                             <div className="space-y-4">
                               <h4 className="font-bold text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
                                 <MessageSquare className="h-4 w-4 text-teal-500 animate-pulse" />
@@ -1546,8 +1548,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     </div>
                   )}
 
-                  {/* Fórum de Discussão do Curso */}
-                  {!activeLesson && !activeQuizTaking && (
+                  {/* Fórum de Discussão do Curso (controlado pela feature flag) */}
+                  {features.forum && !activeLesson && !activeQuizTaking && (
                     <div className="mt-6 animate-in fade-in duration-300">
                       <CourseForum selectedCourse={selectedCourse} />
                     </div>
@@ -2963,7 +2965,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
               ))}
            </div>
         </div>
-      ) : activeDashboardTab === 'events' ? (
+      ) : features.eventosWebinars && activeDashboardTab === 'events' ? (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 text-left">
           <div className="text-left">
             <button
@@ -3814,8 +3816,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
         />
       )}
 
-      {/* Live Classroom modal overlay */}
-      {selectedCourse && activeLiveSession && (
+      {/* Live Classroom modal overlay (controlado pela feature flag) */}
+      {features.liveClassroom && selectedCourse && activeLiveSession && (
         <LiveClassroom
           course={selectedCourse}
           session={activeLiveSession}
