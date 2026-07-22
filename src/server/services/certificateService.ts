@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { prisma } from '../prisma';
 import { Errors } from '../utils/ApiError';
 import { Requester, resolveStudentUserId, ownRowsWhere } from '../utils/identity';
+import { courseMinAttendance } from '../../config/constants';
 
 function computeAttendancePercent(course: { lessons: unknown[]; liveSessions: unknown[] }, progress: {
   completedLessons: unknown;
@@ -66,7 +67,7 @@ export async function issueCertificate(
   });
 
   const attendancePercent = computeAttendancePercent(course, progress as any);
-  const minAttendance = course.minAttendance ?? 70;
+  const minAttendance = courseMinAttendance(course);
 
   if (attendancePercent < minAttendance) {
     throw Errors.forbidden(

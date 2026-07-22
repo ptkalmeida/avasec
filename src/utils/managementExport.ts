@@ -4,6 +4,7 @@
 // Este módulo apenas converte os payloads do servidor em CSV e dispara o download —
 // nenhuma base é montada a partir do estado local do navegador.
 import { authFetch } from '../context/LMSContext';
+import { courseMinAttendance } from '../config/constants';
 
 export type ManagementBase = 'alunos' | 'cursos' | 'matriculas' | 'progresso' | 'certificados';
 
@@ -58,7 +59,7 @@ function buildCursos(courses: any[]) {
     nivel: c.nivel ?? '',
     professor_responsavel: c.instructorName,
     emite_certificado: c.emiteCertificado !== false ? 'Sim' : 'Não',
-    percentual_minimo: c.minAttendance ?? 70,
+    percentual_minimo: courseMinAttendance(c),
     status_do_curso: c.statusCurso ?? '',
   }));
 }

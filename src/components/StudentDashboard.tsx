@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { downloadSubmissionFile } from '../utils/fileDownload';
+import { courseMinAttendance } from '../config/constants';
 import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQuestion } from '../types';
 import { CertificateTemplate } from './CertificateTemplate';
 import { LiveClassroom } from './LiveClassroom';
@@ -1923,7 +1924,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       </span>
                       <div className="min-w-0">
                         <strong className="block text-[11px] font-black text-slate-800 leading-none">Certificado Garantido</strong>
-                        <span className="text-[9.5px] text-slate-500 mt-1 block truncate">Frequência mínima de {viewingCatalogCourse.minAttendance || 70}%</span>
+                        <span className="text-[9.5px] text-slate-500 mt-1 block truncate">Frequência mínima de {courseMinAttendance(viewingCatalogCourse)}%</span>
                       </div>
                     </div>
 
@@ -2090,7 +2091,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
                             <span>Frequência mínima:</span>
                             <strong className="text-emerald-700 font-bold font-mono text-[11px]">
-                              {viewingCatalogCourse.minAttendance || 70}%
+                              {courseMinAttendance(viewingCatalogCourse)}%
                             </strong>
                           </div>
                           <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
@@ -2157,7 +2158,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       const activeCourse = courses.find(c => c.id === enrollmentRecord.enrolledCourseId);
                       if (!activeCourse) return null;
                       const attendance = calculateAttendancePercent(activeCourse.id);
-                      const minAttendance = activeCourse.minAttendance !== undefined ? activeCourse.minAttendance : 70;
+                      const minAttendance = courseMinAttendance(activeCourse);
                       const expired = isCourseExpired(activeCourse.contractExpirationDate);
                       
                       if (expired) {
@@ -2480,7 +2481,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             </div>
                             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                               {filtered.map((course, idx) => {
-                                const minAtt = course.minAttendance !== undefined ? course.minAttendance : 70;
+                                const minAtt = courseMinAttendance(course);
                                 const isAlreadyCompleted = enrollmentRecord.completedCourseIds?.includes(course.id);
                                 return (
                                   <div key={`${course.id}-${idx}`} className="group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-with-duration hover:shadow-md hover:border-[#540D6E]/30 flex flex-col justify-between text-left animate-in fade-in zoom-in-95 duration-150">
@@ -2605,7 +2606,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
             </div>
             <div className="bg-white border border-amber-100 rounded-2xl p-5 shadow-xs text-left">
               <span className="text-3xl font-black text-amber-600 block mb-1">{
-                courses.filter(c => c.id === enrollmentRecord.enrolledCourseId && calculateAttendancePercent(c.id) < (c.minAttendance ?? 70)).length
+                courses.filter(c => c.id === enrollmentRecord.enrolledCourseId && calculateAttendancePercent(c.id) < courseMinAttendance(c)).length
               }</span>
               <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Certificados Pendentes</span>
             </div>
@@ -2705,7 +2706,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     const activeCourse = courses.find(c => c.id === enrollmentRecord.enrolledCourseId);
                     if (!activeCourse) return null;
                     const attendance = calculateAttendancePercent(activeCourse.id);
-                    const minAttendance = activeCourse.minAttendance ?? 70;
+                    const minAttendance = courseMinAttendance(activeCourse);
                     
                     if (activeCourse.category.includes('Sem Certificado')) {
                       return (
