@@ -7,9 +7,11 @@ import { validate } from '../middlewares/validate';
 import { clientEventSchema } from '../validators/auditValidators';
 import { paginationQuerySchema } from '../validators/common';
 
+// Trilha de auditoria (SecurityLog): SOMENTE leitura/limpeza por admin.
+// Não existe mais POST — a auditoria é gravada exclusivamente pelo servidor
+// (auditService.logAudit) a partir das ações reais; o cliente não escreve nela.
 export const auditRouter = Router();
 
-// Trilha de auditoria completa: exclusiva para admin.
 auditRouter.get(
   '/',
   requireAuth,
@@ -19,8 +21,19 @@ auditRouter.get(
   auditController.listSecurityLogs
 );
 
-// Eventos de UI de baixo risco (navegação, narração) — aceita anônimo, mas nunca confia no
-// nome/papel enviado pelo cliente (usa a identidade do token, se houver).
-auditRouter.post('/', attachUserIfPresent, validate(clientEventSchema), auditController.recordClientEvent);
-
 auditRouter.delete('/', requireAuth, requireActiveAccount, requireRole('admin'), auditController.clearSecurityLogs);
+
+// Telemetria (ClientEvent): eventos de UI de baixo risco enviados pelo frontend.
+// Aceita anônimo, mas a identidade registrada vem do token (se houver), nunca do corpo.
+export const telemetryRouter = Router();
+
+telemetryRouter.post('/', attachUserIfPresent, validate(clientEventSchema), auditController.recordClientEvent);
+
+telemetryRouter.get(
+  '/',
+  requireAuth,
+  requireActiveAccount,
+  requireRole('admin'),
+  validate(paginationQuerySchema, 'query'),
+  auditController.listClientEvents
+);

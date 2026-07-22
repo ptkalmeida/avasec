@@ -1109,33 +1109,34 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return deduped;
   });
 
+  // Telemetria de UI: eventos informativos do frontend vão para /api/telemetry (tabela
+  // ClientEvent), SEPARADOS da trilha de auditoria — o SecurityLog é gravado apenas pelo
+  // servidor a partir de ações reais (login, matrícula, exportação, etc.).
+  // O eco local no estado é só feedback imediato na tela do admin; a fonte de verdade da
+  // auditoria vem do GET /api/security-logs.
   const addSecurityLog = (action: string, details: string, status: 'SUCCESS' | 'WARNING' | 'FAILED' = 'SUCCESS') => {
     const currentFormattedTime = new Date().toLocaleTimeString('pt-BR') + ' ' + new Date().toLocaleDateString('pt-BR');
-    const randomIp = '192.168.42.' + Math.floor(Math.random() * 254 + 1);
-    const simulatedDevice = navigator.userAgent?.includes('Mobile') ? 'Chrome / iOS (Dispositivos Móveis)' : 'Chrome / Windows (Terminal Homologado)';
-    
-    // Fallback names based on role
-    const userName = activeUser ? activeUser.name : 'Visitante Anônimo';
-    const userRole = activeUser ? activeUser.role : 'student';
+    const userName = activeUser?.name || 'Visitante Anônimo';
+    const userRole = activeUser?.role || 'student';
 
-    const newLog: SecurityLog = {
-      id: `log-${Date.now()}`,
+    const localEcho: SecurityLog = {
+      id: `evt-${Date.now()}`,
       timestamp: currentFormattedTime,
       user: userName,
       role: userRole,
-      ipAddress: randomIp,
-      device: simulatedDevice,
+      ipAddress: '—',
+      device: navigator.userAgent?.slice(0, 60) || 'navegador',
       action,
       details,
       status
     };
-    
-    setSecurityLogs((prev) => [newLog, ...prev].slice(0, 50));
-    authFetch('/api/security-logs', {
+    setSecurityLogs((prev) => [localEcho, ...prev].slice(0, 50));
+
+    authFetch('/api/telemetry', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newLog)
-    }).catch(err => console.error("Erro ao sincronizar log com backend:", err));
+      body: JSON.stringify({ action, details, status })
+    }).catch(err => console.error('Erro ao enviar telemetria:', err));
   };
 
   const clearSecurityLogs = () => {
