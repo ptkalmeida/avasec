@@ -95,9 +95,9 @@ interface LMSContextProps {
   addSecurityLog: (action: string, details: string, status?: 'SUCCESS' | 'WARNING' | 'FAILED') => void;
   clearSecurityLogs: () => void;
   studentEnrollments: { [studentName: string]: StudentEnrollment };
-  enrollStudentInCourse: (studentName: string, courseId: string, customEnrolledAt?: string) => void;
-  dropStudentFromCourse: (studentName: string, courseId: string, simulatedDaysElapsed?: number) => boolean;
-  completeStudentCourse: (studentName: string, courseId: string) => void;
+  enrollStudentInCourse: (studentName: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
+  dropStudentFromCourse: (studentName: string, courseId: string) => Promise<{ ok: boolean; penaltyApplied: boolean; error?: string }>;
+  completeStudentCourse: (studentName: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
   clearStudentPenalty: (studentName: string) => void;
   forumMessages: ForumMessage[];
   addForumMessage: (courseId: string, text: string) => void;
@@ -1870,66 +1870,62 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error('Erro ao sincronizar matrícula:', err));
   };
 
-  const enrollStudentInCourse = (studentName: string, courseId: string, customEnrolledAt?: string) => {
-    setStudentEnrollments(prev => {
-      const current = prev[studentName] || { enrolledCourseId: null, enrolledAt: null, completedCourseIds: [], dropOutPenaltyUntil: null };
-      const updated = {
-        ...current,
-        enrolledCourseId: courseId,
-        enrolledAt: customEnrolledAt || new Date().toISOString(),
-        dropOutPenaltyUntil: null
-      };
-      syncEnrollment(studentName, updated);
-      return { ...prev, [studentName]: updated };
-    });
+  // Ações de matrícula do PRÓPRIO aluno: a regra (penalidade, critério de conclusão, duplicidade)
+  // é decidida pelo SERVIDOR nos endpoints /api/enrollments/self/*. O estado local só reflete a
+  // resposta — nada de calcular dias/penalidade no navegador.
+  const applySelfEnrollmentResponse = (studentName: string, enrollment: StudentEnrollment) => {
+    setStudentEnrollments(prev => ({ ...prev, [studentName]: enrollment }));
   };
 
-  const dropStudentFromCourse = (studentName: string, courseId: string, simulatedDaysElapsed?: number): boolean => {
-    let penalty = false;
-    setStudentEnrollments(prev => {
-      const current = prev[studentName] || { enrolledCourseId: null, enrolledAt: null, completedCourseIds: [], dropOutPenaltyUntil: null };
-      let days = 0;
-      if (simulatedDaysElapsed !== undefined) {
-        days = simulatedDaysElapsed;
-      } else if (current.enrolledAt) {
-        const diffTime = Math.abs(Date.now() - new Date(current.enrolledAt).getTime());
-        days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      }
-      
-      const isPastLimit = days > 5;
-      let penaltyDate: string | null = null;
-      if (isPastLimit) {
-        penalty = true;
-        const d = new Date();
-        d.setMonth(d.getMonth() + 1);
-        penaltyDate = d.toISOString();
-      }
-      
-      const updated = {
-        ...current,
-        enrolledCourseId: null,
-        enrolledAt: null,
-        dropOutPenaltyUntil: penaltyDate
-      };
-      syncEnrollment(studentName, updated);
-      return { ...prev, [studentName]: updated };
-    });
-    return penalty;
+  const enrollStudentInCourse = async (studentName: string, courseId: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await authFetch('/api/enrollments/self/enroll', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId })
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.message || 'Não foi possível efetuar a matrícula.' };
+      applySelfEnrollmentResponse(studentName, data.enrollment);
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao matricular:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
   };
 
-  const completeStudentCourse = (studentName: string, courseId: string) => {
-    setStudentEnrollments(prev => {
-      const current = prev[studentName] || { enrolledCourseId: null, enrolledAt: null, completedCourseIds: [], dropOutPenaltyUntil: null };
-      const completed = Array.from(new Set([...current.completedCourseIds, courseId]));
-      const updated = {
-        ...current,
-        enrolledCourseId: null,
-        enrolledAt: null,
-        completedCourseIds: completed
-      };
-      syncEnrollment(studentName, updated);
-      return { ...prev, [studentName]: updated };
-    });
+  const dropStudentFromCourse = async (studentName: string, courseId: string): Promise<{ ok: boolean; penaltyApplied: boolean; error?: string }> => {
+    try {
+      const res = await authFetch('/api/enrollments/self/drop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId })
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, penaltyApplied: false, error: data.message || 'Não foi possível cancelar a matrícula.' };
+      applySelfEnrollmentResponse(studentName, data.enrollment);
+      return { ok: true, penaltyApplied: !!data.penaltyApplied };
+    } catch (err) {
+      console.error('Erro ao cancelar matrícula:', err);
+      return { ok: false, penaltyApplied: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
+  const completeStudentCourse = async (studentName: string, courseId: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await authFetch('/api/enrollments/self/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId })
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.message || 'Critério de conclusão ainda não atingido.' };
+      applySelfEnrollmentResponse(studentName, data.enrollment);
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao concluir curso:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
   };
 
   const clearStudentPenalty = (studentName: string) => {

@@ -28,6 +28,29 @@ export const upsertEnrollment = asyncHandler(async (req: AuthedRequest, res: Res
   res.json(updated);
 });
 
+export const selfEnroll = asyncHandler(async (req: AuthedRequest, res: Response) => {
+  const result = await enrollmentService.selfEnroll(req.body.courseId, req.user!);
+  await logAudit(req, 'Matrícula em Curso', `Aluno matriculou-se no curso ${req.body.courseId}.`);
+  res.json(result);
+});
+
+export const selfDrop = asyncHandler(async (req: AuthedRequest, res: Response) => {
+  const result = await enrollmentService.selfDrop(req.body.courseId, req.user!);
+  await logAudit(
+    req,
+    'Cancelamento de Inscrição',
+    `Aluno cancelou a matrícula no curso ${req.body.courseId}${result.penaltyApplied ? ' (restrição temporária aplicada)' : ''}.`,
+    result.penaltyApplied ? 'WARNING' : 'SUCCESS'
+  );
+  res.json(result);
+});
+
+export const selfComplete = asyncHandler(async (req: AuthedRequest, res: Response) => {
+  const result = await enrollmentService.selfComplete(req.body.courseId, req.user!);
+  await logAudit(req, 'Conclusão de Curso', `Aluno concluiu o curso ${req.body.courseId}.`);
+  res.json(result);
+});
+
 export const listAdmissions = asyncHandler(async (req: AuthedRequest, res: Response) => {
   res.json(await enrollmentService.listAdmissions(req.user!));
 });
