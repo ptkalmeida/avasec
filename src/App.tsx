@@ -19,6 +19,7 @@ import {
   Fingerprint, Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { features } from './config/features';
 // @ts-ignore
 import pauloFreirePortrait from './assets/images/paulo_freire_portrait_1779991080618.png';
 
@@ -790,7 +791,7 @@ function DashboardSwitcher() {
                   <span className="hidden sm:inline">Página Inicial</span>
                 </button>
 
-                {(activeUser.role === 'instructor' || (activeUser.role === 'student' && systemSettings.allowDirectMessages)) && (
+                {features.mensagensDiretas && (activeUser.role === 'instructor' || (activeUser.role === 'student' && systemSettings.allowDirectMessages)) && (
                   <div className="relative">
                     {activeUser.role === 'instructor' ? (
                       unrepliedStudents.length > 0 ? (

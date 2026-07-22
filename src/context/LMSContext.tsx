@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS } from '../data/mockData';
+import { features } from '../config/features';
 
 // Wrapper de fetch que anexa o token JWT (quando existente) ao cabeçalho Authorization.
 // Exportado para uso em componentes que chamam rotas protegidas fora do contexto (ex.: uploads).
@@ -1136,8 +1137,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('ava_security_logs', JSON.stringify(securityLogs));
   }, [securityLogs]);
 
-  // Sincronização inicial do aplicativo com o backend Express ao montar o contexto
+  // Sincronização inicial do aplicativo com o backend Express ao montar o contexto.
+  // Rotas de funcionalidades desativadas por feature flag nem são consultadas — o backend
+  // também as bloqueia (404 FEATURE_DISABLED), este é apenas o espelho no cliente.
   useEffect(() => {
+    const skipped = Promise.resolve({ ok: false } as Response);
+    const fetchIf = (enabled: boolean, url: string) => (enabled ? authFetch(url) : skipped);
+
     const fetchBackendState = async () => {
       try {
         const [
@@ -1161,25 +1167,25 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           exercisesRes,
           exerciseSubmissionsRes
         ] = await Promise.all([
-          authFetch('/api/courses'),
-          authFetch('/api/library'),
-          authFetch('/api/webinars'),
-          authFetch('/api/progress'),
-          authFetch('/api/certificates'),
-          authFetch('/api/chat'),
-          authFetch('/api/dms'),
-          authFetch('/api/academic-requests'),
-          authFetch('/api/admissions'),
+          fetchIf(features.catalogoCursos, '/api/courses'),
+          fetchIf(features.materiaisComplementares, '/api/library'),
+          fetchIf(features.eventosWebinars, '/api/webinars'),
+          fetchIf(features.progresso, '/api/progress'),
+          fetchIf(features.certificados, '/api/certificates'),
+          fetchIf(features.liveClassroom, '/api/chat'),
+          fetchIf(features.mensagensDiretas, '/api/dms'),
+          fetchIf(features.solicitacoesAcademicas, '/api/academic-requests'),
+          fetchIf(features.matricula, '/api/admissions'),
           authFetch('/api/security-logs'),
           authFetch('/api/system-settings'),
           authFetch('/api/auth/users?role=student'),
           authFetch('/api/auth/users?role=instructor'),
-          authFetch('/api/enrollments'),
-          authFetch('/api/quizzes'),
-          authFetch('/api/quiz-submissions'),
-          authFetch('/api/forum'),
-          authFetch('/api/exercises'),
-          authFetch('/api/exercise-submissions')
+          fetchIf(features.matricula, '/api/enrollments'),
+          fetchIf(features.quizSimples, '/api/quizzes'),
+          fetchIf(features.quizSimples, '/api/quiz-submissions'),
+          fetchIf(features.forum, '/api/forum'),
+          fetchIf(features.atividadesPraticasAvancadas, '/api/exercises'),
+          fetchIf(features.atividadesPraticasAvancadas, '/api/exercise-submissions')
         ]);
 
         if (coursesRes.ok) setCourses(await coursesRes.json());
