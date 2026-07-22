@@ -4,6 +4,7 @@
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import { corsOptions } from './config/cors';
 import { globalApiLimiter } from './middlewares/rateLimiters';
@@ -37,6 +38,7 @@ export function createApiApp() {
   app.use(helmet());
   app.use(cors(corsOptions));
   app.use(express.json({ limit: '2mb' }));
+  app.use(cookieParser());
   app.use('/api', globalApiLimiter);
 
   app.get('/api/health', (_req, res) => {
