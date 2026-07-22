@@ -25,8 +25,37 @@ progressRouter.post(
   enrollmentController.upsertProgress
 );
 
+const selfCourseSchema = z.object({ courseId: idSchema });
+
 export const enrollmentRouter = Router();
 enrollmentRouter.get('/', requireAuth, requireActiveAccount, enrollmentController.getEnrollments);
+
+// Ações do PRÓPRIO aluno — a identidade vem do token; a regra de penalidade é do servidor.
+enrollmentRouter.post(
+  '/self/enroll',
+  enrollmentLimiter,
+  requireAuth,
+  requireActiveAccount,
+  requireRole('student'),
+  validate(selfCourseSchema),
+  enrollmentController.selfEnroll
+);
+enrollmentRouter.post(
+  '/self/drop',
+  requireAuth,
+  requireActiveAccount,
+  requireRole('student'),
+  validate(selfCourseSchema),
+  enrollmentController.selfDrop
+);
+enrollmentRouter.post(
+  '/self/complete',
+  requireAuth,
+  requireActiveAccount,
+  requireRole('student'),
+  validate(selfCourseSchema),
+  enrollmentController.selfComplete
+);
 enrollmentRouter.put(
   '/:studentName',
   requireAuth,

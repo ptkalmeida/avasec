@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { downloadSubmissionFile } from '../utils/fileDownload';
-import { courseMinAttendance } from '../config/constants';
+import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS } from '../config/constants';
 import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQuestion } from '../types';
 import { CertificateTemplate } from './CertificateTemplate';
 import { LiveClassroom } from './LiveClassroom';
@@ -194,7 +194,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const [isFaqDrawerOpen, setIsFaqDrawerOpen] = useState(false);
   const [expandedFaqId, setExpandedFaqId] = useState<string | null>(null);
   const [selectedFaqCategory, setSelectedFaqCategory] = useState<string>('all');
-  const [simulatedDaysForCancel, setSimulatedDaysForCancel] = useState<number>(3);
   const [lockedCourseWarning, setLockedCourseWarning] = useState<string | null>(null);
   const [showUpcomingCalendar, setShowUpcomingCalendar] = useState(false);
   const [showKnowledgeBase, setShowKnowledgeBase] = useState(false);
@@ -593,26 +592,27 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 </button>
 
                 <div className="flex flex-wrap items-center gap-4">
-                  {/* Cancel enrollment control */}
+                  {/* Cancel enrollment control — a contagem de dias e a eventual restrição são
+                      decididas pelo servidor a partir da data real da matrícula. */}
                   <div className="flex flex-wrap items-center gap-2 bg-slate-50 border border-slate-205 rounded-xl px-3 py-1.5 text-xs">
-                    <span className="text-[10px] text-slate-500 font-bold">Simular Dias Matriculado:</span>
-                    <select
-                      value={simulatedDaysForCancel}
-                      onChange={(e) => setSimulatedDaysForCancel(Number(e.target.value))}
-                      className="bg-white border border-slate-300 rounded font-bold font-mono text-[11px] text-slate-700 px-1.5 py-0.5 outline-hidden"
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 10, 15, 30].map(d => (
-                        <option key={d} value={d}>{d} dias {d <= 5 ? '(dentro do prazo ✓)' : '(com restrição temporária ⚠️)'}</option>
-                      ))}
-                    </select>
-                    
+                    {features.penalidadesCancelamento && (
+                      <span className="text-[10px] text-slate-500 font-bold">
+                        Cancelamentos após {DROPOUT_PENALTY_FREE_DAYS} dias de matrícula geram restrição temporária.
+                      </span>
+                    )}
+
                     <button
-                      onClick={() => {
-                        const hasPenalty = dropStudentFromCourse(activeUser.name, selectedCourse.id, simulatedDaysForCancel);
-                        if (hasPenalty) {
+                      onClick={async () => {
+                        // A decisão de penalidade é do SERVIDOR (dias reais desde a matrícula + flag).
+                        const result = await dropStudentFromCourse(activeUser.name, selectedCourse.id);
+                        if (!result.ok) {
+                          showAlert(result.error || 'Não foi possível cancelar a matrícula.');
+                          return;
+                        }
+                        if (result.penaltyApplied) {
                           speakText("Matrícula cancelada. Você desistiu deste curso após o limite de 5 dias letivos. Seu acesso agora está sob regime de restrição temporária de nova matrícula.");
                         } else {
-                          speakText("Matrícula desfeita com sucesso. Saída realizada dentro do prazo de tolerância escolar de 5 dias.");
+                          speakText("Matrícula desfeita com sucesso.");
                         }
                         setSelectedCourse(null);
                         setActiveLesson(null);
@@ -687,8 +687,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   </div>
                   <div className="flex flex-col sm:flex-row items-center gap-2">
                     <button
-                      onClick={() => {
-                        completeStudentCourse(activeUser.name, selectedCourse.id);
+                      onClick={async () => {
+                        // O servidor confere o critério de frequência antes de concluir.
+                        const result = await completeStudentCourse(activeUser.name, selectedCourse.id);
+                        if (!result.ok) {
+                          showAlert(result.error || 'Critério de conclusão ainda não atingido.');
+                          return;
+                        }
                         speakText("Parabéns pela conclusão da disciplina! Agora você pode escolher um novo curso para iniciar seus estudos.");
                         setSelectedCourse(null);
                         setActiveLesson(null);
@@ -2177,8 +2182,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                               </div>
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
                                 <button
-                                  onClick={() => {
-                                    dropStudentFromCourse(activeUser.name, activeCourse.id, 1);
+                                  onClick={async () => {
+                                    const result = await dropStudentFromCourse(activeUser.name, activeCourse.id);
+                                    if (!result.ok) {
+                                      showAlert(result.error || 'Não foi possível cancelar a inscrição.');
+                                      return;
+                                    }
                                     speakText("Sua inscrição no curso expirado foi cancelada.");
                                   }}
                                   className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition-all shadow-md text-center flex items-center justify-center gap-1.5 cursor-pointer"
@@ -2231,7 +2240,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   ) : null}
 
                   {/* Scenario 2: Active Dropout Penalty Warning Card */}
-                  {enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now() ? (() => {
+                  {features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now() ? (() => {
                     const pendingPenaltyRequest = academicRequests.find(r => r.studentName === activeUser.name && r.type === 'matricula' && r.status === 'pending');
                     const rejectedPenaltyRequest = academicRequests.find(r => r.studentName === activeUser.name && r.type === 'matricula' && r.status === 'rejected');
 
@@ -2317,7 +2326,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   })() : null}
 
                   {/* Scenario 3: Course Selection Catalog (Available when no active enrollment and not penalized) */}
-                  {!enrollmentRecord.enrolledCourseId && !(enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now()) && (
+                  {!enrollmentRecord.enrolledCourseId && !(features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now()) && (
                     <div className="space-y-5">
                       <div className="bg-teal-50/55 p-4 rounded-2xl border border-teal-150/40 flex items-center gap-3">
                         <Sparkles className="h-4.5 w-4.5 text-teal-600 shrink-0" />
@@ -4053,8 +4062,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     </button>
                     <button
                       disabled={!isEnrollRulesChecked}
-                      onClick={() => {
-                        enrollStudentInCourse(activeUser.name, viewingCatalogCourse!.id);
+                      onClick={async () => {
+                        // O servidor valida penalidade ativa e matrícula duplicada.
+                        const result = await enrollStudentInCourse(activeUser.name, viewingCatalogCourse!.id);
+                        if (!result.ok) {
+                          showAlert(result.error || 'Não foi possível efetuar a matrícula.');
+                          return;
+                        }
                         speakText("Matrícula realizada com sucesso!");
                         setEnrollSuccessMessage("Matrícula realizada com sucesso. Você já pode iniciar seus estudos.");
                       }}
