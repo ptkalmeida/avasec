@@ -81,7 +81,13 @@ export async function registerUser(input: RegisterInput, requester?: AuthTokenPa
     },
   });
 
-  const token = signToken({ sub: user.id, name: user.name, role: user.role as any });
+  // Access token só é emitido para a PRÓPRIA pessoa quando a conta nasce ativa.
+  // - Cadastro público: conta nasce pending_confirmation -> nenhum token (aguarda homologação).
+  // - Provisionamento por admin: a conta é de terceiro -> o admin não recebe credencial dela.
+  const token =
+    user.status === 'active' && !isAdminProvisioning
+      ? signToken({ sub: user.id, name: user.name, role: user.role as any })
+      : null;
   return { token, user: toPublicUser(user) };
 }
 
@@ -129,6 +135,24 @@ export async function loginUser(input: LoginInput) {
   // Login válido: zera o contador de tentativas.
   if (user.failedLoginAttempts > 0 || user.lockedUntil) {
     await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
+  }
+
+  // Senha correta, mas conta sem acesso liberado: NÃO emite access token.
+  // A resposta distingue o motivo (institucional) — aqui não há vazamento de credencial,
+  // pois este ramo só é alcançado após a senha ter sido validada.
+  if (user.status === 'blocked') {
+    throw new ApiError(
+      403,
+      'ACCOUNT_BLOCKED',
+      'Seu acesso à Escola Estadual da Cultura foi suspenso. Entre em contato com a coordenação para mais informações.'
+    );
+  }
+  if (user.status === 'pending_confirmation') {
+    throw new ApiError(
+      403,
+      'ACCOUNT_PENDING_CONFIRMATION',
+      'Seu cadastro ainda está aguardando confirmação da coordenação. Você será liberado para acessar a plataforma assim que for homologado.'
+    );
   }
 
   const token = signToken({ sub: user.id, name: user.name, role: user.role as any });

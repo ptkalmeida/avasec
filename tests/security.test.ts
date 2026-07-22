@@ -50,19 +50,22 @@ describe('Autenticação e status de conta', () => {
     expect(res.body.message).toBe('Usuário ou senha inválidos.');
   });
 
-  it('usuário com status pending_confirmation não acessa área interna (403 institucional)', async () => {
+  it('cadastro público (pending_confirmation) NÃO recebe access token e login também não emite', async () => {
     const email = `pendente-${Date.now()}@example.com`;
     const register = await request(app)
       .post('/api/auth/register')
       .send({ name: 'Aluno Pendente Teste', email, password: 'senha123456' });
     expect(register.body.user.status).toBe('pending_confirmation');
+    expect(register.body.token).toBeNull();
 
-    const res = await request(app).get('/api/progress').set('Authorization', `Bearer ${register.body.token}`);
-    expect(res.status).toBe(403);
-    expect(res.body.code).toBe('ACCOUNT_PENDING_CONFIRMATION');
+    // Login com a senha CORRETA de conta pendente: 403 institucional, sem token.
+    const login = await request(app).post('/api/auth/login').send({ email, password: 'senha123456' });
+    expect(login.status).toBe(403);
+    expect(login.body.code).toBe('ACCOUNT_PENDING_CONFIRMATION');
+    expect(login.body.token).toBeUndefined();
   });
 
-  it('usuário com status blocked não acessa área interna (403 institucional)', async () => {
+  it('usuário com status blocked não recebe token no login e token antigo não acessa área interna', async () => {
     const email = `bloqueado-${Date.now()}@example.com`;
     const name = `Aluno Bloqueado Teste ${Date.now()}`;
     const register = await request(app)
@@ -70,6 +73,13 @@ describe('Autenticação e status de conta', () => {
       .set('Authorization', `Bearer ${adminToken}`) // provisionado por admin -> nasce 'active'
       .send({ name, email, password: 'senha123456', role: 'student' });
     expect(register.body.user.status).toBe('active');
+    // Provisionamento por admin não entrega a credencial da conta de terceiro.
+    expect(register.body.token).toBeNull();
+
+    // Token legítimo obtido ENQUANTO a conta estava ativa (cenário real de bloqueio posterior).
+    const activeLogin = await request(app).post('/api/auth/login').send({ email, password: 'senha123456' });
+    expect(activeLogin.status).toBe(200);
+    const oldToken = activeLogin.body.token as string;
 
     await request(app)
       .put(`/api/auth/users/${register.body.user.id}/status`)
@@ -77,8 +87,14 @@ describe('Autenticação e status de conta', () => {
       .send({ status: 'blocked' })
       .expect(200);
 
-    // Reaproveita o token já emitido no registro (evita outra chamada de /login).
-    const res = await request(app).get('/api/progress').set('Authorization', `Bearer ${register.body.token}`);
+    // Novo login (senha correta): 403 institucional, sem token novo.
+    const blockedLogin = await request(app).post('/api/auth/login').send({ email, password: 'senha123456' });
+    expect(blockedLogin.status).toBe(403);
+    expect(blockedLogin.body.code).toBe('ACCOUNT_BLOCKED');
+    expect(blockedLogin.body.token).toBeUndefined();
+
+    // Token antigo (emitido antes do bloqueio) também é barrado pelo requireActiveAccount.
+    const res = await request(app).get('/api/progress').set('Authorization', `Bearer ${oldToken}`);
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('ACCOUNT_BLOCKED');
   });
@@ -107,11 +123,12 @@ describe('Controle de acesso por perfil', () => {
   it('instrutor não edita/exclui curso não vinculado a ele', async () => {
     const email = `outro-instrutor-${Date.now()}@example.com`;
     const name = `Outro Instrutor ${Date.now()}`;
-    const otherInstructor = await request(app)
+    await request(app)
       .post('/api/auth/register')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ name, email, password: 'senha123456', role: 'instructor' });
-    const otherInstructorToken = otherInstructor.body.token as string;
+    const otherInstructorLogin = await loginAs(name, 'senha123456');
+    const otherInstructorToken = otherInstructorLogin.token;
 
     // course-1 pertence a "Gestor de Conteúdos" no seed, não ao instrutor recém-criado.
     const updateAttempt = await request(app)
@@ -151,11 +168,12 @@ describe('Regras de negócio críticas', () => {
   it('matrícula duplicada é impedida (409)', async () => {
     const email = `aluno-matricula-${Date.now()}@example.com`;
     const name = `Aluno Matricula ${Date.now()}`;
-    const created = await request(app)
+    await request(app)
       .post('/api/auth/register')
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ name, email, password: 'senha123456', role: 'student' });
-    const token = created.body.token as string;
+    const createdLogin = await loginAs(name, 'senha123456');
+    const token = createdLogin.token;
 
     const body = { studentName: name, courseId: 'course-2' };
     const first = await request(app).post('/api/admissions').set('Authorization', `Bearer ${token}`).send(body);

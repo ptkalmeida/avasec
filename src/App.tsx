@@ -3257,14 +3257,28 @@ function DashboardSwitcher() {
 
                   <button
                     onClick={async () => {
-                      // Cria a conta real no backend (hash bcrypt) e já autentica a sessão (JWT).
-                      await registerUser(registerName, registerEmail, registerPassword, 'student');
+                      // Cria a conta real no backend (hash bcrypt). Cadastro público nasce
+                      // com status pending_confirmation e NÃO recebe access token — o acesso
+                      // só é liberado após homologação pela coordenação.
+                      const result = await registerUser(registerName, registerEmail, registerPassword, 'student');
+                      if (!result.ok) {
+                        setValidationError(result.error || 'Não foi possível concluir o cadastro.');
+                        return;
+                      }
                       // Mantém a lista de alunos visível para o admin/instrutor (best-effort).
                       addStudent(registerName, registerEmail, registerPassword);
-                      // Instantly log in matching their credential
-                      executeProfileLogin(registerName, 'student');
 
+                      if (result.pending) {
+                        speakText('Cadastro recebido. Seu acesso será liberado após a confirmação da coordenação.');
+                        window.alert(
+                          'Cadastro recebido com sucesso!\n\nSeu acesso será liberado assim que a coordenação da Escola da Cultura confirmar sua matrícula. Depois da confirmação, entre normalmente com seu e-mail e senha.'
+                        );
+                      } else {
+                        // Conta já ativa (fluxos administrativos): entra direto.
+                        executeProfileLogin(registerName, 'student');
+                      }
                       setIsRegisterModalOpen(false);
+
                       // Clear values
                       setRegisterName('');
                       setRegisterEmail('');
