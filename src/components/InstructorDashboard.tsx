@@ -14,6 +14,7 @@ import { useLMS, authFetch } from '../context/LMSContext';
 import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
+import { courseMinAttendance } from '../config/constants';
 import { BackButton } from './BackButton';
 
 interface InstructorDashboardProps {
@@ -1561,7 +1562,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   'Carolina Mendes': 88
                 };
                 const attendance = attendanceLookup[selectedStudentName] || 75;
-                const isQualified = attendance >= 70;
+                const isQualified = attendance >= courseMinAttendance(activeCourse);
                 const hasCert = certificates.some(cer => cer.studentName === selectedStudentName);
                 
                 return (

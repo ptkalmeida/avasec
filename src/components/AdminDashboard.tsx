@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { useLMS } from '../context/LMSContext';
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
 import { downloadSubmissionFile } from '../utils/fileDownload';
+import { courseMinAttendance } from '../config/constants';
 import { isCourseExpired, StudentEnrollment } from '../types';
 import { BackButton } from './BackButton';
 import { 
@@ -3541,7 +3542,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               nivel: c.nivel || 'Intermediário',
               professor_responsavel: c.instructorName,
               emite_certificado: c.emiteCertificado !== false ? 'Sim' : 'Não',
-              percentual_minimo: c.minAttendance || 75,
+              percentual_minimo: courseMinAttendance(c),
               status_do_curso: c.statusCurso || 'Ativo'
             }));
 

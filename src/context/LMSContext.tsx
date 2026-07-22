@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS } from '../data/mockData';
 import { features } from '../config/features';
+import { courseMinAttendance } from '../config/constants';
 
 // Wrapper de fetch que anexa o token JWT (quando existente) ao cabeçalho Authorization.
 // Exportado para uso em componentes que chamam rotas protegidas fora do contexto (ex.: uploads).
@@ -1340,7 +1341,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     courses.forEach((course) => {
       const attendance = calculateAttendancePercent(course.id);
-      const minAttendance = course.minAttendance !== undefined ? course.minAttendance : 70;
+      const minAttendance = courseMinAttendance(course);
       
       // If student has at least required minimum attendance and doesn't have a certificate for this course yet, issue it automatically!
       if (attendance >= minAttendance) {
