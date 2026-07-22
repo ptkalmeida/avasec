@@ -35,7 +35,32 @@ export function createApiApp() {
 
   app.set('trust proxy', 1);
 
-  app.use(helmet());
+  // Headers de segurança. A CSP precisa de ajuste por ambiente:
+  // - dev: desabilitada — o Vite injeta script inline (react-refresh) e usa WebSocket de HMR,
+  //   ambos incompatíveis com a CSP padrão do helmet (a tela ficaria em branco).
+  // - produção: política explícita — bundle próprio ('self'), estilos inline (o app injeta
+  //   <style> de acessibilidade e usa style= no JSX), imagens/vídeos de catálogo em https
+  //   (Unsplash, CDNs de vídeo) e embeds do YouTube nas aulas.
+  app.use(
+    helmet({
+      contentSecurityPolicy: env.isProduction
+        ? {
+            directives: {
+              defaultSrc: ["'self'"],
+              scriptSrc: ["'self'"],
+              styleSrc: ["'self'", "'unsafe-inline'"],
+              imgSrc: ["'self'", 'data:', 'https:'],
+              mediaSrc: ["'self'", 'https:'],
+              frameSrc: ["'self'", 'https://www.youtube.com'],
+              connectSrc: ["'self'"],
+              fontSrc: ["'self'", 'data:'],
+              objectSrc: ["'none'"],
+              frameAncestors: ["'self'"],
+            },
+          }
+        : false,
+    })
+  );
   app.use(cors(corsOptions));
   app.use(express.json({ limit: '2mb' }));
   app.use(cookieParser());
