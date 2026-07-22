@@ -18,6 +18,9 @@ authRouter.post('/login', loginLimiter, validate(loginSchema), authController.lo
 
 authRouter.get('/me', requireAuth, authController.me);
 
+// Encerra a sessão do navegador limpando o cookie HttpOnly.
+authRouter.post('/logout', authController.logout);
+
 authRouter.put(
   '/password',
   passwordChangeLimiter,

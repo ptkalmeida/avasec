@@ -9,13 +9,15 @@ import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS } from '../data/mock
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
 
-// Wrapper de fetch que anexa o token JWT (quando existente) ao cabeçalho Authorization.
-// Exportado para uso em componentes que chamam rotas protegidas fora do contexto (ex.: uploads).
+// Wrapper de fetch autenticado. A sessão do navegador vive num cookie HttpOnly
+// (ava_session), enviado automaticamente em requisições same-origin — nenhum token fica
+// acessível a JavaScript. O fallback de header cobre apenas sessões antigas que ainda
+// tenham um token remanescente em localStorage (compatibilidade transitória).
 export function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
-  const token = localStorage.getItem('ava_auth_token');
+  const legacyToken = localStorage.getItem('ava_auth_token');
   const headers = new Headers(options.headers || {});
-  if (token) headers.set('Authorization', `Bearer ${token}`);
-  return window.fetch(url, { ...options, headers });
+  if (legacyToken) headers.set('Authorization', `Bearer ${legacyToken}`);
+  return window.fetch(url, { ...options, headers, credentials: 'same-origin' });
 }
 
 interface LMSContextProps {
@@ -175,6 +177,18 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else localStorage.removeItem('ava_auth_user');
   }, [authUser]);
 
+  // Valida a sessão do cookie HttpOnly ao carregar: o perfil salvo em localStorage é só
+  // exibição — se o cookie expirou/foi limpo, o usuário é deslogado de verdade.
+  useEffect(() => {
+    if (!authUser) return;
+    authFetch('/api/auth/me')
+      .then((res) => {
+        if (res.status === 401) setAuthUser(null);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Faz login contra o backend por nome (usado pelo seletor de perfil/PIN) ou e-mail (contém "@").
   const loginWithPassword = async (nameOrEmail: string, password: string) => {
     try {
@@ -191,7 +205,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!data.token) {
         return { ok: false, error: data.message || 'Sua conta ainda não está liberada para acesso.' };
       }
-      localStorage.setItem('ava_auth_token', data.token);
+      // A credencial fica no cookie HttpOnly setado pelo servidor — nada vai para localStorage.
       setAuthUser(data.user);
       return { ok: true, user: data.user as AuthUser };
     } catch (err) {
@@ -219,7 +233,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!data.token) {
         return { ok: true, pending: true, user: data.user as AuthUser };
       }
-      localStorage.setItem('ava_auth_token', data.token);
+      // Cookie HttpOnly setado pelo servidor carrega a sessão.
       setAuthUser(data.user);
       return { ok: true, user: data.user as AuthUser };
     } catch (err) {
@@ -229,6 +243,8 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutAuth = () => {
+    // Limpa o cookie HttpOnly no servidor e qualquer token legado remanescente no navegador.
+    authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('ava_auth_token');
     setAuthUser(null);
   };

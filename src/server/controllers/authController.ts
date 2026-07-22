@@ -3,12 +3,15 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { getPageParams, paginatedResponse } from '../utils/pagination';
 import { logAudit } from '../services/auditService';
 import * as authService from '../services/authService';
-import type { AuthedRequest } from '../middlewares/auth';
+import { AuthedRequest, SESSION_COOKIE, SESSION_COOKIE_OPTIONS } from '../middlewares/auth';
 import { Errors } from '../utils/ApiError';
 
 export const register = asyncHandler(async (req: AuthedRequest, res: Response) => {
   const result = await authService.registerUser(req.body, req.user);
   await logAudit(req, 'Cadastro de Usuário', `Nova conta criada: ${result.user.name} (${result.user.role}, status ${result.user.status}).`);
+  if (result.token) {
+    res.cookie(SESSION_COOKIE, result.token, SESSION_COOKIE_OPTIONS);
+  }
   res.status(201).json(result);
 });
 
@@ -20,11 +23,19 @@ export const login = asyncHandler(async (req: AuthedRequest, res: Response) => {
       name: result.user.name,
       role: result.user.role,
     });
+    // Navegador: sessão via cookie HttpOnly (inacessível a scripts — mitiga roubo por XSS).
+    // O token no corpo atende clientes de API não-navegador; o frontend NÃO o persiste mais.
+    res.cookie(SESSION_COOKIE, result.token, SESSION_COOKIE_OPTIONS);
     res.json(result);
   } catch (err) {
     await logAudit(req, 'Tentativa Fracassada', `Falha de login para o identificador: ${identifier}.`, 'FAILED');
     throw err;
   }
+});
+
+export const logout = asyncHandler(async (req: AuthedRequest, res: Response) => {
+  res.clearCookie(SESSION_COOKIE, { ...SESSION_COOKIE_OPTIONS, maxAge: undefined });
+  res.json({ success: true });
 });
 
 export const me = asyncHandler(async (req: AuthedRequest, res: Response) => {
