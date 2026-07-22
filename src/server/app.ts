@@ -25,7 +25,7 @@ import {
 } from './routes/learningRoutes';
 import { chatRouter, dmRouter } from './routes/messagingRoutes';
 import { settingsRouter } from './routes/settingsRoutes';
-import { auditRouter } from './routes/auditRoutes';
+import { auditRouter, telemetryRouter } from './routes/auditRoutes';
 import { devRouter } from './routes/devRoutes';
 import { requireFeature } from './middlewares/featureGate';
 
@@ -70,6 +70,7 @@ export function createApiApp() {
   app.use('/api/dms', requireFeature('mensagensDiretas'), dmRouter);
   app.use('/api/system-settings', settingsRouter);
   app.use('/api/security-logs', auditRouter);
+  app.use('/api/telemetry', telemetryRouter);
 
   if (!env.isProduction) {
     app.use('/api/dev', devRouter);

@@ -453,6 +453,24 @@ model SecurityLog {
   @@index([action])
 }
 
+// Telemetria de eventos de UI enviados pelo FRONTEND (navegação, acessibilidade, narração).
+// Separada da trilha de auditoria (SecurityLog), que é gravada exclusivamente pelo servidor
+// a partir de ações reais — telemetria é informativa e não tem valor probatório.
+model ClientEvent {
+  id        String    @id @default(cuid())
+  createdAt DateTime  @default(now())
+  user      String
+  role      String
+  ipAddress String
+  device    String
+  action    String
+  details   String    @db.Text
+  status    LogStatus @default(SUCCESS)
+
+  @@index([createdAt])
+  @@index([user])
+}
+
 // Registro de todo arquivo enviado: quem enviou, visibilidade e nome original.
 // A autorização de download de arquivos privados é decidida a partir desta tabela.
 model StoredFile {
