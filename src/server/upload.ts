@@ -12,7 +12,10 @@ import path from 'path';
 import fs from 'fs';
 import fsp from 'fs/promises';
 import crypto from 'crypto';
-import { fromBuffer as fileTypeFromBuffer } from 'file-type';
+// file-type@16 é CommonJS: o import default funciona em todos os runtimes do projeto
+// (tsx em dev, esbuild no build, vitest nos testes) — o named import quebra no tsx/ESM.
+import fileTypeLib from 'file-type';
+const fileTypeFromBuffer = fileTypeLib.fromBuffer;
 import { env } from './config/env';
 import { prisma } from './prisma';
 import { uploadLimiter } from './middlewares/rateLimiters';

@@ -10,8 +10,22 @@ async function startServer() {
 
   // --- VITE AND SPA FALLBACK MIDDLEWARES ---
   if (!env.isProduction) {
+    // Config inline (configFile: false): carregar vite.config.ts por dentro do loader do tsx
+    // falha no Windows/Node 18 (ERR_INVALID_URL_SCHEME). O vite.config.ts continua sendo
+    // usado normalmente pelo `vite build` de produção.
+    const [{ default: react }, { default: tailwindcss }] = await Promise.all([
+      import('@vitejs/plugin-react'),
+      import('@tailwindcss/vite'),
+    ]);
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      configFile: false,
+      plugins: [react(), tailwindcss()],
+      resolve: { alias: { '@': path.resolve(process.cwd(), '.') } },
+      server: {
+        middlewareMode: true,
+        hmr: process.env.DISABLE_HMR !== 'true',
+        watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
