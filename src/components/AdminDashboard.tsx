@@ -620,84 +620,107 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     return Math.round(total / quizSubmissions.length);
   };
 
+  // Itens de navegação do módulo administrativo (esqueleto sidebar+topbar do PC Design System).
+  const adminNavItems = [
+    { id: 'analytics', label: 'Dashboard & Relatórios', icon: Activity, visible: true },
+    { id: 'professors', label: 'Equipe Pedagógica', icon: User, visible: true },
+    { id: 'students', label: 'Alunos', icon: Award, visible: true },
+    { id: 'courses', label: 'Cursos & Trilhas', icon: BookOpen, visible: features.catalogoCursos },
+    { id: 'requests', label: 'Documentos', icon: FileCheck, visible: features.solicitacoesAcademicas },
+    { id: 'exercicios', label: 'Exercícios Práticos', icon: CheckSquare, visible: features.atividadesPraticasAvancadas },
+    { id: 'export_bi', label: 'Dados Gerenciais', icon: Database, visible: features.dadosGerenciais },
+    { id: 'settings', label: 'Configurações', icon: Settings, visible: features.perfilBasico },
+  ].filter((t) => t.visible);
+  const activeNavItem = adminNavItems.find((t) => t.id === activeTab);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 animate-in fade-in duration-300">
-      
-      {/* Top Welcome Panel */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-3xs mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-          {onBackToLanding && (
-            <button
-              onClick={() => {
-                const label = getBackLabel();
-                speakText(`${label}. Retornando.`);
-                handleBack();
-              }}
-              className="group flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-all cursor-pointer shadow-3xs"
-              title={getBackLabel()}
-            >
-              <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-              <span className="text-[10px] font-bold uppercase tracking-tighter">{getBackLabel()}</span>
-            </button>
-          )}
+    <div className="flex min-h-[calc(100vh-5rem)] bg-[#F1F5F9] animate-in fade-in duration-300 text-left">
 
-          <div className="flex items-center gap-4 text-left">
-            <div className="rounded-2xl bg-slate-900 text-white p-3.5 shadow-xs">
-              <ShieldCheck className="h-6 w-6 text-amber-400" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-black tracking-tight text-slate-900">Portal do Administrador</h2>
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-bold text-slate-500 uppercase">Master Root</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">Gestão global de professores, alunos, turmas e cursos.</p>
-            </div>
+      {/* ===== SIDEBAR escura fixa (desktop) — PC Design System ===== */}
+      <aside className="w-60 bg-[#0F172A] text-slate-300 flex-shrink-0 hidden lg:flex lg:flex-col">
+        <div className="p-4 border-b border-white/10 flex items-center gap-2.5">
+          <ShieldCheck className="h-5 w-5 text-blue-400 shrink-0" />
+          <div className="min-w-0">
+            <span className="block text-sm font-bold text-white leading-tight truncate">Administração</span>
+            <span className="block text-[10px] text-slate-400">AVASEC · Master Root</span>
           </div>
         </div>
 
-        {/* Data Privacy Disclaimer badge */}
-        <div className="rounded-xl bg-slate-50 border border-slate-150 p-3 max-w-sm text-left flex gap-2.5 items-start">
-          <Lock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-700 block">Privacidade de Conversas</span>
-            <span className="text-[10px] text-slate-400 leading-normal block mt-0.5">O administrador não tem acesso de leitura aos chats privados ou DMs de alunos por diretrizes de privacidade de dados.</span>
-          </div>
-        </div>
-      </div>
+        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
+          <span className="block px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestão</span>
+          {adminNavItems.map((tab) => {
+            const IconComp = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm transition-colors cursor-pointer text-left ${
+                  isActive ? 'bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/5'
+                }`}
+              >
+                <IconComp className="h-4 w-4 shrink-0" />
+                <span className="truncate">{tab.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-      {/* Internal Navigation tabs */}
-      <div className="flex border-b border-slate-205 mb-8 overflow-x-auto gap-1 scrollbar-hide lg:justify-center">
-        {[
-          { id: 'analytics', label: 'Dashboard & Relatórios', icon: Activity, visible: true },
-          { id: 'professors', label: 'Equipe Pedagógica', icon: User, visible: true },
-          { id: 'students', label: 'Alunos', icon: Award, visible: true },
-          { id: 'courses', label: 'Cursos & Trilhas', icon: BookOpen, visible: features.catalogoCursos },
-          { id: 'requests', label: 'Documentos', icon: FileCheck, visible: features.solicitacoesAcademicas },
-          { id: 'exercicios', label: 'Exercícios Práticos', icon: CheckSquare, visible: features.atividadesPraticasAvancadas },
-          { id: 'export_bi', label: 'Dados Gerenciais', icon: Database, visible: features.dadosGerenciais },
-          { id: 'settings', label: 'Configurações', icon: Settings, visible: features.perfilBasico },
-        ].filter(t => t.visible).map((tab) => {
-          const IconComp = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-5 py-3.5 border-b-2 text-xs font-bold transition-all flex items-center gap-2.5 whitespace-nowrap cursor-pointer relative group ${
-                isActive
-                  ? 'border-slate-800 text-slate-900'
-                  : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-200'
-              }`}
+        {/* Aviso de privacidade — rodapé da sidebar */}
+        <div className="p-4 border-t border-white/10 flex gap-2 items-start">
+          <Lock className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-[10px] text-slate-400 leading-normal">
+            O administrador não tem acesso de leitura aos chats privados ou DMs de alunos por diretrizes de privacidade de dados.
+          </p>
+        </div>
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* ===== TOPBAR branca ===== */}
+        <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {onBackToLanding && (
+              <button
+                onClick={() => {
+                  const label = getBackLabel();
+                  speakText(`${label}. Retornando.`);
+                  handleBack();
+                }}
+                className="border border-slate-200 text-slate-700 rounded-[6px] font-medium text-sm px-3 py-1.5 hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
+                title={getBackLabel()}
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline text-xs">{getBackLabel()}</span>
+              </button>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[1.2rem] font-bold text-slate-900 leading-tight truncate">
+                {activeNavItem?.label ?? 'Portal do Administrador'}
+              </h1>
+              <p className="text-xs text-slate-500 truncate">Gestão global de professores, alunos, turmas e cursos.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 shrink-0">
+            {/* Navegação mobile (sidebar oculta abaixo de lg) */}
+            <select
+              value={activeTab}
+              onChange={(e) => setActiveTab(e.target.value as any)}
+              className="lg:hidden border border-slate-200 rounded-[6px] text-sm text-slate-700 px-2 py-1.5 bg-white"
+              aria-label="Seção do painel administrativo"
             >
-              <IconComp className={`h-4 w-4 transition-colors ${isActive ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-500'}`} />
-              {tab.label}
-              {isActive && (
-                <div className="absolute -bottom-0.5 left-0 right-0 h-0.5 bg-teal-500 rounded-full animate-in fade-in zoom-in-50 duration-300" />
-              )}
-            </button>
-          );
-        })}
-      </div>
+              {adminNavItems.map((tab) => (
+                <option key={tab.id} value={tab.id}>{tab.label}</option>
+              ))}
+            </select>
+            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-blue-50 text-blue-600">
+              Master Root
+            </span>
+          </div>
+        </header>
+
+        {/* ===== CONTEÚDO ===== */}
+        <main className="flex-1 overflow-x-hidden p-6">
 
       {/* TAB CONTENT SPACES */}
       {((!features.catalogoCursos && activeTab === 'courses') ||
@@ -705,7 +728,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
         (!features.atividadesPraticasAvancadas && activeTab === 'exercicios') ||
         (!features.dadosGerenciais && activeTab === 'export_bi') ||
         (!features.perfilBasico && activeTab === 'settings')) && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-8 text-center max-w-xl mx-auto my-12 shadow-3xs space-y-3">
+        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-[10px] p-8 text-center max-w-xl mx-auto my-12 shadow-sm space-y-3">
           <Lock className="h-10 w-10 text-amber-600 mx-auto" />
           <h3 className="font-extrabold text-base">Esta funcionalidade está temporariamente indisponível.</h3>
           <p className="text-xs text-slate-500">Estamos trabalhando em melhorias e atualizações para esta seção. Por favor, tente novamente mais tarde.</p>
@@ -716,9 +739,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
         <div className="space-y-6 text-left animate-in fade-in duration-300">
           
           {/* Header Info */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-2">
+          <div className="bg-white border border-slate-200 rounded-[10px] p-5 space-y-2">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <Activity className="h-4.5 w-4.5 text-indigo-600" />
+              <Activity className="h-4.5 w-4.5 text-blue-600" />
               <span>Painel de Controle e Inteligência de Dados (Analytics)</span>
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
@@ -729,14 +752,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           <div className="border-t border-slate-100 pt-6">
             <div className="mb-4">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <FileText className="h-4 w-4 text-teal-600" />
+                <FileText className="h-4 w-4 text-blue-600" />
                 <span>Módulos de Relatórios e Auditoria Pedagógica</span>
               </h3>
               <p className="text-[11px] text-slate-500 mt-1">Gere documentos oficiais e estatísticas cruzadas de alunos e professores.</p>
             </div>
 
             {/* Sub Navigation controls to target specific reports */}
-            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 gap-1 overflow-x-auto mb-6 max-w-fit md:mx-auto">
+            <div className="flex bg-slate-50 p-1 rounded-[10px] border border-slate-200 gap-1 overflow-x-auto mb-6 max-w-fit md:mx-auto">
               {[
                 { id: 'consolidado', label: 'Visão Geral', icon: Activity },
                 { id: 'alunos', label: 'Alunos', icon: Users },
@@ -750,20 +773,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <button
                     key={st.id}
                     onClick={() => setActiveReportSubTab(st.id as any)}
-                    className={`px-4 py-2 rounded-lg text-[10.5px] font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                    className={`px-4 py-2 rounded-md text-[10.5px] font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                       isSubActive 
                         ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60 font-black' 
                         : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
                     }`}
                   >
-                    <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-teal-600' : 'text-slate-400'}`} />
+                    <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-blue-600' : 'text-slate-400'}`} />
                     <span>{st.label}</span>
                   </button>
                 );
               })}
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+            <div className="bg-white border border-slate-200 rounded-[10px] p-6 space-y-4">
               
               {/* Action buttons header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
@@ -782,7 +805,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   onClick={() => {
                     window.print();
                   }}
-                  className="text-[10px] bg-slate-900 hover:bg-slate-800 text-white transition-colors font-bold px-3 py-1.8 rounded-lg flex items-center gap-1.5 cursor-pointer"
+                  className="text-[10px] bg-slate-900 hover:bg-slate-800 text-white transition-colors font-bold px-3 py-1.8 rounded-md flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="h-3 w-3 text-slate-300" />
                   <span>Imprimir Relatório Oficial</span>
@@ -795,10 +818,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   
                   {/* Metric Cards Row - Integrated with main analytics but keeping the sub-view clean */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
+                    <div className="bg-white border border-slate-200 rounded-[10px] p-4 shadow-sm space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="p-2 bg-indigo-50 rounded-lg">
-                          <Users className="h-4 w-4 text-indigo-600" />
+                        <div className="p-2 bg-blue-50 rounded-md">
+                          <Users className="h-4 w-4 text-blue-600" />
                         </div>
                       </div>
                       <div>
@@ -807,10 +830,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </div>
                     </div>
 
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
+                    <div className="bg-white border border-slate-200 rounded-[10px] p-4 shadow-sm space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="p-2 bg-teal-50 rounded-lg">
-                          <BookOpen className="h-4 w-4 text-teal-600" />
+                        <div className="p-2 bg-blue-50 rounded-md">
+                          <BookOpen className="h-4 w-4 text-blue-600" />
                         </div>
                       </div>
                       <div>
@@ -819,10 +842,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </div>
                     </div>
 
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
+                    <div className="bg-white border border-slate-200 rounded-[10px] p-4 shadow-sm space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="p-2 bg-rose-50 rounded-lg">
-                          <Activity className="h-4 w-4 text-rose-600" />
+                        <div className="p-2 bg-red-50 rounded-md">
+                          <Activity className="h-4 w-4 text-red-600" />
                         </div>
                       </div>
                       <div>
@@ -833,9 +856,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </div>
                     </div>
 
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-2">
+                    <div className="bg-white border border-slate-200 rounded-[10px] p-4 shadow-sm space-y-2">
                       <div className="flex items-center justify-between">
-                        <div className="p-2 bg-amber-50 rounded-lg">
+                        <div className="p-2 bg-amber-50 rounded-md">
                           <Award className="h-4 w-4 text-amber-600" />
                         </div>
                       </div>
@@ -851,9 +874,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     
                     {/* Category Distribution (Pie) */}
-                    <div className="lg:col-span-1 bg-white border border-slate-200 rounded-2xl p-5 shadow-3xs flex flex-col">
+                    <div className="lg:col-span-1 bg-white border border-slate-200 rounded-[10px] p-5 shadow-sm flex flex-col">
                       <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-                        <Layers className="h-3.5 w-3.5 text-indigo-600" />
+                        <Layers className="h-3.5 w-3.5 text-blue-600" />
                         Inscrições por Categoria
                       </h4>
                       <div className="h-[240px] w-full">
@@ -873,7 +896,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             >
                               {categoriesList.map((_, index) => (
                                 <Cell key={`cell-${index}`} fill={[
-                                  '#540D6E', '#EE4266', '#FFD23F', '#3BCEAC', '#0EAD69'
+                                  '#3B82F6', '#EE4266', '#FFD23F', '#3BCEAC', '#0EAD69'
                                 ][index % 5]} />
                               ))}
                             </Pie>
@@ -886,10 +909,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     </div>
 
                     {/* Monthly Trend (Area Chart) */}
-                    <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-3xs">
+                    <div className="lg:col-span-2 bg-white border border-slate-200 rounded-[10px] p-5 shadow-sm">
                       <div className="flex items-center justify-between mb-6">
                         <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
-                          <TrendingUp className="h-3.5 w-3.5 text-teal-600" />
+                          <TrendingUp className="h-3.5 w-3.5 text-blue-600" />
                           Crescimento de Matrículas (Semestral)
                         </h4>
                       </div>
@@ -908,15 +931,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           >
                             <defs>
                               <linearGradient id="colorMatricula" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor="#540D6E" stopOpacity={0.1}/>
-                                <stop offset="95%" stopColor="#540D6E" stopOpacity={0}/>
+                                <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.1}/>
+                                <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
                               </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748B', fontWeight: 'bold' }} />
                             <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748B', fontWeight: 'bold' }} />
                             <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontSize: '11px', fontWeight: 'bold' }} />
-                            <Area type="monotone" dataKey="matriculas" stroke="#540D6E" strokeWidth={3} fillOpacity={1} fill="url(#colorMatricula)" />
+                            <Area type="monotone" dataKey="matriculas" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorMatricula)" />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
@@ -927,17 +950,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   {/* Combined High-Level Counters (Relocated below charts) */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-left border-t border-slate-100 pt-6">
                     {[
-                      { label: 'Alunos matriculados', value: studentsList.length, desc: 'Total no Sistema', icon: Users, accent: 'bg-indigo-50 border-indigo-100 text-indigo-700' },
-                      { label: 'Cursos publicados', value: courses.length, desc: 'Disciplinas Ativas', icon: BookOpen, accent: 'bg-teal-50 border-teal-100 text-teal-700' },
+                      { label: 'Alunos matriculados', value: studentsList.length, desc: 'Total no Sistema', icon: Users, accent: 'bg-blue-50 border-blue-100 text-blue-700' },
+                      { label: 'Cursos publicados', value: courses.length, desc: 'Disciplinas Ativas', icon: BookOpen, accent: 'bg-blue-50 border-blue-100 text-blue-700' },
                       { label: 'Equipe Pedagógica', value: professorsList.length, desc: 'Membros Ativos', icon: ShieldCheck, accent: 'bg-emerald-50 border-emerald-100 text-emerald-700' }
                     ].map((stat) => (
-                      <div key={stat.label} className="bg-white border border-slate-200 p-4 rounded-xl shadow-3xs flex justify-between items-start">
+                      <div key={stat.label} className="bg-white border border-slate-200 p-4 rounded-[10px] shadow-sm flex justify-between items-start">
                         <div className="space-y-1">
                           <header className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{stat.label}</header>
                           <p className="text-xl font-black text-slate-900 font-mono leading-none">{stat.value}</p>
                           <span className="text-[9px] text-slate-500 block leading-tight">{stat.desc}</span>
                         </div>
-                        <div className={`p-1.5 rounded-lg border ${stat.accent}`}>
+                        <div className={`p-1.5 rounded-md border ${stat.accent}`}>
                           <stat.icon className="h-3.5 w-3.5" />
                         </div>
                       </div>
@@ -950,7 +973,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               {/* Alunos list detailed report */}
               {activeReportSubTab === 'alunos' && (
                 <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-150">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-[10px] border border-slate-100">
                     <div className="text-left font-sans">
                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Total de Alunos</span>
                       <strong className="text-xl font-black text-slate-900 font-mono">{mockStudents.length} alunos</strong>
@@ -964,7 +987,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
                           <th className="p-2.5">Nome</th>
                           <th className="p-2.5">E-mail</th>
                           <th className="p-2.5 text-center">Matrículas ativas</th>
@@ -988,7 +1011,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               <td className="p-2.5 font-extrabold text-slate-900">{st.name}</td>
                               <td className="p-2.5 text-slate-500 font-mono">{st.email}</td>
                               <td className="p-2.5 text-center font-bold text-slate-700">{enrollmentsCount}</td>
-                              <td className="p-2.5 text-center font-mono text-teal-600 font-bold">{avgProg}%</td>
+                              <td className="p-2.5 text-center font-mono text-blue-600 font-bold">{avgProg}%</td>
                               <td className="p-2.5 text-center text-slate-500 text-[10px]">{st.lastAccess || 'Sem acesso'}</td>
                               <td className="p-2.5 text-center">
                                 <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Regular</span>
@@ -1002,7 +1025,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                       e.target.value = '';
                                     }
                                   }}
-                                  className="text-[10px] bg-slate-100 border border-slate-205 rounded px-2 py-1 text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                                  className="text-[10px] bg-slate-100 border border-slate-200 rounded px-2 py-1 text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
                                 >
                                   <option value="">Emitir...</option>
                                   <option value="historico">Histórico</option>
@@ -1022,7 +1045,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               {/* Equipe Pedagógica detailed report */}
               {activeReportSubTab === 'professores' && (
                 <div className="space-y-4 animate-in fade-in duration-200">
-                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-150 flex items-center justify-between">
+                  <div className="bg-slate-50 p-4 rounded-[10px] border border-slate-100 flex items-center justify-between">
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Equipe pedagógica</span>
                       <strong className="text-lg font-black text-slate-900 font-mono block mt-1">
@@ -1034,7 +1057,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
                           <th className="p-2.5">Nome</th>
                           <th className="p-2.5">Perfil</th>
                           <th className="p-2.5 text-center">Cursos vinculados</th>
@@ -1053,12 +1076,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               <td className="p-2.5 font-extrabold text-slate-900">{prof}</td>
                               <td className="p-2.5">
                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                                  profile === 'Gestor de Conteúdos' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-50 text-slate-700'
+                                  profile === 'Gestor de Conteúdos' ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700'
                                 }`}>
                                   {profile}
                                 </span>
                               </td>
-                              <td className="p-2.5 text-center font-bold text-teal-600">{assigned.length}</td>
+                              <td className="p-2.5 text-center font-bold text-blue-600">{assigned.length}</td>
                               <td className="p-2.5 text-center font-mono text-slate-500">{totalLessons}</td>
                               <td className="p-2.5 text-center">
                                 <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Ativo</span>
@@ -1083,7 +1106,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
                           <th className="p-2.5">Curso</th>
                           <th className="p-2.5">Categoria/Eixo</th>
                           <th className="p-2.5 text-center">Módulos</th>
@@ -1111,7 +1134,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               <td className="p-2.5 text-center font-mono">{c.lessons.length}</td>
                               <td className="p-2.5 text-center font-bold text-slate-700">{enrolled}</td>
                               <td className="p-2.5 text-center font-bold text-emerald-600">{finished}</td>
-                              <td className="p-2.5 text-center font-mono text-indigo-600 font-bold">{avgProg}%</td>
+                              <td className="p-2.5 text-center font-mono text-blue-600 font-bold">{avgProg}%</td>
                               <td className="p-2.5 text-right">
                                 <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
                                   Publicado
@@ -1132,7 +1155,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-150 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
                           <th className="p-2.5">Aluno</th>
                           <th className="p-2.5">Curso</th>
                           <th className="p-2.5 text-center">Data da matrícula</th>
@@ -1162,7 +1185,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               <td className="p-2.5 font-bold text-slate-900">{studentName}</td>
                               <td className="p-2.5 text-slate-600">{course.title}</td>
                               <td className="p-2.5 text-center text-slate-500">{formattedDate}</td>
-                              <td className="p-2.5 text-center font-mono text-teal-600 font-bold">{ratio}%</td>
+                              <td className="p-2.5 text-center font-mono text-blue-600 font-bold">{ratio}%</td>
                               <td className="p-2.5 text-center text-slate-500">{student?.lastAccess || 'Sem acesso'}</td>
                               <td className="p-2.5 text-center">
                                 <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Ativa</span>
@@ -1199,7 +1222,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* Gestor de Conteúdos Configuration Panel */}
-          <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-xl text-left h-fit space-y-4">
+          <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-[10px] text-left h-fit space-y-4">
             <div>
               <span className="rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-[9px] font-bold border border-emerald-100 uppercase tracking-wide">
                 Configuração de Perfil
@@ -1209,7 +1232,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             </div>
 
             <div className="space-y-3 pt-2">
-              <div className="bg-slate-50 border border-slate-150 p-3.5 rounded-xl space-y-2.5">
+              <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-[10px] space-y-2.5">
                 <div>
                   <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Usuário do Gestor</span>
                   <span className="text-xs font-bold text-slate-800 block mt-1">Gestor de Conteúdos</span>
@@ -1220,14 +1243,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
                 <div>
                   <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">PIN de Acesso</span>
-                  <span className="text-xs font-mono font-bold text-[#540D6E] block mt-1">5678 ou 1234</span>
+                  <span className="text-xs font-mono font-bold text-[#3B82F6] block mt-1">5678 ou 1234</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Master Professors list cards */}
-          <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-xl space-y-4 professors-list-container">
+          <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-[10px] space-y-4 professors-list-container">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
                 Gestor Ativo no AVA ({professorsList.length})
@@ -1239,7 +1262,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   placeholder="Buscar gestor por nome..."
                   value={professorSearchQuery}
                   onChange={(e) => setProfessorSearchQuery(e.target.value)}
-                  className="w-full sm:w-64 pl-8 pr-3 py-1.5 text-[11px] border border-slate-200 rounded-lg max-w-full text-slate-700 bg-slate-50 focus:bg-white transition-colors focus:ring-1 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                  className="w-full sm:w-64 pl-8 pr-3 py-1.5 text-[11px] border border-slate-200 rounded-md max-w-full text-slate-700 bg-slate-50 focus:bg-white transition-colors focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </div>
             </div>
@@ -1251,21 +1274,21 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               }).map((prof, idx) => {
                 const assignedCourses = courses.filter(c => c.instructorName === prof);
                 return (
-                  <div key={prof} className="border border-slate-150 p-4 rounded-xl bg-slate-50/40 relative group">
+                  <div key={prof} className="border border-slate-100 p-4 rounded-[10px] bg-slate-50/40 relative group">
                     <div className="absolute top-4 right-4 flex items-center gap-1.5">
                       <span className="text-[9px] bg-slate-200 font-mono font-bold px-1.5 py-0.5 rounded text-slate-600">
                         ID: GESTOR-01
                       </span>
                     </div>
                     <strong className="block font-black text-slate-900 text-xs pr-24">{prof}</strong>
-                    <span className="text-[10px] font-bold text-teal-600 tracking-wide uppercase block mt-1">Coordenação Geral de Conteúdos</span>
+                    <span className="text-[10px] font-bold text-blue-600 tracking-wide uppercase block mt-1">Coordenação Geral de Conteúdos</span>
                     <span className="text-[10px] text-slate-400 block mt-2">Trilhas sob Gestão: {assignedCourses.length}</span>
-                    <div className="mt-2.5 pt-2.5 border-t border-slate-150 flex flex-wrap gap-1">
+                    <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1">
                       {assignedCourses.length === 0 ? (
                         <span className="text-slate-400 text-[10px] italic">Nenhuma disciplina vinculada</span>
                       ) : (
                         assignedCourses.map(c => (
-                          <span key={`${c.id}-${idx}`} className="text-[9px] bg-white border border-slate-150 text-slate-700 px-1.5 py-0.5 rounded">
+                          <span key={`${c.id}-${idx}`} className="text-[9px] bg-white border border-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
                             {c.title}
                           </span>
                         ))
@@ -1289,7 +1312,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* Create custom Course Block */}
-          <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-xl h-fit space-y-4">
+          <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-[10px] h-fit space-y-4">
             <div>
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Prover Disciplina</h3>
               <p className="text-[11px] text-slate-500 mt-0.5">Cadastre um novo curso na plataforma letiva.</p>
@@ -1304,7 +1327,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   placeholder="Ex: Programação Funcional"
                   value={newCourseTitle}
                   onChange={(e) => setNewCourseTitle(e.target.value)}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800"
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800"
                 />
               </div>
 
@@ -1313,7 +1336,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <select
                   value={newCourseCategory}
                   onChange={(e) => setNewCourseCategory(e.target.value)}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 bg-white"
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white"
                 >
                   {categoriesList.map((cat) => (
                     <option key={cat} value={cat}>{cat}</option>
@@ -1326,7 +1349,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <select
                   value={newCourseTeacher}
                   onChange={(e) => setNewCourseTeacher(e.target.value)}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 bg-white"
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white"
                 >
                   {professorsList.map((prof) => (
                     <option key={prof} value={prof}>{prof}</option>
@@ -1340,7 +1363,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   placeholder="Visão abrangente para orientar a admissão dos alunos..."
                   value={newCourseDesc}
                   onChange={(e) => setNewCourseDesc(e.target.value)}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 h-16 resize-none"
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 h-16 resize-none"
                 />
               </div>
 
@@ -1353,7 +1376,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   type="date"
                   value={newCourseExpiration}
                   onChange={(e) => setNewCourseExpiration(e.target.value)}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 bg-white"
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white"
                 />
               </div>
 
@@ -1363,7 +1386,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <select
                     value={newCourseType}
                     onChange={(e) => setNewCourseType(e.target.value as 'fixo' | 'ao_vivo')}
-                    className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 bg-white"
+                    className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white"
                   >
                     <option value="fixo">Gravado (Fixo)</option>
                     <option value="ao_vivo">Síncrono (Ao Vivo)</option>
@@ -1374,7 +1397,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
                       type="checkbox" 
-                      className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 border-slate-300"
+                      className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4 border-slate-300"
                       checked={newCourseHasChat}
                       onChange={(e) => setNewCourseHasChat(e.target.checked)}
                     />
@@ -1385,7 +1408,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
               <button
                 type="submit"
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-md text-xs transition-colors cursor-pointer"
               >
                 Disponibilizar Curso no Catálogo
               </button>
@@ -1395,7 +1418,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <div className="border-t border-slate-100 pt-4 mt-2 space-y-3">
               <div>
                 <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Layers className="h-3.5 w-3.5 text-indigo-600" />
+                  <Layers className="h-3.5 w-3.5 text-blue-600" />
                   <span>Habilitar Nova Área de Atuação</span>
                 </h3>
                 <p className="text-[10px] text-slate-400 mt-0.5">Defina novas áreas de atuação/categorias no catálogo.</p>
@@ -1407,7 +1430,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   placeholder="Ex: Artes Cênicas, Música"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="flex-1 border border-slate-200 p-1.5 text-xs rounded-lg text-slate-800"
+                  className="flex-1 border border-slate-200 p-1.5 text-xs rounded-md text-slate-800"
                 />
                 <button
                   type="button"
@@ -1420,7 +1443,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     showToast(`Área de atuação "${newCategoryName.trim()}" habilitada com sucesso!`);
                     setNewCategoryName('');
                   }}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 text-xs rounded-lg transition-colors cursor-pointer"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 text-xs rounded-md transition-colors cursor-pointer"
                 >
                   Criar
                 </button>
@@ -1431,7 +1454,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Áreas Ativas</span>
                 <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
                   {categoriesList.map(cat => (
-                    <span key={cat} className="bg-indigo-50 border border-indigo-100 text-[9px] font-mono font-bold text-indigo-700 px-1.5 py-0.5 rounded-sm">
+                    <span key={cat} className="bg-blue-50 border border-blue-100 text-[9px] font-mono font-bold text-blue-700 px-1.5 py-0.5 rounded-sm">
                       {cat}
                     </span>
                   ))}
@@ -1441,20 +1464,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           </div>
 
           {/* Master Course lists details */}
-          <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-xl space-y-4">
+          <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-[10px] space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-2">
               <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
                 Cursos Ativos no Catálogo ({courses.length})
               </h3>
               
               <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-450" />
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Pesquisar termo de disciplina..."
                   value={courseSearchQuery}
                   onChange={(e) => setCourseSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 pl-8 pr-3 py-1.8 text-[11px] rounded-lg text-slate-700"
+                  className="w-full bg-slate-50 border border-slate-200 pl-8 pr-3 py-1.8 text-[11px] rounded-md text-slate-700"
                 />
               </div>
             </div>
@@ -1482,7 +1505,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   }
 
                   return (
-                    <div key={`${course.id}-${idx}`} className="p-4 border border-slate-150 bg-slate-50/30 rounded-xl text-xs flex flex-col gap-3">
+                    <div key={`${course.id}-${idx}`} className="p-4 border border-slate-100 bg-slate-50/30 rounded-[10px] text-xs flex flex-col gap-3">
                       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                         <div className="space-y-1.5 text-left max-w-lg">
                           <div className="flex items-center gap-2">
@@ -1504,7 +1527,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           {/* Swap instructor dropdown and Course Type/Chat controls */}
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 text-[10px] text-slate-500">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-450 uppercase tracking-wide">Trocar Professor:</span>
+                              <span className="font-bold text-slate-400 uppercase tracking-wide">Trocar Professor:</span>
                               <select
                                 value={course.instructorName}
                                 onChange={(e) => {
@@ -1520,7 +1543,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             </div>
                             
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-450 uppercase tracking-wide">Tipo:</span>
+                              <span className="font-bold text-slate-400 uppercase tracking-wide">Tipo:</span>
                               <select
                                 value={course.courseType || 'fixo'}
                                 onChange={(e) => {
@@ -1538,7 +1561,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               <label className="flex items-center gap-1.5 cursor-pointer">
                                 <input
                                   type="checkbox"
-                                  className="rounded text-indigo-600 focus:ring-indigo-500 h-3 w-3 border-slate-300"
+                                  className="rounded text-blue-600 focus:ring-blue-500 h-3 w-3 border-slate-300"
                                   checked={course.hasChat !== false} // default true
                                   onChange={(e) => {
                                     updateCourseProps(course.id, { hasChat: e.target.checked });
@@ -1550,7 +1573,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             </div>
 
                             <div className="flex items-center gap-1 mt-0.5 sm:mt-0">
-                              <span className="font-bold text-slate-450 uppercase tracking-wide">Vigência:</span>
+                              <span className="font-bold text-slate-400 uppercase tracking-wide">Vigência:</span>
                               <input
                                 type="date"
                                 value={course.contractExpirationDate || ''}
@@ -1568,7 +1591,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <div className="flex flex-row md:flex-col items-center gap-2 shrink-0 self-start md:self-auto justify-between md:justify-start w-full md:w-auto">
                           {isCourseExpired(course.contractExpirationDate) ? (
                             <div className="flex flex-col gap-1.5 items-center shrink-0">
-                              <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-100 font-black px-2.5 py-1 rounded-lg uppercase flex items-center gap-1 shrink-0" title="Expirado preventivamente para segurança jurídica">
+                              <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-100 font-black px-2.5 py-1 rounded-md uppercase flex items-center gap-1 shrink-0" title="Expirado preventivamente para segurança jurídica">
                                 ⚠️ Expirado (Arquivado)
                               </span>
                               <button
@@ -1581,14 +1604,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   showToast(`Curso "${course.title}" reativado! Nova vigência prorrogada até ${dateStr}.`);
                                   speakText(`Curso reativado com sucesso.`);
                                 }}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[9px] uppercase rounded-md transition-colors cursor-pointer shadow-xs whitespace-nowrap"
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[9px] uppercase rounded-md transition-colors cursor-pointer shadow-sm whitespace-nowrap"
                                 title="Renovar vigência por mais 1 ano"
                               >
                                 Reativar Curso
                               </button>
                             </div>
                           ) : (
-                            <span className="text-[10px] bg-teal-50 text-teal-750 border border-teal-100 font-black px-2.5 py-1 rounded-lg uppercase shrink-0">
+                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-100 font-black px-2.5 py-1 rounded-md uppercase shrink-0">
                               Ativo no AVA
                             </span>
                           )}
@@ -1600,7 +1623,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 showToast(`Curso "${course.title}" foi excluído com sucesso!`);
                               }
                             }}
-                            className="p-1 px-2.5 hover:bg-rose-50 text-rose-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px]"
+                            className="p-1 px-2.5 hover:bg-red-50 text-red-600 hover:text-red-700 border border-slate-200 hover:border-red-200 rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px]"
                             title="Excluir Disciplina"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1614,20 +1637,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <button
                           type="button"
                           onClick={() => setExpandedCourseStudentsId(expandedCourseStudentsId === course.id ? null : course.id)}
-                          className="flex items-center gap-1 text-[11px] text-[#540D6E] font-bold hover:underline cursor-pointer"
+                          className="flex items-center gap-1 text-[11px] text-[#3B82F6] font-bold hover:underline cursor-pointer"
                         >
-                          <Users className="h-3.5 w-3.5 text-[#540D6E]" />
+                          <Users className="h-3.5 w-3.5 text-[#3B82F6]" />
                           <span>Alunos Ativos ({activeStudents.length}): {activeStudents.map(s => s.name).join(', ')}</span>
                           <span className="text-[9px] text-slate-400 font-normal">({expandedCourseStudentsId === course.id ? 'Ocultar' : 'Ver Detalhes'})</span>
                         </button>
                         
                         {expandedCourseStudentsId === course.id && (
-                          <div className="mt-2 bg-slate-50 border border-slate-150 rounded-xl p-3 space-y-2 animate-in fade-in duration-200">
-                            <span className="text-[9px] font-extrabold text-slate-450 block uppercase tracking-wider">Identificação dos Alunos Vinculados</span>
+                          <div className="mt-2 bg-slate-50 border border-slate-100 rounded-[10px] p-3 space-y-2 animate-in fade-in duration-200">
+                            <span className="text-[9px] font-extrabold text-slate-400 block uppercase tracking-wider">Identificação dos Alunos Vinculados</span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {activeStudents.map((std, index) => (
-                                <div key={index} className="flex items-center gap-2.5 bg-white border border-slate-150 p-2 rounded-lg">
-                                  <div className="h-6 w-6 bg-indigo-50 border border-indigo-100 text-indigo-700 text-10 font-bold flex items-center justify-center rounded-full font-sans uppercase">
+                                <div key={index} className="flex items-center gap-2.5 bg-white border border-slate-100 p-2 rounded-md">
+                                  <div className="h-6 w-6 bg-blue-50 border border-blue-100 text-blue-700 text-10 font-bold flex items-center justify-center rounded-full font-sans uppercase">
                                     {std.name[0]}
                                   </div>
                                   <div className="text-left">
@@ -1657,10 +1680,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           </div>
           
           {/* Top Title Card */}
-          <div className="bg-white border border-slate-200/80 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+          <div className="bg-white border border-slate-200/80 rounded-[10px] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
             <div className="space-y-1">
               <h3 className="text-base font-black text-slate-950 uppercase tracking-wider flex items-center gap-2">
-                <Users className="h-5 w-5 text-indigo-600" />
+                <Users className="h-5 w-5 text-blue-600" />
                 <span>Gestão Estratégica & Acompanhamento de Alunos</span>
               </h3>
               <p className="text-xs text-slate-500 max-w-3xl leading-relaxed">
@@ -1673,7 +1696,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 showToast("Relatório analítico consolidado exportado com sucesso.");
                 speakText("Relatório consolidado de alunos gerado com sucesso.");
               }}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl text-xs transition-colors flex items-center gap-2 cursor-pointer w-fit shrink-0 shadow-xs"
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-[10px] text-xs transition-colors flex items-center gap-2 cursor-pointer w-fit shrink-0 shadow-sm"
             >
               <Download className="h-4 w-4" />
               <span>Exportar Dados Consolidados</span>
@@ -1685,7 +1708,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             {/* Total Alunos */}
             <button 
               onClick={() => setActiveQuickFilter('all')}
-              className={`text-left p-4 rounded-xl space-y-1 flex flex-col justify-between hover:shadow-xs transition-all border cursor-pointer ${
+              className={`text-left p-4 rounded-[10px] space-y-1 flex flex-col justify-between hover:shadow-sm transition-all border cursor-pointer ${
                 activeQuickFilter === 'all' 
                   ? "bg-slate-100 border-slate-400 shadow-sm" 
                   : "bg-slate-50/40 border-slate-200 hover:border-slate-300"
@@ -1694,36 +1717,36 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${activeQuickFilter === 'all' ? "text-slate-900" : "text-slate-400"}`}>Total Geral</span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-2xl font-black text-slate-900 font-mono">{totalStudentsCount}</span>
-                <span className={`p-1.5 rounded-lg ${activeQuickFilter === 'all' ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"}`}>
+                <span className={`p-1.5 rounded-md ${activeQuickFilter === 'all' ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"}`}>
                   <Users className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-450">Alunos cadastrados</span>
+              <span className="text-[9px] text-slate-400">Alunos cadastrados</span>
             </button>
 
             {/* Ativos */}
             <button 
               onClick={() => setActiveQuickFilter('ativos')}
-              className={`text-left p-4 rounded-xl space-y-1 flex flex-col justify-between hover:shadow-xs transition-all border cursor-pointer ${
+              className={`text-left p-4 rounded-[10px] space-y-1 flex flex-col justify-between hover:shadow-sm transition-all border cursor-pointer ${
                 activeQuickFilter === 'ativos' 
-                  ? "bg-indigo-50 border-indigo-400 shadow-sm" 
+                  ? "bg-blue-50 border-blue-400 shadow-sm" 
                   : "bg-slate-50/40 border-slate-200 hover:border-slate-300"
               }`}
             >
-              <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${activeQuickFilter === 'ativos' ? "text-indigo-700" : "text-slate-400"}`}>Matrícula Ativa</span>
+              <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${activeQuickFilter === 'ativos' ? "text-blue-700" : "text-slate-400"}`}>Matrícula Ativa</span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-2xl font-black text-slate-900 font-mono">{activeMatriculasCount}</span>
-                <span className={`p-1.5 rounded-lg ${activeQuickFilter === 'ativos' ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                <span className={`p-1.5 rounded-md ${activeQuickFilter === 'ativos' ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
                    <UserCheck className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-450">Regulares no AVA</span>
+              <span className="text-[9px] text-slate-400">Regulares no AVA</span>
             </button>
 
             {/* Sem Matrícula */}
             <button 
               onClick={() => setActiveQuickFilter('sem_matricula')}
-              className={`text-left p-4 rounded-xl space-y-1 flex flex-col justify-between hover:shadow-xs transition-all border cursor-pointer ${
+              className={`text-left p-4 rounded-[10px] space-y-1 flex flex-col justify-between hover:shadow-sm transition-all border cursor-pointer ${
                 activeQuickFilter === 'sem_matricula' 
                   ? "bg-slate-100 border-slate-900 shadow-sm" 
                   : "bg-slate-50/40 border-slate-200 hover:border-slate-300"
@@ -1732,17 +1755,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${activeQuickFilter === 'sem_matricula' ? "text-slate-900" : "text-slate-400"}`}>Sem Matrícula</span>
               <div className="flex items-baseline justify-between mt-1">
                 <span className="text-2xl font-black text-slate-950 font-mono">{semMatriculaCount}</span>
-                <span className={`p-1.5 rounded-lg ${activeQuickFilter === 'sem_matricula' ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"}`}>
+                <span className={`p-1.5 rounded-md ${activeQuickFilter === 'sem_matricula' ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"}`}>
                   <XCircle className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-450">Aguardando vínculo</span>
+              <span className="text-[9px] text-slate-400">Aguardando vínculo</span>
             </button>
 
             {/* Pendências */}
             <button 
               onClick={() => setActiveQuickFilter('pendencias')}
-              className={`text-left p-4 rounded-xl space-y-1 flex flex-col justify-between hover:shadow-xs transition-all border cursor-pointer ${
+              className={`text-left p-4 rounded-[10px] space-y-1 flex flex-col justify-between hover:shadow-sm transition-all border cursor-pointer ${
                 activeQuickFilter === 'pendencias' 
                   ? "bg-amber-100 border-amber-500 shadow-sm" 
                   : comPendenciasCount > 0 
@@ -1757,19 +1780,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <span className={`text-2xl font-black font-mono ${
                   activeQuickFilter === 'pendencias' ? "text-amber-900" : comPendenciasCount > 0 ? "text-amber-800" : "text-slate-900"
                 }`}>{comPendenciasCount}</span>
-                <span className={`p-1.5 rounded-lg ${
+                <span className={`p-1.5 rounded-md ${
                   activeQuickFilter === 'pendencias' ? "bg-amber-600 text-white" : comPendenciasCount > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
                 }`}>
                   <AlertTriangle className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-450">Exige regularização</span>
+              <span className="text-[9px] text-slate-400">Exige regularização</span>
             </button>
 
             {/* Inativo há > 7 dias */}
             <button 
               onClick={() => setActiveQuickFilter('ausentes')}
-              className={`text-left p-4 rounded-xl space-y-1 flex flex-col justify-between hover:shadow-xs transition-all border cursor-pointer ${
+              className={`text-left p-4 rounded-[10px] space-y-1 flex flex-col justify-between hover:shadow-sm transition-all border cursor-pointer ${
                 activeQuickFilter === 'ausentes' 
                   ? "bg-orange-100 border-orange-500 shadow-sm" 
                   : semAcessoRecenteCount > 0 
@@ -1784,19 +1807,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <span className={`text-2xl font-black font-mono ${
                   activeQuickFilter === 'ausentes' ? "text-orange-900" : semAcessoRecenteCount > 0 ? "text-orange-800" : "text-slate-900"
                 }`}>{semAcessoRecenteCount}</span>
-                <span className={`p-1.5 rounded-lg ${
+                <span className={`p-1.5 rounded-md ${
                   activeQuickFilter === 'ausentes' ? "bg-orange-600 text-white" : semAcessoRecenteCount > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500"
                 }`}>
                   <Clock className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-450">Sem acesso recente</span>
+              <span className="text-[9px] text-slate-400">Sem acesso recente</span>
             </button>
 
             {/* Evasão / Crítico */}
             <button 
               onClick={() => setActiveQuickFilter('evasao')}
-              className={`text-left p-4 rounded-xl space-y-1 flex flex-col justify-between hover:shadow-xs transition-all border cursor-pointer ${
+              className={`text-left p-4 rounded-[10px] space-y-1 flex flex-col justify-between hover:shadow-sm transition-all border cursor-pointer ${
                 activeQuickFilter === 'evasao' 
                   ? "bg-red-100 border-red-500 shadow-sm" 
                   : emRiscoEvasaoCount > 0 
@@ -1811,23 +1834,23 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <span className={`text-2xl font-black font-mono ${
                   activeQuickFilter === 'evasao' ? "text-red-900" : emRiscoEvasaoCount > 0 ? "text-red-800" : "text-slate-900"
                 }`}>{emRiscoEvasaoCount}</span>
-                <span className={`p-1.5 rounded-lg ${
+                <span className={`p-1.5 rounded-md ${
                   activeQuickFilter === 'evasao' ? "bg-red-600 text-white" : emRiscoEvasaoCount > 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-slate-100 text-slate-500"
                 }`}>
                   <AlertCircle className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-450">Necessita contato</span>
+              <span className="text-[9px] text-slate-400">Necessita contato</span>
             </button>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             {/* Left Column: Enrollment Form */}
-            <div className="lg:col-span-3 bg-white border border-slate-200/80 p-5 rounded-2xl h-fit space-y-4 shadow-xs">
+            <div className="lg:col-span-3 bg-white border border-slate-200/80 p-5 rounded-[10px] h-fit space-y-4 shadow-sm">
               <div>
                 <h4 className="text-xs font-black text-slate-950 uppercase tracking-wider">Matricular Novo Aluno</h4>
-                <p className="text-[11px] text-slate-450 mt-1 leading-normal">Vincule e configure os parâmetros de acesso do aluno com segurança.</p>
+                <p className="text-[11px] text-slate-400 mt-1 leading-normal">Vincule e configure os parâmetros de acesso do aluno com segurança.</p>
               </div>
 
               <form onSubmit={handleCreateStudent} className="space-y-3.5">
@@ -1839,7 +1862,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     placeholder="Ex: Clara Ribeiro"
                     value={newStudentName}
                     onChange={(e) => setNewStudentName(e.target.value)}
-                    className="w-full border border-slate-200 p-2.5 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
+                    className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
 
@@ -1851,7 +1874,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     placeholder="Ex: clara.ribeiro@lms.edu"
                     value={newStudentEmail}
                     onChange={(e) => setNewStudentEmail(e.target.value)}
-                    className="w-full border border-slate-200 p-2.5 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
+                    className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
 
@@ -1860,17 +1883,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <button
                     type="button"
                     onClick={() => setShowCoursePickerModal(true)}
-                    className="w-full border border-slate-200 p-2.5 text-left text-xs rounded-lg text-slate-700 bg-slate-50/50 hover:bg-slate-100 transition-colors flex items-center justify-between group cursor-pointer"
+                    className="w-full border border-slate-200 p-2.5 text-left text-xs rounded-md text-slate-700 bg-slate-50/50 hover:bg-slate-100 transition-colors flex items-center justify-between group cursor-pointer"
                   >
                     <span className="truncate">
                       {selectedEnrollCourseId 
                         ? courses.find(c => c.id === selectedEnrollCourseId)?.title 
                         : "Selecionar Disciplina..."}
                     </span>
-                    <BookOpen className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+                    <BookOpen className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600 transition-colors shrink-0" />
                   </button>
                   {selectedEnrollCourseId && (
-                    <div className="mt-2 p-2 bg-emerald-50 border border-emerald-100 rounded-lg animate-in fade-in duration-200">
+                    <div className="mt-2 p-2 bg-emerald-50 border border-emerald-100 rounded-md animate-in fade-in duration-200">
                       <div className="flex items-center gap-1.5">
                         <ShieldCheck className="h-3 w-3 text-emerald-600" />
                         <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-tight">Professor Designado:</span>
@@ -1893,12 +1916,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       placeholder="Defina a senha"
                       value={newStudentPassword}
                       onChange={(e) => setNewStudentPassword(e.target.value)}
-                      className="w-full border border-slate-200 p-2.5 pr-10 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
+                      className="w-full border border-slate-200 p-2.5 pr-10 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
                     />
                     <button
                       type="button"
                       onClick={() => setShowStudentPassword(!showStudentPassword)}
-                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer"
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
                     >
                       {showStudentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -1913,7 +1936,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       placeholder="Ex: Recife"
                       value={newStudentMunicipio}
                       onChange={(e) => setNewStudentMunicipio(e.target.value)}
-                      className="w-full border border-slate-200 p-2.5 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
+                      className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                     />
                   </div>
                   <div>
@@ -1924,7 +1947,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       placeholder="PE"
                       value={newStudentUf}
                       onChange={(e) => setNewStudentUf(e.target.value.toUpperCase())}
-                      className="w-full border border-slate-200 p-2.5 text-xs rounded-lg text-slate-800 text-center uppercase focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
+                      className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 text-center uppercase focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
                     />
                   </div>
                 </div>
@@ -1936,13 +1959,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     placeholder="Ex: Economia Criativa & IA"
                     value={newStudentAreaInteresse}
                     onChange={(e) => setNewStudentAreaInteresse(e.target.value)}
-                    className="w-full border border-slate-200 p-2.5 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
+                    className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 px-3 rounded-xl text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 px-3 rounded-[10px] text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span>Matricular Aluno</span>
@@ -1950,7 +1973,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </form>
 
               {/* Quick instructions indicator */}
-              <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-1 text-left">
+              <div className="p-3 bg-slate-50 border border-slate-100 rounded-[10px] space-y-1 text-left">
                 <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Segurança Integrada</span>
                 <p className="text-[10px] text-slate-400 leading-relaxed">
                   Senhas são mantidas ocultas. Utilize redefinições seguras na tabela e link de acesso direto sem exibir credenciais em texto aberto.
@@ -1959,14 +1982,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             </div>
 
             {/* Right Column: Redesigned student panel with filters, search, sort and action menu */}
-            <div className="lg:col-span-9 bg-white border border-slate-200/80 p-5 rounded-2xl space-y-5 shadow-xs">
+            <div className="lg:col-span-9 bg-white border border-slate-200/80 p-5 rounded-[10px] space-y-5 shadow-sm">
               
               {/* Search, Filter Bar and Sorting */}
-              <div className="space-y-4 bg-slate-50/50 p-5 rounded-xl border border-slate-200/60 text-left">
+              <div className="space-y-4 bg-slate-50/50 p-5 rounded-[10px] border border-slate-200/60 text-left">
                 {/* Header row */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-150 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                   <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                    <SlidersHorizontal className="h-4 w-4 text-indigo-600" />
+                    <SlidersHorizontal className="h-4 w-4 text-blue-600" />
                     <span>Filtros Estratégicos & Ordenação</span>
                   </span>
                   <button
@@ -1983,7 +2006,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       setActiveQuickFilter('all');
                       showToast("Filtros redefinidos para os valores padrão.");
                     }}
-                    className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1 cursor-pointer w-fit"
+                    className="text-[10px] font-bold text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer w-fit"
                   >
                     <RefreshCw className="h-3 w-3" />
                     <span>Limpar Filtros</span>
@@ -2001,7 +2024,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         placeholder="Nome completo, e-mail acadêmico ou RA..."
                         value={studentSearchQuery}
                         onChange={(e) => setStudentSearchQuery(e.target.value)}
-                        className="w-full bg-white border border-slate-200 pl-8 pr-3 py-1.5 text-xs rounded-lg text-slate-700 focus:outline-hidden focus:ring-1 focus:ring-slate-450 placeholder:text-slate-350"
+                        className="w-full bg-white border border-slate-200 pl-8 pr-3 py-1.5 text-xs rounded-md text-slate-700 focus:outline-hidden focus:ring-1 focus:ring-slate-400 placeholder:text-slate-300"
                       />
                     </div>
                   </div>
@@ -2011,7 +2034,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-md text-slate-700 focus:outline-hidden"
                     >
                       <option value="name">Nome do Aluno</option>
                       <option value="lastAccess">Último Acesso</option>
@@ -2025,7 +2048,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="md:col-span-2 flex items-end">
                     <button
                       onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
-                      className="w-full py-1.5 bg-white border border-slate-200 hover:border-slate-350 text-slate-700 rounded-lg text-xs transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1 font-bold"
+                      className="w-full py-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 rounded-md text-xs transition-colors cursor-pointer shrink-0 flex items-center justify-center gap-1 font-bold"
                       title="Alternar Ordem"
                     >
                       <span>{sortOrder === 'asc' ? 'A-Z' : 'Z-A'}</span>
@@ -2042,7 +2065,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <select
                       value={filterCourse}
                       onChange={(e) => setFilterCourse(e.target.value)}
-                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-md text-slate-700 focus:outline-hidden"
                     >
                       <option value="all">Todos</option>
                       <option value="none">Sem Matrícula</option>
@@ -2058,7 +2081,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <select
                       value={filterTurma}
                       onChange={(e) => setFilterTurma(e.target.value)}
-                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-md text-slate-700 focus:outline-hidden"
                     >
                       <option value="all">Todas</option>
                       <option value="none">Sem Turma</option>
@@ -2073,7 +2096,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <select
                       value={filterStatusMatricula}
                       onChange={(e) => setFilterStatusMatricula(e.target.value)}
-                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-md text-slate-700 focus:outline-hidden"
                     >
                       <option value="all">Todos</option>
                       <option value="Ativa">Ativa</option>
@@ -2090,7 +2113,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <select
                       value={filterPendencia}
                       onChange={(e) => setFilterPendencia(e.target.value)}
-                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-md text-slate-700 focus:outline-hidden"
                     >
                       <option value="all">Todas</option>
                       <option value="Nenhuma">Nenhuma</option>
@@ -2108,7 +2131,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <select
                       value={filterRisco}
                       onChange={(e) => setFilterRisco(e.target.value)}
-                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                      className="w-full bg-white border border-slate-200 p-1.5 text-xs rounded-md text-slate-700 focus:outline-hidden"
                     >
                       <option value="all">Todos</option>
                       <option value="Normal">Normal (Regular)</option>
@@ -2121,10 +2144,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
 
               {/* Students Desktop Table */}
-              <div className="hidden md:block overflow-x-auto border border-slate-200/80 rounded-2xl">
+              <div className="hidden md:block overflow-x-auto border border-slate-200/80 rounded-[10px]">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-250 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/70">
+                    <tr className="border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/70">
                       <th className="p-4 py-3">Aluno / RA</th>
                       <th className="p-4 py-3">Curso / Turma</th>
                       <th className="p-4 py-3">Status Matrícula</th>
@@ -2137,7 +2160,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <tbody>
                     {sortedStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center p-10 text-slate-450 text-xs font-bold bg-slate-50/20">
+                        <td colSpan={7} className="text-center p-10 text-slate-400 text-xs font-bold bg-slate-50/20">
                           Nenhum aluno corresponde aos filtros de busca aplicados.
                         </td>
                       </tr>
@@ -2146,12 +2169,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         const initials = st.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
                         
                         return (
-                          <tr key={`${st.email}-${idx}`} className="border-b border-slate-150 hover:bg-slate-50/40 transition-colors duration-150">
+                          <tr key={`${st.email}-${idx}`} className="border-b border-slate-100 hover:bg-slate-50/40 transition-colors duration-150">
                             {/* ALUNO */}
                             <td className="p-4 align-middle">
                               <div className="flex items-center gap-3">
                                 <div className="relative shrink-0">
-                                  <div className="h-9 w-9 bg-slate-100 border border-slate-200 text-slate-650 text-[11px] font-extrabold flex items-center justify-center rounded-full tracking-tight">
+                                  <div className="h-9 w-9 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-extrabold flex items-center justify-center rounded-full tracking-tight">
                                     {initials}
                                   </div>
                                   {st.riskLevel === 'Crítico' && (
@@ -2173,12 +2196,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 </div>
                                 <div className="text-left">
                                   <span 
-                                    className="font-extrabold text-slate-900 hover:text-indigo-650 transition-colors block leading-tight text-sm cursor-pointer" 
+                                    className="font-extrabold text-slate-900 hover:text-blue-600 transition-colors block leading-tight text-sm cursor-pointer" 
                                     onClick={() => setActiveStudentProfile(st.name)}
                                   >
                                     {st.name}
                                   </span>
-                                  <span className="text-[10px] text-slate-450 block mt-0.5 font-mono">{st.email} • RA: {st.ra}</span>
+                                  <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">{st.email} • RA: {st.ra}</span>
                                 </div>
                               </div>
                             </td>
@@ -2186,12 +2209,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             {/* CURSO / TURMA */}
                             <td className="p-4 align-middle">
                               {st.curso === '—' ? (
-                                <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-450 text-[10px] font-bold">
+                                <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] font-bold">
                                   Sem matrícula ativa
                                 </span>
                               ) : (
                                 <div className="space-y-0.5">
-                                  <span className="text-[11.5px] font-extrabold text-slate-750 block leading-tight">{st.curso}</span>
+                                  <span className="text-[11.5px] font-extrabold text-slate-700 block leading-tight">{st.curso}</span>
                                   <span className="text-[10px] text-slate-400 block font-mono">
                                     Turma {st.turma} • {st.polo || 'Digital'}
                                   </span>
@@ -2203,9 +2226,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <td className="p-4 align-middle">
                               {(() => {
                                 let badgeColor = "bg-slate-50 text-slate-500 border-slate-200";
-                                if (st.statusMatricula === 'Ativa') badgeColor = "bg-slate-100/85 text-slate-750 border-slate-200/60 font-semibold";
+                                if (st.statusMatricula === 'Ativa') badgeColor = "bg-slate-100/85 text-slate-700 border-slate-200/60 font-semibold";
                                 else if (st.statusMatricula === 'Trancada') badgeColor = "bg-amber-50 text-amber-850 border-amber-200/70 font-bold";
-                                else if (st.statusMatricula === 'Concluída') badgeColor = "bg-teal-50 text-teal-850 border-teal-200/70 font-bold";
+                                else if (st.statusMatricula === 'Concluída') badgeColor = "bg-blue-50 text-blue-800 border-blue-200/70 font-bold";
                                 else if (st.statusMatricula === 'Cancelada') badgeColor = "bg-red-50 text-red-850 border-red-200/70 font-bold";
 
                                 return (
@@ -2228,7 +2251,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   </div>
                                   <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
                                     <div 
-                                      className="bg-indigo-600 h-1 rounded-full transition-all duration-500"
+                                      className="bg-blue-600 h-1 rounded-full transition-all duration-500"
                                       style={{ width: `${st.progresso}%` }}
                                     />
                                   </div>
@@ -2282,7 +2305,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   } else if (pend.includes('Termo de Compromisso')) {
                                     style = "bg-red-50 text-red-700 border-red-150 font-black";
                                   } else {
-                                    style = "bg-amber-50 text-amber-800 border-amber-150 font-bold";
+                                    style = "bg-amber-50 text-amber-800 border-amber-100 font-bold";
                                   }
 
                                   return (
@@ -2302,16 +2325,16 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => setActiveStudentProfile(st.name)}
-                                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/50 text-indigo-950 font-black rounded-lg text-[10px] uppercase transition-colors cursor-pointer flex items-center gap-1"
+                                  className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200/50 text-blue-900 font-black rounded-md text-[10px] uppercase transition-colors cursor-pointer flex items-center gap-1"
                                 >
-                                  <SlidersHorizontal className="h-3 w-3 text-indigo-600" />
+                                  <SlidersHorizontal className="h-3 w-3 text-blue-600" />
                                   <span>Gerenciar</span>
                                 </button>
                                 
                                 <div className="relative">
                                   <button
                                     onClick={() => setActiveStudentMenu(activeStudentMenu === st.email ? null : st.email)}
-                                    className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
+                                    className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
                                     title="Ações Rápidas"
                                   >
                                     <MoreVertical className="h-4 w-4" />
@@ -2323,7 +2346,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                         className="fixed inset-0 z-10" 
                                         onClick={() => setActiveStudentMenu(null)}
                                       />
-                                      <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl py-1.5 z-20 text-left animate-in fade-in slide-in-from-top-1 duration-150">
+                                      <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-[10px] shadow-xl py-1.5 z-20 text-left animate-in fade-in slide-in-from-top-1 duration-150">
                                         <button
                                           onClick={() => {
                                             setActiveStudentMenu(null);
@@ -2331,7 +2354,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                           }}
                                           className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-bold"
                                         >
-                                          <User className="h-3.5 w-3.5 text-indigo-600" />
+                                          <User className="h-3.5 w-3.5 text-blue-600" />
                                           <span>Perfil & Parâmetros</span>
                                         </button>
 
@@ -2342,7 +2365,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                           }}
                                           className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-bold"
                                         >
-                                          <Mail className="h-3.5 w-3.5 text-teal-600" />
+                                          <Mail className="h-3.5 w-3.5 text-blue-600" />
                                           <span>Enviar Notificação</span>
                                         </button>
 
@@ -2366,7 +2389,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                           }}
                                           className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold"
                                         >
-                                          <ExternalLink className="h-3.5 w-3.5 text-indigo-500" />
+                                          <ExternalLink className="h-3.5 w-3.5 text-blue-500" />
                                           <span>Copiar Link Mágico</span>
                                         </button>
 
@@ -2395,7 +2418,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                               showToast(`Estudante ${st.name} removido com sucesso.`);
                                             }
                                           }}
-                                          className="w-full px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer font-bold"
+                                          className="w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2 cursor-pointer font-bold"
                                         >
                                           <Trash2 className="h-3.5 w-3.5" />
                                           <span>Excluir Aluno</span>
@@ -2417,7 +2440,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               {/* Students Mobile View Cards - Extemely Polished for responsive viewport */}
               <div className="block md:hidden space-y-4">
                 {sortedStudents.length === 0 ? (
-                  <div className="text-center p-10 text-slate-450 text-xs font-bold bg-slate-50/20 border border-slate-200 rounded-xl">
+                  <div className="text-center p-10 text-slate-400 text-xs font-bold bg-slate-50/20 border border-slate-200 rounded-[10px]">
                     Nenhum aluno corresponde aos filtros aplicados.
                   </div>
                 ) : (
@@ -2425,7 +2448,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     const initials = st.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
                     const isNormalRisk = st.riskLevel === 'Normal';
                     return (
-                      <div key={`${st.email}-${idx}`} className={`bg-white border rounded-2xl p-4.5 space-y-4 shadow-xs transition-all ${
+                      <div key={`${st.email}-${idx}`} className={`bg-white border rounded-[10px] p-4.5 space-y-4 shadow-sm transition-all ${
                         isNormalRisk ? 'border-slate-200' : 'border-amber-200 bg-amber-50/10'
                       }`}>
                         
@@ -2451,14 +2474,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               >
                                 {st.name}
                               </strong>
-                              <span className="text-[10px] text-slate-450 block font-mono mt-0.5">RA: {st.ra}</span>
+                              <span className="text-[10px] text-slate-400 block font-mono mt-0.5">RA: {st.ra}</span>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-1.5">
                             <button
                               onClick={() => setActiveStudentProfile(st.name)}
-                              className="p-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl transition-all cursor-pointer"
+                              className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-[10px] transition-all cursor-pointer"
                               title="Gerenciar Aluno"
                             >
                               <SlidersHorizontal className="h-4 w-4" />
@@ -2470,7 +2493,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   showToast(`Estudante ${st.name} excluído.`);
                                 }
                               }}
-                              className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-all cursor-pointer"
+                              className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-[10px] transition-all cursor-pointer"
                               title="Deletar Aluno"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -2498,19 +2521,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                           <div>
                             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Situação</span>
-                            <span className="font-extrabold text-slate-850 block mt-0.5 uppercase text-[10px] tracking-wide">{st.statusMatricula}</span>
+                            <span className="font-extrabold text-slate-800 block mt-0.5 uppercase text-[10px] tracking-wide">{st.statusMatricula}</span>
                           </div>
                         </div>
 
                         {/* Progress Tracker (If Active) */}
                         {st.statusMatricula !== 'Sem matrícula' && (
-                          <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                          <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-[10px] border border-slate-100">
                             <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
                               <span>Progresso Letivo:</span>
                               <span className="font-black text-slate-800">{st.progresso}% ({st.horasConcluidas}h / {st.horasTotais}h)</span>
                             </div>
                             <div className="w-full bg-slate-200/70 rounded-full h-1 overflow-hidden">
-                              <div className="bg-indigo-600 h-1 rounded-full transition-all duration-300" style={{ width: `${st.progresso}%` }} />
+                              <div className="bg-blue-600 h-1 rounded-full transition-all duration-300" style={{ width: `${st.progresso}%` }} />
                             </div>
                           </div>
                         )}
@@ -2519,7 +2542,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
                           <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-1">Pendências:</span>
                           {st.pendencias.map((pend, idx) => {
-                            let pillStyle = "bg-slate-50 text-slate-400 border-slate-150";
+                            let pillStyle = "bg-slate-50 text-slate-400 border-slate-100";
                             if (pend === 'Nenhuma') {
                               pillStyle = "bg-slate-50/55 text-slate-400 border-slate-100";
                             } else if (pend.includes('Termo de Compromisso')) {
@@ -2539,13 +2562,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
                           <button
                             onClick={() => setSendMessageInfo({ name: st.name, email: st.email })}
-                            className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 rounded-xl text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
+                            className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
                           >
                             Mensagem
                           </button>
                           <button
                             onClick={() => setResetPassInfo({ name: st.name, email: st.email })}
-                            className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 rounded-xl text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
+                            className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
                           >
                             Nova Senha
                           </button>
@@ -2566,10 +2589,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {/* Course Picker Modal */}
       {showCoursePickerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-white rounded-[10px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <header className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-2">
-                <BookOpen className="h-4 w-4 text-teal-600" />
+                <BookOpen className="h-4 w-4 text-blue-600" />
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Vincular Disciplina</h3>
               </div>
               <button 
@@ -2592,14 +2615,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     setSelectedEnrollCourseId(course.id);
                     setShowCoursePickerModal(false);
                   }}
-                  className={`w-full text-left p-3 rounded-xl border transition-all flex items-center justify-between group ${
+                  className={`w-full text-left p-3 rounded-[10px] border transition-all flex items-center justify-between group ${
                     selectedEnrollCourseId === course.id 
-                    ? 'border-teal-500 bg-teal-50/50 ring-1 ring-teal-500/20' 
+                    ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500/20' 
                     : 'border-slate-100 bg-slate-50/30 hover:border-slate-200 hover:bg-slate-50'
                   }`}
                 >
                   <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-900 group-hover:text-teal-700 transition-colors">{course.title}</p>
+                    <p className="text-xs font-bold text-slate-900 group-hover:text-blue-700 transition-colors">{course.title}</p>
                     <div className="flex items-center gap-1.5">
                       <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500 font-mono">
                         {course.category}
@@ -2609,7 +2632,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </span>
                     </div>
                   </div>
-                  {selectedEnrollCourseId === course.id && <Check className="h-4 w-4 text-teal-600" />}
+                  {selectedEnrollCourseId === course.id && <Check className="h-4 w-4 text-blue-600" />}
                 </button>
               ))}
             </div>
@@ -2633,9 +2656,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           </div>
           
           {/* Header instructions card */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-2">
+          <div className="bg-white border border-slate-200 rounded-[10px] p-5 space-y-2">
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-              <FileCheck className="h-4.5 w-4.5 text-teal-600" />
+              <FileCheck className="h-4.5 w-4.5 text-blue-600" />
               <span>Central de Requerimentos Curriculares e Emissões Eletrônicas</span>
             </h3>
             <p className="text-xs text-slate-500 leading-relaxed">
@@ -2646,7 +2669,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
             {/* Direct Issuance fast tool panel */}
-            <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-xl h-fit space-y-4">
+            <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-[10px] h-fit space-y-4">
               <div>
                 <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Emissor Manual Rápido</h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">Emita documentos oficiais avulsos para qualquer aluno sem necessidade de pedido prévio.</p>
@@ -2675,7 +2698,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     required
                     value={selectedRequestStudent || (mockStudents[0]?.name || '')}
                     onChange={(e) => setSelectedRequestStudent(e.target.value)}
-                    className="w-full border border-slate-205 p-2 text-xs rounded-lg text-slate-800 bg-white focus:outline-hidden"
+                    className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white focus:outline-hidden"
                   >
                     {mockStudents.map((st, idx) => (
                       <option key={`${st.email}-${idx}`} value={st.name}>{st.name} ({st.email})</option>
@@ -2685,7 +2708,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo de Documento</label>
-                  <select name="directType" required className="w-full border border-slate-205 p-2 text-xs rounded-lg text-slate-800 bg-white focus:outline-hidden">
+                  <select name="directType" required className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white focus:outline-hidden">
                     <option value="historico">Histórico Curricular Escolar</option>
                     <option value="certificado">Certificado Oficial</option>
                     <option value="matricula">Declaração de Matrícula Regular</option>
@@ -2694,7 +2717,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Vincular a Qual Curso? (Opcional)</label>
-                  <select name="directCourse" className="w-full border border-slate-205 p-2 text-xs rounded-lg text-slate-800 bg-white focus:outline-hidden">
+                  <select name="directCourse" className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white focus:outline-hidden">
                     <option value="">Geral / Integral</option>
                     {courses.map((c, idx) => (
                       <option key={`${c.id}-${idx}`} value={c.title}>{c.title}</option>
@@ -2704,7 +2727,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                 <button
                   type="submit"
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-lg text-xs transition-colors cursor-pointer flex items-center justify-center gap-1"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 px-3 rounded-md text-xs transition-colors cursor-pointer flex items-center justify-center gap-1"
                 >
                   <Download className="h-3 w-3" />
                   <span>Gerar e Validar Via Oficial</span>
@@ -2714,7 +2737,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               {/* Seção de Geração Rápida de Requerimentos de Exemplo */}
               <div className="border-t border-slate-100 pt-4 mt-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase text-indigo-600 tracking-wider font-mono">Simulador de Requerimentos</span>
+                  <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider font-mono">Simulador de Requerimentos</span>
                   <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-bold">1-Clique</span>
                 </div>
                 <p className="text-[10px] text-slate-500 leading-normal">
@@ -2732,12 +2755,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       });
                       showToast(`Histórico de exemplo gerado para ${student}!`);
                     }}
-                    className="w-full text-left bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/50 hover:border-indigo-300 text-indigo-950 p-2.5 rounded-lg transition-all text-xs flex flex-col gap-0.5 group cursor-pointer"
+                    className="w-full text-left bg-blue-50/70 hover:bg-blue-100/80 border border-blue-200/50 hover:border-blue-300 text-blue-900 p-2.5 rounded-md transition-all text-xs flex flex-col gap-0.5 group cursor-pointer"
                   >
                     <div className="flex items-center gap-1.5 font-bold">
-                      <FileText className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                      <FileText className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                       <span>Histórico Escolar</span>
-                      <span className="ml-auto text-[9px] font-extrabold text-indigo-500 group-hover:translate-x-0.5 transition-transform">+ Criar</span>
+                      <span className="ml-auto text-[9px] font-extrabold text-blue-500 group-hover:translate-x-0.5 transition-transform">+ Criar</span>
                     </div>
                     <span className="text-[9px] text-slate-500 line-clamp-1 font-medium">Histórico acadêmico completo em formato PDF oficial.</span>
                   </button>
@@ -2753,7 +2776,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       });
                       showToast(`Certificado de exemplo gerado para ${student}!`);
                     }}
-                    className="w-full text-left bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200/50 hover:border-emerald-300 text-emerald-950 p-2.5 rounded-lg transition-all text-xs flex flex-col gap-0.5 group cursor-pointer"
+                    className="w-full text-left bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200/50 hover:border-emerald-300 text-emerald-950 p-2.5 rounded-md transition-all text-xs flex flex-col gap-0.5 group cursor-pointer"
                   >
                     <div className="flex items-center gap-1.5 font-bold">
                       <Award className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
@@ -2774,7 +2797,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       });
                       showToast(`Declaração de exemplo gerada para ${student}!`);
                     }}
-                    className="w-full text-left bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200/50 hover:border-amber-300 text-amber-950 p-2.5 rounded-lg transition-all text-xs flex flex-col gap-0.5 group cursor-pointer"
+                    className="w-full text-left bg-amber-50/70 hover:bg-amber-100/80 border border-amber-200/50 hover:border-amber-300 text-amber-950 p-2.5 rounded-md transition-all text-xs flex flex-col gap-0.5 group cursor-pointer"
                   >
                     <div className="flex items-center gap-1.5 font-bold">
                       <BookOpen className="h-3.5 w-3.5 text-amber-600 shrink-0" />
@@ -2788,26 +2811,26 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             </div>
 
             {/* List of Incoming Requests */}
-            <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-xl space-y-4">
+            <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-[10px] space-y-4">
               <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">
                 Requerimentos Registrados por Alunos ({academicRequests?.length || 0})
               </h4>
 
               {!academicRequests || academicRequests.length === 0 ? (
-                <div className="p-8 text-center bg-slate-50 border border-slate-200 border-dashed rounded-xl text-xs text-slate-500">
+                <div className="p-8 text-center bg-slate-50 border border-slate-200 border-dashed rounded-[10px] text-xs text-slate-500">
                   Nenhum requerimento curricular cadastrado na memória local. Adicione solicitações através de contas de alunos para visualizá-los e homologá-los.
                 </div>
               ) : (
                 <div className="space-y-4">
                   {academicRequests.map((req, idx) => (
-                    <div key={`${req.id}-${idx}`} className="p-4 border border-slate-205 rounded-xl bg-slate-50/25 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div key={`${req.id}-${idx}`} className="p-4 border border-slate-200 rounded-[10px] bg-slate-50/25 flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="space-y-1.5 text-left text-xs leading-relaxed max-w-lg">
                         <div className="flex flex-wrap items-center gap-2">
                           <strong className="font-extrabold text-sm text-slate-900 leading-none">{req.studentName}</strong>
                           <span className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full ${
                             req.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
                             req.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                            'bg-rose-50 text-rose-600 border border-rose-200'
+                            'bg-red-50 text-red-600 border border-red-200'
                           }`}>
                             {req.status === 'pending' && 'Aguardando Parecer'}
                             {req.status === 'approved' && 'Deferido / Homologado'}
@@ -2819,7 +2842,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           <span className="font-extrabold text-slate-800 uppercase flex items-center gap-1">
                             {req.type === 'certificado' && (
                               <>
-                                <Award className="h-3.5 w-3.5 text-teal-600" />
+                                <Award className="h-3.5 w-3.5 text-blue-600" />
                                 <span>Certificado</span>
                               </>
                             )}
@@ -2864,7 +2887,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 }
                                 showToast(`Solicitação de ${req.studentName} DEFERIDA com sucesso!`);
                               }}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-2.5 py-1.5 rounded-lg text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-2.5 py-1.5 rounded-md text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                             >
                               <Check className="h-3.5 w-3.5" />
                               <span>Deferir</span>
@@ -2874,7 +2897,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 updateRequestStatus(req.id, 'rejected');
                                 showToast(`Solicitação de ${req.studentName} INDEFERIDA.`);
                               }}
-                              className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold px-2.5 py-1.5 rounded-lg text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                              className="bg-red-600 hover:bg-red-500 text-white font-extrabold px-2.5 py-1.5 rounded-md text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                             >
                               <X className="h-3.5 w-3.5" />
                               <span>Indeferir</span>
@@ -2891,7 +2914,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 courseTitle: req.courseTitle
                               });
                             }}
-                            className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-2.5 py-1.5 rounded-lg text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                            className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-2.5 py-1.5 rounded-md text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                           >
                             <FileText className="h-3.5 w-3.5" />
                             <span>Visualizar / Homologar</span>
@@ -2917,13 +2940,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           </div>
           
           {/* Header */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+          <div className="bg-white border border-slate-200 rounded-[10px] p-5 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckSquare className="h-5 w-5 text-teal-650" />
+                <CheckSquare className="h-5 w-5 text-blue-600" />
                 <span>Gestão de Exercícios Práticos & Avaliação</span>
               </h3>
-              <p className="text-[11px] text-slate-505 text-slate-550 mt-1">
+              <p className="text-[11px] text-slate-505 text-slate-500 mt-1">
                 Cadastre tarefas de entrega, consulte arquivos enviados por alunos e realize a correção direta com feedback acadêmico personalizado.
               </p>
             </div>
@@ -2938,7 +2961,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 if (courses.length > 0) setExCourseId(courses[0].id);
                 setShowExForm(!showExForm);
               }}
-              className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-3.5 py-2 rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto shadow-2xs"
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3.5 py-2 rounded-[10px] text-xs transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto shadow-2xs"
             >
               <Plus className="h-4 w-4" />
               <span>{showExForm ? 'Fechar Formulário' : 'Lançar Nova Atividade'}</span>
@@ -2947,7 +2970,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
           {/* Exercise Form (Create / Edit) */}
           {showExForm && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 animate-in slide-in-from-top-4 duration-200 shadow-2xs">
+            <div className="bg-white border border-slate-200 rounded-[10px] p-5 space-y-4 animate-in slide-in-from-top-4 duration-200 shadow-2xs">
               <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
                 {editingExId ? 'Editar Exercício Acadêmico' : 'Lançar Novo Exercício Acadêmico'}
               </h4>
@@ -2958,7 +2981,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <select
                     value={exCourseId}
                     onChange={(e) => setExCourseId(e.target.value)}
-                    className="w-full text-xs rounded-xl border border-slate-350 p-2.5 text-slate-800 bg-white"
+                    className="w-full text-xs rounded-[10px] border border-slate-300 p-2.5 text-slate-800 bg-white"
                   >
                     <option value="">Selecione o Curso...</option>
                     {courses.map((c, idx) => (
@@ -2974,7 +2997,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     value={exTitle}
                     onChange={(e) => setExTitle(e.target.value)}
                     placeholder="Ex: Estudo de Caso de Interfaces Mobile"
-                    className="w-full text-xs rounded-xl border border-slate-350 p-2.5 text-slate-800 bg-white"
+                    className="w-full text-xs rounded-[10px] border border-slate-300 p-2.5 text-slate-800 bg-white"
                   />
                 </div>
 
@@ -2985,7 +3008,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     onChange={(e) => setExDescription(e.target.value)}
                     placeholder="Descreva brevemente o objetivo e relevância desta tarefa..."
                     rows={2}
-                    className="w-full text-xs rounded-xl border border-slate-350 p-2.5 text-slate-800 bg-white"
+                    className="w-full text-xs rounded-[10px] border border-slate-300 p-2.5 text-slate-800 bg-white"
                   />
                 </div>
 
@@ -2996,7 +3019,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     onChange={(e) => setExInstructions(e.target.value)}
                     placeholder="Explique detalhadamente o que o aluno deve entregar (ex: relatório de 500 palavras, anexo em PDF ou DOC, critérios de avaliação)..."
                     rows={3}
-                    className="w-full text-xs rounded-xl border border-slate-350 p-2.5 text-slate-800 bg-white"
+                    className="w-full text-xs rounded-[10px] border border-slate-300 p-2.5 text-slate-800 bg-white"
                   />
                 </div>
 
@@ -3006,7 +3029,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     type="number"
                     value={exMaxPoints}
                     onChange={(e) => setExMaxPoints(Number(e.target.value))}
-                    className="w-full text-xs rounded-xl border border-slate-350 p-2.5 text-slate-800 bg-white"
+                    className="w-full text-xs rounded-[10px] border border-slate-300 p-2.5 text-slate-800 bg-white"
                   />
                 </div>
 
@@ -3017,7 +3040,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     value={exDueDate}
                     onChange={(e) => setExDueDate(e.target.value)}
                     placeholder="Ex: 15/07/2026"
-                    className="w-full text-xs rounded-xl border border-slate-350 p-2.5 text-slate-800 bg-white"
+                    className="w-full text-xs rounded-[10px] border border-slate-300 p-2.5 text-slate-800 bg-white"
                   />
                 </div>
               </div>
@@ -3025,7 +3048,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   onClick={() => setShowExForm(false)}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition-colors cursor-pointer"
+                  className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-[10px] text-xs transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -3052,7 +3075,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     setShowExForm(false);
                     setEditingExId(null);
                   }}
-                  className="bg-teal-650 hover:bg-teal-600 text-white font-bold px-4 py-1.5 rounded-xl text-xs transition-colors cursor-pointer"
+                  className="bg-blue-600 hover:bg-blue-600 text-white font-bold px-4 py-1.5 rounded-[10px] text-xs transition-colors cursor-pointer"
                 >
                   {editingExId ? 'Salvar Edição' : 'Publicar Atividade'}
                 </button>
@@ -3067,25 +3090,25 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <div className="lg:col-span-5 space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Layers className="h-4 w-4 text-teal-600" />
+                  <Layers className="h-4 w-4 text-blue-600" />
                   <span>Exercícios Cadastrados</span>
                 </h4>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-150 px-2 py-0.5 rounded-full">{practicalExercises.length}</span>
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{practicalExercises.length}</span>
               </div>
 
               <div className="space-y-3">
                 {practicalExercises.length === 0 ? (
-                  <div className="bg-white border border-slate-200 rounded-xl p-6 text-center text-slate-400 text-[11px]">
+                  <div className="bg-white border border-slate-200 rounded-[10px] p-6 text-center text-slate-400 text-[11px]">
                     Nenhum exercício lançado para as disciplinas de ensino.
                   </div>
                 ) : (
                   practicalExercises.map((ex, idx) => {
                     const course = courses.find(c => c.id === ex.courseId);
                     return (
-                      <div key={`${ex.id}-${idx}`} className="bg-white border border-slate-200 rounded-xl p-3.5 leading-relaxed text-[11px] space-y-3 shadow-3xs">
+                      <div key={`${ex.id}-${idx}`} className="bg-white border border-slate-200 rounded-[10px] p-3.5 leading-relaxed text-[11px] space-y-3 shadow-sm">
                         <div className="flex items-start justify-between gap-1.5 border-b border-slate-50 pb-2">
                           <div>
-                            <span className="text-[9px] font-extrabold uppercase text-teal-700 block leading-tight">{course?.title || 'Curso Não Identificado'}</span>
+                            <span className="text-[9px] font-extrabold uppercase text-blue-700 block leading-tight">{course?.title || 'Curso Não Identificado'}</span>
                             <strong className="font-bold text-slate-900 block mt-0.5">{ex.title}</strong>
                           </div>
                           <span className="bg-amber-50 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
@@ -3096,7 +3119,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <p className="text-slate-500 leading-normal line-clamp-2">{ex.description}</p>
 
                         <div className="flex items-center justify-between pt-1 border-t border-slate-50">
-                          <span className="text-[10px] text-slate-450">{ex.dueDate ? `Prazo: ${ex.dueDate}` : 'Sem prazo determinado'}</span>
+                          <span className="text-[10px] text-slate-400">{ex.dueDate ? `Prazo: ${ex.dueDate}` : 'Sem prazo determinado'}</span>
                           
                           <div className="flex items-center gap-1">
                             <button
@@ -3120,7 +3143,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   deletePracticalExercise(ex.id);
                                 }
                               }}
-                              className="bg-rose-50 hover:bg-rose-100 text-rose-600 px-2 py-1 rounded text-[10px] border border-rose-200/50 transition-colors cursor-pointer font-bold"
+                              className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded text-[10px] border border-red-200/50 transition-colors cursor-pointer font-bold"
                             >
                               Excluir
                             </button>
@@ -3137,17 +3160,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <div className="lg:col-span-7 space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <FileText className="h-4 w-4 text-teal-600" />
+                  <FileText className="h-4 w-4 text-blue-600" />
                   <span>Entregas de Alunos para Correção</span>
                 </h4>
-                <span className="text-[10px] font-bold text-slate-450 bg-slate-150 px-2 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
                   {exerciseSubmissions.filter(s => s.status === 'pending').length} pendentes
                 </span>
               </div>
 
               <div className="space-y-4">
                 {exerciseSubmissions.length === 0 ? (
-                  <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-400 text-[11px]">
+                  <div className="bg-white border border-slate-200 rounded-[10px] p-8 text-center text-slate-400 text-[11px]">
                     Nenhum aluno realizou entregas de exercícios práticos até o momento.
                   </div>
                 ) : (
@@ -3157,14 +3180,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     const isGrading = gradingSubId === sub.id;
 
                     return (
-                      <div key={`${sub.id}-${idx}`} className="bg-white border border-slate-200 rounded-xl p-4 leading-relaxed text-[11px] space-y-4 shadow-3xs">
+                      <div key={`${sub.id}-${idx}`} className="bg-white border border-slate-200 rounded-[10px] p-4 leading-relaxed text-[11px] space-y-4 shadow-sm">
                         
                         {/* Grader Header Info */}
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-900 text-xs">{sub.studentName}</span>
-                              <span className="text-[9px] text-slate-450">Trabalho enviado em {sub.submittedAt}</span>
+                              <span className="text-[9px] text-slate-400">Trabalho enviado em {sub.submittedAt}</span>
                             </div>
                             <span className="text-[10px] text-slate-500 mt-1 block">
                               Curso: <strong className="font-semibold text-slate-700">{course?.title || 'Fórum / Desconhecido'}</strong> ➔ <strong className="font-semibold text-slate-700">{ex?.title || 'Atividade Excluída'}</strong>
@@ -3175,10 +3198,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             sub.status === 'approved' 
                               ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
                               : sub.status === 'rejected'
-                              ? 'bg-rose-50 border-rose-250 text-rose-800'
+                              ? 'bg-red-50 border-red-200 text-red-800'
                               : sub.status === 'revision'
                               ? 'bg-amber-50 border-amber-250 text-amber-800'
-                              : 'bg-indigo-50 border-indigo-200 text-indigo-800 animate-pulse'
+                              : 'bg-blue-50 border-blue-200 text-blue-800 animate-pulse'
                           }`}>
                             {
                               sub.status === 'approved' ? `Aprovado (Nota: ${sub.score})` :
@@ -3189,20 +3212,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         </div>
 
                         {/* Student submission text */}
-                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-150 space-y-1.5">
+                        <div className="bg-slate-50 p-3 rounded-md border border-slate-100 space-y-1.5">
                           <strong className="text-slate-800 font-bold block text-[10px] uppercase tracking-wide text-slate-400">Trabalho Escrito:</strong>
-                          <p className="whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-slate-700 max-h-48 overflow-y-auto bg-white p-2.5 rounded-md border border-slate-150">{sub.submissionText}</p>
+                          <p className="whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-slate-700 max-h-48 overflow-y-auto bg-white p-2.5 rounded-md border border-slate-100">{sub.submissionText}</p>
                           
                           {sub.fileName && (
-                            <div className="flex items-center gap-1.5 text-[10px] bg-teal-50/50 p-1.5 rounded border border-teal-100 mt-1">
-                              <FileText className="h-3.5 w-3.5 text-teal-600" />
+                            <div className="flex items-center gap-1.5 text-[10px] bg-blue-50/50 p-1.5 rounded border border-blue-100 mt-1">
+                              <FileText className="h-3.5 w-3.5 text-blue-600" />
                               <span>Anexo: <strong className="text-slate-800">{sub.fileName}</strong></span>
                               <button
                                 onClick={async () => {
                                   const err = await downloadSubmissionFile(sub.fileUrl || '', sub.fileName);
                                   if (err) showToast(err);
                                 }}
-                                className="text-teal-650 font-bold hover:underline ml-auto flex items-center gap-0.5 cursor-pointer"
+                                className="text-blue-600 font-bold hover:underline ml-auto flex items-center gap-0.5 cursor-pointer"
                               >
                                 Baixar Documento <Printer className="h-3 w-3" />
                               </button>
@@ -3212,9 +3235,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                         {/* Existing grader comments if graded */}
                         {sub.feedback && !isGrading && (
-                          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10.5px]">
+                          <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3 text-[10.5px]">
                             <strong className="text-slate-900 font-bold block flex items-center gap-1">
-                              <User className="h-3.5 w-3.5 text-teal-600" /> Nota & Avaliação Concedida (por {sub.gradedBy} em {sub.gradedAt}):
+                              <User className="h-3.5 w-3.5 text-blue-600" /> Nota & Avaliação Concedida (por {sub.gradedBy} em {sub.gradedAt}):
                             </strong>
                             <p className="text-slate-600 leading-relaxed mt-1 italic whitespace-pre-line">{sub.feedback}</p>
                           </div>
@@ -3222,8 +3245,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                         {/* Evaluate form trigger / fields */}
                         {isGrading ? (
-                          <div className="bg-teal-50/20 border border-teal-100 rounded-xl p-4.5 space-y-3.5 animate-in slide-in-from-top-1.5 duration-150">
-                            <h5 className="font-bold text-xs text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <div className="bg-blue-50/20 border border-blue-100 rounded-[10px] p-4.5 space-y-3.5 animate-in slide-in-from-top-1.5 duration-150">
+                            <h5 className="font-bold text-xs text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
                               <Check className="h-4 w-4" /> Formular Avaliação Acadêmica
                             </h5>
 
@@ -3236,7 +3259,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   max={ex?.maxPoints || 100}
                                   value={gradeScore}
                                   onChange={(e) => setGradeScore(Math.min(ex?.maxPoints || 100, Number(e.target.value)))}
-                                  className="w-full text-xs rounded-lg border border-slate-300 p-2 text-slate-800 bg-white"
+                                  className="w-full text-xs rounded-md border border-slate-300 p-2 text-slate-800 bg-white"
                                 />
                                 <span className="text-[9px] text-slate-400 mt-0.5 block">Máximo: {ex?.maxPoints || 100} pontos</span>
                               </div>
@@ -3248,15 +3271,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   onChange={(e) => setGradeFeedback(e.target.value)}
                                   placeholder="Digite orientações pedagógicas, pontos fortes e recomendações de correção..."
                                   rows={2}
-                                  className="w-full text-xs rounded-lg border border-slate-300 p-2 text-slate-800 bg-white"
+                                  className="w-full text-xs rounded-md border border-slate-300 p-2 text-slate-800 bg-white"
                                 />
                               </div>
                             </div>
 
-                            <div className="flex justify-end gap-1.5 pt-2 border-t border-slate-150">
+                            <div className="flex justify-end gap-1.5 pt-2 border-t border-slate-100">
                               <button
                                 onClick={() => setGradingSubId(null)}
-                                className="bg-white hover:bg-slate-100 text-slate-700 font-bold px-2.5 py-1.2 rounded-lg border border-slate-200 text-[10.5px] cursor-pointer"
+                                className="bg-white hover:bg-slate-100 text-slate-700 font-bold px-2.5 py-1.2 rounded-md border border-slate-200 text-[10.5px] cursor-pointer"
                               >
                                 Cancelar
                               </button>
@@ -3271,7 +3294,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   setGradingSubId(null);
                                   alert('Foi solicitado ajustes e revisão de trabalho com sucesso!');
                                 }}
-                                className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.2 rounded-lg text-[10.5px] cursor-pointer"
+                                className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.2 rounded-md text-[10.5px] cursor-pointer"
                               >
                                 Solicitar Ajustes
                               </button>
@@ -3286,7 +3309,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   setGradingSubId(null);
                                   alert('Trabalho avaliado, homologado e nota lançada com sucesso!');
                                 }}
-                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.2 rounded-lg text-[10.5px] cursor-pointer"
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.2 rounded-md text-[10.5px] cursor-pointer"
                               >
                                 Aprovar & Lançar Nota
                               </button>
@@ -3300,7 +3323,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 setGradeScore(sub.score || ex?.maxPoints || 100);
                                 setGradeFeedback(sub.feedback || '');
                               }}
-                              className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-3 py-1.5 rounded-xl text-[10px] transition-colors flex items-center gap-1 cursor-pointer"
+                              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-[10px] text-[10px] transition-colors flex items-center gap-1 cursor-pointer"
                             >
                               <CheckSquare className="h-3.5 w-3.5" />
                               <span>{sub.status === 'pending' ? 'Avaliar Trabalho' : 'Reavaliar Atividade'}</span>
@@ -3325,7 +3348,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           <div>
             <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-5 text-left space-y-6 settings-tab-content">
+          <div className="bg-white border border-slate-200 rounded-[10px] p-5 text-left space-y-6 settings-tab-content">
           <div>
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5">
               <Settings className="h-4 w-4 text-slate-505" />
@@ -3364,7 +3387,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={systemSettings.allowDirectMessages} onChange={() => updateSystemSettings({ allowDirectMessages: !systemSettings.allowDirectMessages })} />
-                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.allowDirectMessages ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
+                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.allowDirectMessages ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-2 h-2 rounded-full transition-transform ${systemSettings.allowDirectMessages ? 'translate-x-4' : ''}`}></div>
                 </div>
                 <div>
@@ -3376,7 +3399,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={systemSettings.allowGlobalChat} onChange={() => updateSystemSettings({ allowGlobalChat: !systemSettings.allowGlobalChat })} />
-                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.allowGlobalChat ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
+                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.allowGlobalChat ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-2 h-2 rounded-full transition-transform ${systemSettings.allowGlobalChat ? 'translate-x-4' : ''}`}></div>
                 </div>
                 <div>
@@ -3388,7 +3411,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={systemSettings.openEnrollment} onChange={() => updateSystemSettings({ openEnrollment: !systemSettings.openEnrollment })} />
-                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.openEnrollment ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
+                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.openEnrollment ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-2 h-2 rounded-full transition-transform ${systemSettings.openEnrollment ? 'translate-x-4' : ''}`}></div>
                 </div>
                 <div>
@@ -3400,7 +3423,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={systemSettings.autoCertify} onChange={() => updateSystemSettings({ autoCertify: !systemSettings.autoCertify })} />
-                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.autoCertify ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
+                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.autoCertify ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-2 h-2 rounded-full transition-transform ${systemSettings.autoCertify ? 'translate-x-4' : ''}`}></div>
                 </div>
                 <div>
@@ -3412,7 +3435,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
                   <input type="checkbox" className="sr-only" checked={systemSettings.liveClassRecording} onChange={() => updateSystemSettings({ liveClassRecording: !systemSettings.liveClassRecording })} />
-                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.liveClassRecording ? 'bg-indigo-500' : 'bg-slate-300'}`}></div>
+                  <div className={`block w-8 h-4 rounded-full transition-colors ${systemSettings.liveClassRecording ? 'bg-blue-500' : 'bg-slate-300'}`}></div>
                   <div className={`dot absolute left-1 top-1 bg-white w-2 h-2 rounded-full transition-transform ${systemSettings.liveClassRecording ? 'translate-x-4' : ''}`}></div>
                 </div>
                 <div>
@@ -3426,7 +3449,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <select 
                   value={systemSettings.autoArchiveDuration}
                   onChange={(e) => updateSystemSettings({ autoArchiveDuration: e.target.value })}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   <option value="nunca">Nunca arquivar (Manual)</option>
                   <option value="1_mes">1 mês após inatividade</option>
@@ -3438,7 +3461,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
             </div>
 
-            <div className="bg-slate-50/70 rounded-xl p-4 border border-slate-200 border-dashed text-xs text-slate-500 mt-2">
+            <div className="bg-slate-50/70 rounded-[10px] p-4 border border-slate-200 border-dashed text-xs text-slate-500 mt-2">
               <strong className="text-slate-800 block mb-1">Nota da Assessoria de T.I:</strong>
               <p className="leading-relaxed">Novas rotas letivas criadas tanto pelo Administrador quanto pelos Professores cadastrados são adicionadas em tempo real em bancos na memória do navegador.</p>
             </div>
@@ -3446,7 +3469,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <div className="pt-6 mt-2 border-t border-slate-100">
               <button
                 onClick={() => showToast('Configurações salvas com sucesso!')}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-sm uppercase tracking-wide"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-[10px] text-xs transition-colors flex items-center justify-center gap-2 shadow-sm uppercase tracking-wide"
               >
                 <Save className="h-4 w-4" />
                 <span>Salvar Configurações</span>
@@ -3462,11 +3485,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           <div>
             <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-6 text-left space-y-6">
+          <div className="bg-white border border-slate-200 rounded-[10px] p-6 text-left space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Database className="h-5 w-5 text-indigo-650" />
+                <Database className="h-5 w-5 text-blue-600" />
                 <span>Integração de Dados e Exportação de Bases para BI</span>
               </h3>
               <p className="text-[11px] text-slate-500 mt-1">
@@ -3484,9 +3507,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   showToast(err?.message || 'Falha ao exportar as bases. Verifique sua sessão de administrador.');
                 }
               }}
-              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+              className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-[10px] transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
             >
-              <Download className="h-4 w-4 text-teal-400" />
+              <Download className="h-4 w-4 text-blue-400" />
               <span>Baixar Todas as 5 Bases (.csv)</span>
             </button>
           </div>
@@ -3494,7 +3517,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
 
           {/* Database Selector Tabs */}
-          <div className="border-b border-slate-150 flex overflow-x-auto gap-1">
+          <div className="border-b border-slate-100 flex overflow-x-auto gap-1">
             {[
               { id: 'alunos', label: '1. Base de Alunos' },
               { id: 'cursos', label: '2. Base de Cursos' },
@@ -3509,7 +3532,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   onClick={() => setSelectedBiBase(base.id as any)}
                   className={`px-4 py-2 border-b-2 font-bold text-xs transition-all whitespace-nowrap cursor-pointer ${
                     isSel 
-                      ? 'border-indigo-600 text-indigo-700' 
+                      ? 'border-blue-600 text-blue-700' 
                       : 'border-transparent text-slate-400 hover:text-slate-600'
                   }`}
                 >
@@ -3698,9 +3721,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
             return (
               <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-150 rounded-xl p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-[10px] p-4">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase text-indigo-650 tracking-wider">Visualizando estrutura de dados</span>
+                    <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider">Visualizando estrutura de dados</span>
                     <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
                       <span>{currentTitle}</span>
                       <span className="text-[10px] text-slate-400 font-normal">({currentData.length} registros no total)</span>
@@ -3710,7 +3733,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <button
                     onClick={exportSingleCSV}
                     disabled={currentData.length === 0}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white font-bold text-xs rounded-lg transition-all cursor-pointer shadow-xs flex items-center gap-1.5 self-start sm:self-center"
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white font-bold text-xs rounded-md transition-all cursor-pointer shadow-sm flex items-center gap-1.5 self-start sm:self-center"
                   >
                     <Download className="h-3.5 w-3.5" />
                     <span>Exportar esta Base (CSV)</span>
@@ -3718,8 +3741,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 {/* Live Preview Table */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
-                  <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-150 flex items-center justify-between">
+                <div className="border border-slate-200 rounded-[10px] overflow-hidden bg-white">
+                  <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Visualização Prévia (Top 5 Registros)</span>
                     <span className="text-[9px] text-slate-400">Total de colunas mapeadas: {keys.length}</span>
                   </div>
@@ -3730,7 +3753,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-[11px] text-slate-700 text-left">
-                        <thead className="bg-slate-50 border-b border-slate-150 font-black text-slate-500">
+                        <thead className="bg-slate-50 border-b border-slate-100 font-black text-slate-500">
                           <tr>
                             {keys.map(k => (
                               <th key={k} className="p-3 whitespace-nowrap uppercase tracking-wider text-[9px] font-black">{k}</th>
@@ -3745,7 +3768,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   {row[k] === '—' || !row[k] ? (
                                     <span className="text-slate-355">—</span>
                                   ) : k.includes('id_') || k.includes('codigo') ? (
-                                    <code className="bg-slate-100 px-1 py-0.5 rounded text-indigo-700 font-mono text-[10px]">{row[k]}</code>
+                                    <code className="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono text-[10px]">{row[k]}</code>
                                   ) : (
                                     String(row[k])
                                   )}
@@ -3800,7 +3823,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             }
           `}</style>
 
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
+          <div className="bg-white rounded-[10px] shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
             
             {/* Modal Top Controls */}
             <div className="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
@@ -3814,7 +3837,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => window.print()}
-                  className="text-[10px] bg-teal-600 hover:bg-teal-500 font-extrabold text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-xs"
+                  className="text-[10px] bg-blue-600 hover:bg-blue-500 font-extrabold text-white px-2.5 py-1.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
                 >
                   <Printer className="h-3 w-3 text-white" />
                   <span>Imprimir / PDF</span>
@@ -3823,9 +3846,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   onClick={() => {
                     showToast(`Salvando ${activeDocViewer.type} de ${activeDocViewer.studentName} no Computador...`);
                   }}
-                  className="text-[10px] bg-slate-800 hover:bg-slate-700 font-extrabold text-white px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-[10px] bg-slate-800 hover:bg-slate-700 font-extrabold text-white px-2.5 py-1.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
                 >
-                  <Download className="h-3 w-3 text-teal-400" />
+                  <Download className="h-3 w-3 text-blue-400" />
                   <span>Descarregar</span>
                 </button>
                 <button 
@@ -3839,7 +3862,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
             {/* Dynamic Printable Area */}
             <div className="p-8 bg-white text-slate-900 overflow-y-auto max-h-[70vh]" id="printable-doc">
-              <div className="border border-slate-200 p-8 rounded-xl space-y-6 text-left relative overflow-hidden bg-slate-50/10">
+              <div className="border border-slate-200 p-8 rounded-[10px] space-y-6 text-left relative overflow-hidden bg-slate-50/10">
                 
                 {/* Watermark design background */}
                 <div className="absolute inset-x-0 top-1/3 text-center pointer-events-none opacity-[0.03] flex flex-col items-center justify-center">
@@ -3850,7 +3873,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <div className="border-b border-double border-slate-300 pb-5 text-center space-y-2">
                   <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded font-mono font-bold uppercase tracking-widest">Via Homologada de Autenticidade</span>
                   <h3 className="text-base font-black uppercase text-slate-950 tracking-tight leading-none mt-1">Escola Estadual da Cultura</h3>
-                  <p className="text-[9px] text-slate-550 font-bold uppercase tracking-wider mt-1.5">Setor de Registros e Certificações</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1.5">Setor de Registros e Certificações</p>
                 </div>
 
                 {/* Document Specific Content */}
@@ -3862,7 +3885,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     </div>
 
                     {/* Student Info block */}
-                    <div className="grid grid-cols-2 gap-4 bg-white border border-slate-150 p-3 rounded-lg text-[11px] leading-relaxed">
+                    <div className="grid grid-cols-2 gap-4 bg-white border border-slate-100 p-3 rounded-md text-[11px] leading-relaxed">
                       <div>
                         <span className="text-slate-400 block font-medium">Nome do Aluno(a):</span>
                         <strong className="text-slate-900 text-xs font-bold">{activeDocViewer.studentName}</strong>
@@ -3878,7 +3901,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     {/* Grades and attendance table */}
                     <div className="space-y-2 pt-2">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Disciplinas Cursadas e Frequência</span>
-                      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+                      <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
                         <table className="w-full text-left border-collapse text-[11px]">
                           <thead>
                             <tr className="border-b border-slate-200 bg-slate-50 text-[9px] font-bold text-slate-500 uppercase">
@@ -3923,7 +3946,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </div>
                     </div>
 
-                    <div className="text-[10px] text-slate-500 bg-slate-50/80 border border-slate-150 p-2.5 rounded-lg leading-relaxed mt-4">
+                    <div className="text-[10px] text-slate-500 bg-slate-50/80 border border-slate-100 p-2.5 rounded-md leading-relaxed mt-4">
                       * Este histórico reflete integralmente os registros eletrônicos armazenados na Central AVA em {new Date().toLocaleDateString('pt-BR')}. A presença de 70% ou mais outorga a emissão eletrônica de certificados de habilidade prática.
                     </div>
                   </div>
@@ -3941,10 +3964,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       <p className="text-lg font-black text-slate-905 border-b border-slate-200 py-1.5 w-fit mx-auto px-4 uppercase tracking-normal">
                         {activeDocViewer.studentName}
                       </p>
-                      <p className="text-[11px] leading-normal text-slate-450">
-                        concluiu com êxito os requisitos teóricos, testes práticos e obteve aproveitamento curricular superior a <strong className="font-semibold text-slate-850">70% de presença letiva</strong> nas aulas, assessorias síncronas e atividades do curso didático de:
+                      <p className="text-[11px] leading-normal text-slate-400">
+                        concluiu com êxito os requisitos teóricos, testes práticos e obteve aproveitamento curricular superior a <strong className="font-semibold text-slate-800">70% de presença letiva</strong> nas aulas, assessorias síncronas e atividades do curso didático de:
                       </p>
-                      <p className="text-sm font-black text-teal-900 uppercase">
+                      <p className="text-sm font-black text-blue-900 uppercase">
                         {activeDocViewer.courseTitle || courses[0]?.title || 'Formação de Profissionais Ativos'}
                       </p>
                     </div>
@@ -3978,7 +4001,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       O aluno mantém status regular, frequentando as conferências de mentoria de forma remota, e submetendo-se a baterias de testes didáticos sob supervisão dos professores cadastrados.
                     </p>
 
-                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-lg border border-slate-150 text-[10px] text-slate-500 leading-normal mt-4">
+                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-md border border-slate-100 text-[10px] text-slate-500 leading-normal mt-4">
                       <div>
                         <span className="block font-semibold">Data de Expedição:</span>
                         <span>{new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span>
@@ -4003,7 +4026,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <div className="bg-slate-50 border-t border-slate-200 px-5 py-3 flex justify-end">
               <button 
                 onClick={() => setActiveDocViewer(null)}
-                className="rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 px-4 py-1.5 text-xs font-bold transition-all cursor-pointer"
+                className="rounded-md border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 px-4 py-1.5 text-xs font-bold transition-all cursor-pointer"
               >
                 Fechar Visualizador
               </button>
@@ -4021,11 +4044,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
         const initials = st.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100 flex flex-col max-h-[90vh]">
+            <div className="w-full max-w-lg bg-white rounded-[10px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100 flex flex-col max-h-[90vh]">
               {/* Header */}
               <header className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 bg-indigo-50 border border-indigo-100 text-indigo-700 text-sm font-black flex items-center justify-center rounded-full uppercase shrink-0">
+                  <div className="h-10 w-10 bg-blue-50 border border-blue-100 text-blue-700 text-sm font-black flex items-center justify-center rounded-full uppercase shrink-0">
                     {initials}
                   </div>
                   <div>
@@ -4044,19 +4067,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               {/* Body content with scroll */}
               <div className="p-5 space-y-4 overflow-y-auto grow">
                 {/* Real-time statistics banner */}
-                <div className="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-200 p-3.5 rounded-xl text-xs">
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-200 p-3.5 rounded-[10px] text-xs">
                   <div className="space-y-0.5">
-                    <span className="text-[9px] text-slate-450 font-black uppercase font-mono">Último Acesso Registrado</span>
+                    <span className="text-[9px] text-slate-400 font-black uppercase font-mono">Último Acesso Registrado</span>
                     <p className="font-extrabold text-slate-800 flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                      <Clock className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                       <span>{st.lastAccess}</span>
                     </p>
                     <span className="text-[8.5px] text-slate-400 block">Nível de Risco: {st.riskLevel}</span>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="text-[9px] text-slate-450 font-black uppercase font-mono">Status da Conta</span>
+                    <span className="text-[9px] text-slate-400 font-black uppercase font-mono">Status da Conta</span>
                     <p className="font-extrabold text-slate-800 flex items-center gap-1">
-                      <ShieldCheck className="h-3.5 w-3.5 text-teal-600 shrink-0" />
+                      <ShieldCheck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                       <span>Conta {st.statusConta || 'Ativa'}</span>
                     </p>
                     <span className="text-[8.5px] text-slate-400 block flex items-center gap-1">
@@ -4080,7 +4103,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           updateOverride(st.name, { statusMatricula: e.target.value as any });
                           showToast(`Status de matrícula de ${st.name} alterado para ${e.target.value}.`);
                         }}
-                        className="w-full bg-white border border-slate-200 p-2 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                        className="w-full bg-white border border-slate-200 p-2 text-xs rounded-md text-slate-700 focus:outline-hidden"
                       >
                         <option value="Ativa">Ativa</option>
                         <option value="Sem matrícula">Sem matrícula (Desvinculado)</option>
@@ -4099,7 +4122,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           updateOverride(st.name, { statusConta: e.target.value as any });
                           showToast(`Status da conta de ${st.name} alterado para ${e.target.value}.`);
                         }}
-                        className="w-full bg-white border border-slate-200 p-2 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                        className="w-full bg-white border border-slate-200 p-2 text-xs rounded-md text-slate-700 focus:outline-hidden"
                       >
                         <option value="Ativa">Ativa (Acesso Permitido)</option>
                         <option value="Bloqueada">Bloqueada (Acesso Suspenso)</option>
@@ -4136,7 +4159,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <div className="space-y-2.5">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Gerenciamento de Pendências & Restrições</span>
                   
-                  <div className="grid grid-cols-2 gap-2.5 bg-slate-50/50 p-4 border border-slate-200 rounded-xl">
+                  <div className="grid grid-cols-2 gap-2.5 bg-slate-50/50 p-4 border border-slate-200 rounded-[10px]">
                     {['Termo de Compromisso', 'Documento', 'Atividade', 'Matrícula pendente', 'Contrato'].map((pend) => {
                       const labelText = pend === 'Documento' ? 'Documental' : pend === 'Atividade' ? 'Acadêmica (Atividade)' : pend === 'Contrato' ? 'Contrato Pendente' : pend;
                       const hasPend = st.pendencias.some(p => p.includes(pend));
@@ -4161,7 +4184,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               updateOverride(st.name, { pendencias: updatedList });
                               showToast(`Lista de pendências de ${st.name} atualizada.`);
                             }}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 text-xs"
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 text-xs"
                           />
                           <span className="text-xs text-slate-700 font-bold">{labelText}</span>
                         </label>
@@ -4175,7 +4198,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         updateOverride(st.name, { pendencias: ['Nenhuma'] });
                         showToast(`Todas as restrições e pendências de ${st.name} foram zeradas.`);
                       }}
-                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold text-[10px] uppercase rounded-lg transition-colors cursor-pointer"
+                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
                     >
                       Resolver Tudo
                     </button>
@@ -4188,7 +4211,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           updateOverride(st.name, { pendencias: updated.length === 0 ? ['Nenhuma'] : updated });
                           showToast(`A pendência do termo de compromisso de ${st.name} foi resolvida.`);
                         }}
-                        className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-800 font-bold text-[10px] uppercase rounded-lg transition-colors cursor-pointer"
+                        className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-blue-800 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
                       >
                         Aprovar Termo
                       </button>
@@ -4202,7 +4225,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     onClick={() => {
                       setResetPassInfo({ name: st.name, email: st.email });
                     }}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
                   >
                     Mudar Senha
                   </button>
@@ -4210,7 +4233,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     onClick={() => {
                       setSendMessageInfo({ name: st.name, email: st.email });
                     }}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
                   >
                     Enviar Notificação
                   </button>
@@ -4220,7 +4243,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       navigator.clipboard.writeText(magicLink);
                       showToast(`Link de acesso seguro de ${st.name} copiado.`);
                     }}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-lg transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
                   >
                     Copiar Link Mágico
                   </button>
@@ -4231,7 +4254,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <footer className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
                 <button
                   onClick={() => setActiveStudentProfile(null)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-lg transition-colors uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-md transition-colors uppercase tracking-wider cursor-pointer"
                 >
                   Salvar e Fechar
                 </button>
@@ -4244,7 +4267,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {/* RESET PASSWORD MODAL */}
       {resetPassInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100">
+          <div className="w-full max-w-sm bg-white rounded-[10px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100">
             <header className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-2">
                 <Key className="h-4 w-4 text-orange-600" />
@@ -4279,7 +4302,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   required
                   placeholder="Ex: 5678"
                   defaultValue={Math.floor(1000 + Math.random() * 9000).toString()}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 font-mono focus:outline-hidden focus:ring-1 focus:ring-slate-400"
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 font-mono focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                 />
               </div>
 
@@ -4293,7 +4316,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-md transition-colors uppercase tracking-wider cursor-pointer"
                 >
                   Definir Senha
                 </button>
@@ -4306,10 +4329,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {/* SEND MESSAGE MODAL */}
       {sendMessageInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100">
+          <div className="w-full max-w-md bg-white rounded-[10px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100">
             <header className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
               <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-teal-600" />
+                <Mail className="h-4 w-4 text-blue-600" />
                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Enviar Mensagem</h3>
               </div>
               <button 
@@ -4336,7 +4359,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   required
                   rows={4}
                   placeholder="Ex: Caro aluno, identificamos que há uma atividade avaliativa com prazo final de expiração programada para esta noite..."
-                  className="w-full border border-slate-200 p-2 text-xs rounded-lg text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 resize-none"
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 resize-none"
                 />
               </div>
 
@@ -4350,7 +4373,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-lg transition-colors uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-md transition-colors uppercase tracking-wider cursor-pointer"
                 >
                   Enviar
                 </button>
@@ -4362,12 +4385,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
       {/* SUCCESS TOAST NOTIFICATE */}
       {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-slate-900 border border-slate-700 text-slate-100 px-5 py-3 shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-sm">
+        <div className="fixed bottom-6 right-6 z-50 rounded-md bg-slate-900 border border-slate-700 text-slate-100 px-5 py-3 shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300 max-w-sm">
           <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
           <p className="text-xs font-bold leading-normal text-left">{toastMsg}</p>
         </div>
       )}
 
+        </main>
+      </div>
     </div>
   );
 }
