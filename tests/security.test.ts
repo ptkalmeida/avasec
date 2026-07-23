@@ -30,8 +30,8 @@ let adminToken: string;
 
 beforeAll(async () => {
   const student = await loginAs('João Silva', '1234');
-  const instructor = await loginAs('Gestor de Conteúdos', 'prof1234');
-  const admin = await loginAs('Admin Superior', 'admin1234');
+  const instructor = await loginAs('Gestor de Conteúdos', '5678');
+  const admin = await loginAs('Admin Superior', '9999');
   studentToken = student.token;
   instructorToken = instructor.token;
   adminToken = admin.token;

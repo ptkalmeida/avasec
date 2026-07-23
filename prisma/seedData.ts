@@ -74,8 +74,10 @@ const DEMO_USERS: Array<{
   name: string; email: string; role: 'admin' | 'instructor' | 'student'; password: string;
   municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string;
 }> = [
-  { name: 'Admin Superior', email: 'admin@avasec.local', role: 'admin', password: 'admin1234' },
-  { name: 'Gestor de Conteúdos', email: 'professor@avasec.local', role: 'instructor', password: 'prof1234' },
+  // PINs numéricos — o login da plataforma usa um teclado numérico (não aceita letras),
+  // e batem com a dica exibida na própria tela de acesso (Admin 9999, Gestão 5678, Aluno 1234).
+  { name: 'Admin Superior', email: 'admin@avasec.local', role: 'admin', password: '9999' },
+  { name: 'Gestor de Conteúdos', email: 'professor@avasec.local', role: 'instructor', password: '5678' },
   { name: 'João Silva', email: 'joao.silva@lms.edu', role: 'student', password: '1234', municipio: 'São Paulo', uf: 'SP', areaInteresse: 'Design Digital', dataCadastro: '2026-01-10' },
   { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', role: 'student', password: '1234', municipio: 'Recife', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-02-14' },
   { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu', role: 'student', password: '1234', municipio: 'Rio de Janeiro', uf: 'RJ', areaInteresse: 'Design Digital', dataCadastro: '2026-03-05' },

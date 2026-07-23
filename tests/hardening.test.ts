@@ -36,8 +36,8 @@ let adminToken: string;
 
 beforeAll(async () => {
   studentToken = await loginAs('João Silva', '1234');
-  instructorToken = await loginAs('Gestor de Conteúdos', 'prof1234');
-  adminToken = await loginAs('Admin Superior', 'admin1234');
+  instructorToken = await loginAs('Gestor de Conteúdos', '5678');
+  adminToken = await loginAs('Admin Superior', '9999');
 });
 
 describe('Sessão via cookie HttpOnly', () => {
