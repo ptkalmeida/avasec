@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Exceptions\ApiException;
+use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Services\AuditLogger;
+use App\Services\CertificateService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+final class CertificateController extends Controller
+{
+    use ApiRequestHelpers;
+
+    public function __construct(
+        private readonly CertificateService $certificates,
+        private readonly AuditLogger $audit,
+    ) {}
+
+    public function verify(Request $request): JsonResponse
+    {
+        $q = (string) $request->query('q', '');
+        if (trim($q) === '') {
+            throw ApiException::validation('Informe um termo de busca.');
+        }
+
+        return response()->json($this->certificates->verifyCertificatePublic($q));
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        [$page, $pageSize, $skip, $take] = $this->pageParams($request);
+        $result = $this->certificates->listCertificates($request->attributes->get('auth_user'), $skip, $take);
+
+        return response()->json([
+            'items' => $result['items'],
+            'pagination' => [
+                'page' => $page,
+                'pageSize' => $pageSize,
+                'total' => $result['total'],
+                'totalPages' => max(1, (int) ceil($result['total'] / $pageSize)),
+            ],
+        ]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $data = $this->validateInput($request, [
+            'studentName' => ['required', 'string', 'min:2', 'max:150'],
+            'courseId' => ['required', 'string', 'max:191'],
+        ]);
+
+        $cert = $this->certificates->issueCertificate($data, $this->requester($request));
+        $this->audit->log($request, 'Emissão de Certificado', "Certificado emitido para \"{$cert['studentName']}\" no curso {$cert['courseId']}.");
+
+        return response()->json($cert, 201);
+    }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $this->certificates->deleteCertificate($id);
+        $this->audit->log($request, 'Exclusão de Certificado', "Certificado {$id} removido.", 'WARNING');
+
+        return response()->json(['success' => true]);
+    }
+}
