@@ -1,0 +1,11 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    # Nível 5 cobre a camada de bugs reais (tipos de argumento/retorno, mortos, etc.).
+    # Meta futura (dívida registrada): subir gradualmente até o nível 9 exigido pela
+    # skill php-pro, completando generics de relações Eloquent e value-types de arrays.
+    level: 5
+    paths:
+        - app
+    treatPhpDocTypesAsCertain: false
