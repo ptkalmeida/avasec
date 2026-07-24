@@ -17,5 +17,9 @@
     "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
     "noEmit": true
-  }
+  },
+  // legacy-node: backend Node arquivado no corte da migração para Laravel — os imports
+  // relativos dele quebram fora do lugar original de propósito (ver legacy-node/README.md).
+  // backend-laravel: projeto PHP (tem seus próprios assets JS que não são deste tsconfig).
+  "exclude": ["node_modules", "dist", "legacy-node", "backend-laravel"]
 }
