@@ -18,6 +18,8 @@ import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQu
 import { CertificateTemplate } from './CertificateTemplate';
 import { LiveClassroom } from './LiveClassroom';
 import { CourseForum } from './CourseForum';
+import { StudentLibraryPanel } from './student/StudentLibraryPanel';
+import { StudentEventsPanel } from './student/StudentEventsPanel';
 import { features } from '../config/features';
 
 interface ModuleGroup {
@@ -106,8 +108,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     academicRequests,
     addAcademicRequest,
     systemSettings,
-    libraryItems,
-    webinarEvents,
     accessibilitySettings,
     updateAccessibilitySettings,
     activeDashboardTab,
@@ -2935,87 +2935,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
           </div>
         </div>
       ) : activeDashboardTab === 'library' ? (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 text-left">
-          <div className="text-left">
-            <button
-              onClick={() => setActiveDashboardTab('general')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-xs font-black uppercase tracking-wider border border-slate-200/65"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Voltar ao Meu Painel de Estudos</span>
-            </button>
-          </div>
-           <div className="flex items-center justify-between">
-              <div>
-                 <h3 className="text-xl font-black text-slate-900 tracking-tight">📚 Biblioteca Digital</h3>
-                 <p className="text-xs text-slate-500">Repositório centralizado de materiais complementares e e-books.</p>
-              </div>
-           </div>
-           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {libraryItems.map((item, idx) => (
-                <div key={`${item.id}-${idx}`} className="bg-white border border-slate-200 rounded-2xl p-5 hover:border-teal-200 hover:shadow-lg transition-all group">
-                   <div className="flex items-start justify-between mb-4">
-                      <div className={`p-2.5 rounded-xl ${item.type === 'pdf' ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'}`}>
-                         {item.type === 'pdf' ? <FileText className="h-6 w-6" /> : <Globe className="h-6 w-6" />}
-                      </div>
-                      <span className="text-[9px] font-black uppercase text-slate-400 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">{item.category}</span>
-                   </div>
-                   <h4 className="font-bold text-sm text-slate-900 leading-tight group-hover:text-teal-600 transition-colors">{item.title}</h4>
-                   <p className="text-[11px] text-slate-500 mt-2 leading-relaxed line-clamp-2">{item.description}</p>
-                   <a 
-                     href={item.url} 
-                     target="_blank" 
-                     rel="noreferrer" 
-                     className="mt-4 w-full bg-slate-50 hover:bg-teal-600 hover:text-white text-slate-600 font-bold py-2 rounded-xl text-[10px] transition-all flex items-center justify-center gap-2 border border-slate-100"
-                   >
-                     {item.type === 'pdf' ? <Download className="h-3 w-3" /> : <ExternalLink className="h-3 w-3" />}
-                     <span>{item.type === 'pdf' ? 'Baixar Arquivo' : 'Acessar Link'}</span>
-                   </a>
-                </div>
-              ))}
-           </div>
-        </div>
+        <StudentLibraryPanel onBack={() => setActiveDashboardTab('general')} />
       ) : features.eventosWebinars && activeDashboardTab === 'events' ? (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 text-left">
-          <div className="text-left">
-            <button
-              onClick={() => setActiveDashboardTab('general')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-xs font-black uppercase tracking-wider border border-slate-200/65"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Voltar ao Meu Painel de Estudos</span>
-            </button>
-          </div>
-           <div className="flex items-center justify-between">
-              <div>
-                 <h3 className="text-xl font-black text-slate-900 tracking-tight">📅 Eventos & Webinars</h3>
-                 <p className="text-xs text-slate-500">Aulas magnas, workshops e eventos extracurriculares exclusivos.</p>
-              </div>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {webinarEvents.map((event, idx) => (
-                <div key={`${event.id}-${idx}`} className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:shadow-xl transition-all group flex flex-col sm:flex-row">
-                   <div className="sm:w-40 h-40 sm:h-full relative shrink-0 overflow-hidden">
-                      <img src={event.image} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-                      <div className="absolute inset-0 bg-[#540D6E]/20" />
-                   </div>
-                   <div className="p-6 flex-1 flex flex-col justify-between">
-                      <div>
-                         <div className="flex items-center gap-3 text-[10px] font-black text-teal-600 uppercase tracking-widest mb-2">
-                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {event.date}</span>
-                            <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {event.time}</span>
-                         </div>
-                         <h4 className="font-black text-lg text-slate-900 leading-tight mb-2">{event.title}</h4>
-                         <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{event.description}</p>
-                      </div>
-                      <button className="mt-4 w-full bg-[#540D6E] hover:bg-slate-900 text-white font-black py-2.5 rounded-xl text-[10px] uppercase tracking-widest transition-all cursor-pointer">
-                         Realizar Inscrição
-                      </button>
-                   </div>
-                </div>
-              ))}
-           </div>
-        </div>
+        <StudentEventsPanel onBack={() => setActiveDashboardTab('general')} />
       ) : activeDashboardTab === 'faq' ? (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 text-left max-w-4xl mx-auto">
           <div className="text-left mb-2">

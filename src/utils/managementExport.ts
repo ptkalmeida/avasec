@@ -35,7 +35,7 @@ async function fetchCourseCatalog(): Promise<any[]> {
 
 // ---------- Conversão dos payloads do servidor para o layout de BI em português ----------
 
-function buildAlunos(students: any[]) {
+export function buildAlunos(students: any[]) {
   return students.map((u) => ({
     id_aluno: u.id,
     nome: u.name,
@@ -48,7 +48,7 @@ function buildAlunos(students: any[]) {
   }));
 }
 
-function buildCursos(courses: any[]) {
+export function buildCursos(courses: any[]) {
   return courses.map((c) => ({
     id_curso: c.id,
     titulo: c.title,
@@ -64,7 +64,7 @@ function buildCursos(courses: any[]) {
   }));
 }
 
-function buildMatriculas(enrollments: any[], progress: any[], certificates: any[]) {
+export function buildMatriculas(enrollments: any[], progress: any[], certificates: any[]) {
   const rows: any[] = [];
   for (const e of enrollments) {
     const enrollmentId = e.id ?? e.studentName;
@@ -98,7 +98,7 @@ function buildMatriculas(enrollments: any[], progress: any[], certificates: any[
   return rows;
 }
 
-function buildProgressoModulo(progress: any[], catalog: any[]) {
+export function buildProgressoModulo(progress: any[], catalog: any[]) {
   const rows: any[] = [];
   for (const p of progress) {
     const course = catalog.find((c) => c.id === p.courseId);
@@ -119,7 +119,7 @@ function buildProgressoModulo(progress: any[], catalog: any[]) {
   return rows;
 }
 
-function buildCertificados(certificates: any[], catalog: any[]) {
+export function buildCertificados(certificates: any[], catalog: any[]) {
   return certificates.map((c) => {
     const course = catalog.find((co) => co.id === c.courseId);
     return {
