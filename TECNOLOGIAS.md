@@ -1,89 +1,90 @@
 # AVASEC — Stack de Tecnologias
 
-Detalhamento das tecnologias usadas na plataforma, conforme o `package.json` e a
-arquitetura atual do projeto. Gerado em 2026-07-23.
+Detalhamento das tecnologias usadas na plataforma, conforme `package.json` e
+`backend-laravel/composer.json`. Atualizado em 2026-07-24, após a migração do
+backend para Laravel (histórico completo em `MIGRACAO_LARAVEL.md`).
 
 ## Visão geral
 
-Aplicação **full-stack TypeScript** servida por um único processo Node:
-**React + Vite + Tailwind** no frontend, **Express + Prisma + MySQL** no backend,
-com autenticação JWT em cookie HttpOnly e uma camada de segurança (helmet, CORS,
-rate limit, validação Zod, RBAC).
-
-## Linguagem base
-
-| Tecnologia | Versão | Papel |
-|---|---|---|
-| **TypeScript** | ~5.8 | Tipagem estática em todo o projeto (frontend, backend, testes). Verificação via `tsc --noEmit`. |
-| **Node.js** | 18 | Runtime do servidor. *Recomenda-se Node 20 LTS antes de produção (Vite 6 pede Node 20+).* |
+Frontend **React + Vite + Tailwind (TypeScript)** consumindo uma API REST em
+**Laravel + MySQL**, com autenticação JWT em cookie HttpOnly e camada de
+segurança completa (rate limit, validação, RBAC, feature flags no servidor,
+security headers). Em produção, Nginx serve o SPA e faz proxy `/api` para o
+PHP-FPM (`DEPLOY_LARAVEL.md`).
 
 ## Frontend
 
 | Tecnologia | Versão | Papel |
 |---|---|---|
+| **TypeScript** | ~5.8 | Tipagem estática (verificação via `tsc --noEmit`) |
 | **React** | 19 | Biblioteca de UI (componentes) |
-| **Vite** | 6 | Build tool + dev server com hot reload |
+| **Vite** | 6 | Build tool + dev server (proxy `/api` → Laravel em dev) |
 | **Tailwind CSS** | 4 | Estilização por classes utilitárias |
-| **lucide-react** | 0.546 | Ícones (monocromáticos) |
+| **lucide-react** | 0.546 | Ícones |
 | **motion** (Framer Motion) | 12 | Animações e transições |
 | **recharts** | 3 | Gráficos do dashboard administrativo |
 
-## Backend
+## Backend (`backend-laravel/`)
 
 | Tecnologia | Versão | Papel |
 |---|---|---|
-| **Express** | 4 | Framework HTTP / API REST |
-| **Prisma** | 6 | ORM (acesso ao banco, migrations, seed) |
-| **MySQL** | 8 | Banco de dados relacional (via Docker) |
-| **Zod** | 4 | Validação de entrada das rotas |
+| **PHP** | 8.4 (mínimo 8.2) | Runtime do servidor |
+| **Laravel** | 13 | Framework HTTP / API REST |
+| **Eloquent** | (Laravel) | ORM — models mapeiam o schema; migrations versionadas |
+| **MySQL** | 8 | Banco de dados relacional (via Docker em dev) |
+| **firebase/php-jwt** | 7 | JWT HS256 (sessão em cookie HttpOnly `ava_session`) |
 
-Arquitetura em camadas no backend: `routes → controllers → services`, com
-middlewares (auth, RBAC, rate limit, feature flags) e validators separados
-(pasta `src/server/`).
+Arquitetura em camadas: `routes → controllers (finos) → services (regra de
+negócio) → Eloquent`, com middlewares (`jwt`, `active`, `role`, `feature`,
+`SecurityHeaders`) e helpers em `app/Support/` (`Identity` para autorização
+FK-first, `BusinessRules`, `Jwt`).
 
 ## Segurança
 
+| Mecanismo | Implementação |
+|---|---|
+| Autenticação | JWT HS256 em cookie HttpOnly SameSite=Lax (12h), lockout 5 tentativas/15min |
+| Senhas | bcrypt custo 10 via `password_hash`/`password_verify` nativos (compat. com hashes legados `$2a$` — ver ADR 05 na pasta .ai) |
+| RBAC + status de conta | Middlewares `role:` e `active` (status reconferido no banco a cada request) |
+| Rate limiting | Por rota sensível (login 10/15min, registro, upload, export, matrícula...) |
+| Upload | Validação de magic-bytes (`finfo`), nome gerado no servidor, split público/privado com download autorizado |
+| Headers | `SecurityHeaders` middleware na API + CSP/HSTS no Nginx (produção) |
+| Auditoria | `SecurityLog` gravado só pelo servidor; telemetria (`ClientEvent`) separada |
+| Validação | Regras do Laravel Validator em todas as rotas de escrita, erro padronizado `{error, code, message}` |
+
+## Qualidade e ferramentas de desenvolvimento
+
 | Tecnologia | Papel |
 |---|---|
-| **jsonwebtoken** | Autenticação por JWT (sessão em cookie HttpOnly, SameSite=Lax) |
-| **bcryptjs** | Hash de senha |
-| **helmet** | Cabeçalhos de segurança HTTP + Content Security Policy |
-| **cors** | Controle de origens permitidas (por variável de ambiente) |
-| **express-rate-limit** | Limite de tentativas (login, upload, exportação, etc.) |
-| **cookie-parser** | Leitura do cookie de sessão |
-| **multer** + **file-type** | Upload de arquivos com validação real de tipo (magic bytes) |
+| **PHPUnit** | 55 testes de feature do backend (`npm run test:api`) |
+| **Laravel Pint** | Lint PSR-12 (`./vendor/bin/pint --test`) |
+| **PHPStan + Larastan** | Análise estática, nível 5 como gate (`phpstan.neon`) |
+| **Vitest + Testing Library** | Testes do frontend (`npm test`) |
+| **Docker / docker-compose** | MySQL 8 local (`npm run db:up`) |
+| **Composer / npm** | Dependências (backend / frontend) |
 
-## Infraestrutura e ferramentas de desenvolvimento
-
-| Tecnologia | Papel |
-|---|---|
-| **Docker / docker-compose** | Sobe o MySQL 8 local para desenvolvimento |
-| **tsx** | Executa o servidor TypeScript direto em dev (`npm run dev`) |
-| **esbuild** | Empacota o servidor para produção (`npm run build`) |
-| **Vitest** + **Supertest** | Testes automatizados (34 testes de segurança / regras de negócio) |
-| **dotenv** | Variáveis de ambiente (`.env`) |
-
-## Scripts principais (`package.json`)
+## Scripts principais (`package.json` da raiz)
 
 | Comando | O que faz |
 |---|---|
-| `npm run dev` | Sobe o servidor de desenvolvimento (Express + Vite) em `http://localhost:3000` |
-| `npm run build` | Gera o build de produção (frontend com Vite + servidor com esbuild) |
-| `npm run start` | Roda o build de produção |
-| `npm test` | Executa a suíte de testes (Vitest) |
 | `npm run db:up` / `db:down` | Sobe / derruba o MySQL via Docker |
-| `npm run db:migrate` | Aplica as migrations do Prisma |
-| `npm run db:seed` | Popula o banco com os dados iniciais |
-| `npm run db:studio` | Abre o Prisma Studio (visualizador do banco) |
+| `npm run api` | Sobe o backend Laravel em `http://127.0.0.1:8000` |
+| `npm run dev` | Sobe o Vite em `http://localhost:5173` (proxy `/api` → Laravel) |
+| `npm run build` | Build de produção do frontend (`dist/`) |
+| `npm test` / `test:frontend` | Testes do frontend (Vitest) |
+| `npm run test:api` | Testes do backend (PHPUnit) |
+| `npm run db:migrate` | Migrations do Laravel (`php artisan migrate`) |
+| `npm run lint` | Type-check do frontend (`tsc --noEmit`) |
 
-## Observações
+## Legado e observações
 
-- **`@google/genai`** está instalado (herança do template original do Google AI
-  Studio), mas **não está em uso** na plataforma atual — pode ser removido para
-  enxugar as dependências.
-- **Vídeo das aulas**: hoje são URLs externas (YouTube / CDN). Para produção, o
-  recomendado é um **serviço de vídeo dedicado** (Cloudflare Stream, Bunny), ainda
-  não integrado.
-- **Uploads de arquivos** (materiais, entregas) são gravados em disco local
-  (`uploads/public` e `uploads/private`). Se o volume crescer, migrar para storage
-  com URL assinada (S3 ou compatível).
+- **`legacy-node/`**: backend Node/Express/Prisma anterior, arquivado no corte
+  da migração — mantido como referência e rota de rollback (ver README na pasta).
+  As dependências npm dele (express, prisma, etc.) seguem no `package.json` de
+  propósito; remover quando o time dispensar o rollback.
+- **Vídeo das aulas**: URLs externas (YouTube/CDN). Para produção, recomendado
+  serviço dedicado (Cloudflare Stream, Bunny) — ainda não integrado.
+- **Uploads**: disco local (`uploads/public` e `uploads/private`). Se o volume
+  crescer, migrar para storage com URL assinada (S3 ou compatível).
+- **Node 18** instalado em dev; Vite 6 recomenda **Node 20 LTS** (subir antes
+  do deploy).
