@@ -17,6 +17,13 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      // /api e /uploads são encaminhados para o backend Laravel (`npm run api`),
+      // preservando uma única origem para o navegador (sem CORS/cookie cross-origin).
+      // Fluxo de dev: `npm run api` (Laravel :8000) + `npm run dev` (Vite :5173).
+      proxy: {
+        '/api': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
+        '/uploads': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
+      },
     },
   };
 });

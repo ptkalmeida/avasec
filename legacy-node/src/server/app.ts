@@ -29,6 +29,7 @@ import { settingsRouter } from './routes/settingsRoutes';
 import { auditRouter, telemetryRouter } from './routes/auditRoutes';
 import { devRouter } from './routes/devRoutes';
 import { requireFeature } from './middlewares/featureGate';
+import { createLaravelProxy } from './middlewares/laravelProxy';
 
 export function createApiApp() {
   const app = express();
@@ -62,6 +63,15 @@ export function createApiApp() {
     })
   );
   app.use(cors(corsOptions));
+
+  // Migração Node -> Laravel: encaminha para o Laravel os prefixos já migrados
+  // (LARAVEL_PROXY_PREFIXES). Fica ANTES do express.json() para repassar o corpo
+  // intacto. Vazio por padrão => nenhuma rota é encaminhada, tudo segue no Node.
+  const laravelProxy = createLaravelProxy();
+  if (laravelProxy) {
+    app.use(laravelProxy);
+  }
+
   app.use(express.json({ limit: '2mb' }));
   app.use(cookieParser());
   app.use('/api', globalApiLimiter);

@@ -4,26 +4,21 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
-    "start": "node dist/server.cjs",
+    "dev": "vite",
+    "dev:laravel": "vite",
+    "api": "cd backend-laravel && php artisan serve --host=127.0.0.1 --port=8000",
+    "build": "vite build",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "test": "vitest run",
+    "test:frontend": "vitest run --project frontend",
+    "test:api": "cd backend-laravel && php artisan test",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:migrate": "prisma migrate dev",
-    "db:generate": "prisma generate",
-    "db:seed": "prisma db seed",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "db:migrate": "cd backend-laravel && php artisan migrate"
   },
   "dependencies": {
-    "@google/genai": "^2.4.0",
     "@prisma/client": "^6.2.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
@@ -46,6 +41,9 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
@@ -56,6 +54,8 @@
     "@types/supertest": "^7.2.1",
     "autoprefixer": "^10.4.21",
     "esbuild": "^0.25.0",
+    "http-proxy-middleware": "^3.0.7",
+    "jsdom": "^26.1.0",
     "prisma": "^6.2.1",
     "supertest": "^7.2.2",
     "tailwindcss": "^4.1.14",

@@ -1,14 +1,11 @@
 import { defineConfig } from 'vitest/config';
 
+// Após o corte da migração para Laravel, o Vitest cobre apenas o FRONTEND (jsdom +
+// React Testing Library). O backend é testado pelo PHPUnit do Laravel
+// (`npm run test:api` / `php backend-laravel/artisan test`). A antiga suíte Node
+// (50 testes, supertest) está arquivada em legacy-node/tests/.
 export default defineConfig({
   test: {
-    environment: 'node',
-    setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.test.ts'],
-    testTimeout: 20000,
-    hookTimeout: 20000,
-    // Os testes de segurança batem no banco de verdade (Docker) e usam rate limit real —
-    // rodar em série evita testes de lockout/rate-limit interferindo uns nos outros.
-    fileParallelism: false,
+    projects: ['./vitest.frontend.config.ts'],
   },
 });
