@@ -44,11 +44,36 @@ trait ApiRequestHelpers
     /**
      * Identidade autenticada anexada pelo middleware JwtAuthenticate.
      *
-     * @return array{sub: string, name: mixed, role: mixed}
+     * @return array{sub: string, name: string, role: string}
      */
     protected function requester(Request $request): array
     {
-        return $request->attributes->get('auth_user');
+        $user = $this->optionalRequester($request);
+        if ($user === null) {
+            throw ApiException::unauthorized('Não autenticado.');
+        }
+
+        return $user;
+    }
+
+    /**
+     * Identidade autenticada, se houver — para rotas públicas em que o token é
+     * opcional (registro com provisionamento por admin, telemetria).
+     *
+     * @return array{sub: string, name: string, role: string}|null
+     */
+    protected function optionalRequester(Request $request): ?array
+    {
+        $user = $request->attributes->get('auth_user');
+        if (! is_array($user) || ! is_string($user['sub'] ?? null)) {
+            return null;
+        }
+
+        return [
+            'sub' => $user['sub'],
+            'name' => is_string($user['name'] ?? null) ? $user['name'] : '',
+            'role' => is_string($user['role'] ?? null) ? $user['role'] : '',
+        ];
     }
 
     /**
@@ -83,6 +108,51 @@ trait ApiRequestHelpers
                 'totalPages' => max(1, (int) ceil($total / $pageSize)),
             ],
         ];
+    }
+
+    /**
+     * Extrai um campo string obrigatório de um payload já validado — faz o
+     * narrowing em runtime que o validator garante mas o tipo não expressa.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function stringField(array $data, string $key): string
+    {
+        $value = $data[$key] ?? null;
+        if (! is_string($value)) {
+            throw ApiException::validation("Campo obrigatório ausente ou inválido: {$key}.");
+        }
+
+        return $value;
+    }
+
+    /**
+     * Extrai um campo string opcional (ausente ou não-string vira null).
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function optionalString(array $data, string $key): ?string
+    {
+        $value = $data[$key] ?? null;
+
+        return is_string($value) ? $value : null;
+    }
+
+    /**
+     * Extrai uma lista de strings de um payload já validado (entradas
+     * não-string são descartadas; campo ausente vira lista vazia).
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<string>
+     */
+    protected function stringList(array $data, string $key): array
+    {
+        $value = $data[$key] ?? [];
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_filter($value, 'is_string'));
     }
 
     /**

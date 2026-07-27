@@ -18,7 +18,7 @@ use Throwable;
  */
 final class AuditLogger
 {
-    /** @param array{name:mixed,role:mixed}|null $actorOverride */
+    /** @param array{name:string,role:string}|null $actorOverride */
     public function log(
         Request $request,
         string $action,
@@ -33,8 +33,8 @@ final class AuditLogger
             DB::table('SecurityLog')->insert([
                 'id' => 'log-'.$now->getTimestampMs().'-'.Str::lower(Str::random(6)),
                 'timestamp' => $now->format('H:i:s').' '.$now->format('d/m/Y'),
-                'user' => (string) ($actor['name'] ?? 'Visitante Anônimo'),
-                'role' => (string) ($actor['role'] ?? 'anonymous'),
+                'user' => is_string($actor['name'] ?? null) ? $actor['name'] : 'Visitante Anônimo',
+                'role' => is_string($actor['role'] ?? null) ? $actor['role'] : 'anonymous',
                 'ipAddress' => $this->clientIp($request),
                 'device' => Str::substr((string) $request->userAgent(), 0, 200) ?: 'desconhecido',
                 'action' => $action,
@@ -47,12 +47,15 @@ final class AuditLogger
         }
     }
 
-    /** @return array{name:mixed,role:mixed} */
+    /** @return array{name:string,role:string} */
     private function actorFromRequest(Request $request): array
     {
         $authUser = $request->attributes->get('auth_user');
         if (is_array($authUser)) {
-            return ['name' => $authUser['name'] ?? 'Visitante Anônimo', 'role' => $authUser['role'] ?? 'anonymous'];
+            return [
+                'name' => is_string($authUser['name'] ?? null) ? $authUser['name'] : 'Visitante Anônimo',
+                'role' => is_string($authUser['role'] ?? null) ? $authUser['role'] : 'anonymous',
+            ];
         }
 
         return ['name' => 'Visitante Anônimo', 'role' => 'anonymous'];

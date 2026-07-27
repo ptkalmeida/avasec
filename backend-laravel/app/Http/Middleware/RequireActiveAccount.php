@@ -23,7 +23,7 @@ final class RequireActiveAccount
     public function handle(Request $request, Closure $next): Response
     {
         $authUser = $request->attributes->get('auth_user');
-        $sub = $authUser['sub'] ?? null;
+        $sub = is_array($authUser) ? ($authUser['sub'] ?? null) : null;
 
         $user = is_string($sub) ? User::query()->find($sub, ['status']) : null;
         if ($user === null) {

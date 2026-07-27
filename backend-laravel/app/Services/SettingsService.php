@@ -20,7 +20,10 @@ final class SettingsService
         return $row->data ?? [];
     }
 
-    /** @param array<string, mixed> $updates @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $updates
+     * @return array<string, mixed>
+     */
     public function update(array $updates): array
     {
         $row = SystemSettings::query()->find('singleton');

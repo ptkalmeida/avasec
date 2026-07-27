@@ -35,6 +35,8 @@ final class Jwt
 
     public static function secret(): string
     {
-        return (string) config('app.jwt_secret');
+        $secret = config('app.jwt_secret');
+
+        return is_string($secret) ? $secret : '';
     }
 }

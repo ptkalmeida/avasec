@@ -24,9 +24,9 @@ final class CatalogService
     /** @param array<string, mixed> $data */
     public function upsertLibraryItem(array $data): LibraryItem
     {
-        $id = $data['id'] ?? ('lib-'.$this->nowMs());
+        $id = is_string($data['id'] ?? null) ? $data['id'] : ('lib-'.$this->nowMs());
 
-        return $this->upsert(new LibraryItem, $id, [
+        return $this->upsert(LibraryItem::class, $id, [
             'id' => $id,
             'title' => $data['title'],
             'type' => $data['type'],
@@ -45,9 +45,9 @@ final class CatalogService
     /** @param array<string, mixed> $data */
     public function upsertWebinar(array $data): WebinarEvent
     {
-        $id = $data['id'] ?? ('webinar-'.$this->nowMs());
+        $id = is_string($data['id'] ?? null) ? $data['id'] : ('webinar-'.$this->nowMs());
 
-        return $this->upsert(new WebinarEvent, $id, [
+        return $this->upsert(WebinarEvent::class, $id, [
             'id' => $id,
             'title' => $data['title'],
             'date' => $data['date'],
@@ -59,23 +59,23 @@ final class CatalogService
     }
 
     /**
-     * @param  array<string, mixed>  $attributes
-     *
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
-     * @param  TModel  $model
+     * @param  class-string<TModel>  $modelClass
+     * @param  array<string, mixed>  $attributes
      * @return TModel
      */
-    private function upsert($model, string $id, array $attributes)
+    private function upsert(string $modelClass, string $id, array $attributes)
     {
-        $existing = $model->newQuery()->find($id);
-        if ($existing !== null) {
+        $existing = $modelClass::query()->whereKey($id)->first();
+        if ($existing instanceof $modelClass) {
             $existing->fill($attributes);
             $existing->save();
 
             return $existing;
         }
 
+        $model = new $modelClass;
         $model->fill($attributes);
         $model->save();
 

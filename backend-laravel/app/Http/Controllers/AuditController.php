@@ -39,15 +39,19 @@ final class AuditController extends Controller
         ]);
 
         // A identidade registrada vem do token (se houver), nunca do corpo.
-        $authUser = $request->attributes->get('auth_user');
-        $actor = is_array($authUser)
-            ? ['name' => (string) ($authUser['name'] ?? 'Visitante Anônimo'), 'role' => (string) ($authUser['role'] ?? 'anonymous')]
+        $authUser = $this->optionalRequester($request);
+        $actor = $authUser !== null
+            ? ['name' => $authUser['name'] !== '' ? $authUser['name'] : 'Visitante Anônimo', 'role' => $authUser['role'] !== '' ? $authUser['role'] : 'anonymous']
             : ['name' => 'Visitante Anônimo', 'role' => 'anonymous'];
 
         $forwarded = $request->header('X-Forwarded-For');
         $ip = is_string($forwarded) && $forwarded !== '' ? trim(explode(',', $forwarded)[0]) : ($request->ip() ?? 'desconhecido');
 
-        $event = $this->audit->recordClientEvent($data, $actor, $ip, (string) $request->userAgent());
+        $event = $this->audit->recordClientEvent([
+            'action' => $this->stringField($data, 'action'),
+            'details' => $this->stringField($data, 'details'),
+            'status' => $this->optionalString($data, 'status'),
+        ], $actor, $ip, (string) $request->userAgent());
 
         return response()->json($event, 201);
     }

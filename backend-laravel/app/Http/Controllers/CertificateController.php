@@ -33,7 +33,7 @@ final class CertificateController extends Controller
     public function index(Request $request): JsonResponse
     {
         [$page, $pageSize, $skip, $take] = $this->pageParams($request);
-        $result = $this->certificates->listCertificates($request->attributes->get('auth_user'), $skip, $take);
+        $result = $this->certificates->listCertificates($this->requester($request), $skip, $take);
 
         return response()->json([
             'items' => $result['items'],
@@ -53,8 +53,13 @@ final class CertificateController extends Controller
             'courseId' => ['required', 'string', 'max:191'],
         ]);
 
-        $cert = $this->certificates->issueCertificate($data, $this->requester($request));
-        $this->audit->log($request, 'Emissão de Certificado', "Certificado emitido para \"{$cert['studentName']}\" no curso {$cert['courseId']}.");
+        $studentName = $this->stringField($data, 'studentName');
+        $courseId = $this->stringField($data, 'courseId');
+        $cert = $this->certificates->issueCertificate([
+            'studentName' => $studentName,
+            'courseId' => $courseId,
+        ], $this->requester($request));
+        $this->audit->log($request, 'Emissão de Certificado', "Certificado emitido para \"{$studentName}\" no curso {$courseId}.");
 
         return response()->json($cert, 201);
     }

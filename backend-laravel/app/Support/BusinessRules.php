@@ -11,17 +11,24 @@ final class BusinessRules
 {
     public static function defaultMinAttendance(): int
     {
-        return (int) config('constants.default_min_attendance');
+        return self::intConfig('constants.default_min_attendance', 70);
     }
 
     public static function dropoutPenaltyFreeDays(): int
     {
-        return (int) config('constants.dropout_penalty_free_days');
+        return self::intConfig('constants.dropout_penalty_free_days', 5);
     }
 
     public static function dropoutPenaltyDays(): int
     {
-        return (int) config('constants.dropout_penalty_days');
+        return self::intConfig('constants.dropout_penalty_days', 30);
+    }
+
+    private static function intConfig(string $key, int $default): int
+    {
+        $value = config($key);
+
+        return is_numeric($value) ? (int) $value : $default;
     }
 
     /**

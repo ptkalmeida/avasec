@@ -27,7 +27,10 @@ final class MessagingController extends Controller
             'text' => ['required', 'string', 'min:1', 'max:2000'],
         ]);
 
-        return response()->json($this->messaging->createChatMessage($data, $this->requester($request)), 201);
+        return response()->json($this->messaging->createChatMessage([
+            'sessionId' => $this->stringField($data, 'sessionId'),
+            'text' => $this->stringField($data, 'text'),
+        ], $this->requester($request)), 201);
     }
 
     public function listDirectMessages(Request $request): JsonResponse
@@ -42,6 +45,9 @@ final class MessagingController extends Controller
             'text' => ['required', 'string', 'min:1', 'max:2000'],
         ]);
 
-        return response()->json($this->messaging->createDirectMessage($data, $this->requester($request)), 201);
+        return response()->json($this->messaging->createDirectMessage([
+            'studentName' => $this->stringField($data, 'studentName'),
+            'text' => $this->stringField($data, 'text'),
+        ], $this->requester($request)), 201);
     }
 }

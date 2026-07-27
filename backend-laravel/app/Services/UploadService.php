@@ -27,11 +27,13 @@ final class UploadService
 
         $ext = strtolower($file->getClientOriginalExtension());
         $allowed = config('uploads.allowed_types');
-        if (! isset($allowed[$ext])) {
+        $allowedMimes = is_array($allowed) && isset($allowed[$ext]) && is_array($allowed[$ext]) ? $allowed[$ext] : null;
+        if ($allowedMimes === null) {
             throw ApiException::validation('Tipo de arquivo não permitido: '.($ext !== '' ? ".$ext" : '(sem extensão)'));
         }
 
-        $maxBytes = ((int) config('uploads.max_size_mb')) * 1024 * 1024;
+        $maxSizeMb = config('uploads.max_size_mb');
+        $maxBytes = (is_numeric($maxSizeMb) ? (int) $maxSizeMb : 10) * 1024 * 1024;
         $size = (int) $file->getSize();
         if ($size > $maxBytes) {
             throw new ApiException(400, 'UPLOAD_ERROR', 'Arquivo excede o tamanho máximo permitido.');
@@ -39,8 +41,11 @@ final class UploadService
 
         // Magic bytes reais do conteúdo — não confia no Content-Type do cliente.
         $contents = file_get_contents($file->getRealPath());
+        if ($contents === false) {
+            throw new ApiException(400, 'UPLOAD_ERROR', 'Falha ao ler o arquivo enviado.');
+        }
         $detected = (new finfo(FILEINFO_MIME_TYPE))->buffer($contents) ?: '';
-        if (! in_array($detected, $allowed[$ext], true)) {
+        if (! in_array($detected, $allowedMimes, true)) {
             throw ApiException::validation('O conteúdo do arquivo não corresponde a um '.strtoupper($ext).' válido.');
         }
 
@@ -73,7 +78,7 @@ final class UploadService
      * Resolve caminho físico de um arquivo para download autorizado, aplicando as mesmas
      * regras do Node (anti-traversal, existência, autorização por dono/staff).
      *
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array{path:string, mime:string, originalName:string}
      */
     public function resolveForDownload(string $id, array $requester): array
@@ -101,11 +106,17 @@ final class UploadService
         $ext = strtolower(pathinfo($record->id, PATHINFO_EXTENSION));
         $mime = config("uploads.mime_by_ext.$ext", 'application/octet-stream');
 
-        return ['path' => $path, 'mime' => $mime, 'originalName' => $record->originalName];
+        return [
+            'path' => $path,
+            'mime' => is_string($mime) ? $mime : 'application/octet-stream',
+            'originalName' => $record->originalName,
+        ];
     }
 
     private function dir(string $visibility): string
     {
-        return rtrim((string) config('uploads.root'), '/\\').DIRECTORY_SEPARATOR.($visibility === 'private' ? 'private' : 'public');
+        $root = config('uploads.root');
+
+        return rtrim(is_string($root) ? $root : '', '/\\').DIRECTORY_SEPARATOR.($visibility === 'private' ? 'private' : 'public');
     }
 }

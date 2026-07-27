@@ -27,8 +27,9 @@ final class CourseController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validated($request, false);
-        $course = $this->courses->createCourse($data, $request->attributes->get('auth_user'));
-        $this->audit->log($request, 'Criação de Curso', "Curso \"{$course['title']}\" criado.");
+        $course = $this->courses->createCourse($data, $this->requester($request));
+        $title = $this->optionalString($course, 'title') ?? '';
+        $this->audit->log($request, 'Criação de Curso', "Curso \"{$title}\" criado.");
 
         return response()->json($course, 201);
     }
@@ -36,15 +37,16 @@ final class CourseController extends Controller
     public function update(Request $request, string $id): JsonResponse
     {
         $data = $this->validated($request, true);
-        $course = $this->courses->updateCourse($id, $data, $request->attributes->get('auth_user'));
-        $this->audit->log($request, 'Alteração de Curso', "Curso \"{$course['title']}\" ({$id}) atualizado.");
+        $course = $this->courses->updateCourse($id, $data, $this->requester($request));
+        $title = $this->optionalString($course, 'title') ?? '';
+        $this->audit->log($request, 'Alteração de Curso', "Curso \"{$title}\" ({$id}) atualizado.");
 
         return response()->json($course);
     }
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->courses->deleteCourse($id, $request->attributes->get('auth_user'));
+        $this->courses->deleteCourse($id, $this->requester($request));
         $this->audit->log($request, 'Exclusão de Curso', "Curso {$id} excluído.", 'WARNING');
 
         return response()->json(['success' => true]);

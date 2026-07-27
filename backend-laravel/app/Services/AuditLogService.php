@@ -32,7 +32,7 @@ final class AuditLogService
     }
 
     /**
-     * @param  array{action:string,details:string,status?:string}  $input
+     * @param  array{action:string,details:string,status?:string|null}  $input
      * @param  array{name:string,role:string}  $actor
      * @return array<string, mixed>
      */

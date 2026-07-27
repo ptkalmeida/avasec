@@ -25,13 +25,19 @@ final class Lesson extends Model
 
     protected $appends = ['order'];
 
+    /** @return Attribute<int, never> */
     protected function order(): Attribute
     {
         return Attribute::make(
-            get: fn () => (int) $this->attributes['lesson_order'],
+            get: function (): int {
+                $raw = $this->attributes['lesson_order'] ?? 0;
+
+                return is_numeric($raw) ? (int) $raw : 0;
+            },
         );
     }
 
+    /** @return HasMany<LessonDocument, $this> */
     public function documents(): HasMany
     {
         return $this->hasMany(LessonDocument::class, 'lessonId');
