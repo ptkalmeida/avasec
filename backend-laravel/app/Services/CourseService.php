@@ -10,6 +10,7 @@ use App\Models\Lesson;
 use App\Models\LessonDocument;
 use App\Models\LiveSession;
 use App\Models\User;
+use App\Support\Payload;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -40,13 +41,13 @@ final class CourseService
 
     /**
      * @param  array<string, mixed>  $input
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function createCourse(array $input, array $requester): array
     {
-        $lessons = $input['lessons'] ?? [];
-        $liveSessions = $input['liveSessions'] ?? [];
+        $lessons = Payload::assocList($input['lessons'] ?? []);
+        $liveSessions = Payload::assocList($input['liveSessions'] ?? []);
         unset($input['lessons'], $input['liveSessions']);
 
         // Instrutor só cria curso em seu próprio nome; admin pode atribuir a outro instrutor.
@@ -63,7 +64,7 @@ final class CourseService
             $instructorId = $requester['sub'];
         }
 
-        $id = $input['id'] ?? ('course-'.$this->nowMs());
+        $id = is_string($input['id'] ?? null) ? $input['id'] : ('course-'.$this->nowMs());
 
         DB::transaction(function () use ($input, $id, $instructorName, $instructorId, $lessons, $liveSessions): void {
             $courseData = $this->scalarCourseData($input);
@@ -85,15 +86,15 @@ final class CourseService
 
     /**
      * @param  array<string, mixed>  $updates
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function updateCourse(string $courseId, array $updates, array $requester): array
     {
         $this->assertCourseOwnership($courseId, $requester);
 
-        $lessons = array_key_exists('lessons', $updates) ? $updates['lessons'] : null;
-        $liveSessions = array_key_exists('liveSessions', $updates) ? $updates['liveSessions'] : null;
+        $lessons = array_key_exists('lessons', $updates) ? Payload::assocList($updates['lessons']) : null;
+        $liveSessions = array_key_exists('liveSessions', $updates) ? Payload::assocList($updates['liveSessions']) : null;
         unset($updates['lessons'], $updates['liveSessions']);
 
         // Se a autoria mudou (admin reatribuindo), re-resolve a FK do instrutor.
@@ -121,7 +122,7 @@ final class CourseService
         return $this->getCourseById($courseId);
     }
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester */
+    /** @param array{sub:string,name:string,role:string} $requester */
     public function deleteCourse(string $courseId, array $requester): void
     {
         $this->assertCourseOwnership($courseId, $requester);
@@ -129,7 +130,7 @@ final class CourseService
         Course::query()->where('id', $courseId)->delete();
     }
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester */
+    /** @param array{sub:string,name:string,role:string} $requester */
     private function assertCourseOwnership(string $courseId, array $requester): void
     {
         $course = Course::query()->find($courseId, ['instructorName', 'instructorId']);
@@ -148,7 +149,7 @@ final class CourseService
         throw ApiException::forbidden('Você só pode gerenciar cursos vinculados ao seu próprio perfil de instrutor.');
     }
 
-    /** @param array<string, mixed> $lessons */
+    /** @param list<array<string, mixed>> $lessons */
     private function syncLessons(string $courseId, array $lessons): void
     {
         $keptIds = array_values(array_filter(array_map(fn ($l) => $l['id'] ?? null, $lessons)));
@@ -157,7 +158,9 @@ final class CourseService
             ->delete();
 
         foreach ($lessons as $lesson) {
-            $lessonId = $lesson['id'] ?? ('lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+            $lessonId = is_string($lesson['id'] ?? null)
+                ? $lesson['id']
+                : ('lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = $this->lessonScalar($lesson, $courseId);
             $existing = Lesson::query()->find($lessonId);
             if ($existing !== null) {
@@ -167,13 +170,15 @@ final class CourseService
                 Lesson::query()->create($data);
             }
 
-            $documents = $lesson['documents'] ?? [];
+            $documents = Payload::assocList($lesson['documents'] ?? []);
             $keptDocIds = array_values(array_filter(array_map(fn ($d) => $d['id'] ?? null, $documents)));
             LessonDocument::query()->where('lessonId', $lessonId)
                 ->when(count($keptDocIds) > 0, fn ($q) => $q->whereNotIn('id', $keptDocIds))
                 ->delete();
             foreach ($documents as $doc) {
-                $docId = $doc['id'] ?? ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+                $docId = is_string($doc['id'] ?? null)
+                    ? $doc['id']
+                    : ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
                 $docData = $this->documentScalar($doc, $lessonId);
                 $existingDoc = LessonDocument::query()->find($docId);
                 if ($existingDoc !== null) {
@@ -186,7 +191,7 @@ final class CourseService
         }
     }
 
-    /** @param array<string, mixed> $liveSessions */
+    /** @param list<array<string, mixed>> $liveSessions */
     private function syncLiveSessions(string $courseId, array $liveSessions): void
     {
         $keptIds = array_values(array_filter(array_map(fn ($s) => $s['id'] ?? null, $liveSessions)));
@@ -195,7 +200,9 @@ final class CourseService
             ->delete();
 
         foreach ($liveSessions as $session) {
-            $sessionId = $session['id'] ?? ('live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+            $sessionId = is_string($session['id'] ?? null)
+                ? $session['id']
+                : ('live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = $this->liveSessionData($session, $courseId);
             $data['id'] = $sessionId;
             $existing = LiveSession::query()->find($sessionId);
@@ -211,13 +218,17 @@ final class CourseService
     /** @param array<string, mixed> $lesson */
     private function createLessonWithDocuments(string $courseId, array $lesson): void
     {
-        $lessonId = $lesson['id'] ?? ('lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+        $lessonId = is_string($lesson['id'] ?? null)
+            ? $lesson['id']
+            : ('lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
         $data = $this->lessonScalar($lesson, $courseId);
         $data['id'] = $lessonId;
         Lesson::query()->create($data);
-        foreach ($lesson['documents'] ?? [] as $doc) {
+        foreach (Payload::assocList($lesson['documents'] ?? []) as $doc) {
             $docData = $this->documentScalar($doc, $lessonId);
-            $docData['id'] = $doc['id'] ?? ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+            $docData['id'] = is_string($doc['id'] ?? null)
+                ? $doc['id']
+                : ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             LessonDocument::query()->create($docData);
         }
     }
@@ -234,7 +245,7 @@ final class CourseService
             'duration' => $lesson['duration'],
             'videoUrl' => $lesson['videoUrl'] ?? null,
             'content' => $lesson['content'] ?? null,
-            'lesson_order' => (int) ($lesson['order'] ?? 0),
+            'lesson_order' => is_numeric($lesson['order'] ?? null) ? (int) $lesson['order'] : 0,
         ];
     }
 
@@ -264,7 +275,7 @@ final class CourseService
             'courseId' => $courseId,
             'title' => $session['title'],
             'scheduledAt' => $session['scheduledAt'],
-            'durationMinutes' => (int) $session['durationMinutes'],
+            'durationMinutes' => is_numeric($session['durationMinutes'] ?? null) ? (int) $session['durationMinutes'] : 0,
             'meetingLink' => $session['meetingLink'],
             'isLive' => (bool) ($session['isLive'] ?? false),
         ];
@@ -287,7 +298,7 @@ final class CourseService
         return array_intersect_key($input, array_flip($allowed));
     }
 
-    /** @return array<int|string, mixed> */
+    /** @return array<int|string, string|(\Closure(\Illuminate\Database\Eloquent\Relations\Relation<*, *, *>): mixed)> */
     private function courseInclude(): array
     {
         return [

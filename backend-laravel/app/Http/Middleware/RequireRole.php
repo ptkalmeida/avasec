@@ -18,7 +18,7 @@ final class RequireRole
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->attributes->get('auth_user');
-        $role = $user['role'] ?? null;
+        $role = is_array($user) ? ($user['role'] ?? null) : null;
 
         if (! is_string($role) || ! in_array($role, $roles, true)) {
             throw ApiException::forbidden();

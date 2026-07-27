@@ -34,11 +34,13 @@ final class Course extends Model
         'cargaHoraria' => 'integer',
     ];
 
+    /** @return HasMany<Lesson, $this> */
     public function lessons(): HasMany
     {
         return $this->hasMany(Lesson::class, 'courseId');
     }
 
+    /** @return HasMany<LiveSession, $this> */
     public function liveSessions(): HasMany
     {
         return $this->hasMany(LiveSession::class, 'courseId');

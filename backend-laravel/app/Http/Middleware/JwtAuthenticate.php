@@ -38,7 +38,7 @@ final class JwtAuthenticate
         return $next($request);
     }
 
-    /** @return array{sub:string,name:mixed,role:mixed}|null */
+    /** @return array{sub:string,name:string,role:string}|null */
     public static function decode(?string $token): ?array
     {
         if ($token === null || $token === '') {

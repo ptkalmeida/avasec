@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\DB;
  * PASSWORD_BCRYPT cost 10), não o Hash facade do Laravel: isso garante interop com
  * os hashes $2a$ gerados pelo bcryptjs do Node (o facade rejeita esse prefixo) e
  * gera hashes $2y$ que o bcryptjs do Node também consegue verificar.
+ *
+ * @phpstan-type PublicUser array{id: string, name: string, email: string, role: string, status: string, municipio?: string, uf?: string, areaInteresse?: string, dataCadastro?: string}
  */
 final class AuthService
 {
@@ -27,9 +29,9 @@ final class AuthService
     private const BCRYPT_COST = 10;
 
     /**
-     * @param  array<string, mixed>  $input
-     * @param  array{sub:string,name:mixed,role:mixed}|null  $requester
-     * @return array{token: string|null, user: array<string, mixed>}
+     * @param  array{name:string,email:string,password:string,role?:string|null,cpf?:string|null,municipio?:string|null,uf?:string|null,areaInteresse?:string|null,dataCadastro?:string|null}  $input
+     * @param  array{sub:string,name:string,role:string}|null  $requester
+     * @return array{token: string|null, user: PublicUser}
      */
     public function register(array $input, ?array $requester): array
     {
@@ -44,7 +46,10 @@ final class AuthService
             throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este e-mail.');
         }
 
-        $role = $isAdminProvisioning ? ($requestedRole ?? 'student') : 'student';
+        $role = 'student';
+        if ($isAdminProvisioning && in_array($requestedRole, ['student', 'instructor', 'admin'], true)) {
+            $role = $requestedRole;
+        }
         $status = $isAdminProvisioning ? 'active' : 'pending_confirmation';
 
         $user = new User;
@@ -73,8 +78,8 @@ final class AuthService
     }
 
     /**
-     * @param  array{name?:string,email?:string,password:string}  $input
-     * @return array{token: string, user: array<string, mixed>}
+     * @param  array{name?:string|null,email?:string|null,password:string}  $input
+     * @return array{token: string, user: PublicUser}
      */
     public function login(array $input): array
     {
@@ -129,7 +134,7 @@ final class AuthService
         return ['token' => $token, 'user' => $this->toPublicUser($user)];
     }
 
-    /** @return array<string, mixed> */
+    /** @return PublicUser */
     public function getCurrentUser(string $userId): array
     {
         $user = User::query()->find($userId);
@@ -227,12 +232,15 @@ final class AuthService
         return ['items' => $items, 'total' => $total];
     }
 
-    /** @return array<string, mixed> */
+    /** @return PublicUser */
     public function updateAccountStatus(string $userId, string $status): array
     {
         $user = User::query()->find($userId);
         if ($user === null) {
             throw ApiException::notFound('Usuário não encontrado.');
+        }
+        if (! in_array($status, ['active', 'blocked', 'pending_confirmation'], true)) {
+            throw ApiException::validation('Status de conta inválido.');
         }
         $user->status = $status;
         $user->save();
@@ -245,7 +253,7 @@ final class AuthService
         User::query()->where('id', $userId)->delete();
     }
 
-    /** @return array<string, mixed> */
+    /** @return PublicUser */
     public function toPublicUser(User $user): array
     {
         $public = [
@@ -256,10 +264,17 @@ final class AuthService
             'status' => $user->status,
         ];
         // Campos opcionais só aparecem quando presentes (mesma forma do toPublicUser do Node).
-        foreach (['municipio', 'uf', 'areaInteresse', 'dataCadastro'] as $field) {
-            if ($user->{$field} !== null) {
-                $public[$field] = $user->{$field};
-            }
+        if ($user->municipio !== null) {
+            $public['municipio'] = $user->municipio;
+        }
+        if ($user->uf !== null) {
+            $public['uf'] = $user->uf;
+        }
+        if ($user->areaInteresse !== null) {
+            $public['areaInteresse'] = $user->areaInteresse;
+        }
+        if ($user->dataCadastro !== null) {
+            $public['dataCadastro'] = $user->dataCadastro;
         }
 
         return $public;

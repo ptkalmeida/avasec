@@ -33,19 +33,24 @@ final class EnrollmentService
         'dropOutPenaltyUntil' => null,
     ];
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester @return string[] */
+    /**
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return string[]
+     */
     private function instructorCourseIds(array $requester): array
     {
-        return Course::query()
+        $ids = Course::query()
             ->where('instructorId', $requester['sub'])
             ->orWhere(fn ($q) => $q->whereNull('instructorId')->where('instructorName', $requester['name']))
             ->pluck('id')->all();
+
+        return array_values(array_filter($ids, static fn ($id): bool => is_string($id)));
     }
 
     // ---------- PROGRESSO ----------
 
     /**
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<int, array<string, mixed>>
      */
     public function getProgress(?string $requestedStudentName, array $requester): array
@@ -73,8 +78,8 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{studentName:string,courseId:string,completedLessons:array,attendedLiveSessions:array}  $input
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{studentName:string,courseId:string,completedLessons:list<string>,attendedLiveSessions:list<string>}  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function upsertProgress(array $input, array $requester): array
@@ -118,7 +123,7 @@ final class EnrollmentService
     // ---------- MATRÍCULA ----------
 
     /**
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function getEnrollments(array $requester): array
@@ -138,8 +143,8 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{enrolledCourseId?:string|null,enrolledAt?:string|null,completedCourseIds?:array,dropOutPenaltyUntil?:string|null}  $updates
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{enrolledCourseId?:string|null,enrolledAt?:string|null,completedCourseIds?:list<string>,dropOutPenaltyUntil?:string|null}  $updates
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function upsertEnrollment(string $studentName, array $updates, array $requester): array
@@ -158,7 +163,7 @@ final class EnrollmentService
     // ---------- AÇÕES DO PRÓPRIO ALUNO ----------
 
     /**
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array{enrollment: array<string, mixed>}
      */
     public function selfEnroll(string $courseId, array $requester): array
@@ -188,7 +193,7 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array{enrollment: array<string, mixed>, penaltyApplied: bool}
      */
     public function selfDrop(string $courseId, array $requester): array
@@ -221,7 +226,7 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array{enrollment: array<string, mixed>}
      */
     public function selfComplete(string $courseId, array $requester): array
@@ -261,7 +266,7 @@ final class EnrollmentService
     // ---------- ADMISSÕES ----------
 
     /**
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<int, array<string, mixed>>
      */
     public function listAdmissions(array $requester): array
@@ -279,8 +284,8 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{id?:string,studentName:string,courseId:string}  $input
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{id?:string|null,studentName:string,courseId:string}  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function createAdmission(array $input, array $requester): array
@@ -313,7 +318,7 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function updateAdmissionStatus(string $id, string $status, array $requester): array
@@ -324,6 +329,10 @@ final class EnrollmentService
         }
 
         $this->assertInstructorCanManage($admission->courseId, $requester);
+
+        if (! in_array($status, ['pending', 'approved', 'rejected'], true)) {
+            throw ApiException::validation('Status de matrícula inválido.');
+        }
 
         $studentUserId = $admission->userId ?? Identity::resolveStudentUserId($admission->studentName, $requester);
 
@@ -350,7 +359,7 @@ final class EnrollmentService
 
     // ---------- helpers ----------
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester */
+    /** @param array{sub:string,name:string,role:string} $requester */
     private function assertInstructorCanManage(?string $courseId, array $requester): void
     {
         if ($requester['role'] === 'admin') {
@@ -370,7 +379,7 @@ final class EnrollmentService
         throw ApiException::forbidden('Você só pode gerenciar matrículas de cursos vinculados ao seu perfil.');
     }
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester */
+    /** @param array{sub:string,name:string,role:string} $requester */
     private function ownEnrollment(array $requester): ?StudentEnrollment
     {
         return Identity::applyOwnRows(StudentEnrollment::query(), $requester)->first();

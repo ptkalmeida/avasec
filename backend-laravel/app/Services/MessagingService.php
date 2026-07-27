@@ -26,7 +26,11 @@ final class MessagingService
             ->orderBy('timestamp')->get()->map->toArray()->all();
     }
 
-    /** @param array{sessionId:string,text:string} $input @param array{sub:string,name:mixed,role:mixed} $requester @return array<string, mixed> */
+    /**
+     * @param  array{sessionId:string,text:string}  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
     public function createChatMessage(array $input, array $requester): array
     {
         return ChatMessage::query()->create([
@@ -40,7 +44,10 @@ final class MessagingService
         ])->toArray();
     }
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester @return array<int, array<string, mixed>> */
+    /**
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<int, array<string, mixed>>
+     */
     public function listDirectMessages(array $requester, ?string $studentName): array
     {
         if ($requester['role'] === 'student') {
@@ -57,7 +64,11 @@ final class MessagingService
             ->orderBy('timestamp')->get()->map->toArray()->all();
     }
 
-    /** @param array{studentName:string,text:string} $input @param array{sub:string,name:mixed,role:mixed} $requester @return array<string, mixed> */
+    /**
+     * @param  array{studentName:string,text:string}  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
     public function createDirectMessage(array $input, array $requester): array
     {
         if ($requester['role'] === 'student' && $input['studentName'] !== $requester['name']) {

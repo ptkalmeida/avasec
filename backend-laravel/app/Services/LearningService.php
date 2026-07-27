@@ -12,6 +12,7 @@ use App\Models\Quiz;
 use App\Models\QuizQuestion;
 use App\Models\QuizSubmission;
 use App\Support\Identity;
+use App\Support\Payload;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -31,10 +32,13 @@ final class LearningService
         return Quiz::query()->with('questions')->get()->map->toArray()->all();
     }
 
-    /** @param array<string, mixed> $input @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
     public function createQuiz(array $input): array
     {
-        $id = $input['id'] ?? ('quiz-'.$this->nowMs());
+        $id = is_string($input['id'] ?? null) ? $input['id'] : ('quiz-'.$this->nowMs());
         $quiz = Quiz::query()->find($id);
         if ($quiz !== null) {
             $quiz->fill(['courseId' => $input['courseId'], 'title' => $input['title']])->save();
@@ -42,19 +46,19 @@ final class LearningService
             Quiz::query()->create(['id' => $id, 'courseId' => $input['courseId'], 'title' => $input['title']]);
         }
 
-        $questions = $input['questions'] ?? [];
+        $questions = Payload::assocList($input['questions'] ?? []);
         $keptIds = array_values(array_filter(array_map(fn ($q) => $q['id'] ?? null, $questions)));
         QuizQuestion::query()->where('quizId', $id)
             ->when(count($keptIds) > 0, fn ($q) => $q->whereNotIn('id', $keptIds))
             ->delete();
 
         foreach ($questions as $q) {
-            $qId = $q['id'] ?? ($id.'-q-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+            $qId = is_string($q['id'] ?? null) ? $q['id'] : ($id.'-q-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = [
                 'quizId' => $id,
                 'questionText' => $q['questionText'],
                 'options' => $q['options'],
-                'correctOptionIndex' => (int) $q['correctOptionIndex'],
+                'correctOptionIndex' => is_numeric($q['correctOptionIndex'] ?? null) ? (int) $q['correctOptionIndex'] : 0,
                 'explanation' => $q['explanation'] ?? null,
                 'reviewMessage' => $q['reviewMessage'] ?? null,
                 'recommendedModule' => $q['recommendedModule'] ?? null,
@@ -78,7 +82,10 @@ final class LearningService
         Quiz::query()->where('id', $id)->delete();
     }
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester @return array<int, array<string, mixed>> */
+    /**
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<int, array<string, mixed>>
+     */
     public function listQuizSubmissions(array $requester): array
     {
         $q = QuizSubmission::query();
@@ -89,7 +96,11 @@ final class LearningService
         return $q->get()->map->toArray()->all();
     }
 
-    /** @param array<string, mixed> $input @param array{sub:string,name:mixed,role:mixed} $requester @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
     public function submitQuiz(array $input, array $requester): array
     {
         if ($requester['role'] !== 'student') {
@@ -117,7 +128,11 @@ final class LearningService
         return ForumMessage::query()->get()->map->toArray()->all();
     }
 
-    /** @param array{courseId:string,text:string} $input @param array{sub:string,name:mixed,role:mixed} $requester @return array<string, mixed> */
+    /**
+     * @param  array{courseId:string,text:string}  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
     public function createForumMessage(array $input, array $requester): array
     {
         return ForumMessage::query()->create([
@@ -133,7 +148,10 @@ final class LearningService
         ])->toArray();
     }
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester @return array<string, mixed> */
+    /**
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
     public function toggleForumLike(string $messageId, array $requester): array
     {
         $msg = ForumMessage::query()->find($messageId);
@@ -152,7 +170,7 @@ final class LearningService
         return $msg->toArray();
     }
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester */
+    /** @param array{sub:string,name:string,role:string} $requester */
     public function deleteForumMessage(string $id, array $requester): void
     {
         $msg = ForumMessage::query()->find($id);
@@ -174,7 +192,10 @@ final class LearningService
         return PracticalExercise::query()->get()->map->toArray()->all();
     }
 
-    /** @param array<string, mixed> $input @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
     public function createExercise(array $input): array
     {
         $id = $input['id'] ?? ('exercise-'.$this->nowMs());
@@ -184,7 +205,10 @@ final class LearningService
         return PracticalExercise::query()->create($data)->toArray();
     }
 
-    /** @param array<string, mixed> $updates @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $updates
+     * @return array<string, mixed>
+     */
     public function updateExercise(string $id, array $updates): array
     {
         $exercise = PracticalExercise::query()->find($id);
@@ -201,7 +225,10 @@ final class LearningService
         PracticalExercise::query()->where('id', $id)->delete();
     }
 
-    /** @param array{sub:string,name:mixed,role:mixed} $requester @return array<int, array<string, mixed>> */
+    /**
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<int, array<string, mixed>>
+     */
     public function listExerciseSubmissions(array $requester): array
     {
         $q = ExerciseSubmission::query();
@@ -212,7 +239,11 @@ final class LearningService
         return $q->get()->map->toArray()->all();
     }
 
-    /** @param array<string, mixed> $input @param array{sub:string,name:mixed,role:mixed} $requester @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
     public function submitExercise(array $input, array $requester): array
     {
         if ($requester['role'] !== 'student') {
@@ -240,7 +271,11 @@ final class LearningService
         return ExerciseSubmission::query()->create($data)->toArray();
     }
 
-    /** @param array<string, mixed> $input @param array{sub:string,name:mixed,role:mixed} $requester @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
     public function gradeSubmission(string $submissionId, array $input, array $requester): array
     {
         if ($requester['role'] === 'student') {
@@ -251,7 +286,7 @@ final class LearningService
             throw ApiException::notFound('Entrega não encontrada.');
         }
         $submission->fill([
-            'score' => (int) $input['score'],
+            'score' => is_numeric($input['score'] ?? null) ? (int) $input['score'] : 0,
             'feedback' => $input['feedback'],
             'status' => $input['status'],
             'gradedAt' => CarbonImmutable::now()->format('d/m/Y H:i:s'),
@@ -261,7 +296,10 @@ final class LearningService
         return $submission->toArray();
     }
 
-    /** @param array<string, mixed> $input @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
     private function exerciseScalar(array $input): array
     {
         return array_intersect_key($input, array_flip(['courseId', 'title', 'description', 'instructions', 'maxPoints', 'dueDate']));

@@ -80,7 +80,10 @@ final class LearningController extends Controller
             'text' => ['required', 'string', 'min:1', 'max:3000'],
         ]);
 
-        return response()->json($this->learning->createForumMessage($data, $this->requester($request)), 201);
+        return response()->json($this->learning->createForumMessage([
+            'courseId' => $this->stringField($data, 'courseId'),
+            'text' => $this->stringField($data, 'text'),
+        ], $this->requester($request)), 201);
     }
 
     public function toggleForumLike(Request $request, string $id): JsonResponse

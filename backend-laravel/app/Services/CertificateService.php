@@ -21,7 +21,7 @@ use Carbon\CarbonImmutable;
 final class CertificateService
 {
     /**
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array{items: array<int, array<string, mixed>>, total: int}
      */
     public function listCertificates(array $requester, int $skip, int $take): array
@@ -38,7 +38,11 @@ final class CertificateService
         return ['items' => $items, 'total' => $total];
     }
 
-    /** Consulta pública de verificação (id, hash ou nome). @return array<string, mixed>|null */
+    /**
+     * Consulta pública de verificação (id, hash ou nome).
+     *
+     * @return array<string, mixed>|null
+     */
     public function verifyCertificatePublic(string $query): ?array
     {
         $trimmed = trim($query);
@@ -53,7 +57,7 @@ final class CertificateService
 
     /**
      * @param  array{studentName:string,courseId:string}  $input
-     * @param  array{sub:string,name:mixed,role:mixed}  $requester
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function issueCertificate(array $input, array $requester): array

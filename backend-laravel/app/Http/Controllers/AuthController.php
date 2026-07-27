@@ -37,9 +37,17 @@ final class AuthController extends Controller
             'areaInteresse' => ['nullable', 'string', 'max:120'],
             'dataCadastro' => ['nullable', 'string', 'max:30'],
         ]);
-        $data['email'] = mb_strtolower(trim((string) $data['email']));
-
-        $result = $this->auth->register($data, $request->attributes->get('auth_user'));
+        $result = $this->auth->register([
+            'name' => $this->stringField($data, 'name'),
+            'email' => mb_strtolower(trim($this->stringField($data, 'email'))),
+            'password' => $this->stringField($data, 'password'),
+            'role' => $this->optionalString($data, 'role'),
+            'cpf' => $this->optionalString($data, 'cpf'),
+            'municipio' => $this->optionalString($data, 'municipio'),
+            'uf' => $this->optionalString($data, 'uf'),
+            'areaInteresse' => $this->optionalString($data, 'areaInteresse'),
+            'dataCadastro' => $this->optionalString($data, 'dataCadastro'),
+        ], $this->optionalRequester($request));
         $this->audit->log(
             $request,
             'Cadastro de Usuário',
@@ -65,13 +73,17 @@ final class AuthController extends Controller
             throw ApiException::validation('Informe nome ou e-mail para login.');
         }
         if (! empty($data['email'])) {
-            $data['email'] = mb_strtolower(trim((string) $data['email']));
+            $data['email'] = mb_strtolower(trim($this->stringField($data, 'email')));
         }
 
-        $identifier = $data['email'] ?? $data['name'] ?? '';
+        $identifier = $this->optionalString($data, 'email') ?? $this->optionalString($data, 'name') ?? '';
 
         try {
-            $result = $this->auth->login($data);
+            $result = $this->auth->login([
+                'name' => $this->optionalString($data, 'name'),
+                'email' => $this->optionalString($data, 'email'),
+                'password' => $this->stringField($data, 'password'),
+            ]);
         } catch (Throwable $err) {
             $this->audit->log($request, 'Tentativa Fracassada', "Falha de login para o identificador: {$identifier}.", 'FAILED');
             throw $err;
@@ -92,7 +104,7 @@ final class AuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $sub = $request->attributes->get('auth_user')['sub'];
+        $sub = $this->requester($request)['sub'];
 
         return response()->json($this->auth->getCurrentUser($sub));
     }
@@ -104,8 +116,8 @@ final class AuthController extends Controller
             'newPassword' => ['required', 'string', 'min:6', 'max:128'],
         ]);
 
-        $sub = $request->attributes->get('auth_user')['sub'];
-        $this->auth->changePassword($sub, $data['newPassword'], $data['currentPassword'] ?? null);
+        $sub = $this->requester($request)['sub'];
+        $this->auth->changePassword($sub, $this->stringField($data, 'newPassword'), $this->optionalString($data, 'currentPassword'));
         $this->audit->log($request, 'Alteração de Senha', 'Senha alterada pelo próprio usuário.');
 
         return response()->json(['success' => true]);
@@ -119,7 +131,7 @@ final class AuthController extends Controller
         }
 
         [$page, $pageSize, $skip, $take] = $this->pageParams($request);
-        $authUser = $request->attributes->get('auth_user');
+        $authUser = $this->requester($request);
 
         // Escopo por perfil: aluno não lista outros alunos; instrutor só vê os próprios; admin vê tudo.
         if ($role === 'student') {
@@ -127,7 +139,7 @@ final class AuthController extends Controller
                 throw ApiException::forbidden('Alunos não podem listar dados de outros alunos.');
             }
             if ($authUser['role'] === 'instructor') {
-                $result = $this->auth->listStudentsForInstructor($authUser['sub'], (string) $authUser['name'], $skip, $take);
+                $result = $this->auth->listStudentsForInstructor($authUser['sub'], $authUser['name'], $skip, $take);
 
                 return response()->json($this->paginated($result['items'], $result['total'], $page, $pageSize));
             }
@@ -144,15 +156,16 @@ final class AuthController extends Controller
             'status' => ['required', 'in:active,blocked,pending_confirmation'],
         ]);
 
-        $updated = $this->auth->updateAccountStatus($id, $data['status']);
-        $this->audit->log($request, 'Alteração de Status de Conta', "Status de \"{$updated['name']}\" alterado para \"{$data['status']}\".");
+        $status = $this->stringField($data, 'status');
+        $updated = $this->auth->updateAccountStatus($id, $status);
+        $this->audit->log($request, 'Alteração de Status de Conta', "Status de \"{$updated['name']}\" alterado para \"{$status}\".");
 
         return response()->json($updated);
     }
 
     public function removeUser(Request $request, string $id): JsonResponse
     {
-        $sub = $request->attributes->get('auth_user')['sub'];
+        $sub = $this->requester($request)['sub'];
         if ($id === $sub) {
             throw new ApiException(400, 'BAD_REQUEST', 'Você não pode remover a própria conta administrativa.');
         }

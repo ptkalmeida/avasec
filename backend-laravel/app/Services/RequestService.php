@@ -15,7 +15,10 @@ use Carbon\CarbonImmutable;
  */
 final class RequestService
 {
-    /** @param array{sub:string,name:mixed,role:mixed} $requester @return array<int, array<string, mixed>> */
+    /**
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<int, array<string, mixed>>
+     */
     public function listAcademicRequests(array $requester): array
     {
         $q = AcademicRequest::query();
@@ -26,7 +29,11 @@ final class RequestService
         return $q->orderBy('submittedAt', 'desc')->get()->map->toArray()->all();
     }
 
-    /** @param array<string, mixed> $input @param array{sub:string,name:mixed,role:mixed} $requester @return array<string, mixed> */
+    /**
+     * @param  array{studentName:string,type:string,description:string,courseTitle?:string|null}  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
     public function createAcademicRequest(array $input, array $requester): array
     {
         if ($requester['role'] === 'student' && $input['studentName'] !== $requester['name']) {
@@ -53,6 +60,9 @@ final class RequestService
         $req = AcademicRequest::query()->find($id);
         if ($req === null) {
             throw ApiException::notFound('Solicitação acadêmica não encontrada.');
+        }
+        if (! in_array($status, ['pending', 'approved', 'rejected'], true)) {
+            throw ApiException::validation('Status de solicitação inválido.');
         }
         $req->status = $status;
         $req->save();
