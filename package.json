@@ -14,6 +14,7 @@
     "test": "vitest run",
     "test:frontend": "vitest run --project frontend",
     "test:api": "cd backend-laravel && php artisan test",
+    "test:api:coverage": "cd backend-laravel && php -d zend_extension=xdebug -d xdebug.mode=coverage vendor/bin/phpunit --coverage-text",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:migrate": "cd backend-laravel && php artisan migrate"
