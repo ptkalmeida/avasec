@@ -73,6 +73,7 @@ FK-first, `BusinessRules`, `Jwt`).
 | `npm run build` | Build de produção do frontend (`dist/`) |
 | `npm test` / `test:frontend` | Testes do frontend (Vitest) |
 | `npm run test:api` | Testes do backend (PHPUnit) |
+| `npm run test:api:coverage` | Cobertura do backend (PHPUnit + Xdebug, relatório em texto) |
 | `npm run db:migrate` | Migrations do Laravel (`php artisan migrate`) |
 | `npm run lint` | Type-check do frontend (`tsc --noEmit`) |
 
@@ -86,5 +87,9 @@ FK-first, `BusinessRules`, `Jwt`).
   serviço dedicado (Cloudflare Stream, Bunny) — ainda não integrado.
 - **Uploads**: disco local (`uploads/public` e `uploads/private`). Se o volume
   crescer, migrar para storage com URL assinada (S3 ou compatível).
-- **Node 18** instalado em dev; Vite 6 recomenda **Node 20 LTS** (subir antes
-  do deploy).
+- **Node**: 22 LTS no Git Bash (nvm) e 24 LTS no sistema — atende o requisito
+  do Vite 6 (20+). Build de produção validado no 22.
+- **Cobertura do backend**: medida via Xdebug (DLL em `C:\php 8.4\ext`, carregada
+  só sob demanda pelo script `test:api:coverage`). Baseline em 27/07/2026:
+  **49,8% de linhas** — a suíte cobre a superfície HTTP; ramos internos dos
+  services são a lacuna registrada.
