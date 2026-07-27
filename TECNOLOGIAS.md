@@ -58,7 +58,7 @@ FK-first, `BusinessRules`, `Jwt`).
 |---|---|
 | **PHPUnit** | 55 testes de feature do backend (`npm run test:api`) |
 | **Laravel Pint** | Lint PSR-12 (`./vendor/bin/pint --test`) |
-| **PHPStan + Larastan** | Análise estática, nível 5 como gate (`phpstan.neon`) |
+| **PHPStan + Larastan** | Análise estática, nível 9 (máximo) como gate (`phpstan.neon`) |
 | **Vitest + Testing Library** | Testes do frontend (`npm test`) |
 | **Docker / docker-compose** | MySQL 8 local (`npm run db:up`) |
 | **Composer / npm** | Dependências (backend / frontend) |
