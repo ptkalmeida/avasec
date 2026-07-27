@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:laravel": "vite",
-    "api": "cd backend-laravel && php artisan serve --host=127.0.0.1 --port=8000",
+    "api": "cd backend-laravel && set PHP_CLI_SERVER_WORKERS=8&& php artisan serve --host=127.0.0.1 --port=8000",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
