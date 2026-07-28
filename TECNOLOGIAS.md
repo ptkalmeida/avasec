@@ -83,8 +83,10 @@ FK-first, `BusinessRules`, `Jwt`).
   da migração — mantido como referência e rota de rollback (ver README na pasta).
   As dependências npm dele (express, prisma, etc.) seguem no `package.json` de
   propósito; remover quando o time dispensar o rollback.
-- **Vídeo das aulas**: URLs externas (YouTube/CDN). Para produção, recomendado
-  serviço dedicado (Cloudflare Stream, Bunny) — ainda não integrado.
+- **Vídeo das aulas**: URLs externas (YouTube/CDN), validadas e canonicalizadas
+  no backend com provider derivado por parsing (`app/Support/VideoSource.php` ↔
+  `src/utils/videoSource.ts`, ADR 08). Se confidencialidade virar requisito, o
+  degrau é serviço dedicado (Cloudflare Stream, Bunny) — não integrado.
 - **Uploads**: disco local (`uploads/public` e `uploads/private`). Se o volume
   crescer, migrar para storage com URL assinada (S3 ou compatível).
 - **Node**: 22 LTS no Git Bash (nvm) e 24 LTS no sistema — atende o requisito

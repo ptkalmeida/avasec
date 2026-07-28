@@ -89,7 +89,6 @@ interface LMSContextProps {
   updateSystemSettings: (updates: Partial<LMSContextProps['systemSettings']>) => void;
   activeDashboardTab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq';
   setActiveDashboardTab: (tab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq') => void;
-  getYouTubeEmbedUrl: (url: string) => string | null;
   admissionRequests: AdmissionRequest[];
   addAdmissionRequest: (studentName: string, courseId: string, status?: 'pending' | 'approved' | 'rejected') => void;
   updateAdmissionStatus: (reqId: string, status: 'approved' | 'rejected') => void;
@@ -2079,16 +2078,6 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  const getYouTubeEmbedUrl = (url: string): string | null => {
-    if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
-    const match = url.match(regExp);
-    if (match && match[2].length === 11) {
-      return `https://www.youtube.com/embed/${match[2]}?autoplay=0&rel=0&modestbranding=1`;
-    }
-    return null;
-  };
-
   return (
     <LMSContext.Provider
       value={{
@@ -2153,7 +2142,6 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateSystemSettings,
         activeDashboardTab,
         setActiveDashboardTab,
-        getYouTubeEmbedUrl,
         admissionRequests,
         addAdmissionRequest,
         updateAdmissionStatus,

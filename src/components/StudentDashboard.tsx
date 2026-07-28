@@ -12,6 +12,8 @@ import {
   Bell, Shield, Smartphone, X
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
+import { VideoPlayer } from './shared/VideoPlayer';
+import { parseVideoSource } from '../utils/videoSource';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS } from '../config/constants';
 import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQuestion } from '../types';
@@ -118,7 +120,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     setTextSizeMultiplier,
     isSpeechEnabled,
     setIsSpeechEnabled,
-    getYouTubeEmbedUrl,
     studentEnrollments,
     enrollStudentInCourse,
     dropStudentFromCourse,
@@ -869,34 +870,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                         {/* 16:9 Screen ratio representation with max height constraint */}
                         <div className="aspect-video w-full max-h-[50vh] flex flex-col justify-between p-4 relative">
                           
-                          {/* Real Video Player implementation for testing */}
+                          {/* Player único da plataforma — provider derivado da URL (ADR 08) */}
                           <div className="absolute inset-0 bg-slate-900 border border-slate-850 overflow-hidden group">
-                           {getYouTubeEmbedUrl(activeLesson.videoUrl || '') ? (
-                             <iframe 
-                               className="w-full h-full"
-                               src={getYouTubeEmbedUrl(activeLesson.videoUrl || '')!}
-                               title="YouTube video player"
-                               frameBorder="0"
-                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                               allowFullScreen
-                             ></iframe>
-                           ) : isPlaying ? (
-                             <video 
-                               ref={videoRef}
-                               key={activeLesson.id}
-                               autoPlay 
-                               playsInline
-                               className="w-full h-full object-contain bg-black"
-                               src={activeLesson.videoUrl || "https://vjs.zencdn.net/v/oceans.mp4"}
-                               onEnded={() => setIsPlaying(false)}
-                               onTimeUpdate={(e) => setVideoTime(e.currentTarget.currentTime)}
-                               onLoadedMetadata={(e) => {
-                                 setVideoDuration(e.currentTarget.duration);
-                                 const rate = parseFloat(playbackSpeed.replace('x', ''));
-                                 e.currentTarget.playbackRate = rate;
-                               }}
-                             />
-                           ) : (
+                           {parseVideoSource(activeLesson.videoUrl)?.provider === 'file' && !isPlaying ? (
                              <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center z-5">
                                <button
                                  onClick={() => setIsPlaying(true)}
@@ -905,6 +881,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                  <Play className="h-10 w-10 fill-white translate-x-0.5" />
                                </button>
                              </div>
+                           ) : (
+                             <VideoPlayer
+                               key={activeLesson.id}
+                               videoUrl={activeLesson.videoUrl}
+                               title={activeLesson.title}
+                               videoRef={videoRef}
+                               autoPlay
+                               playbackRate={parseFloat(playbackSpeed.replace('x', ''))}
+                               onEnded={() => setIsPlaying(false)}
+                               onTimeUpdate={setVideoTime}
+                               onLoadedMetadata={setVideoDuration}
+                             />
                            )}
                           </div>
 

@@ -25,7 +25,7 @@ export const INITIAL_COURSES: Course[] = [
         courseId: 'course-1',
         title: 'Introdução ao AVA & Fundamentos do UX Design',
         duration: '15 min',
-        videoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
+        videoUrl: 'https://www.youtube.com/watch?v=jNQXAC9IVRw',
         content: `### O que é UX Design?
 UX (User Experience) ou Experiência do Usuário trata da forma como uma pessoa interage e se sente ao utilizar um produto, serviço ou sistema digital.
 
@@ -47,7 +47,7 @@ Pense em um aplicativo que você usa diariamente. Identifique uma dor ou atrito 
         courseId: 'course-1',
         title: 'Arquitetura de Informação e Fluxos de Navegação',
         duration: '22 min',
-        videoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
+        videoUrl: 'https://www.youtube.com/watch?v=jNQXAC9IVRw',
         content: `### Estruturando o seu AVA
 A arquitetura de informação lida com a organização dos conteúdos digitais de forma que façam sentido e guiem o usuário intuitivamente.
 
@@ -150,7 +150,7 @@ Um design nunca está 100% pronto até que passe pelo teste empírico de um usu�
         courseId: 'course-2',
         title: 'Fundamentos de React & Configuração do Ambiente Vite',
         duration: '20 min',
-        videoUrl: 'https://vjs.zencdn.net/v/oceans.mp4',
+        videoUrl: 'https://www.youtube.com/watch?v=jNQXAC9IVRw',
         content: `### Modern React com Vite
 O Vite se tornou a ferramenta padrão de tooling para SPA por sua velocidade de compilação absurda e HMR otimizado.
 
