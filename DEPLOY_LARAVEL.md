@@ -195,6 +195,23 @@ sudo certbot --nginx -d seu-dominio.com
 
 Configuração padrão do pool (`/etc/php/8.3/fpm/pool.d/www.conf`) costuma servir bem
 para ~500 alunos. Ajuste `pm.max_children` conforme a memória disponível do VPS.
+
+**Limites de upload do PHP (obrigatório)**: o php.ini padrão limita uploads a
+**2 MB** (`upload_max_filesize`) e o corpo do POST a **8 MB** (`post_max_size`) —
+abaixo dos 15 MB da aplicação (`UPLOAD_MAX_SIZE_MB`) e dos 20 MB do Nginx
+(`client_max_body_size`). Sem este ajuste, uploads acima de 2 MB falham em produção
+mesmo com Nginx e aplicação corretos. Em `/etc/php/8.3/fpm/php.ini` (ou um drop-in
+`conf.d/99-avasec.ini`):
+
+```ini
+upload_max_filesize = 16M   ; >= UPLOAD_MAX_SIZE_MB da aplicação
+post_max_size = 20M         ; >= upload_max_filesize + folga do multipart
+```
+
+A cadeia deve manter `app (15M) <= upload_max_filesize <= post_max_size <=
+client_max_body_size (20m)`. Reinicie o serviço após alterar (`sudo systemctl
+restart php8.3-fpm`).
+
 Garanta que o serviço sobe no boot:
 
 ```bash

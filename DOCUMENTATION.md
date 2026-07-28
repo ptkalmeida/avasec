@@ -253,16 +253,11 @@ avasec-main/
 
 ## 16. O que ainda é simulado, mockado ou depende de integração futura
 
-- **Upload de anexo em entrega de exercício (aluno)** — em `StudentDashboard.tsx`, o botão de
-  anexar arquivo é um **simulador puro**: dispara um `setTimeout` de 1s e atribui um nome de
-  arquivo fixo (`trabalho_pratico_*.pdf`) com `url: '#'`. **Não envia nenhum arquivo real ao
-  servidor**, apesar do backend já ter um endpoint de upload funcional.
-- **Upload de documento de aula / item de biblioteca (instrutor)** — em
-  `InstructorDashboard.tsx`, este SIM chama o endpoint real (`fetch('/api/upload', ...)`), mas
-  usa `fetch` puro em vez do wrapper `authFetch` que anexa o token — como o endpoint agora
-  exige autenticação (`requireAuth`), **essa chamada hoje falha com 401** no fluxo real
-  logado (funcionaria apenas se o upload virasse público, o que não é recomendado). Ver ponto
-  de atenção correspondente na seção 17.
+- **Uploads (aluno e instrutor)** — resolvido: as três chamadas (entrega de exercício do
+  aluno com `visibility=private`; documento de aula e item de biblioteca do instrutor com
+  `visibility=public`) usam o endpoint real via `authFetch` (token anexado). O `accept` dos
+  inputs está alinhado à allowlist do backend (`config/uploads.php`: pdf, docx, png, jpg,
+  jpeg, webp, gif — máx. 15 MB).
 - **Exportação de Dados Gerenciais** — como descrito na seção 12, o botão do AdminDashboard
   gera os CSVs a partir de dados já em memória no navegador, não do endpoint seguro/auditado.
 - **Vídeo das aulas** — URLs externas validadas no backend (ADR 08): YouTube (canonicalizado

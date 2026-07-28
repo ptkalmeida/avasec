@@ -2535,7 +2535,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       <input
                         type="file"
                         id="lib-file-uploader"
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt"
+                        accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.gif"
                         className="hidden"
                         onChange={(e) => {
                           if (e.target.files && e.target.files[0]) {
@@ -2547,7 +2547,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       />
                       <File className="h-7 w-7 text-teal-500 mx-auto mb-1 animate-pulse" />
                       <p className="text-xs font-bold text-slate-700">Arraste seu arquivo aqui ou clique para selecionar</p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Formatos suportados: PDF, DOCX, PPTX ou ZIP (Máx. 50MB)</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">Formatos suportados: PDF, DOCX ou imagem — PNG, JPG, WEBP, GIF (Máx. 15MB)</p>
                     </div>
                   ) : (
                     <div className="bg-teal-50/50 border border-teal-200/50 rounded-xl p-3 flex items-center justify-between text-xs">
