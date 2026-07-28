@@ -265,8 +265,9 @@ avasec-main/
   de atenção correspondente na seção 17.
 - **Exportação de Dados Gerenciais** — como descrito na seção 12, o botão do AdminDashboard
   gera os CSVs a partir de dados já em memória no navegador, não do endpoint seguro/auditado.
-- **Vídeo das aulas** — continuam sendo apenas URLs externas (ex.: link de exemplo
-  `vjs.zencdn.net`), sem integração com um serviço de streaming dedicado.
+- **Vídeo das aulas** — URLs externas validadas no backend (ADR 08): YouTube (canonicalizado
+  para `watch?v=`) ou arquivo de vídeo direto (mp4/webm/ogg/m4v/mov). Player único em
+  `src/components/shared/VideoPlayer.tsx`; sem integração com serviço de streaming dedicado.
 - **Certificado (PDF)** — `CertificateTemplate.tsx` existe para exibir/imprimir o certificado
   na tela; não há geração de PDF assinado digitalmente nem envio por e-mail.
 - **Confirmação de cadastro público** — não existe fluxo de e-mail de confirmação; uma conta

@@ -79,6 +79,45 @@ final class CourseTest extends TestCase
         ])->assertStatus(400)->assertJsonPath('code', 'VALIDATION_ERROR');
     }
 
+    public function test_lesson_with_invalid_video_url_is_rejected(): void
+    {
+        $token = $this->tokenForRole('admin');
+        $this->withHeader('Authorization', "Bearer $token")->postJson('/api/courses', [
+            'title' => 'Curso com vídeo inválido',
+            'description' => 'Descrição suficientemente longa para passar.',
+            'category' => 'Testes',
+            'thumbnail' => 'https://example.com/t.png',
+            'instructorName' => 'Gestor de Conteúdos',
+            'lessons' => [
+                ['title' => 'Aula 1', 'duration' => '10min', 'order' => 0, 'videoUrl' => 'https://example.com/pagina-qualquer'],
+            ],
+        ])->assertStatus(400)->assertJsonPath('code', 'VALIDATION_ERROR');
+    }
+
+    public function test_lesson_video_url_is_canonicalized_on_create(): void
+    {
+        $token = $this->tokenForRole('admin');
+        $id = 'course-video-'.uniqid();
+
+        $response = $this->withHeader('Authorization', "Bearer $token")->postJson('/api/courses', [
+            'id' => $id,
+            'title' => 'Curso com vídeo do YouTube',
+            'description' => 'Descrição suficientemente longa para passar.',
+            'category' => 'Testes',
+            'thumbnail' => 'https://example.com/t.png',
+            'instructorName' => 'Gestor de Conteúdos',
+            'lessons' => [
+                ['title' => 'Aula 1', 'duration' => '10min', 'order' => 0, 'videoUrl' => 'https://youtu.be/dQw4w9WgXcQ?si=abc123'],
+                ['title' => 'Aula 2', 'duration' => '12min', 'order' => 1, 'videoUrl' => null],
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $lessons = $response->json('lessons');
+        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', $lessons[0]['videoUrl']);
+        $this->assertNull($lessons[1]['videoUrl']);
+    }
+
     public function test_instructor_cannot_edit_course_not_owned(): void
     {
         // Cria um curso pertencente a um instrutor "A" (via admin atribuindo a outro nome),

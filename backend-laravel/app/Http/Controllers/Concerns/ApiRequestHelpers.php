@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Concerns;
 
 use App\Exceptions\ApiException;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -18,7 +19,7 @@ trait ApiRequestHelpers
     /**
      * Valida e retorna somente os campos validados.
      *
-     * @param  array<string, array<int, string>>  $rules
+     * @param  array<string, array<int, string|ValidationRule>>  $rules
      * @return array<string, mixed>
      */
     protected function validateInput(Request $request, array $rules): array
@@ -31,7 +32,7 @@ trait ApiRequestHelpers
      * (cursos/quizzes) em que o corpo inteiro é repassado ao service, espelhando
      * o contrato do backend Node.
      *
-     * @param  array<string, array<int, string>>  $rules
+     * @param  array<string, array<int, string|ValidationRule>>  $rules
      * @return array<string, mixed>
      */
     protected function validateKeepingAll(Request $request, array $rules): array
@@ -156,7 +157,7 @@ trait ApiRequestHelpers
     }
 
     /**
-     * @param  array<string, array<int, string>>  $rules
+     * @param  array<string, array<int, string|ValidationRule>>  $rules
      */
     private function runValidator(Request $request, array $rules): \Illuminate\Validation\Validator
     {

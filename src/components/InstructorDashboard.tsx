@@ -11,6 +11,7 @@ import {
   ChevronDown, ChevronUp, ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
+import { VideoPlayer } from './shared/VideoPlayer';
 import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
@@ -50,8 +51,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     removeLiveSession,
     calculateAttendancePercent,
     admissionRequests,
-    updateAdmissionStatus,
-    getYouTubeEmbedUrl
+    updateAdmissionStatus
   } = useLMS();
 
   // Active form sections
@@ -2716,36 +2716,20 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
             {/* Scrollable Body */}
             <div className="p-5 overflow-y-auto space-y-5 flex-1">
-              {/* Video Player Section */}
-              {previewLesson.videoUrl ? (
-                <div>
-                  {getYouTubeEmbedUrl(previewLesson.videoUrl) ? (
-                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-slate-800 shadow-lg">
-                      <iframe 
-                        className="w-full h-full"
-                        src={getYouTubeEmbedUrl(previewLesson.videoUrl)!}
-                        title="YouTube video player"
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                      ></iframe>
+              {/* Video Player Section — provider derivado da URL (ADR 08) */}
+              <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-slate-800 shadow-lg">
+                <VideoPlayer
+                  videoUrl={previewLesson.videoUrl}
+                  title={previewLesson.title}
+                  controls
+                  unavailableSlot={
+                    <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center gap-2 text-slate-500">
+                      <Video className="h-10 w-10 text-slate-600" />
+                      <span className="text-xs font-semibold">Sem vídeo associado a esta aula</span>
                     </div>
-                  ) : (
-                    <div className="aspect-video w-full rounded-xl overflow-hidden bg-black border border-slate-800 shadow-lg flex items-center justify-center relative">
-                      <video 
-                        controls
-                        className="w-full h-full object-contain"
-                        src={previewLesson.videoUrl}
-                      />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="aspect-video w-full rounded-xl bg-slate-950 border border-slate-800/80 flex flex-col items-center justify-center gap-2 text-slate-500">
-                  <Video className="h-10 w-10 text-slate-600" />
-                  <span className="text-xs font-semibold">Sem vídeo associado a esta aula</span>
-                </div>
-              )}
+                  }
+                />
+              </div>
 
               {/* Lesson Metadata */}
               <div className="flex items-center gap-4 text-xs text-slate-400 border-b border-slate-800/80 pb-4">

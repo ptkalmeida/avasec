@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Rules\VideoUrlRule;
 use App\Services\AuditLogger;
 use App\Services\CourseService;
 use Illuminate\Http\JsonResponse;
@@ -83,7 +84,7 @@ final class CourseController extends Controller
             'lessons.*.id' => ['sometimes', 'string', 'max:191'],
             'lessons.*.title' => ['required_with:lessons', 'string', 'min:1', 'max:200'],
             'lessons.*.duration' => ['required_with:lessons', 'string', 'min:1', 'max:30'],
-            'lessons.*.videoUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'lessons.*.videoUrl' => ['sometimes', 'nullable', 'string', 'max:2000', new VideoUrlRule],
             'lessons.*.content' => ['sometimes', 'nullable', 'string', 'max:20000'],
             'lessons.*.order' => ['required_with:lessons', 'integer', 'min:0'],
             'lessons.*.documents' => ['sometimes', 'array'],

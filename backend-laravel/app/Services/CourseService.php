@@ -11,6 +11,7 @@ use App\Models\LessonDocument;
 use App\Models\LiveSession;
 use App\Models\User;
 use App\Support\Payload;
+use App\Support\VideoSource;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -243,7 +244,10 @@ final class CourseService
             'courseId' => $courseId,
             'title' => $lesson['title'],
             'duration' => $lesson['duration'],
-            'videoUrl' => $lesson['videoUrl'] ?? null,
+            // Persistimos a forma canônica (ADR 08) — youtu.be/embed/shorts viram watch?v=.
+            'videoUrl' => is_string($lesson['videoUrl'] ?? null)
+                ? VideoSource::tryParse($lesson['videoUrl'])?->canonicalUrl
+                : null,
             'content' => $lesson['content'] ?? null,
             'lesson_order' => is_numeric($lesson['order'] ?? null) ? (int) $lesson['order'] : 0,
         ];
