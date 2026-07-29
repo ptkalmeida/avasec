@@ -252,6 +252,42 @@ final class AuthService
         User::query()->where('id', $userId)->delete();
     }
 
+    /**
+     * Rename seguro (ADR 10): identidade é o id, então mudar o nome é atualizar
+     * o User e os SNAPSHOTS de exibição das satélites na mesma transação.
+     * EXCEÇÃO: Certificate.studentName fica intocado — é o nome impresso no PDF
+     * emitido e a chave humana da verificação pública (documento histórico).
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return PublicUser
+     */
+    public function renameUser(string $userId, string $newName, array $requester): array
+    {
+        if ($requester['role'] !== 'admin' && $requester['sub'] !== $userId) {
+            throw ApiException::forbidden('Você só pode alterar o próprio nome.');
+        }
+        $user = User::query()->find($userId);
+        if ($user === null) {
+            throw ApiException::notFound('Usuário não encontrado.');
+        }
+
+        DB::transaction(function () use ($user, $newName): void {
+            $user->name = $newName;
+            $user->save();
+
+            foreach (['StudentEnrollment', 'StudentProgress', 'AdmissionRequest', 'AcademicRequest', 'QuizSubmission', 'ExerciseSubmission'] as $table) {
+                DB::table($table)->where('userId', $user->id)->update(['studentName' => $newName]);
+            }
+            DB::table('DirectMessage')->where('studentUserId', $user->id)->update(['studentName' => $newName]);
+            foreach (['DirectMessage', 'ChatMessage', 'ForumMessage'] as $table) {
+                DB::table($table)->where('senderUserId', $user->id)->update(['senderName' => $newName]);
+            }
+            DB::table('Course')->where('instructorId', $user->id)->update(['instructorName' => $newName]);
+        });
+
+        return $this->toPublicUser($user);
+    }
+
     /** @return PublicUser */
     public function toPublicUser(User $user): array
     {

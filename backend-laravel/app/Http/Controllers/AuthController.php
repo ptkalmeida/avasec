@@ -163,6 +163,19 @@ final class AuthController extends Controller
         return response()->json($updated);
     }
 
+    public function renameUser(Request $request, string $id): JsonResponse
+    {
+        $data = $this->validateInput($request, [
+            'name' => ['required', 'string', 'min:2', 'max:150'],
+        ]);
+
+        $newName = $this->stringField($data, 'name');
+        $updated = $this->auth->renameUser($id, $newName, $this->requester($request));
+        $this->audit->log($request, 'Alteração de Nome', "Usuário {$id} renomeado para \"{$newName}\".");
+
+        return response()->json($updated);
+    }
+
     public function removeUser(Request $request, string $id): JsonResponse
     {
         $sub = $this->requester($request)['sub'];
