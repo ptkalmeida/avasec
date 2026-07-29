@@ -51,15 +51,20 @@ final class CourseService
         $liveSessions = Payload::assocList($input['liveSessions'] ?? []);
         unset($input['lessons'], $input['liveSessions']);
 
-        // Instrutor só cria curso em seu próprio nome; admin pode atribuir a outro instrutor.
+        // Instrutor só cria curso em seu próprio nome; admin pode atribuir a outro
+        // instrutor por userId (ADR 10) — instructorName é sempre derivado (display).
         if (($requester['role'] ?? null) === 'admin'
-            && ! empty($input['instructorName'])
-            && $input['instructorName'] !== $requester['name']) {
-            $instructorName = $input['instructorName'];
-            $instructorId = User::query()
-                ->where('name', $instructorName)
+            && is_string($input['instructorId'] ?? null)
+            && $input['instructorId'] !== ''
+            && $input['instructorId'] !== $requester['sub']) {
+            $instructorId = $input['instructorId'];
+            $instructorName = User::query()
+                ->where('id', $instructorId)
                 ->whereIn('role', ['instructor', 'admin'])
-                ->value('id');
+                ->value('name');
+            if (! is_string($instructorName)) {
+                throw ApiException::notFound('Instrutor não encontrado.');
+            }
         } else {
             $instructorName = $requester['name'];
             $instructorId = $requester['sub'];
@@ -98,13 +103,21 @@ final class CourseService
         $liveSessions = array_key_exists('liveSessions', $updates) ? Payload::assocList($updates['liveSessions']) : null;
         unset($updates['lessons'], $updates['liveSessions']);
 
-        // Se a autoria mudou (admin reatribuindo), re-resolve a FK do instrutor.
+        // Reatribuição de autoria: só admin, endereçada por userId; o nome de
+        // exibição é derivado do User para nunca divergir da FK (ADR 10).
         $instructorIdUpdate = [];
-        if (! empty($updates['instructorName'])) {
-            $instructorIdUpdate['instructorId'] = User::query()
-                ->where('name', $updates['instructorName'])
+        if (is_string($updates['instructorId'] ?? null) && $updates['instructorId'] !== '') {
+            if (($requester['role'] ?? null) !== 'admin') {
+                throw ApiException::forbidden('Somente administradores podem reatribuir a autoria de um curso.');
+            }
+            $newName = User::query()
+                ->where('id', $updates['instructorId'])
                 ->whereIn('role', ['instructor', 'admin'])
-                ->value('id');
+                ->value('name');
+            if (! is_string($newName)) {
+                throw ApiException::notFound('Instrutor não encontrado.');
+            }
+            $instructorIdUpdate = ['instructorId' => $updates['instructorId'], 'instructorName' => $newName];
         }
 
         DB::transaction(function () use ($courseId, $updates, $instructorIdUpdate, $lessons, $liveSessions): void {
@@ -141,9 +154,8 @@ final class CourseService
         if (($requester['role'] ?? null) === 'admin') {
             return;
         }
-        $owns = $course->instructorId
-            ? $course->instructorId === $requester['sub']
-            : $course->instructorName === $requester['name'];
+        // Posse por FK apenas (ADR 10) — nome nunca é identidade.
+        $owns = $course->instructorId !== null && $course->instructorId === $requester['sub'];
         if (($requester['role'] ?? null) === 'instructor' && $owns) {
             return;
         }
@@ -293,8 +305,10 @@ final class CourseService
      */
     private function scalarCourseData(array $input): array
     {
+        // instructorName/instructorId ficam FORA da lista: a autoria só muda pelo
+        // fluxo de reatribuição por userId (ADR 10), nunca por campo solto.
         $allowed = [
-            'title', 'description', 'category', 'thumbnail', 'instructorName', 'coverImage',
+            'title', 'description', 'category', 'thumbnail', 'coverImage',
             'courseType', 'hasChat', 'minAttendance', 'contractExpirationDate', 'areaTematica',
             'cargaHoraria', 'modalidade', 'nivel', 'emiteCertificado', 'statusCurso',
         ];
