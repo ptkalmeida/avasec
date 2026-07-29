@@ -39,6 +39,9 @@ Route::prefix('auth')->group(function (): void {
         ->middleware(['jwt', 'active']);
     Route::put('/users/{id}/status', [AuthController::class, 'updateStatus'])
         ->middleware(['jwt', 'active', 'role:admin']);
+    // Rename seguro (ADR 10): self ou admin — identidade é o id, o nome é display.
+    Route::put('/users/{id}/name', [AuthController::class, 'renameUser'])
+        ->middleware(['jwt', 'active']);
     Route::delete('/users/{id}', [AuthController::class, 'removeUser'])
         ->middleware(['jwt', 'active', 'role:admin']);
 });
