@@ -7,14 +7,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * A PK desta tabela é `studentName` (design legado); `id` é um identificador estável
- * secundário (unique) usado como alvo das FKs de progresso/certificado.
+ * PK = userId (ADR 10 — identidade por FK). `studentName` é snapshot de exibição;
+ * `id` é um identificador estável secundário (unique) usado como alvo das FKs de
+ * progresso/certificado.
  */
 final class StudentEnrollment extends Model
 {
     protected $table = 'StudentEnrollment';
 
-    protected $primaryKey = 'studentName';
+    protected $primaryKey = 'userId';
 
     protected $keyType = 'string';
 

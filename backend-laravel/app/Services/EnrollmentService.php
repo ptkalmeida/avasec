@@ -51,10 +51,10 @@ final class EnrollmentService
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<int, array<string, mixed>>
      */
-    public function getProgress(?string $requestedStudentName, array $requester): array
+    public function getProgress(?string $requestedUserId, array $requester): array
     {
         if ($requester['role'] === 'student') {
-            if ($requestedStudentName !== null && $requestedStudentName !== $requester['name']) {
+            if ($requestedUserId !== null && $requestedUserId !== $requester['sub']) {
                 throw ApiException::forbidden('Você só pode consultar o próprio progresso.');
             }
 
@@ -66,39 +66,36 @@ final class EnrollmentService
 
             return StudentProgress::query()
                 ->whereIn('courseId', $courseIds)
-                ->when($requestedStudentName !== null, fn ($q) => $q->where('studentName', $requestedStudentName))
+                ->when($requestedUserId !== null, fn ($q) => $q->where('userId', $requestedUserId))
                 ->get()->map->toArray()->all();
         }
 
         return StudentProgress::query()
-            ->when($requestedStudentName !== null, fn ($q) => $q->where('studentName', $requestedStudentName))
+            ->when($requestedUserId !== null, fn ($q) => $q->where('userId', $requestedUserId))
             ->get()->map->toArray()->all();
     }
 
     /**
-     * @param  array{studentName:string,courseId:string,completedLessons:list<string>,attendedLiveSessions:list<string>}  $input
+     * @param  array{userId?:string|null,courseId:string,completedLessons:list<string>,attendedLiveSessions:list<string>}  $input
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function upsertProgress(array $input, array $requester): array
     {
-        if ($requester['role'] === 'student' && $input['studentName'] !== $requester['name']) {
-            throw ApiException::forbidden('Você só pode atualizar o próprio progresso.');
-        }
         if ($requester['role'] === 'instructor') {
             throw ApiException::forbidden('Instrutores não registram progresso em nome do aluno.');
         }
 
-        $userId = Identity::resolveStudentUserId($input['studentName'], $requester);
-        $enrollmentId = StudentEnrollment::query()->where('studentName', $input['studentName'])->value('id');
+        $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
+        $enrollmentId = StudentEnrollment::query()->whereKey($userId)->value('id');
 
         $existing = StudentProgress::query()
-            ->where('studentName', $input['studentName'])
+            ->where('userId', $userId)
             ->where('courseId', $input['courseId'])
             ->first();
 
         $data = [
-            'studentName' => $input['studentName'],
+            'studentName' => Identity::displayName($userId, $requester),
             'courseId' => $input['courseId'],
             'completedLessons' => $input['completedLessons'],
             'attendedLiveSessions' => $input['attendedLiveSessions'],
@@ -129,12 +126,16 @@ final class EnrollmentService
         if ($requester['role'] === 'student') {
             $row = Identity::applyOwnRows(StudentEnrollment::query(), $requester)->first();
 
-            return [$requester['name'] => $row ? $this->toPublicEnrollment($row) : self::EMPTY_ENROLLMENT];
+            return [
+                $requester['sub'] => $row
+                    ? $this->toPublicEnrollment($row)
+                    : array_merge(self::EMPTY_ENROLLMENT, ['userId' => $requester['sub'], 'studentName' => $requester['name']]),
+            ];
         }
 
         $map = [];
         foreach (StudentEnrollment::query()->get() as $row) {
-            $map[$row->studentName] = $this->toPublicEnrollment($row);
+            $map[$row->userId] = $this->toPublicEnrollment($row);
         }
 
         return $map;
@@ -145,15 +146,15 @@ final class EnrollmentService
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
-    public function upsertEnrollment(string $studentName, array $updates, array $requester): array
+    public function upsertEnrollment(string $userId, array $updates, array $requester): array
     {
         $this->assertInstructorCanManage($updates['enrolledCourseId'] ?? null, $requester);
 
-        $current = StudentEnrollment::query()->where('studentName', $studentName)->first();
-        $userId = $current->userId ?? Identity::resolveStudentUserId($studentName, $requester);
+        $targetUserId = Identity::resolveActorUserId($requester, $userId);
+        $current = StudentEnrollment::query()->whereKey($targetUserId)->first();
         $merged = array_merge(self::EMPTY_ENROLLMENT, $this->currentRest($current), $updates);
 
-        $saved = $this->persistEnrollment($studentName, $merged, $userId);
+        $saved = $this->persistEnrollment($targetUserId, Identity::displayName($targetUserId, $requester), $merged);
 
         return $this->toPublicEnrollment($saved);
     }
@@ -185,7 +186,7 @@ final class EnrollmentService
             'enrolledCourseId' => $courseId,
             'enrolledAt' => CarbonImmutable::now()->toIso8601String(),
         ]);
-        $saved = $this->persistEnrollment($requester['name'], $merged, $requester['sub']);
+        $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
 
         return ['enrollment' => $this->toPublicEnrollment($saved)];
     }
@@ -218,7 +219,7 @@ final class EnrollmentService
             'enrolledAt' => null,
             'dropOutPenaltyUntil' => $penaltyUntil,
         ]);
-        $saved = $this->persistEnrollment($requester['name'], $merged, $current->userId ?? $requester['sub']);
+        $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
 
         return ['enrollment' => $this->toPublicEnrollment($saved), 'penaltyApplied' => $penaltyApplied];
     }
@@ -240,7 +241,7 @@ final class EnrollmentService
         }
 
         $progress = StudentProgress::query()
-            ->where('studentName', $requester['name'])->where('courseId', $courseId)->first();
+            ->where('userId', $requester['sub'])->where('courseId', $courseId)->first();
 
         $totalActivities = $course->lessons->count() + $course->liveSessions->count();
         $done = count($progress->completedLessons ?? []) + count($progress->attendedLiveSessions ?? []);
@@ -256,7 +257,7 @@ final class EnrollmentService
             'enrolledAt' => null,
             'completedCourseIds' => $completed,
         ]);
-        $saved = $this->persistEnrollment($requester['name'], $merged, $current->userId ?? $requester['sub']);
+        $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
 
         return ['enrollment' => $this->toPublicEnrollment($saved)];
     }
@@ -282,18 +283,16 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{id?:string|null,studentName:string,courseId:string}  $input
+     * @param  array{id?:string|null,userId?:string|null,courseId:string}  $input
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function createAdmission(array $input, array $requester): array
     {
-        if ($requester['role'] === 'student' && $input['studentName'] !== $requester['name']) {
-            throw ApiException::forbidden('Você só pode solicitar matrícula em seu próprio nome.');
-        }
+        $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
 
         $duplicate = AdmissionRequest::query()
-            ->where('studentName', $input['studentName'])
+            ->where('userId', $userId)
             ->where('courseId', $input['courseId'])
             ->where('status', 'pending')
             ->exists();
@@ -301,11 +300,9 @@ final class EnrollmentService
             throw new ApiException(409, 'CONFLICT', 'Matrícula pendente para este curso já registrada.');
         }
 
-        $userId = Identity::resolveStudentUserId($input['studentName'], $requester);
-
         $admission = AdmissionRequest::query()->create([
             'id' => $input['id'] ?? ('adm-'.$this->nowMs()),
-            'studentName' => $input['studentName'],
+            'studentName' => Identity::displayName($userId, $requester),
             'userId' => $userId,
             'courseId' => $input['courseId'],
             'status' => 'pending',
@@ -332,7 +329,7 @@ final class EnrollmentService
             throw ApiException::validation('Status de matrícula inválido.');
         }
 
-        $studentUserId = $admission->userId ?? Identity::resolveStudentUserId($admission->studentName, $requester);
+        $studentUserId = $admission->userId;
 
         // Aprovação efetiva a matrícula na MESMA transação — nunca "aprovada" sem matricular.
         $updated = DB::transaction(function () use ($admission, $status, $studentUserId) {
@@ -340,13 +337,13 @@ final class EnrollmentService
             $admission->save();
 
             if ($status === 'approved') {
-                $current = StudentEnrollment::query()->where('studentName', $admission->studentName)->first();
+                $current = StudentEnrollment::query()->whereKey($studentUserId)->first();
                 $merged = array_merge(self::EMPTY_ENROLLMENT, $this->currentRest($current), [
                     'enrolledCourseId' => $admission->courseId,
                     'enrolledAt' => CarbonImmutable::now()->toIso8601String(),
                     'dropOutPenaltyUntil' => null,
                 ]);
-                $this->persistEnrollment($admission->studentName, $merged, $studentUserId);
+                $this->persistEnrollment($studentUserId, $admission->studentName, $merged);
             }
 
             return $admission;
@@ -399,13 +396,15 @@ final class EnrollmentService
     }
 
     /**
+     * Upsert keyed pela PK userId (ADR 10); studentName é apenas snapshot de exibição.
+     *
      * @param  array<string, mixed>  $merged
      */
-    private function persistEnrollment(string $studentName, array $merged, ?string $userId): StudentEnrollment
+    private function persistEnrollment(string $userId, string $studentName, array $merged): StudentEnrollment
     {
-        $existing = StudentEnrollment::query()->where('studentName', $studentName)->first();
+        $existing = StudentEnrollment::query()->whereKey($userId)->first();
         if ($existing !== null) {
-            $existing->fill(array_merge($merged, ['userId' => $userId]))->save();
+            $existing->fill(array_merge($merged, ['studentName' => $studentName]))->save();
 
             return $existing;
         }
@@ -433,13 +432,16 @@ final class EnrollmentService
     }
 
     /**
-     * Forma pública da matrícula: sem studentName/id/userId (igual ao toPublicEnrollment do Node).
+     * Forma pública da matrícula. Desde a ADR 10 inclui userId (identidade) e
+     * studentName (display) para o frontend indexar por id.
      *
      * @return array<string, mixed>
      */
     private function toPublicEnrollment(StudentEnrollment $row): array
     {
         return [
+            'userId' => $row->userId,
+            'studentName' => $row->studentName,
             'enrolledCourseId' => $row->enrolledCourseId,
             'enrolledAt' => $row->enrolledAt,
             'completedCourseIds' => $row->completedCourseIds ?? [],
