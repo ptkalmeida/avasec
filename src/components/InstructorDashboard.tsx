@@ -86,16 +86,20 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   
   // Custom Category State
   const [customCategory, setCustomCategory] = useState('');
-  const [selectedStudentName, setSelectedStudentName] = useState('João Silva');
+  // Thread de DM selecionada — identidade por userId (ADR 10); o nome é só display.
+  const [selectedStudentUserId, setSelectedStudentUserId] = useState<string>('');
+  const selectedStudent = studentsList.find(s => s.id === selectedStudentUserId) ?? studentsList[0];
+  const selectedStudentName = selectedStudent?.name ?? '';
 
-  // List of students that are simulated in the dropdown
-  const studentsWithMessages = studentsList.map(s => s.name);
-  const unrepliedStudents = studentsWithMessages.filter(studentName => {
-    const studentDMs = directMessages.filter(m => m.studentName === studentName);
-    if (studentDMs.length === 0) return false;
-    const latestMsg = studentDMs[studentDMs.length - 1];
-    return latestMsg.senderRole === 'student'; // Unanswered by the instructor
-  });
+  // Ids de alunos com a última mensagem ainda sem resposta do instrutor
+  const unrepliedStudentIds = studentsList
+    .filter(student => {
+      const studentDMs = directMessages.filter(m => m.studentUserId === student.id);
+      if (studentDMs.length === 0) return false;
+      const latestMsg = studentDMs[studentDMs.length - 1];
+      return latestMsg.senderRole === 'student'; // Unanswered by the instructor
+    })
+    .map(s => s.id);
 
   const handleBack = () => {
     if (isEditingCourse) {
@@ -204,7 +208,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       description: newCourseDesc.trim(),
       category: finalCategory,
       thumbnail: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60',
+      // instructorName é só display; a autoria real é o instructorId (o servidor ignora o nome).
       instructorName: newCourseInstructor.trim(),
+      instructorId: activeUser.id,
       lessons: [],
       liveSessions: [],
       contractExpirationDate: newCourseExpiration.trim() || undefined
@@ -556,7 +562,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const simulatedStudents = studentsList.map(item => ({
     name: item.name,
     email: item.email,
-    hasCertificate: certificates.some(cer => cer.courseId === selectedCourseId && cer.studentName === item.name)
+    hasCertificate: certificates.some(cer => cer.courseId === selectedCourseId && (item.id ? cer.userId === item.id : cer.studentName === item.name))
   }));
 
   return (
@@ -642,9 +648,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             >
               <MessageSquare className="h-4 w-4" />
               <span>Mensagens Recebidas</span>
-              {unrepliedStudents.length > 0 && (
+              {unrepliedStudentIds.length > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-rose-600 text-[9px] font-black text-white ring-2 ring-white">
-                  {unrepliedStudents.length}
+                  {unrepliedStudentIds.length}
                 </span>
               )}
             </button>
@@ -1476,7 +1482,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 <Bell className="h-4 w-4 text-amber-500 shrink-0" />
                 <div>
                   <span className="block text-[8px] text-slate-400 font-bold uppercase leading-none">Aguardando Resposta</span>
-                  <span className="font-bold text-[10.5px] text-amber-700">{unrepliedStudents.length} Aluno(s)</span>
+                  <span className="font-bold text-[10.5px] text-amber-700">{unrepliedStudentIds.length} Aluno(s)</span>
                 </div>
               </div>
               <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 text-xs text-slate-700">
@@ -1496,16 +1502,16 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               
               <div className="space-y-1.5 max-h-[460px] overflow-y-auto pr-1">
                 {studentsList.map((student, idx) => {
-                  const isSelected = selectedStudentName === student.name;
-                  const isUnreplied = unrepliedStudents.includes(student.name);
-                  const studentDMs = directMessages.filter(m => m.studentName === student.name);
+                  const isSelected = selectedStudent === student;
+                  const isUnreplied = unrepliedStudentIds.includes(student.id);
+                  const studentDMs = directMessages.filter(m => m.studentUserId === student.id);
                   const hasHistory = studentDMs.length > 0;
                   const latestMsgText = hasHistory ? studentDMs[studentDMs.length - 1].text : "Sem mensagens";
-                  
+
                   return (
                     <button
-                      key={`${student.name}-${idx}`}
-                      onClick={() => setSelectedStudentName(student.name)}
+                      key={`${student.id ?? student.name}-${idx}`}
+                      onClick={() => setSelectedStudentUserId(student.id ?? '')}
                       className={`w-full p-3.5 rounded-xl border text-left transition-all duration-150 flex items-start gap-3 cursor-pointer ${
                         isSelected 
                           ? 'bg-[#540D6E] text-white border-[#540D6E] shadow-sm' 
@@ -1550,8 +1556,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             {/* Right Column: Dynamic Roomy Message Panel (8 cols) */}
             <div className="lg:col-span-8 space-y-4">
               {(() => {
-                const studentDMs = directMessages.filter(m => m.studentName === selectedStudentName);
-                const isJOAO = selectedStudentName === 'João Silva';
+                const studentDMs = directMessages.filter(m => m.studentUserId === selectedStudent?.id);
                 const attendanceLookup: Record<string, number> = {
                   'João Silva': activeCourse ? calculateAttendancePercent(activeCourse.id) : 80,
                   'Gabriel Rodrigues': 85,
@@ -1563,7 +1568,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 };
                 const attendance = attendanceLookup[selectedStudentName] || 75;
                 const isQualified = attendance >= courseMinAttendance(activeCourse);
-                const hasCert = certificates.some(cer => cer.studentName === selectedStudentName);
+                const hasCert = certificates.some(cer => cer.userId === selectedStudent?.id);
                 
                 return (
                   <div className="rounded-2xl border border-slate-205 bg-slate-50/50 p-5 flex flex-col h-[520px] transition-all justify-between">
@@ -1625,8 +1630,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       e.preventDefault();
                       const input = (e.currentTarget.elements.namedItem('replyText') as HTMLInputElement);
                       const text = input.value.trim();
-                      if (text) {
-                        sendDirectMessage(selectedStudentName, text);
+                      if (text && selectedStudent?.id) {
+                        sendDirectMessage(selectedStudent.id, text);
                         input.value = '';
                         showToast(`Boletim e resposta técnica gravada para ${selectedStudentName}!`);
                       }
@@ -1684,12 +1689,12 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   <span>Solicitações de Matrícula</span>
                 </h3>
                 <span className="bg-[#540D6E] text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  {admissionRequests.filter(r => r.status === 'pending' && courses.find(c => c.id === r.courseId)?.instructorName === activeUser.name).length} Pendentes
+                  {admissionRequests.filter(r => r.status === 'pending' && courses.find(c => c.id === r.courseId)?.instructorId === activeUser.id).length} Pendentes
                 </span>
               </div>
 
               <div className="space-y-3">
-                {admissionRequests.filter(r => r.status === 'pending' && courses.find(c => c.id === r.courseId)?.instructorName === activeUser.name).length === 0 ? (
+                {admissionRequests.filter(r => r.status === 'pending' && courses.find(c => c.id === r.courseId)?.instructorId === activeUser.id).length === 0 ? (
                   <div className="bg-slate-50 border border-slate-200 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-2">
                     <CheckCircle className="h-8 w-8 text-slate-300" />
                     <p className="text-xs font-bold text-slate-500">Nenhuma solicitação pendente.</p>
@@ -1699,7 +1704,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                     .filter(req => req.status === 'pending')
                     .map((req) => {
                       const course = courses.find(c => c.id === req.courseId);
-                      const isMyCourse = course?.instructorName === activeUser.name;
+                      const isMyCourse = course?.instructorId === activeUser.id;
                       
                       if (!isMyCourse) return null;
 
@@ -1781,7 +1786,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           }}
                         >
                           <option value="">Matricular em...</option>
-                          {courses.filter(c => c.instructorName === activeUser.name).map(c => (
+                          {courses.filter(c => c.instructorId === activeUser.id).map(c => (
                             <option key={`${c.id}-${idx}`} value={c.id}>{c.title}</option>
                           ))}
                         </select>

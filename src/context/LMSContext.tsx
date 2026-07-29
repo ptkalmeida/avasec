@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Course, LMSState, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser } from '../types';
-import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS } from '../data/mockData';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser, PersonRef } from '../types';
+import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS, MOCK_IDS } from '../data/mockData';
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
 
@@ -22,7 +22,7 @@ export function authFetch(url: string, options: RequestInit = {}): Promise<Respo
 
 interface LMSContextProps {
   courses: Course[];
-  activeUser: { name: string; role: 'student' | 'instructor' | 'admin' };
+  activeUser: { id: string; name: string; role: 'student' | 'instructor' | 'admin' };
   authUser: AuthUser | null;
   loginWithPassword: (nameOrEmail: string, password: string) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
   registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin') => Promise<{ ok: boolean; pending?: boolean; user?: AuthUser; error?: string }>;
@@ -34,7 +34,7 @@ interface LMSContextProps {
   directMessages: DirectMessage[];
   quizzes: Quiz[];
   quizSubmissions: QuizSubmission[];
-  professorsList: string[];
+  professorsList: PersonRef[];
   studentsList: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[];
   academicRequests: AcademicRequest[];
   libraryItems: LibraryItem[];
@@ -47,14 +47,13 @@ interface LMSContextProps {
   textSizeMultiplier: number;
   setTextSizeMultiplier: (v: number) => void;
   categoriesList: string[];
-  toggleUserRole: () => void;
-  updateUserName: (newName: string) => void;
+  updateUserName: (newName: string) => Promise<string | null>;
   toggleLessonCompletion: (courseId: string, lessonId: string) => void;
   attendLiveSession: (courseId: string, liveSessionId: string) => void;
   calculateAttendancePercent: (courseId: string) => number;
   addCourse: (course: Course) => void;
   deleteCourse: (courseId: string) => void;
-  updateCourseInstructor: (courseId: string, instructorName: string) => void;
+  updateCourseInstructor: (courseId: string, instructorId: string) => void;
   updateCourseProps: (courseId: string, updates: Partial<Course>) => void;
   addLessonToCourse: (courseId: string, lessonTitle: string, duration: string, content: string, videoUrl?: string) => void;
   updateLesson: (courseId: string, lessonId: string, updates: Partial<Lesson>) => void;
@@ -63,16 +62,15 @@ interface LMSContextProps {
   removeLiveSession: (courseId: string, sessionId: string) => void;
   sendLiveChatMessage: (sessionId: string, text: string) => void;
   setLiveSessionStatus: (courseId: string, sessionId: string, isLive: boolean) => void;
-  sendDirectMessage: (studentName: string, text: string) => void;
+  sendDirectMessage: (studentUserId: string, text: string) => void;
   addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => void;
   deleteQuiz: (quizId: string) => void;
-  submitQuiz: (studentName: string, courseId: string, quizId: string, scorePercent: number, passed: boolean) => QuizSubmission;
+  submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean) => QuizSubmission;
   addProfessor: (name: string, password?: string) => void;
   deleteProfessor: (name: string) => void;
   addStudent: (name: string, email: string, password?: string, municipio?: string, uf?: string, areaInteresse?: string, dataCadastro?: string) => void;
   deleteStudent: (name: string) => void;
-  setUserProfile: (name: string, role: 'student' | 'instructor' | 'admin') => void;
-  addAcademicRequest: (req: Omit<AcademicRequest, 'id' | 'status' | 'submittedAt'>) => void;
+  addAcademicRequest: (req: Omit<AcademicRequest, 'id' | 'status' | 'submittedAt' | 'userId' | 'studentName'> & { userId?: string }) => void;
   updateRequestStatus: (reqId: string, status: 'approved' | 'rejected') => void;
   addCategory: (categoryName: string) => void;
   updateAccessibilitySettings: (updates: Partial<AccessibilitySettings>) => void;
@@ -90,32 +88,51 @@ interface LMSContextProps {
   activeDashboardTab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq';
   setActiveDashboardTab: (tab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq') => void;
   admissionRequests: AdmissionRequest[];
-  addAdmissionRequest: (studentName: string, courseId: string, status?: 'pending' | 'approved' | 'rejected') => void;
+  addAdmissionRequest: (userId: string, courseId: string, status?: 'pending' | 'approved' | 'rejected') => void;
   updateAdmissionStatus: (reqId: string, status: 'approved' | 'rejected') => void;
   securityLogs: SecurityLog[];
   addSecurityLog: (action: string, details: string, status?: 'SUCCESS' | 'WARNING' | 'FAILED') => void;
   clearSecurityLogs: () => void;
-  studentEnrollments: { [studentName: string]: StudentEnrollment };
-  enrollStudentInCourse: (studentName: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
-  dropStudentFromCourse: (studentName: string, courseId: string) => Promise<{ ok: boolean; penaltyApplied: boolean; error?: string }>;
-  completeStudentCourse: (studentName: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
-  clearStudentPenalty: (studentName: string) => void;
+  studentEnrollments: { [userId: string]: StudentEnrollment };
+  enrollStudentInCourse: (userId: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
+  dropStudentFromCourse: (userId: string, courseId: string) => Promise<{ ok: boolean; penaltyApplied: boolean; error?: string }>;
+  completeStudentCourse: (userId: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
+  clearStudentPenalty: (userId: string) => void;
   forumMessages: ForumMessage[];
   addForumMessage: (courseId: string, text: string) => void;
-  toggleForumMessageLike: (messageId: string, userName: string) => void;
+  toggleForumMessageLike: (messageId: string) => void;
   deleteForumMessage: (messageId: string) => void;
   practicalExercises: PracticalExercise[];
   exerciseSubmissions: ExerciseSubmission[];
   addPracticalExercise: (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => void;
   updatePracticalExercise: (exerciseId: string, updates: Partial<PracticalExercise>) => void;
   deletePracticalExercise: (exerciseId: string) => void;
-  submitExercise: (exerciseId: string, studentName: string, submissionText: string, fileUrl?: string, fileName?: string) => void;
+  submitExercise: (exerciseId: string, submissionText: string, fileUrl?: string, fileName?: string) => void;
   gradeSubmission: (submissionId: string, score: number, feedback: string, graderName: string, status: 'approved' | 'rejected' | 'revision') => void;
 }
 
 const LMSContext = createContext<LMSContextProps | undefined>(undefined);
 
+// Versão do schema do estado persistido em localStorage. A v2 (ADR 10) indexa tudo por
+// userId; dados name-keyed pré-ADR10 não têm mapa nome→id disponível offline, então a
+// migração é descartar as chaves antigas — o backend re-hidrata o estado no mount.
+const LMS_STORAGE_VERSION = '2';
+
+function purgeLegacyNameKeyedStorage() {
+  if (localStorage.getItem('ava_schema_version') === LMS_STORAGE_VERSION) return;
+  const staleKeys: string[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('ava_') && key !== 'ava_auth_user') staleKeys.push(key);
+  }
+  staleKeys.forEach((key) => localStorage.removeItem(key));
+  localStorage.setItem('ava_schema_version', LMS_STORAGE_VERSION);
+}
+
 export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Roda ANTES dos inicializadores de useState abaixo, que leem o localStorage.
+  purgeLegacyNameKeyedStorage();
+
   const [courses, setCourses] = useState<Course[]>(() => {
     const saved = localStorage.getItem('ava_courses');
     const parsed = saved ? JSON.parse(saved) : INITIAL_COURSES;
@@ -264,22 +281,17 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const [activeUser, setActiveUser] = useState<{ name: string; role: 'student' | 'instructor' | 'admin' }>(() => {
-    const saved = localStorage.getItem('ava_active_user');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.role === 'instructor') {
-          parsed.name = 'Gestor de Conteúdos';
-        }
-        return parsed;
-      } catch (e) {}
-    }
-    return { name: 'João Silva', role: 'student' };
-  });
+  // Identidade ativa é sempre DERIVADA da sessão autenticada (ADR 10) — nada de
+  // perfil paralelo persistido em localStorage.
+  const activeUser = useMemo(
+    () => (authUser
+      ? { id: authUser.id, name: authUser.name, role: authUser.role }
+      : { id: '', name: '', role: 'student' as const }),
+    [authUser]
+  );
 
-  const [professorsList, setProfessorsList] = useState<string[]>(() => {
-    return ['Gestor de Conteúdos'];
+  const [professorsList, setProfessorsList] = useState<PersonRef[]>(() => {
+    return [{ id: MOCK_IDS.gestor, name: 'Gestor de Conteúdos' }];
   });
 
   const [studentsList, setStudentsList] = useState<{ id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[]>(() => {
@@ -335,12 +347,14 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!parsed || !Array.isArray(parsed)) {
       parsed = [
         {
+          userId: MOCK_IDS.joao,
           studentName: 'João Silva',
           courseId: 'course-1',
           completedLessons: ['lesson-1-1', 'lesson-1-2', 'lesson-1-3'], // 3 out of 5 lessons completed initially (60% lesson prog)
           attendedLiveSessions: ['live-1-2'], // Attended 1 out of 2 live sessions
         },
         {
+          userId: MOCK_IDS.joao,
           studentName: 'João Silva',
           courseId: 'course-2',
           completedLessons: ['lesson-2-1'],
@@ -352,7 +366,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const seen = new Set<string>();
     const deduped: StudentProgress[] = [];
     for (const p of parsed) {
-      const key = `${p.studentName}::${p.courseId}`;
+      const key = `${p.userId ?? p.studentName}::${p.courseId}`;
       if (!seen.has(key)) {
         seen.add(key);
         deduped.push(p);
@@ -379,7 +393,8 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const deduped: Certificate[] = [];
     for (const cert of parsed) {
       if (!cert || !cert.id) continue;
-      const key = `${cert.courseId}-${cert.studentName}`;
+      // Certificados históricos de contas removidas podem ter userId null — cai no nome.
+      const key = `${cert.courseId}-${cert.userId ?? cert.studentName}`;
       if (!seenKeys.has(key) && !seenIds.has(cert.id)) {
         seenKeys.add(key);
         seenIds.add(cert.id);
@@ -389,7 +404,8 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return deduped;
   });
 
-  const [studentEnrollments, setStudentEnrollments] = useState<{[studentName: string]: StudentEnrollment}>(() => {
+  // Mapa de matrículas keyed por userId (ADR 10) — o GET /api/enrollments já responde assim.
+  const [studentEnrollments, setStudentEnrollments] = useState<{[userId: string]: StudentEnrollment}>(() => {
     const saved = localStorage.getItem('ava_student_enrollments');
     if (saved) {
       try {
@@ -399,25 +415,33 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     return {
-      'João Silva': {
+      [MOCK_IDS.joao]: {
+        userId: MOCK_IDS.joao,
+        studentName: 'João Silva',
         enrolledCourseId: 'course-1',
         enrolledAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
         completedCourseIds: [],
         dropOutPenaltyUntil: null
       },
-      'Gabriel Rodrigues': {
+      [MOCK_IDS.gabriel]: {
+        userId: MOCK_IDS.gabriel,
+        studentName: 'Gabriel Rodrigues',
         enrolledCourseId: 'course-2',
         enrolledAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
         completedCourseIds: [],
         dropOutPenaltyUntil: null
       },
-      'Beatriz Costa': {
+      [MOCK_IDS.beatriz]: {
+        userId: MOCK_IDS.beatriz,
+        studentName: 'Beatriz Costa',
         enrolledCourseId: null,
         enrolledAt: null,
         completedCourseIds: ['course-1'],
         dropOutPenaltyUntil: null
       },
-      'Sofia Rocha': {
+      [MOCK_IDS.sofia]: {
+        userId: MOCK_IDS.sofia,
+        studentName: 'Sofia Rocha',
         enrolledCourseId: null,
         enrolledAt: null,
         completedCourseIds: [],
@@ -718,7 +742,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         text: 'Oi pessoal! Alguém tem dicas sobre como aplicar a heurística de Prevenção de Erros em formulários longos em nossa aplicação?',
         timestamp: '15/06/2026, 14:32',
         likes: 3,
-        likedBy: ['João Silva', 'Gabriel Rodrigues']
+        likedBy: [MOCK_IDS.joao, MOCK_IDS.gabriel]
       },
       {
         id: 'forum-msg-2',
@@ -728,7 +752,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         text: 'Oi Sofia! Geralmente desabilitar o botão de continuar até que os campos de inputs obrigatórios estejam com formatos válidos ajuda imensamente, além de exibir feedback visual imediato.',
         timestamp: '15/06/2026, 14:48',
         likes: 5,
-        likedBy: ['Sofia Rocha', 'Gabriel Rodrigues', 'Beatriz Costa']
+        likedBy: [MOCK_IDS.sofia, MOCK_IDS.gabriel, MOCK_IDS.beatriz]
       },
       {
         id: 'forum-msg-3',
@@ -738,7 +762,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         text: 'Excelente discussão e fomento de ideias! Lembrem-se também de detalhar os erros de forma humanizada ao invés de usar códigos enigmáticos como "Error 412: Campo Requerido" (Heurística de Diagnóstico e Recuperação de Erros).',
         timestamp: '15/06/2026, 16:10',
         likes: 8,
-        likedBy: ['Sofia Rocha', 'João Silva', 'Gabriel Rodrigues', 'Beatriz Costa']
+        likedBy: [MOCK_IDS.sofia, MOCK_IDS.joao, MOCK_IDS.gabriel, MOCK_IDS.beatriz]
       },
       {
         id: 'forum-msg-4',
@@ -748,7 +772,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         text: 'Fala galera de Vídeo Mapping! Alguém que já trabalha na área indica algum projetor bacana para início de carreira ou instalações domésticas em paredes brancas simples?',
         timestamp: '16/06/2026, 10:15',
         likes: 2,
-        likedBy: ['João Silva']
+        likedBy: [MOCK_IDS.joao]
       },
       {
         id: 'forum-msg-5',
@@ -758,7 +782,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         text: 'Olá Gabriel! Para superfícies brancas internas convencionais de baixa iluminação, projetores Epson de curta distância (Short Throw) com pelo menos 3000 ANSI Lumens atendem o alinhamento com folga. Desative o HMR e aproveite o alinhamento de canais!',
         timestamp: '16/06/2026, 11:02',
         likes: 4,
-        likedBy: ['Gabriel Rodrigues', 'João Silva']
+        likedBy: [MOCK_IDS.gabriel, MOCK_IDS.joao]
       }
     ];
 
@@ -835,6 +859,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'submission-1',
         exerciseId: 'exercise-1',
+        userId: MOCK_IDS.joao,
         studentName: 'João Silva',
         submissionText: 'Relatório de Usabilidade: Analisei o portal municipal da biblioteca.\n\n1. Visibilidade do status do sistema: Quando reservo um livro, a tela recarrega lentamente sem confirmação imediata, deixando o usuário sem saber se a operação deu certo.\n2. Prevenção de erros: O campo de busca de CPF aceita caracteres não-numéricos e quebra o banco.\n3. Consistência: Os botões de confirmação trocam de cor e lado dependendo da tela (às vezes verde na direita, às vezes azul na esquerda).\n\nRecomendação: Adicionar um Toast de sucesso e regex de validação de campo.',
         submittedAt: '26/06/2026, 15:42',
@@ -879,6 +904,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const defaults: AcademicRequest[] = [
       {
         id: 'req-1',
+        userId: MOCK_IDS.joao,
         studentName: 'João Silva',
         type: 'certificado',
         description: 'Solicito a emissão do certificado prioritário do curso de Design de Interfaces de Alta Performance para comprovação de horas complementares na graduação.',
@@ -888,6 +914,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       {
         id: 'req-2',
+        userId: MOCK_IDS.ana,
         studentName: 'Ana Souza',
         type: 'historico',
         description: 'Necessito do envio do meu Histórico Escolar Acadêmico oficial em PDF referente ao meu progresso acumulado na plataforma para validação de estágio obrigatório.',
@@ -896,6 +923,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       {
         id: 'req-3',
+        userId: MOCK_IDS.lucas,
         studentName: 'Lucas Santana',
         type: 'matricula',
         description: 'Não consigo acessar as aulas do curso de Desenvolvimento de Servidores com Node.js e Express. Solicito liberação manual da coordenação.',
@@ -970,7 +998,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const defaultDMs: DirectMessage[] = [
       {
         id: 'dm-1',
+        studentUserId: MOCK_IDS.joao,
         studentName: 'João Silva',
+        senderUserId: MOCK_IDS.joao,
         senderName: 'João Silva',
         senderRole: 'student',
         text: 'Olá Gestor, tudo bem? Estou gostando muito do curso de UX! Quando teremos o próximo feedback de portfólios?',
@@ -978,7 +1008,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       {
         id: 'dm-2',
+        studentUserId: MOCK_IDS.joao,
         studentName: 'João Silva',
+        senderUserId: MOCK_IDS.gestor,
         senderName: 'Gestor de Conteúdos',
         senderRole: 'instructor',
         text: 'Olá João! Que ótimo que está curtindo. Teremos uma mentoria sobre isso hoje mesmo às 19:30, mas você pode também agendar um horário direto comigo se precisar!',
@@ -986,7 +1018,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       {
         id: 'dm-3',
+        studentUserId: MOCK_IDS.gabriel,
         studentName: 'Gabriel Rodrigues',
+        senderUserId: MOCK_IDS.gabriel,
         senderName: 'Gabriel Rodrigues',
         senderRole: 'student',
         text: 'Olá tutor Gestor! Enviei o link do meu protótipo no Figma para avaliação. Poderia dar uma olhada no fluxo de navegação?',
@@ -994,7 +1028,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       {
         id: 'dm-4',
+        studentUserId: MOCK_IDS.beatriz,
         studentName: 'Beatriz Costa',
+        senderUserId: MOCK_IDS.beatriz,
         senderName: 'Beatriz Costa',
         senderRole: 'student',
         text: 'Professor, tenho uma dúvida conceitual sobre a prestação de contas de nosso coletivo para editais da Lei Paulo Gustavo. Existe algum modelo de planilha que possamos seguir?',
@@ -1002,7 +1038,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       },
       {
         id: 'dm-5',
+        studentUserId: MOCK_IDS.sofia,
         studentName: 'Sofia Rocha',
+        senderUserId: MOCK_IDS.sofia,
         senderName: 'Sofia Rocha',
         senderRole: 'student',
         text: 'Estou com dificuldades para rodar o software de Vídeo Mapping em meu notebook antigo. Há alguma alternativa de projeção ou simulador mais leve recomendável?',
@@ -1235,7 +1273,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         if (instructorsRes.ok) {
           const { items: users } = await instructorsRes.json();
-          setProfessorsList(users.map((u: any) => u.name));
+          setProfessorsList(users.map((u: any) => ({ id: u.id, name: u.name })));
         }
         if (enrollmentsRes.ok) setStudentEnrollments(await enrollmentsRes.json());
         if (quizzesRes.ok) setQuizzes(await quizzesRes.json());
@@ -1257,10 +1295,6 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('ava_courses', JSON.stringify(courses));
   }, [courses]);
-
-  useEffect(() => {
-    localStorage.setItem('ava_active_user', JSON.stringify(activeUser));
-  }, [activeUser]);
 
   useEffect(() => {
     localStorage.setItem('ava_student_progress', JSON.stringify(progress));
@@ -1317,16 +1351,26 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('ava_students', JSON.stringify(studentsList));
   }, [studentsList]);
 
-  const toggleUserRole = () => {
-    setActiveUser((prev) => {
-      const newRole = prev.role === 'student' ? 'instructor' : 'student';
-      const newName = newRole === 'student' ? 'João Silva' : 'Gestor de Conteúdos';
-      return { name: newName, role: newRole };
-    });
-  };
-
-  const updateUserName = (newName: string) => {
-    setActiveUser((prev) => ({ ...prev, name: newName }));
+  // Rename real (PUT /api/auth/users/{id}/name) — o display em respostas do servidor
+  // deriva do User, então basta atualizar a sessão local. Retorna mensagem de erro ou null.
+  const updateUserName = async (newName: string): Promise<string | null> => {
+    if (!authUser) return 'Sessão expirada. Faça login novamente.';
+    try {
+      const res = await authFetch(`/api/auth/users/${authUser.id}/name`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return data.message || 'Não foi possível atualizar o nome.';
+      }
+      setAuthUser({ ...authUser, name: newName });
+      return null;
+    } catch (err) {
+      console.error('Erro ao renomear usuário:', err);
+      return 'Servidor indisponível. Tente novamente em instantes.';
+    }
   };
 
   const calculateAttendancePercent = (courseId: string): number => {
@@ -1339,7 +1383,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (totalActivities === 0) return 0;
 
-    const userProgress = progress.find((p) => p.courseId === courseId && p.studentName === activeUser.name);
+    const userProgress = progress.find((p) => p.courseId === courseId && p.userId === activeUser.id);
     if (!userProgress) return 0;
 
     // A lesson completion acts as "attendance" of lessons, and attending live sessions accounts for meetings
@@ -1362,16 +1406,17 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // If student has at least required minimum attendance and doesn't have a certificate for this course yet, issue it automatically!
       if (attendance >= minAttendance) {
         const alreadyIssued = certificates.some(
-          (cert) => cert.courseId === course.id && cert.studentName === activeUser.name
+          (cert) => cert.courseId === course.id && cert.userId === activeUser.id
         );
         if (alreadyIssued) return;
 
         // O backend recalcula a frequência a partir do progresso real e só emite se o
-        // critério for de fato atingido — o cliente nunca decide isso sozinho.
+        // critério for de fato atingido — o cliente nunca decide isso sozinho. A
+        // identidade vem do token de sessão, nunca do corpo.
         authFetch('/api/certificates', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentName: activeUser.name, courseId: course.id })
+          body: JSON.stringify({ courseId: course.id })
         })
           .then(async (res) => {
             if (!res.ok) return;
@@ -1384,21 +1429,34 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // to stay dynamically accurate in state simulation, unless they like it
         setCertificates((prev) => {
           const alreadyIssued = prev.some(
-            (cert) => cert.courseId === course.id && cert.studentName === activeUser.name
+            (cert) => cert.courseId === course.id && cert.userId === activeUser.id
           );
           if (alreadyIssued) {
-            return prev.filter((cert) => !(cert.courseId === course.id && cert.studentName === activeUser.name));
+            return prev.filter((cert) => !(cert.courseId === course.id && cert.userId === activeUser.id));
           }
           return prev;
         });
       }
     });
-  }, [progress, activeUser.name, courses, activeUser.role]);
+  }, [progress, activeUser.id, courses, activeUser.role]);
+
+  // POST /api/progress sem identidade no corpo — o token decide de quem é o progresso.
+  const postProgressUpdate = (updated: StudentProgress) => {
+    authFetch('/api/progress', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        courseId: updated.courseId,
+        completedLessons: updated.completedLessons,
+        attendedLiveSessions: updated.attendedLiveSessions
+      })
+    }).catch(err => console.error("Erro ao atualizar progresso:", err));
+  };
 
   const toggleLessonCompletion = (courseId: string, lessonId: string) => {
-    const studentName = activeUser.name;
+    const userId = activeUser.id;
     setProgress((prev) => {
-      const existing = prev.find((p) => p.courseId === courseId && p.studentName === studentName);
+      const existing = prev.find((p) => p.courseId === courseId && p.userId === userId);
       let updated: StudentProgress;
       let nextState: StudentProgress[];
 
@@ -1408,10 +1466,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ? existing.completedLessons.filter((id) => id !== lessonId)
           : [...existing.completedLessons, lessonId];
         updated = { ...existing, completedLessons: updatedLessons };
-        nextState = prev.map((p) => (p.courseId === courseId && p.studentName === studentName ? updated : p));
+        nextState = prev.map((p) => (p.courseId === courseId && p.userId === userId ? updated : p));
       } else {
         updated = {
-          studentName,
+          userId,
+          studentName: activeUser.name,
           courseId,
           completedLessons: [lessonId],
           attendedLiveSessions: []
@@ -1419,20 +1478,16 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         nextState = [...prev, updated];
       }
 
-      authFetch('/api/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      }).catch(err => console.error("Erro ao atualizar progresso:", err));
+      postProgressUpdate(updated);
 
       return nextState;
     });
   };
 
   const attendLiveSession = (courseId: string, liveSessionId: string) => {
-    const studentName = activeUser.name;
+    const userId = activeUser.id;
     setProgress((prev) => {
-      const existing = prev.find((p) => p.courseId === courseId && p.studentName === studentName);
+      const existing = prev.find((p) => p.courseId === courseId && p.userId === userId);
       let updated: StudentProgress;
       let nextState: StudentProgress[];
 
@@ -1443,10 +1498,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...existing,
           attendedLiveSessions: [...existing.attendedLiveSessions, liveSessionId]
         };
-        nextState = prev.map((p) => (p.courseId === courseId && p.studentName === studentName ? updated : p));
+        nextState = prev.map((p) => (p.courseId === courseId && p.userId === userId ? updated : p));
       } else {
         updated = {
-          studentName,
+          userId,
+          studentName: activeUser.name,
           courseId,
           completedLessons: [],
           attendedLiveSessions: [liveSessionId]
@@ -1454,11 +1510,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         nextState = [...prev, updated];
       }
 
-      authFetch('/api/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      }).catch(err => console.error("Erro ao atualizar presenca em live:", err));
+      postProgressUpdate(updated);
 
       return nextState;
     });
@@ -1478,16 +1530,21 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch(`/api/courses/${courseId}`, { method: 'DELETE' }).catch(err => console.error(err));
   };
 
-  const updateCourseInstructor = (courseId: string, instructorName: string) => {
+  // Autoria por instructorId (ADR 10) — o servidor deriva o display do User;
+  // o instructorName local é só eco otimista até a próxima hidratação.
+  const updateCourseInstructor = (courseId: string, instructorId: string) => {
+    const instructorName = professorsList.find((p) => p.id === instructorId)?.name;
     setCourses((prev) =>
       prev.map((course) =>
-        course.id === courseId ? { ...course, instructorName } : course
+        course.id === courseId
+          ? { ...course, instructorId, instructorName: instructorName ?? course.instructorName }
+          : course
       )
     );
     authFetch(`/api/courses/${courseId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ instructorName })
+      body: JSON.stringify({ instructorId })
     }).catch(err => console.error(err));
   };
 
@@ -1663,12 +1720,17 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error(err));
   };
 
-  const sendDirectMessage = (studentName: string, text: string) => {
+  const sendDirectMessage = (studentUserId: string, text: string) => {
+    const threadOwnerName = studentUserId === activeUser.id
+      ? activeUser.name
+      : studentsList.find((s) => s.id === studentUserId)?.name ?? '';
     const newDM: DirectMessage = {
       id: `dm-${Date.now()}`,
-      studentName,
+      studentUserId,
+      studentName: threadOwnerName,
+      senderUserId: activeUser.id,
       senderName: activeUser.name,
-      senderRole: activeUser.role,
+      senderRole: activeUser.role === 'admin' ? 'instructor' : activeUser.role,
       text,
       timestamp: new Date().toISOString()
     };
@@ -1676,7 +1738,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch('/api/dms', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newDM)
+      body: JSON.stringify({ studentUserId, text })
     }).catch(err => console.error(err));
   };
 
@@ -1701,8 +1763,8 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch(`/api/quizzes/${quizId}`, { method: 'DELETE' }).catch(err => console.error(err));
   };
 
+  // Sempre ação do próprio aluno — identidade sai do token; o estado otimista usa activeUser.
   const submitQuiz = (
-    studentName: string,
     courseId: string,
     quizId: string,
     scorePercent: number,
@@ -1710,7 +1772,8 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ): QuizSubmission => {
     const newSubmission: QuizSubmission = {
       id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      studentName,
+      userId: activeUser.id,
+      studentName: activeUser.name,
       courseId,
       quizId,
       scorePercent,
@@ -1719,13 +1782,14 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setQuizSubmissions((prev) => {
       // replace previous submissions of the same student for the same quiz to allow retries
-      const cleaned = prev.filter((sub) => !(sub.studentName === studentName && sub.quizId === quizId));
+      const cleaned = prev.filter((sub) => !(sub.userId === activeUser.id && sub.quizId === quizId));
       return [...cleaned, newSubmission];
     });
+    const { userId: _userId, studentName: _studentName, ...body } = newSubmission;
     authFetch('/api/quiz-submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newSubmission)
+      body: JSON.stringify(body)
     }).catch(err => console.error(err));
     return newSubmission;
   };
@@ -1733,8 +1797,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addProfessor = (name: string, password?: string) => {
     const finalPassword = password && password.trim() ? password.trim() : '5678';
     setProfessorsList((prev) => {
-      if (prev.includes(name)) return prev;
-      return [...prev, name];
+      if (prev.some((p) => p.name === name)) return prev;
+      // Id provisório até a hidratação trazer o id real criado pelo backend.
+      return [...prev, { id: `temp-${Date.now()}`, name }];
     });
     // Cria a conta real no backend (hash bcrypt) para o professor poder fazer login de verdade.
     const email = `${name.toLowerCase().replace(/\s+/g, '.')}@avasec.local`;
@@ -1742,7 +1807,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteProfessor = (name: string) => {
-    setProfessorsList((prev) => prev.filter((p) => p !== name));
+    setProfessorsList((prev) => prev.filter((p) => p.name !== name));
   };
 
   const addStudent = (
@@ -1794,13 +1859,19 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
-  const setUserProfile = (name: string, role: 'student' | 'instructor' | 'admin') => {
-    setActiveUser({ name, role });
-  };
-
-  const addAcademicRequest = (req: Omit<AcademicRequest, 'id' | 'status' | 'submittedAt'>) => {
+  // Aluno abre para si (userId omitido → activeUser); staff pode abrir em nome de um
+  // aluno passando userId. O POST segue o contrato: identidade extra só quando staff.
+  const addAcademicRequest = (req: Omit<AcademicRequest, 'id' | 'status' | 'submittedAt' | 'userId' | 'studentName'> & { userId?: string }) => {
+    const userId = req.userId ?? activeUser.id;
+    const studentName = userId === activeUser.id
+      ? activeUser.name
+      : studentsList.find((s) => s.id === userId)?.name ?? '';
     const newRequest: AcademicRequest = {
-      ...req,
+      type: req.type,
+      description: req.description,
+      courseTitle: req.courseTitle,
+      userId,
+      studentName,
       id: `req-${Date.now()}`,
       status: 'pending',
       submittedAt: new Date().toLocaleDateString('pt-BR')
@@ -1809,7 +1880,12 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch('/api/academic-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newRequest)
+      body: JSON.stringify({
+        type: req.type,
+        description: req.description,
+        courseTitle: req.courseTitle,
+        ...(userId !== activeUser.id ? { userId } : {})
+      })
     }).catch(err => console.error(err));
   };
 
@@ -1835,9 +1911,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
     const defaults: AdmissionRequest[] = [
-      { id: 'adm-1', studentName: 'Lucas Santana', courseId: 'course-1', status: 'pending', submittedAt: '03/06/2026' },
-      { id: 'adm-2', studentName: 'Carolina Mendes', courseId: 'course-1', status: 'pending', submittedAt: '03/06/2026' },
-      { id: 'adm-3', studentName: 'Ana Souza', courseId: 'course-2', status: 'pending', submittedAt: '03/06/2026' },
+      { id: 'adm-1', userId: MOCK_IDS.lucas, studentName: 'Lucas Santana', courseId: 'course-1', status: 'pending', submittedAt: '03/06/2026' },
+      { id: 'adm-2', userId: MOCK_IDS.carolina, studentName: 'Carolina Mendes', courseId: 'course-1', status: 'pending', submittedAt: '03/06/2026' },
+      { id: 'adm-3', userId: MOCK_IDS.ana, studentName: 'Ana Souza', courseId: 'course-2', status: 'pending', submittedAt: '03/06/2026' },
     ];
 
     const source = parsed && Array.isArray(parsed) ? parsed : defaults;
@@ -1867,19 +1943,32 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error(err));
   };
 
-  const addAdmissionRequest = (studentName: string, courseId: string, status: 'pending' | 'approved' | 'rejected' = 'pending') => {
+  // Aluno solicita para si (userId === activeUser.id → body só com courseId);
+  // admin solicita em nome do aluno enviando também o userId.
+  const addAdmissionRequest = (userId: string, courseId: string, status: 'pending' | 'approved' | 'rejected' = 'pending') => {
+    const studentName = userId === activeUser.id
+      ? activeUser.name
+      : studentsList.find((s) => s.id === userId)?.name ?? '';
     const newReq: AdmissionRequest = {
       id: `adm-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      userId,
       studentName,
       courseId,
       status,
       submittedAt: new Date().toLocaleDateString('pt-BR')
     };
     setAdmissionRequests(prev => [...prev, newReq]);
+    // Sem userId conhecido (ex.: aluno recém-criado, cadastro assíncrono) fica só o eco local.
+    if (!userId) return;
+    authFetch('/api/admissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userId !== activeUser.id ? { userId, courseId } : { courseId })
+    }).catch(err => console.error(err));
   };
 
-  const syncEnrollment = (studentName: string, updated: StudentEnrollment) => {
-    authFetch(`/api/enrollments/${encodeURIComponent(studentName)}`, {
+  const syncEnrollment = (userId: string, updated: StudentEnrollment) => {
+    authFetch(`/api/enrollments/${encodeURIComponent(userId)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updated)
@@ -1888,12 +1977,12 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Ações de matrícula do PRÓPRIO aluno: a regra (penalidade, critério de conclusão, duplicidade)
   // é decidida pelo SERVIDOR nos endpoints /api/enrollments/self/*. O estado local só reflete a
-  // resposta — nada de calcular dias/penalidade no navegador.
-  const applySelfEnrollmentResponse = (studentName: string, enrollment: StudentEnrollment) => {
-    setStudentEnrollments(prev => ({ ...prev, [studentName]: enrollment }));
+  // resposta (já indexada pelo userId que ela mesma traz) — nada de calcular no navegador.
+  const applySelfEnrollmentResponse = (enrollment: StudentEnrollment) => {
+    setStudentEnrollments(prev => ({ ...prev, [enrollment.userId]: enrollment }));
   };
 
-  const enrollStudentInCourse = async (studentName: string, courseId: string): Promise<{ ok: boolean; error?: string }> => {
+  const enrollStudentInCourse = async (_userId: string, courseId: string): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await authFetch('/api/enrollments/self/enroll', {
         method: 'POST',
@@ -1902,7 +1991,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: data.message || 'Não foi possível efetuar a matrícula.' };
-      applySelfEnrollmentResponse(studentName, data.enrollment);
+      applySelfEnrollmentResponse(data.enrollment);
       return { ok: true };
     } catch (err) {
       console.error('Erro ao matricular:', err);
@@ -1910,7 +1999,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const dropStudentFromCourse = async (studentName: string, courseId: string): Promise<{ ok: boolean; penaltyApplied: boolean; error?: string }> => {
+  const dropStudentFromCourse = async (_userId: string, courseId: string): Promise<{ ok: boolean; penaltyApplied: boolean; error?: string }> => {
     try {
       const res = await authFetch('/api/enrollments/self/drop', {
         method: 'POST',
@@ -1919,7 +2008,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, penaltyApplied: false, error: data.message || 'Não foi possível cancelar a matrícula.' };
-      applySelfEnrollmentResponse(studentName, data.enrollment);
+      applySelfEnrollmentResponse(data.enrollment);
       return { ok: true, penaltyApplied: !!data.penaltyApplied };
     } catch (err) {
       console.error('Erro ao cancelar matrícula:', err);
@@ -1927,7 +2016,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const completeStudentCourse = async (studentName: string, courseId: string): Promise<{ ok: boolean; error?: string }> => {
+  const completeStudentCourse = async (_userId: string, courseId: string): Promise<{ ok: boolean; error?: string }> => {
     try {
       const res = await authFetch('/api/enrollments/self/complete', {
         method: 'POST',
@@ -1936,7 +2025,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: data.message || 'Critério de conclusão ainda não atingido.' };
-      applySelfEnrollmentResponse(studentName, data.enrollment);
+      applySelfEnrollmentResponse(data.enrollment);
       return { ok: true };
     } catch (err) {
       console.error('Erro ao concluir curso:', err);
@@ -1944,12 +2033,19 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const clearStudentPenalty = (studentName: string) => {
+  const clearStudentPenalty = (userId: string) => {
     setStudentEnrollments(prev => {
-      const current = prev[studentName] || { enrolledCourseId: null, enrolledAt: null, completedCourseIds: [], dropOutPenaltyUntil: null };
+      const current = prev[userId] || {
+        userId,
+        studentName: studentsList.find((s) => s.id === userId)?.name ?? '',
+        enrolledCourseId: null,
+        enrolledAt: null,
+        completedCourseIds: [],
+        dropOutPenaltyUntil: null
+      };
       const updated = { ...current, dropOutPenaltyUntil: null };
-      syncEnrollment(studentName, updated);
-      return { ...prev, [studentName]: updated };
+      syncEnrollment(userId, updated);
+      return { ...prev, [userId]: updated };
     });
   };
 
@@ -1958,6 +2054,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newMessage: ForumMessage = {
       id: `forum-msg-${Date.now()}`,
       courseId,
+      senderUserId: activeUser.id,
       senderName: activeUser.name,
       senderRole: activeUser.role,
       text: text.trim(),
@@ -1973,13 +2070,14 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error(err));
   };
 
-  const toggleForumMessageLike = (messageId: string, userName: string) => {
+  const toggleForumMessageLike = (messageId: string) => {
+    const userId = activeUser.id;
     setForumMessages(prev => prev.map(msg => {
       if (msg.id === messageId) {
-        const hasLiked = msg.likedBy.includes(userName);
+        const hasLiked = msg.likedBy.includes(userId);
         const newLikedBy = hasLiked
-          ? msg.likedBy.filter(u => u !== userName)
-          : [...msg.likedBy, userName];
+          ? msg.likedBy.filter(u => u !== userId)
+          : [...msg.likedBy, userId];
         return { ...msg, likedBy: newLikedBy, likes: newLikedBy.length };
       }
       return msg;
@@ -2030,13 +2128,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch(`/api/exercises/${exerciseId}`, { method: 'DELETE' }).catch(err => console.error(err));
   };
 
-  const submitExercise = (exerciseId: string, studentName: string, submissionText: string, fileUrl?: string, fileName?: string) => {
-    const existingIndex = exerciseSubmissions.findIndex(sub => sub.exerciseId === exerciseId && sub.studentName === studentName);
+  // Sempre ação do próprio aluno — identidade sai do token; o estado otimista usa activeUser.
+  const submitExercise = (exerciseId: string, submissionText: string, fileUrl?: string, fileName?: string) => {
+    const existingIndex = exerciseSubmissions.findIndex(sub => sub.exerciseId === exerciseId && sub.userId === activeUser.id);
 
     const newSub: ExerciseSubmission = {
       id: existingIndex >= 0 ? exerciseSubmissions[existingIndex].id : `sub-${Date.now()}`,
       exerciseId,
-      studentName,
+      userId: activeUser.id,
+      studentName: activeUser.name,
       submissionText,
       fileUrl,
       fileName,
@@ -2049,10 +2149,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setExerciseSubmissions(prev => [...prev, newSub]);
     }
+    const { userId: _userId, studentName: _studentName, ...body } = newSub;
     authFetch('/api/exercise-submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newSub)
+      body: JSON.stringify(body)
     }).catch(err => console.error(err));
   };
 
@@ -2101,7 +2202,6 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         libraryItems,
         webinarEvents,
         accessibilitySettings,
-        toggleUserRole,
         updateUserName,
         toggleLessonCompletion,
         attendLiveSession,
@@ -2125,7 +2225,6 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteProfessor,
         addStudent,
         deleteStudent,
-        setUserProfile,
         addAcademicRequest,
         updateRequestStatus,
         addCategory,

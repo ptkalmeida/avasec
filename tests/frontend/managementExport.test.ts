@@ -57,8 +57,8 @@ describe('managementExport — conversão de payloads do backend para a base de 
           completedCourseIds: ['c2', 'c3'],
         },
       ],
-      [{ courseId: 'c1', studentName: 'João Silva', completedLessons: ['l1', 'l2'] }],
-      [{ courseId: 'c2', studentName: 'João Silva' }],
+      [{ courseId: 'c1', userId: 'u1', studentName: 'João Silva', completedLessons: ['l1', 'l2'] }],
+      [{ courseId: 'c2', userId: 'u1', studentName: 'João Silva' }],
     );
 
     expect(rows).toHaveLength(3);

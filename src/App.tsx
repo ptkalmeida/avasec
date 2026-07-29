@@ -55,7 +55,6 @@ function AvasecLogo() {
 function DashboardSwitcher() {
   const {
     activeUser,
-    setUserProfile,
     loginWithPassword,
     registerUser,
     logoutAuth,
@@ -80,16 +79,17 @@ function DashboardSwitcher() {
     studentEnrollments
   } = useLMS();
   
-  const isUserLoggedIn = activeUser && activeUser.name !== '';
+const isUserLoggedIn = activeUser && activeUser.name !== '';
   
   // List of students that are simulated in the system
-  const studentsWithMessages = studentsList.map(s => s.name);
-  const unrepliedStudents = studentsWithMessages.filter(studentName => {
-    const studentDMs = directMessages.filter(m => m.studentName === studentName);
-    if (studentDMs.length === 0) return false;
-    const latestMsg = studentDMs[studentDMs.length - 1];
-    return latestMsg.senderRole === 'student'; // Unanswered by the instructor
-  });
+  const unrepliedStudents = studentsList
+    .filter(student => {
+      const studentDMs = directMessages.filter(m => m.studentUserId === student.id);
+      if (studentDMs.length === 0) return false;
+      const latestMsg = studentDMs[studentDMs.length - 1];
+      return latestMsg.senderRole === 'student'; // Unanswered by the instructor
+    })
+    .map(s => s.name);
   
   // Navigation & UI States
   const [currentView, setCurrentView] = useState<'landing' | 'active_app' | 'perfil'>('landing');
@@ -447,8 +447,8 @@ function DashboardSwitcher() {
 
   const [isPinVerifying, setIsPinVerifying] = useState(false);
 
-  const executeProfileLogin = (name: string, role: 'student' | 'instructor' | 'admin') => {
-    setUserProfile(name, role);
+  const executeProfileLogin = (name: string, _role: 'student' | 'instructor' | 'admin') => {
+    // A identidade ativa deriva de authUser (setado pelo loginWithPassword) — ADR 10.
     addSecurityLog('Autenticação de Fluxo', `Login efetuado com PIN para o perfil: ${name}.`, 'SUCCESS');
     setCurrentView('active_app');
     setIsLoginModalOpen(false);
@@ -459,7 +459,6 @@ function DashboardSwitcher() {
   };
 
   const handleLogout = () => {
-    setUserProfile('', 'student');
     logoutAuth();
     setCurrentView('landing');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1289,7 +1288,7 @@ function DashboardSwitcher() {
 
                       {/* Display current active course if there is one */}
                       {(() => {
-                        const enrollment = studentEnrollments[activeUser.name];
+                        const enrollment = studentEnrollments[activeUser.id];
                         const activeCourseId = enrollment?.enrolledCourseId;
                         const activeCourse = activeCourseId ? courses.find(c => c.id === activeCourseId) : null;
                         
@@ -1329,13 +1328,13 @@ function DashboardSwitcher() {
                     <div className="grid grid-cols-2 gap-4 w-full md:w-80 shrink-0">
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
                         <strong className="text-2xl font-black text-[#540D6E] font-mono block">
-                          {studentEnrollments[activeUser.name]?.completedCourseIds?.length || 0}
+                          {studentEnrollments[activeUser.id]?.completedCourseIds?.length || 0}
                         </strong>
                         <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1 block">Cursos Concluídos</span>
                       </div>
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
                         <strong className="text-2xl font-black text-[#3BCEAC] font-mono block">
-                          {certificates.filter(c => c.studentName.toLowerCase() === activeUser.name.toLowerCase()).length || 0}
+                          {certificates.filter(c => c.userId === activeUser.id).length || 0}
                         </strong>
                         <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1 block">Certificados Emitidos</span>
                       </div>
@@ -2901,8 +2900,8 @@ function DashboardSwitcher() {
                     <div className="grid grid-cols-1 gap-2.5">
                       {professorsList.map((prof, idx) => (
                         <div
-                          key={`${prof}-${idx}`}
-                          onClick={() => handleProfileLogin(prof, 'instructor')}
+                          key={`${prof.id}-${idx}`}
+                          onClick={() => handleProfileLogin(prof.name, 'instructor')}
                           className="group border border-slate-200 hover:border-slate-350 bg-slate-50/40 hover:bg-slate-50 p-3 rounded-xl cursor-pointer flex justify-between items-center transition-all"
                         >
                           <div className="flex items-center gap-3">
@@ -2910,7 +2909,7 @@ function DashboardSwitcher() {
                               G
                             </div>
                             <div className="text-left leading-normal">
-                              <strong className="text-slate-900 text-xs font-bold block">{prof}</strong>
+                              <strong className="text-slate-900 text-xs font-bold block">{prof.name}</strong>
                               <span className="text-[9px] text-slate-400 block font-sans">Gestor de Conteúdos</span>
                             </div>
                           </div>

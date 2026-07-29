@@ -22,8 +22,8 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
   const [activeFilter, setActiveFilter] = useState<'all' | 'questions' | 'insights' | 'instructor'>('all');
   const [successToast, setSuccessToast] = useState(false);
 
-  // Check enrollment
-  const enrollment = studentEnrollments[activeUser.name];
+  // Check enrollment (mapa keyed por userId — ADR 10)
+  const enrollment = studentEnrollments[activeUser.id];
   const isEnrolled = enrollment && enrollment.enrolledCourseId === selectedCourse.id;
   const canParticipate = isEnrolled || activeUser.role === 'instructor' || activeUser.role === 'admin';
 
@@ -184,8 +184,9 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
           </div>
         ) : (
           filteredMessages.map((msg, idx) => {
-            const hasLiked = msg.likedBy.includes(activeUser.name);
-            const isOwnMsg = msg.senderName === activeUser.name;
+            const hasLiked = msg.likedBy.includes(activeUser.id);
+            // Mensagens antigas podem não ter senderUserId — cai no nome como último recurso.
+            const isOwnMsg = msg.senderUserId ? msg.senderUserId === activeUser.id : msg.senderName === activeUser.name;
             const canDelete = isOwnMsg || activeUser.role === 'instructor' || activeUser.role === 'admin';
 
             return (
@@ -254,7 +255,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                   {/* Actions Area */}
                   <div className="flex items-center gap-3 pt-0.5">
                     <button
-                      onClick={() => toggleForumMessageLike(msg.id, activeUser.name)}
+                      onClick={() => toggleForumMessageLike(msg.id)}
                       className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider py-1 px-2 rounded-md transition-all cursor-pointer ${
                         hasLiked 
                           ? 'bg-rose-50 text-rose-600 border border-rose-200/50 scale-[1.01]' 

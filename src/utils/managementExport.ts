@@ -67,13 +67,14 @@ export function buildCursos(courses: any[]) {
 export function buildMatriculas(enrollments: any[], progress: any[], certificates: any[]) {
   const rows: any[] = [];
   for (const e of enrollments) {
-    const enrollmentId = e.id ?? e.studentName;
+    // Joins por userId (ADR 10) — o backend garante o campo em matrículas e progresso.
+    const enrollmentId = e.id ?? e.userId;
     if (e.enrolledCourseId) {
-      const prog = progress.find((p) => p.courseId === e.enrolledCourseId && p.studentName === e.studentName);
-      const hasCert = certificates.some((c) => c.courseId === e.enrolledCourseId && c.studentName === e.studentName);
+      const prog = progress.find((p) => p.courseId === e.enrolledCourseId && p.userId === e.userId);
+      const hasCert = certificates.some((c) => c.courseId === e.enrolledCourseId && c.userId === e.userId);
       rows.push({
         id_matricula: enrollmentId,
-        id_aluno: e.userId ?? e.studentName,
+        id_aluno: e.userId,
         id_curso: e.enrolledCourseId,
         data_matricula: e.enrolledAt ? String(e.enrolledAt).split('T')[0] : '',
         status_matricula: 'Ativa',
@@ -83,10 +84,10 @@ export function buildMatriculas(enrollments: any[], progress: any[], certificate
     }
     const completed: string[] = Array.isArray(e.completedCourseIds) ? e.completedCourseIds : [];
     completed.forEach((courseId, i) => {
-      const cert = certificates.find((c) => c.courseId === courseId && c.studentName === e.studentName);
+      const cert = certificates.find((c) => c.courseId === courseId && c.userId === e.userId);
       rows.push({
         id_matricula: `${enrollmentId}-C${i + 1}`,
-        id_aluno: e.userId ?? e.studentName,
+        id_aluno: e.userId,
         id_curso: courseId,
         data_matricula: '',
         status_matricula: 'Concluída',
@@ -108,7 +109,7 @@ export function buildProgressoModulo(progress: any[], catalog: any[]) {
       rows.push({
         id_progresso: `${p.id}-${lesson.id}`,
         id_matricula: p.enrollmentId ?? '',
-        id_aluno: p.userId ?? p.studentName,
+        id_aluno: p.userId,
         id_curso: p.courseId,
         id_modulo: lesson.id,
         titulo_modulo: lesson.title,

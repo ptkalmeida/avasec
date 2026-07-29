@@ -133,7 +133,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
   // Course configuration parameters
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseCategory, setNewCourseCategory] = useState(categoriesList[0] || 'Tecnologia');
-  const [newCourseTeacher, setNewCourseTeacher] = useState(professorsList[0] || 'Alessandro Pinto');
+  // Guarda o ID do professor responsável (ADR 10) — o nome é resolvido para display.
+  const [newCourseTeacherId, setNewCourseTeacherId] = useState(professorsList[0]?.id || '');
   const [newCourseDesc, setNewCourseDesc] = useState('');
   const [newCourseType, setNewCourseType] = useState<'fixo' | 'ao_vivo'>('fixo');
   const [newCourseHasChat, setNewCourseHasChat] = useState(true);
@@ -186,7 +187,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
   const [selectedRequestStudent, setSelectedRequestStudent] = useState('');
 
-  const getEnrichedStudent = (st: { name: string; email: string; password?: string }) => {
+  const getEnrichedStudent = (st: { id?: string; name: string; email: string; password?: string }) => {
     const name = st.name;
     const email = st.email;
     const activePass = st.password || localStorage.getItem(`ava_active_password_${st.name}`) || '1234';
@@ -292,7 +293,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       defaultRA = String(1240 + Math.abs(hash) % 1000);
       
       // Let's check if the student is registered in active admissions
-      const myAdmissions = admissionRequests.filter(r => r.studentName === name && r.status === 'approved');
+      const myAdmissions = admissionRequests.filter(r => (st.id ? r.userId === st.id : r.studentName === name) && r.status === 'approved');
       if (myAdmissions.length > 0) {
         const course = courses.find(c => c.id === myAdmissions[0].courseId);
         if (course) {
@@ -333,8 +334,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     const finalHorasConcluidas = override.horasConcluidas !== undefined ? override.horasConcluidas : defaultHorasConcluidas;
     const finalHorasTotais = override.horasTotais !== undefined ? override.horasTotais : defaultHorasTotais;
 
-    // Check penalty from standard state if penalized
-    const enrollRecord = studentEnrollments?.[name];
+    // Check penalty from standard state if penalized (mapa keyed por userId — ADR 10)
+    const enrollRecord = st.id ? studentEnrollments?.[st.id] : undefined;
     const isPenalized = enrollRecord?.dropOutPenaltyUntil && new Date(enrollRecord.dropOutPenaltyUntil).getTime() > Date.now();
     let computedPendencias = [...finalPendencias];
     
@@ -362,6 +363,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     else if (accessDays >= 8) riskLevel = 'Atenção';
 
     return {
+      id: st.id,
       name,
       email,
       ra: defaultRA,
@@ -539,7 +541,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     
     // Auto-enroll in the selected course with approved status
     if (selectedEnrollCourseId) {
-      addAdmissionRequest(studentName, selectedEnrollCourseId, 'approved');
+      // Aluno recém-criado ainda não tem id local (o cadastro no backend é assíncrono);
+      // se já existir na lista hidratada, usa o id real.
+      const existing = studentsList.find(s => s.email.toLowerCase() === studentEmail.toLowerCase());
+      addAdmissionRequest(existing?.id ?? '', selectedEnrollCourseId, 'approved');
       const course = courses.find(c => c.id === selectedEnrollCourseId);
       if (course) {
         showToast(`Aluno ${studentName} matriculado(a) em ${course.title} sob supervisão de ${course.instructorName}!`);
@@ -572,13 +577,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=800&auto=format&fit=crop&q=60'
     ][Math.floor(Math.random() * 4)];
 
+    const teacher = professorsList.find(p => p.id === newCourseTeacherId) ?? professorsList[0];
+
     addCourse({
       id: randomId,
       title: newCourseTitle.trim(),
       description: newCourseDesc.trim() || 'Este é um curso recém-provido pelo suporte administrativo da instituição.',
       category: newCourseCategory,
       thumbnail: randPhoto,
-      instructorName: newCourseTeacher,
+      // instructorName é display; a autoria real é o instructorId (o servidor ignora o nome).
+      instructorName: teacher?.name ?? '',
+      instructorId: teacher?.id ?? null,
       courseType: newCourseType,
       hasChat: newCourseHasChat,
       lessons: [],
@@ -586,7 +595,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       contractExpirationDate: newCourseExpiration.trim() || undefined
     });
 
-    showToast(`Curso de "${newCourseTitle.trim()}" provido e atribuído para ${newCourseTeacher}!`);
+    showToast(`Curso de "${newCourseTitle.trim()}" provido e atribuído para ${teacher?.name ?? 'a definir'}!`);
     setNewCourseTitle('');
     setNewCourseDesc('');
     setNewCourseExpiration('');
@@ -759,7 +768,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             </div>
 
             {/* Sub Navigation controls to target specific reports */}
-            <div className="flex bg-slate-50 p-1 rounded-[10px] border border-slate-200 gap-1 overflow-x-auto mb-6 max-w-fit md:mx-auto">
+            <div className="flex bg-slate-50 p-1.5 rounded-[10px] border border-slate-200 gap-1 overflow-x-auto mb-6 w-full max-w-4xl md:mx-auto">
               {[
                 { id: 'consolidado', label: 'Visão Geral', icon: Activity },
                 { id: 'alunos', label: 'Alunos', icon: Users },
@@ -773,7 +782,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <button
                     key={st.id}
                     onClick={() => setActiveReportSubTab(st.id as any)}
-                    className={`px-4 py-2 rounded-md text-[10.5px] font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                    className={`flex-1 justify-center px-5 py-2.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                       isSubActive 
                         ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60 font-black' 
                         : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
@@ -999,8 +1008,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </thead>
                       <tbody>
                         {mockStudents.map((st, idx) => {
-                          const enrollmentsCount = studentEnrollments?.[st.name]?.enrolledCourseId ? 1 : 0;
-                          const studentProgress = progress.filter(p => p.studentName === st.name);
+                          const enrollmentsCount = st.id && studentEnrollments?.[st.id]?.enrolledCourseId ? 1 : 0;
+                          const studentProgress = progress.filter(p => p.userId === st.id);
                           const avgProg = studentProgress.length === 0 ? 0 : Math.round(studentProgress.reduce((sum, p) => {
                             const c = courses.find(course => course.id === p.courseId);
                             return sum + (c ? (p.completedLessons.length / c.lessons.length) * 100 : 0);
@@ -1068,12 +1077,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </thead>
                       <tbody>
                         {professorsList.map((prof, idx) => {
-                          const assigned = courses.filter(c => c.instructorName === prof);
+                          const assigned = courses.filter(c => c.instructorId === prof.id);
                           const totalLessons = assigned.reduce((sum, c) => sum + c.lessons.length, 0);
                           const profile = idx === 0 ? "Gestor de Conteúdos" : "Professor";
                           return (
-                            <tr key={`${prof}-${idx}`} className="border-b border-slate-100">
-                              <td className="p-2.5 font-extrabold text-slate-900">{prof}</td>
+                            <tr key={`${prof.id}-${idx}`} className="border-b border-slate-100">
+                              <td className="p-2.5 font-extrabold text-slate-900">{prof.name}</td>
                               <td className="p-2.5">
                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
                                   profile === 'Gestor de Conteúdos' ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700'
@@ -1166,18 +1175,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         </tr>
                       </thead>
                       <tbody>
-                        {Object.entries(studentEnrollments || {}).map(([studentName, enrollmentVal], idx) => {
+                        {Object.entries(studentEnrollments || {}).map(([userId, enrollmentVal], idx) => {
                           const enrollment = enrollmentVal as StudentEnrollment;
                           const courseId = enrollment.enrolledCourseId;
                           if (!courseId) return null;
                           const course = courses.find(c => c.id === courseId);
                           if (!course) return null;
-                          
-                          const student = studentsList.find(s => s.name === studentName);
-                          const userProg = progress.find(p => p.courseId === course.id && p.studentName === studentName);
+
+                          // A chave do mapa é o userId (ADR 10); o nome de exibição vem do enrollment.
+                          const student = studentsList.find(s => s.id === userId);
+                          const studentName = enrollment.studentName || student?.name || userId;
+                          const userProg = progress.find(p => p.courseId === course.id && p.userId === userId);
                           const comp = userProg ? userProg.completedLessons.length : 0;
                           const ratio = course.lessons.length > 0 ? Math.round((comp / course.lessons.length) * 100) : 0;
-                          const hasCert = certificates.some(cert => cert.courseId === course.id && cert.studentName === studentName);
+                          const hasCert = certificates.some(cert => cert.courseId === course.id && cert.userId === userId);
                           const formattedDate = enrollment.enrolledAt ? new Date(enrollment.enrolledAt).toLocaleDateString('pt-BR') : '—';
 
                           return (
@@ -1270,17 +1281,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {professorsList.filter(prof => {
                 if (!professorSearchQuery) return true;
-                return prof.toLowerCase().includes(professorSearchQuery.toLowerCase());
+                return prof.name.toLowerCase().includes(professorSearchQuery.toLowerCase());
               }).map((prof, idx) => {
-                const assignedCourses = courses.filter(c => c.instructorName === prof);
+                const assignedCourses = courses.filter(c => c.instructorId === prof.id);
                 return (
-                  <div key={prof} className="border border-slate-100 p-4 rounded-[10px] bg-slate-50/40 relative group">
+                  <div key={prof.id} className="border border-slate-100 p-4 rounded-[10px] bg-slate-50/40 relative group">
                     <div className="absolute top-4 right-4 flex items-center gap-1.5">
                       <span className="text-[9px] bg-slate-200 font-mono font-bold px-1.5 py-0.5 rounded text-slate-600">
                         ID: GESTOR-01
                       </span>
                     </div>
-                    <strong className="block font-black text-slate-900 text-xs pr-24">{prof}</strong>
+                    <strong className="block font-black text-slate-900 text-xs pr-24">{prof.name}</strong>
                     <span className="text-[10px] font-bold text-blue-600 tracking-wide uppercase block mt-1">Coordenação Geral de Conteúdos</span>
                     <span className="text-[10px] text-slate-400 block mt-2">Trilhas sob Gestão: {assignedCourses.length}</span>
                     <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1">
@@ -1347,12 +1358,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Professor Responsável</label>
                 <select
-                  value={newCourseTeacher}
-                  onChange={(e) => setNewCourseTeacher(e.target.value)}
+                  value={newCourseTeacherId}
+                  onChange={(e) => setNewCourseTeacherId(e.target.value)}
                   className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white"
                 >
                   {professorsList.map((prof) => (
-                    <option key={prof} value={prof}>{prof}</option>
+                    <option key={prof.id} value={prof.id}>{prof.name}</option>
                   ))}
                 </select>
               </div>
@@ -1529,15 +1540,18 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <div className="flex items-center gap-1.5">
                               <span className="font-bold text-slate-400 uppercase tracking-wide">Trocar Professor:</span>
                               <select
-                                value={course.instructorName}
+                                value={course.instructorId ?? ''}
                                 onChange={(e) => {
-                                  updateCourseInstructor(course.id, e.target.value);
-                                  showToast(`Professor do curso "${course.title}" modificado com sucesso para ${e.target.value}!`);
+                                  const newTeacher = professorsList.find(p => p.id === e.target.value);
+                                  if (!newTeacher) return;
+                                  updateCourseInstructor(course.id, newTeacher.id);
+                                  showToast(`Professor do curso "${course.title}" modificado com sucesso para ${newTeacher.name}!`);
                                 }}
                                 className="border border-slate-200 bg-white p-0.5 px-1.5 text-[10px] rounded-md font-bold text-slate-700 cursor-pointer focus:outline-hidden"
                               >
+                                <option value="" disabled>Selecionar…</option>
                                 {professorsList.map((prof) => (
-                                  <option key={prof} value={prof}>{prof}</option>
+                                  <option key={prof.id} value={prof.id}>{prof.name}</option>
                                 ))}
                               </select>
                             </div>
@@ -2748,7 +2762,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     onClick={() => {
                       const student = selectedRequestStudent || (mockStudents[0]?.name || 'João Silva');
                       addAcademicRequest({
-                        studentName: student,
+                        userId: mockStudents.find(s => s.name === student)?.id,
                         type: 'historico',
                         description: `Solicito a emissão do Histórico Curricular Escolar oficial e detalhado contendo todas as notas, médias acumuladas e carga horária integralizada até o presente momento letivo para fins de submissão em edital de transferência de instituição pública.`,
                         courseTitle: courses[0]?.title || 'Geral / Integral'
@@ -2769,7 +2783,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     onClick={() => {
                       const student = selectedRequestStudent || (mockStudents[0]?.name || 'João Silva');
                       addAcademicRequest({
-                        studentName: student,
+                        userId: mockStudents.find(s => s.name === student)?.id,
                         type: 'certificado',
                         description: `Prezados, venho requerer a homologação prioritária e emissão do Certificado Oficial de Conclusão do Curso de capacitação, pois necessito apresentá-lo ao departamento de Recursos Humanos de minha empresa para fins de promoção e progressão salarial até o final desta semana.`,
                         courseTitle: courses[0]?.title || 'Geral / Integral'
@@ -2790,7 +2804,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     onClick={() => {
                       const student = selectedRequestStudent || (mockStudents[0]?.name || 'João Silva');
                       addAcademicRequest({
-                        studentName: student,
+                        userId: mockStudents.find(s => s.name === student)?.id,
                         type: 'matricula',
                         description: `Solicito emissão de declaração de matrícula regular e frequência letiva correspondente ao período acadêmico vigente, necessária para apresentação junto ao órgão de transporte público para aquisição do passe-estudantil integrado deste semestre.`,
                         courseTitle: courses[1]?.title || courses[0]?.title || 'Geral / Integral'
@@ -2883,7 +2897,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               onClick={() => {
                                 updateRequestStatus(req.id, 'approved');
                                 if (req.type === 'matricula' || req.description?.includes('Reversão')) {
-                                  clearStudentPenalty(req.studentName);
+                                  clearStudentPenalty(req.userId);
                                 }
                                 showToast(`Solicitação de ${req.studentName} DEFERIDA com sucesso!`);
                               }}
@@ -3571,21 +3585,22 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
             const MatriculasData: any[] = [];
             let matCounter = 1;
-            Object.entries(studentEnrollments || {}).forEach(([studentName, enrollmentVal]) => {
+            Object.entries(studentEnrollments || {}).forEach(([userId, enrollmentVal]) => {
               const enrollment = enrollmentVal as any;
-              const studentIndex = studentsList.findIndex(s => s.name === studentName);
+              // Joins por userId (ADR 10); o nome é só display.
+              const studentIndex = studentsList.findIndex(s => s.id === userId);
               const studentId = studentIndex >= 0 ? `ALU_${String(studentIndex + 1).padStart(3, '0')}` : 'ALU_001';
-              const studentObj = studentsList.find(s => s.name === studentName);
+              const studentObj = studentsList.find(s => s.id === userId);
 
               if (enrollment.enrolledCourseId) {
                 const courseId = enrollment.enrolledCourseId;
                 const course = courses.find(c => c.id === courseId);
                 if (course) {
-                  const userProg = progress.find(p => p.courseId === courseId && p.studentName === studentName);
+                  const userProg = progress.find(p => p.courseId === courseId && p.userId === userId);
                   const compCount = userProg ? userProg.completedLessons.length : 0;
                   const totalCount = course.lessons.length;
                   const percent = totalCount > 0 ? Math.round((compCount / totalCount) * 100) : 0;
-                  const hasCert = certificates.some(cert => cert.courseId === courseId && cert.studentName === studentName);
+                  const hasCert = certificates.some(cert => cert.courseId === courseId && cert.userId === userId);
 
                   MatriculasData.push({
                     id_matricula: `MAT_${String(matCounter++).padStart(3, '0')}`,
@@ -3607,7 +3622,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 enrollment.completedCourseIds.forEach((courseId: string) => {
                   const course = courses.find(c => c.id === courseId);
                   if (course) {
-                    const cert = certificates.find(ct => ct.courseId === courseId && ct.studentName === studentName);
+                    const cert = certificates.find(ct => ct.courseId === courseId && ct.userId === userId);
                     const issueDate = cert ? cert.issueDate : '2026-06-25';
 
                     MatriculasData.push({
@@ -3634,8 +3649,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               const course = courses.find(c => c.id === mat.id_curso);
               if (!course) return;
 
-              const studentName = studentsList[parseInt(mat.id_aluno.split('_')[1], 10) - 1]?.name;
-              const userProg = progress.find(p => p.courseId === mat.id_curso && p.studentName === studentName);
+              const matStudent = studentsList[parseInt(mat.id_aluno.split('_')[1], 10) - 1];
+              const userProg = progress.find(p => p.courseId === mat.id_curso && p.userId === matStudent?.id);
 
               course.lessons.forEach((lesson, index) => {
                 const isCompleted = mat.status_matricula === 'Concluída' || (userProg && userProg.completedLessons.includes(lesson.id));
@@ -3658,7 +3673,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             const CertificadosData: any[] = [];
             let certCounter = 1;
             certificates.forEach(c => {
-              const studentIndex = studentsList.findIndex(st => st.name === c.studentName);
+              // Certificados históricos podem ter userId null — cai no nome como último recurso.
+              const studentIndex = studentsList.findIndex(st => (c.userId ? st.id === c.userId : st.name === c.studentName));
               const studentId = studentIndex >= 0 ? `ALU_${String(studentIndex + 1).padStart(3, '0')}` : 'ALU_001';
               const matchedMat = MatriculasData.find(mat => mat.id_aluno === studentId && mat.id_curso === c.courseId);
               const matriculaId = matchedMat ? matchedMat.id_matricula : 'MAT_001';
@@ -3922,8 +3938,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 studentAttendance = Math.round((completed / totalActs) * 100);
                               }
 
-                              // average quiz score
-                              const subs = quizSubmissions.filter(s => s.studentName === activeDocViewer.studentName && s.courseId === course.id);
+                              // average quiz score (resolve o id do aluno exibido no documento — ADR 10)
+                              const docStudentId = studentsList.find(s => s.name === activeDocViewer.studentName)?.id;
+                              const subs = quizSubmissions.filter(s => s.userId === docStudentId && s.courseId === course.id);
                               const quizScore = subs.length > 0 ? `${subs[0].scorePercent}%` : 'Pendente';
 
                               return (
@@ -4206,7 +4223,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     {st.pendencias.some(p => p.includes('Termo de Compromisso')) && (
                       <button
                         onClick={() => {
-                          clearStudentPenalty(st.name);
+                          if (st.id) clearStudentPenalty(st.id);
                           const updated = st.pendencias.filter(p => !p.includes('Termo de Compromisso'));
                           updateOverride(st.name, { pendencias: updated.length === 0 ? ['Nenhuma'] : updated });
                           showToast(`A pendência do termo de compromisso de ${st.name} foi resolvida.`);
