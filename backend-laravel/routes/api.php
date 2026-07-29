@@ -105,6 +105,8 @@ Route::middleware('feature:certificados')->group(function (): void {
         ->middleware('throttle:cert-lookup');
     Route::get('/certificates', [CertificateController::class, 'index'])
         ->middleware(['jwt', 'active']);
+    Route::get('/certificates/{id}/pdf', [CertificateController::class, 'pdf'])
+        ->middleware(['jwt', 'active']);
     Route::post('/certificates', [CertificateController::class, 'store'])
         ->middleware(['jwt', 'active']);
     Route::delete('/certificates/{id}', [CertificateController::class, 'destroy'])

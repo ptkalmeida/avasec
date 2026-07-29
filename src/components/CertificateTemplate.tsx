@@ -3,9 +3,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Award, Check, Download, Printer, ShieldCheck, X } from 'lucide-react';
 import { Certificate } from '../types';
+import { downloadCertificatePdf } from '../utils/fileDownload';
 
 interface CertificateTemplateProps {
   certificate: Certificate;
@@ -14,15 +15,21 @@ interface CertificateTemplateProps {
 
 export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certificate, onClose }) => {
   const printRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const handlePrint = () => {
-    const printContent = printRef.current?.innerHTML;
-    const originalContent = document.body.innerHTML;
-
-    if (printContent) {
-      // Simple and robust local print simulation
+    if (printRef.current) {
       window.print();
     }
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsDownloading(true);
+    setDownloadError(null);
+    const error = await downloadCertificatePdf(certificate.id);
+    setIsDownloading(false);
+    if (error) setDownloadError(error);
   };
 
   return (
@@ -67,17 +74,28 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
             <Award className="h-6 w-6 text-amber-500 font-sans" />
             <div>
               <h2 className="text-lg font-bold text-slate-800 leading-tight">Visualização de Certificado</h2>
-              <p className="text-[10px] text-slate-400 mt-0.5 leading-none">Dica: escolha "Salvar como PDF" no destino da impressão para baixar o certificado.</p>
+              <p className="text-[10px] text-slate-400 mt-0.5 leading-none">Baixe o PDF oficial com QR de verificação ou imprima esta visualização.</p>
+              {downloadError && (
+                <p className="text-[10px] text-red-600 mt-1 leading-none font-semibold">{downloadError}</p>
+              )}
             </div>
           </div>
           
           <div className="flex items-center gap-2 self-end sm:self-auto">
             <button
+              onClick={handleDownloadPdf}
+              disabled={isDownloading}
+              className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-500 cursor-pointer transition-colors shadow-xs disabled:opacity-60 disabled:cursor-wait"
+            >
+              <Download className="h-4 w-4" />
+              <span>{isDownloading ? 'Gerando...' : 'Baixar PDF'}</span>
+            </button>
+            <button
               onClick={handlePrint}
-              className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-500 cursor-pointer transition-colors shadow-xs"
+              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors shadow-xs"
             >
               <Printer className="h-4 w-4" />
-              <span>Imprimir / Baixar PDF</span>
+              <span>Imprimir</span>
             </button>
             <button
               onClick={onClose}

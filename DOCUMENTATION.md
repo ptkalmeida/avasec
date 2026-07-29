@@ -263,8 +263,10 @@ avasec-main/
 - **Vídeo das aulas** — URLs externas validadas no backend (ADR 08): YouTube (canonicalizado
   para `watch?v=`) ou arquivo de vídeo direto (mp4/webm/ogg/m4v/mov). Player único em
   `src/components/shared/VideoPlayer.tsx`; sem integração com serviço de streaming dedicado.
-- **Certificado (PDF)** — `CertificateTemplate.tsx` existe para exibir/imprimir o certificado
-  na tela; não há geração de PDF assinado digitalmente nem envio por e-mail.
+- **Certificado (PDF)** — resolvido (ADR 09): `GET /api/certificates/{id}/pdf` gera o PDF
+  oficial no servidor (dompdf) com QR apontando para a verificação pública (`/?verify=HASH`
+  na landing). Dono ou staff baixam; a verificação pública retorna resposta sanitizada (sem
+  IDs internos). Sem envio por e-mail nem assinatura digital ICP (fora de escopo).
 - **Confirmação de cadastro público** — não existe fluxo de e-mail de confirmação; uma conta
   `pending_confirmation` só vira `active` por ação manual de um admin.
 - **Presença online/offline de instrutor, notas de aula do aluno, avatar/status de perfil** —

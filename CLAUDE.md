@@ -29,7 +29,7 @@ Logins demo (teclado numérico): Admin Superior **9999**, Gestor de Conteúdos
 ## Gates de qualidade (todos precisam passar antes de commit)
 
 ```bash
-npm run test:api                                   # 90 testes PHPUnit (exigem o MySQL de dev)
+npm run test:api                                   # 95 testes PHPUnit (exigem o MySQL de dev)
 npm test                                           # testes de frontend (Vitest + RTL)
 npm run lint                                       # tsc --noEmit
 cd backend-laravel && ./vendor/bin/pint --test     # PSR-12

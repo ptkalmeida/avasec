@@ -14,7 +14,7 @@ import {
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { parseVideoSource } from '../utils/videoSource';
-import { downloadSubmissionFile } from '../utils/fileDownload';
+import { downloadSubmissionFile, downloadCertificatePdf } from '../utils/fileDownload';
 import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS } from '../config/constants';
 import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQuestion } from '../types';
 import { CertificateTemplate } from './CertificateTemplate';
@@ -206,14 +206,49 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   // Certificates Area States
   const [activeCertificatesTab, setActiveCertificatesTab] = useState<'available' | 'in_progress' | 'validation'>('available');
   const [validationCode, setValidationCode] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<{
     valid: boolean;
     message: string;
     studentName?: string;
     courseTitle?: string;
-    workloadHours?: number;
-    completionDate?: string;
+    cargaHoraria?: number | null;
+    issueDate?: string;
   } | null>(null);
+
+  // Validação usa a rota pública real (mesma do autenticador da landing) —
+  // certificados de terceiros nunca estão no array em memória do aluno.
+  const handleValidateCertificate = async () => {
+    const code = validationCode.trim();
+    if (!code || isValidating) return;
+    setIsValidating(true);
+    try {
+      const res = await fetch(`/api/certificates/verify?q=${encodeURIComponent(code)}`);
+      const data = res.ok ? await res.json() : null;
+      if (data && data.verificationHash) {
+        setValidationResult({
+          valid: true,
+          message: 'Certificado válido',
+          studentName: data.studentName,
+          courseTitle: data.courseTitle,
+          cargaHoraria: data.cargaHoraria,
+          issueDate: data.issueDate
+        });
+      } else {
+        setValidationResult({
+          valid: false,
+          message: 'Certificado não encontrado. Confira se o código foi digitado corretamente.'
+        });
+      }
+    } catch {
+      setValidationResult({
+        valid: false,
+        message: 'Servidor indisponível para validação. Tente novamente em instantes.'
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   // Module sidebar accordion expansion states
   const [expandedModules, setExpandedModules] = useState<{[key: string]: boolean}>({
@@ -2677,11 +2712,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                         </div>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
                           <button
-                            onClick={() => setSelectedCertificate(cert)}
+                            onClick={async () => {
+                              const error = await downloadCertificatePdf(cert.id);
+                              if (error) showAlert(error);
+                            }}
                             className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                           >
                             <Download className="h-4 w-4" />
-                            Baixar certificado
+                            Baixar PDF
+                          </button>
+                          <button
+                            onClick={() => setSelectedCertificate(cert)}
+                            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            <Award className="h-4 w-4" />
+                            Visualizar
                           </button>
                         </div>
                       </div>
@@ -2767,35 +2812,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   <div className="flex flex-col sm:flex-row gap-3">
                     <input
                       type="text"
-                      placeholder="Ex: CERT-8F2X-99P1"
+                      placeholder="Ex: AVA-1A2B3C4D5E6F7890"
                       value={validationCode}
                       onChange={(e) => setValidationCode(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleValidateCertificate(); }}
                       className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                     />
                     <button
-                      onClick={() => {
-                        if (!validationCode.trim()) return;
-                        const found = certificates.find(c => c.verificationHash === validationCode.trim());
-                        if (found) {
-                          const course = courses.find(c => c.id === found.courseId);
-                          setValidationResult({
-                            valid: true,
-                            message: 'Certificado válido',
-                            studentName: found.studentName,
-                            courseTitle: found.courseTitle,
-                            workloadHours: course?.workloadHours ?? 40,
-                            completionDate: found.issueDate
-                          });
-                        } else {
-                          setValidationResult({
-                            valid: false,
-                            message: 'Certificado não encontrado. Confira se o código foi digitado corretamente.'
-                          });
-                        }
-                      }}
-                      className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl transition-all shadow-xs cursor-pointer"
+                      onClick={handleValidateCertificate}
+                      disabled={isValidating}
+                      className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                     >
-                      Validar
+                      {isValidating ? 'Validando...' : 'Validar'}
                     </button>
                   </div>
 
@@ -2812,8 +2840,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           <div className="space-y-1.5 text-xs text-slate-700">
                             <p><strong className="text-slate-900 w-24 inline-block">Aluno:</strong> {validationResult.studentName}</p>
                             <p><strong className="text-slate-900 w-24 inline-block">Curso:</strong> {validationResult.courseTitle}</p>
-                            <p><strong className="text-slate-900 w-24 inline-block">Carga Horária:</strong> {validationResult.workloadHours}h</p>
-                            <p><strong className="text-slate-900 w-24 inline-block">Conclusão:</strong> {validationResult.completionDate}</p>
+                            {validationResult.cargaHoraria != null && (
+                              <p><strong className="text-slate-900 w-24 inline-block">Carga Horária:</strong> {validationResult.cargaHoraria}h</p>
+                            )}
+                            <p><strong className="text-slate-900 w-24 inline-block">Emissão:</strong> {validationResult.issueDate}</p>
                             <p><strong className="text-slate-900 w-24 inline-block">Código:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-100">{validationCode}</span></p>
                           </div>
                         </div>

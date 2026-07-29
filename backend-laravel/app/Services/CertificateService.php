@@ -39,7 +39,8 @@ final class CertificateService
     }
 
     /**
-     * Consulta pública de verificação (id, hash ou nome).
+     * Consulta pública de verificação (id, hash ou nome). Resposta em whitelist:
+     * rota sem autenticação nunca expõe identificadores internos (userId/enrollmentId).
      *
      * @return array<string, mixed>|null
      */
@@ -51,8 +52,21 @@ final class CertificateService
             ->orWhere('verificationHash', $trimmed)
             ->orWhere('studentName', 'like', '%'.$trimmed.'%')
             ->first();
+        if ($cert === null) {
+            return null;
+        }
 
-        return $cert?->toArray();
+        $cargaHoraria = Course::query()->find($cert->courseId)?->cargaHoraria;
+
+        return [
+            'id' => $cert->id,
+            'studentName' => $cert->studentName,
+            'courseTitle' => $cert->courseTitle,
+            'issueDate' => $cert->issueDate,
+            'attendancePercent' => $cert->attendancePercent,
+            'verificationHash' => $cert->verificationHash,
+            'cargaHoraria' => is_numeric($cargaHoraria) ? (int) $cargaHoraria : null,
+        ];
     }
 
     /**
