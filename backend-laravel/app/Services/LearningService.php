@@ -106,7 +106,7 @@ final class LearningService
         if ($requester['role'] !== 'student') {
             throw ApiException::forbidden('Somente alunos podem responder quizzes.');
         }
-        QuizSubmission::query()->where('studentName', $requester['name'])->where('quizId', $input['quizId'])->delete();
+        QuizSubmission::query()->where('userId', $requester['sub'])->where('quizId', $input['quizId'])->delete();
 
         return QuizSubmission::query()->create([
             'id' => 'sub-'.$this->nowMs().'-'.random_int(0, 999),
@@ -158,11 +158,12 @@ final class LearningService
         if ($msg === null) {
             throw ApiException::notFound('Mensagem não encontrada.');
         }
+        // likedBy é um array de userIds desde a ADR 10 (backfill converteu nomes).
         $likedBy = is_array($msg->likedBy) ? $msg->likedBy : [];
-        $hasLiked = in_array($requester['name'], $likedBy, true);
+        $hasLiked = in_array($requester['sub'], $likedBy, true);
         $next = $hasLiked
-            ? array_values(array_filter($likedBy, fn ($u) => $u !== $requester['name']))
-            : [...$likedBy, $requester['name']];
+            ? array_values(array_filter($likedBy, fn ($u) => $u !== $requester['sub']))
+            : [...$likedBy, $requester['sub']];
         $msg->likedBy = $next;
         $msg->likes = count($next);
         $msg->save();
@@ -260,7 +261,7 @@ final class LearningService
             'status' => 'pending',
         ];
         $existing = ExerciseSubmission::query()
-            ->where('exerciseId', $input['exerciseId'])->where('studentName', $requester['name'])->first();
+            ->where('exerciseId', $input['exerciseId'])->where('userId', $requester['sub'])->first();
         if ($existing !== null) {
             $existing->fill($data)->save();
 
