@@ -52,16 +52,16 @@ final class CertificateController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'studentName' => ['required', 'string', 'min:2', 'max:150'],
+            'userId' => ['sometimes', 'nullable', 'string', 'max:191'],
             'courseId' => ['required', 'string', 'max:191'],
         ]);
 
-        $studentName = $this->stringField($data, 'studentName');
         $courseId = $this->stringField($data, 'courseId');
         $cert = $this->certificates->issueCertificate([
-            'studentName' => $studentName,
+            'userId' => $this->optionalString($data, 'userId'),
             'courseId' => $courseId,
         ], $this->requester($request));
+        $studentName = $this->optionalString($cert, 'studentName') ?? '';
         $this->audit->log($request, 'Emissão de Certificado', "Certificado emitido para \"{$studentName}\" no curso {$courseId}.");
 
         return response()->json($cert, 201);

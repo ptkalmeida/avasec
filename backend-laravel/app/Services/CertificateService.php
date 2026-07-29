@@ -70,15 +70,13 @@ final class CertificateService
     }
 
     /**
-     * @param  array{studentName:string,courseId:string}  $input
+     * @param  array{userId?:string|null,courseId:string}  $input
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function issueCertificate(array $input, array $requester): array
     {
-        if ($requester['role'] === 'student' && $input['studentName'] !== $requester['name']) {
-            throw ApiException::forbidden('Você só pode emitir certificado para si mesmo.');
-        }
+        $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
 
         $course = Course::query()->with(['lessons', 'liveSessions'])->find($input['courseId']);
         if ($course === null) {
@@ -87,7 +85,7 @@ final class CertificateService
 
         // Idempotência: se já existe certificado para aluno+curso, apenas retorna.
         $existing = Certificate::query()
-            ->where('studentName', $input['studentName'])
+            ->where('userId', $userId)
             ->where('courseId', $input['courseId'])
             ->first();
         if ($existing !== null) {
@@ -95,7 +93,7 @@ final class CertificateService
         }
 
         $progress = StudentProgress::query()
-            ->where('studentName', $input['studentName'])
+            ->where('userId', $userId)
             ->where('courseId', $input['courseId'])
             ->first();
 
@@ -106,13 +104,12 @@ final class CertificateService
             throw ApiException::forbidden("Critério de frequência ainda não atingido para emissão do certificado ({$attendancePercent}% de {$minAttendance}% exigidos).");
         }
 
-        $userId = Identity::resolveStudentUserId($input['studentName'], $requester);
-        $enrollmentId = StudentEnrollment::query()->where('studentName', $input['studentName'])->value('id');
+        $enrollmentId = StudentEnrollment::query()->whereKey($userId)->value('id');
 
         $hashHex = strtoupper(bin2hex(random_bytes(8)));
         $certificate = Certificate::query()->create([
             'id' => "cert-{$course->id}-{$hashHex}",
-            'studentName' => $input['studentName'],
+            'studentName' => Identity::displayName($userId, $requester),
             'userId' => $userId,
             'enrollmentId' => $enrollmentId,
             'courseId' => $course->id,
