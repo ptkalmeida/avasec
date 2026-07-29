@@ -507,18 +507,17 @@ function DashboardSwitcher() {
     }
   };
 
-  const handleCertLookup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Consulta pública dedicada (não exige login) — o servidor busca no banco completo,
+  // não apenas nos certificados já carregados na sessão do visitante.
+  const runCertLookup = async (query: string) => {
     setCertSearchClicked(true);
-    if (!certQuery.trim()) {
+    if (!query.trim()) {
       setCertLookupResult(null);
       return;
     }
 
-    // Consulta pública dedicada (não exige login) — o servidor busca no banco completo,
-    // não apenas nos certificados já carregados na sessão do visitante.
     try {
-      const res = await fetch('/api/certificates/verify?q=' + encodeURIComponent(certQuery.trim()));
+      const res = await fetch('/api/certificates/verify?q=' + encodeURIComponent(query.trim()));
       const found = res.ok ? await res.json() : null;
 
       if (found) {
@@ -534,6 +533,24 @@ function DashboardSwitcher() {
       speakText("Não foi possível consultar o certificado agora. Tente novamente em instantes.");
     }
   };
+
+  const handleCertLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runCertLookup(certQuery);
+  };
+
+  // Deep-link do QR impresso no PDF do certificado (ADR 09): /?verify=AVA-...
+  // pré-preenche o autenticador, dispara a busca e rola até a seção.
+  useEffect(() => {
+    const hash = new URLSearchParams(window.location.search).get('verify');
+    if (!hash) return;
+    setCertQuery(hash);
+    runCertLookup(hash);
+    setTimeout(() => {
+      document.getElementById('certificados')?.scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -2062,7 +2079,8 @@ function DashboardSwitcher() {
                                 </div>
                                 <div>
                                   <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Data de Emissão</span>
-                                  <span className="text-slate-800 font-medium block">{new Date(certLookupResult.issueDate).toLocaleDateString('pt-BR')}</span>
+                                  {/* issueDate já é string d/m/Y — new Date() não parseia esse formato */}
+                                  <span className="text-slate-800 font-medium block">{certLookupResult.issueDate}</span>
                                 </div>
                                 <div>
                                   <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Registro de Autenticidade</span>

@@ -32,3 +32,29 @@ export async function downloadSubmissionFile(fileUrl: string, fileName?: string)
     return 'Servidor indisponível para download do arquivo.';
   }
 }
+
+// PDF de certificado (ADR 09): rota autenticada, mesmo padrão de blob temporário.
+// Retorna null em sucesso ou uma mensagem de erro para exibição.
+export async function downloadCertificatePdf(certificateId: string): Promise<string | null> {
+  if (!certificateId) return 'Certificado indisponível.';
+
+  try {
+    const res = await authFetch(`/api/certificates/${encodeURIComponent(certificateId)}/pdf`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({} as any));
+      return body.message || 'Não foi possível baixar o certificado.';
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `certificado-${certificateId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return null;
+  } catch {
+    return 'Servidor indisponível para download do certificado.';
+  }
+}

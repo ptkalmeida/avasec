@@ -31,11 +31,14 @@ Pacotes necessários (Ubuntu/Debian; adapte para sua distro):
 ```bash
 sudo apt update
 sudo apt install -y nginx php8.3-fpm php8.3-cli php8.3-mysql php8.3-mbstring \
-  php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath php8.3-fileinfo \
+  php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath php8.3-fileinfo php8.3-gd \
   mysql-server composer nodejs npm certbot python3-certbot-nginx
 ```
 
 Ajuste a versão do PHP conforme disponível (8.2+ é o mínimo usado pelo projeto).
+O `php8.3-gd` é preventivo para o dompdf (PDF de certificados, ADR 09): o fluxo
+atual funciona sem ele (QR em SVG), mas qualquer logo raster futura no template
+exigiria a extensão.
 
 ## 2. Banco de dados
 
@@ -113,7 +116,9 @@ manual).
 
 A pasta `uploads/` (com `public/` e `private/`) deve existir num caminho estável e
 ser apontada:
-- No `.env` do Laravel: `UPLOADS_ROOT=/var/www/avasec/uploads`.
+- No `.env` do Laravel: `UPLOADS_ROOT=/var/www/avasec/uploads`. Para o QR dos
+  PDFs de certificado, `CERT_VERIFICATION_BASE_URL` é opcional (default `APP_URL`
+  — em produção, garanta `APP_URL=https://seu-dominio.com`).
 - No Nginx: `location /uploads/` aponta para `uploads/public/` (ver config abaixo).
   Arquivos **privados** nunca são servidos estaticamente — só via
   `GET /api/files/:id` (autorizado, através do PHP-FPM).

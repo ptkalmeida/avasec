@@ -7,9 +7,11 @@ namespace App\Http\Controllers;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
 use App\Services\AuditLogger;
+use App\Services\CertificatePdfService;
 use App\Services\CertificateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 final class CertificateController extends Controller
 {
@@ -17,6 +19,7 @@ final class CertificateController extends Controller
 
     public function __construct(
         private readonly CertificateService $certificates,
+        private readonly CertificatePdfService $pdf,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -62,6 +65,17 @@ final class CertificateController extends Controller
         $this->audit->log($request, 'Emissão de Certificado', "Certificado emitido para \"{$studentName}\" no curso {$courseId}.");
 
         return response()->json($cert, 201);
+    }
+
+    public function pdf(Request $request, string $id): Response
+    {
+        $result = $this->pdf->renderPdf($id, $this->requester($request));
+        $this->audit->log($request, 'Download de Certificado', "PDF do certificado {$id} baixado.");
+
+        return response($result['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"{$result['filename']}\"",
+        ]);
     }
 
     public function destroy(Request $request, string $id): JsonResponse
