@@ -32,13 +32,21 @@ export interface LiveSession {
   isLive: boolean;
 }
 
+// Referência mínima a uma pessoa: id é identidade (ADR 10), name é display.
+export interface PersonRef {
+  id: string;
+  name: string;
+}
+
 export interface Course {
   id: string;
   title: string;
   description: string;
   category: string;
   thumbnail: string;
+  /** Display — a identidade do instrutor é instructorId (ADR 10). */
   instructorName: string;
+  instructorId?: string | null;
   lessons: Lesson[];
   liveSessions: LiveSession[];
   coverImage?: string;
@@ -97,6 +105,10 @@ export function isCourseExpired(contractExpirationDate?: string): boolean {
 }
 
 export interface StudentEnrollment {
+  /** Identidade do aluno (ADR 10) — chave do mapa de matrículas. */
+  userId: string;
+  /** Display (snapshot). */
+  studentName: string;
   enrolledCourseId: string | null;
   enrolledAt: string | null;
   completedCourseIds: string[];
@@ -104,6 +116,8 @@ export interface StudentEnrollment {
 }
 
 export interface StudentProgress {
+  userId: string;
+  /** Display (snapshot) — a identidade é userId (ADR 10). */
   studentName: string;
   courseId: string;
   completedLessons: string[]; // lessonIds
@@ -122,6 +136,8 @@ export interface AuthUser {
 
 export interface Certificate {
   id: string;
+  /** userId pode ser null em certificados históricos de contas removidas. */
+  userId?: string | null;
   studentName: string;
   courseId: string;
   courseTitle: string;
@@ -141,7 +157,11 @@ export interface ChatMessage {
 
 export interface DirectMessage {
   id: string;
+  /** Dono da thread (ADR 10). */
+  studentUserId: string;
+  /** Display (snapshot). */
   studentName: string;
+  senderUserId?: string | null;
   senderName: string;
   senderRole: 'student' | 'instructor';
   text: string;
@@ -168,6 +188,8 @@ export interface Quiz {
 
 export interface QuizSubmission {
   id: string;
+  userId: string;
+  /** Display (snapshot). */
   studentName: string;
   courseId: string;
   quizId: string;
@@ -178,6 +200,8 @@ export interface QuizSubmission {
 
 export interface AcademicRequest {
   id: string;
+  userId: string;
+  /** Display (snapshot). */
   studentName: string;
   type: 'certificado' | 'historico' | 'matricula' | 'outro';
   description: string;
@@ -213,6 +237,8 @@ export interface AccessibilitySettings {
 
 export interface AdmissionRequest {
   id: string;
+  userId: string;
+  /** Display (snapshot). */
   studentName: string;
   courseId: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -232,6 +258,8 @@ export interface PracticalExercise {
 export interface ExerciseSubmission {
   id: string;
   exerciseId: string;
+  userId: string;
+  /** Display (snapshot). */
   studentName: string;
   submissionText: string;
   fileUrl?: string;
@@ -247,6 +275,8 @@ export interface ExerciseSubmission {
 export interface LMSState {
   courses: Course[];
   activeUser: {
+    /** '' quando visitante — identidade real vem de authUser (ADR 10). */
+    id: string;
     name: string;
     role: 'student' | 'instructor' | 'admin';
   };
@@ -277,8 +307,9 @@ export interface ForumMessage {
   senderRole: 'student' | 'instructor' | 'admin';
   text: string;
   timestamp: string;
+  senderUserId?: string | null;
   likes: number;
-  likedBy: string[]; // List of user names who liked
+  likedBy: string[]; // userIds de quem curtiu (ADR 10 — antes eram nomes)
 }
 
 

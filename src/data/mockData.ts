@@ -5,6 +5,21 @@
 
 import { Course } from '../types';
 
+// Ids dos usuários mock do fallback offline (ADR 10). São só placeholders locais:
+// assim que a hidratação da API responde, os dados reais (keyed por id do banco)
+// substituem qualquer estado montado com estes ids.
+export const MOCK_IDS = {
+  joao: 'user-1',
+  gestor: 'user-2',
+  admin: 'user-3',
+  gabriel: 'user-4',
+  beatriz: 'user-5',
+  sofia: 'user-6',
+  ana: 'user-7',
+  lucas: 'user-8',
+  carolina: 'user-9',
+} as const;
+
 export const INITIAL_COURSES: Course[] = [
   {
     id: 'course-1',
@@ -13,6 +28,7 @@ export const INITIAL_COURSES: Course[] = [
     category: 'Design Digital',
     thumbnail: 'https://images.unsplash.com/photo-1561070791-26c113006238?w=800&auto=format&fit=crop&q=60',
     instructorName: 'Gestor de Conteúdos',
+    instructorId: MOCK_IDS.gestor,
     areaTematica: 'Artes, Comunicação e Design',
     cargaHoraria: 40,
     modalidade: 'EAD',
@@ -138,6 +154,7 @@ Um design nunca está 100% pronto até que passe pelo teste empírico de um usu�
     category: 'Desenvolvimento Web',
     thumbnail: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&auto=format&fit=crop&q=60',
     instructorName: 'Gestor de Conteúdos',
+    instructorId: MOCK_IDS.gestor,
     areaTematica: 'Tecnologia & Programação',
     cargaHoraria: 60,
     modalidade: 'EAD',
@@ -230,6 +247,7 @@ O coração de qualquer AVA é o armazenamento persistente de dados. Vamos anali
     category: 'Organização & Gestão',
     thumbnail: 'https://images.unsplash.com/photo-1531403009284-440f080d1e12?w=800&auto=format&fit=crop&q=60',
     instructorName: 'Gestor de Conteúdos',
+    instructorId: MOCK_IDS.gestor,
     areaTematica: 'Gestão & Negócios',
     cargaHoraria: 30,
     modalidade: 'Híbrido',

@@ -100,7 +100,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     certificates,
     activeUser,
     directMessages,
-    updateUserName,
     toggleLessonCompletion,
     calculateAttendancePercent,
     sendDirectMessage,
@@ -130,7 +129,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     submitExercise,
   } = useLMS();
 
-  const enrollmentRecord = studentEnrollments[activeUser.name] || { enrolledCourseId: null, completedCourseIds: [], dropOutPenaltyUntil: null };
+  const enrollmentRecord = studentEnrollments[activeUser.id] || { enrolledCourseId: null, completedCourseIds: [], dropOutPenaltyUntil: null };
+
+  // Presença do gestor responsável pelo curso ativo — a chave de presença é por userId (ADR 10).
+  const enrolledCourseInstructorId = courses.find(c => c.id === enrollmentRecord.enrolledCourseId)?.instructorId ?? '';
 
   const handleBack = () => {
     if (activeLesson) {
@@ -640,7 +642,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     <button
                       onClick={async () => {
                         // A decisão de penalidade é do SERVIDOR (dias reais desde a matrícula + flag).
-                        const result = await dropStudentFromCourse(activeUser.name, selectedCourse.id);
+                        const result = await dropStudentFromCourse(activeUser.id, selectedCourse.id);
                         if (!result.ok) {
                           showAlert(result.error || 'Não foi possível cancelar a matrícula.');
                           return;
@@ -679,12 +681,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     <span className="text-xs text-slate-550 font-medium">Instrutor responsável: Prof. {selectedCourse.instructorName}</span>
                     <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2 py-0.5 rounded-full text-[9px] font-bold">
                       <span className={`h-1.5 w-1.5 rounded-full ${
-                        (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorName}`) || 'online') === 'online'
+                        (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online'
                           ? 'bg-emerald-500 animate-pulse'
                           : 'bg-slate-400'
                       }`} />
-                      <span className={(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorName}`) || 'online') === 'online' ? 'text-emerald-600' : 'text-slate-500'}>
-                        {(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorName}`) || 'online') === 'online' ? 'Online' : 'Offline'}
+                      <span className={(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online' ? 'text-emerald-600' : 'text-slate-500'}>
+                        {(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online' ? 'Online' : 'Offline'}
                       </span>
                     </span>
                   </div>
@@ -725,7 +727,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     <button
                       onClick={async () => {
                         // O servidor confere o critério de frequência antes de concluir.
-                        const result = await completeStudentCourse(activeUser.name, selectedCourse.id);
+                        const result = await completeStudentCourse(activeUser.id, selectedCourse.id);
                         if (!result.ok) {
                           showAlert(result.error || 'Critério de conclusão ainda não atingido.');
                           return;
@@ -742,10 +744,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       <span>Concluir Disciplina e Escolher Novo Curso</span>
                     </button>
 
-                    {certificates.find((cert) => cert.courseId === selectedCourse.id && cert.studentName === activeUser.name) && (
+                    {certificates.find((cert) => cert.courseId === selectedCourse.id && cert.userId === activeUser.id) && (
                       <button
                         onClick={() => {
-                          const cert = certificates.find((c) => c.courseId === selectedCourse.id && c.studentName === activeUser.name);
+                          const cert = certificates.find((c) => c.courseId === selectedCourse.id && c.userId === activeUser.id);
                           if (cert) setSelectedCertificate(cert);
                         }}
                         className="shrink-0 rounded-lg bg-emerald-650 hover:bg-emerald-605 text-white font-semibold text-xs px-3.5 py-1.8 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
@@ -1255,7 +1257,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 <div className="relative">
                                   <User className="h-8 w-8 text-slate-400 p-1 bg-slate-200 rounded-full" />
                                   <span className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border border-white ${
-                                    (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorName}`) || 'online') === 'online'
+                                    (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online'
                                       ? 'bg-emerald-500 animate-pulse'
                                       : 'bg-slate-400'
                                   }`} />
@@ -1264,11 +1266,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                   <strong className="text-slate-900 block font-bold leading-tight flex items-center gap-1.5">
                                     <span>Prof. {selectedCourse.instructorName}</span>
                                     <span className={`text-[9px] font-black leading-none ${
-                                      (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorName}`) || 'online') === 'online'
+                                      (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online'
                                         ? 'text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-500/10'
                                         : 'text-slate-505 text-slate-500 bg-slate-100 px-1 py-0.5 rounded border border-slate-200'
                                     }`}>
-                                      {(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorName}`) || 'online') === 'online' ? 'ONLINE' : 'OFFLINE'}
+                                      {(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online' ? 'ONLINE' : 'OFFLINE'}
                                     </span>
                                   </strong>
                                   <span className="text-[10px] text-slate-450 block">Tempo de resposta esperado: &lt; 2 horas</span>
@@ -1317,7 +1319,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                   </div>
                                 ) : (
                                   practicalExercises.filter(ex => ex.courseId === selectedCourse.id).map((ex, idx) => {
-                                    const sub = exerciseSubmissions.find(s => s.exerciseId === ex.id && s.studentName === activeUser.name);
+                                    const sub = exerciseSubmissions.find(s => s.exerciseId === ex.id && s.userId === activeUser.id);
                                     const isUploading = simulatedUploading[ex.id];
                                     const currentTyped = typedAnswers[ex.id] || '';
                                     const attachedFile = typedFiles[ex.id];
@@ -1511,7 +1513,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                                 }
                                                 const finalFileName = attachedFile ? attachedFile.name : (sub ? sub.fileName : undefined);
                                                 const finalFileUrl = attachedFile ? attachedFile.url : (sub ? sub.fileUrl : undefined);
-                                                submitExercise(ex.id, activeUser.name, textToSubmit.trim(), finalFileUrl, finalFileName);
+                                                submitExercise(ex.id, textToSubmit.trim(), finalFileUrl, finalFileName);
                                                 
                                                 // Clear local draft state
                                                 setTypedAnswers(prev => ({ ...prev, [ex.id]: '' }));
@@ -1736,7 +1738,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                         </div>
                       ) : (
                         quizzes.filter(q => q.courseId === selectedCourse.id).map((quiz) => {
-                          const userSub = quizSubmissions.find(s => s.quizId === quiz.id && s.studentName === activeUser.name);
+                          const userSub = quizSubmissions.find(s => s.quizId === quiz.id && s.userId === activeUser.id);
                           return (
                             <div key={quiz.id} className="bg-white rounded-xl border border-slate-200 p-3.5 leading-relaxed text-left text-xs space-y-3 shadow-xs">
                               <div className="flex items-start justify-between gap-1.5">
@@ -1809,7 +1811,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       ) : (
                         <div className="space-y-2.5">
                           {practicalExercises.filter(ex => ex.courseId === selectedCourse.id).map((ex, idx) => {
-                            const studentSub = exerciseSubmissions.find(s => s.exerciseId === ex.id && s.studentName === activeUser.name);
+                            const studentSub = exerciseSubmissions.find(s => s.exerciseId === ex.id && s.userId === activeUser.id);
                             return (
                               <div key={`${ex.id}-${idx}`} className="bg-white rounded-xl border border-slate-200 p-3.5 leading-relaxed text-left text-xs space-y-3 shadow-xs">
                                 <div className="flex items-start justify-between gap-1.5">
@@ -2170,7 +2172,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       <div>
                         <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider">Meus Certificados</h3>
                         <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
-                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>{certificates.filter(c => c.studentName === activeUser.name).length} disponíveis</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>{certificates.filter(c => c.userId === activeUser.id).length} disponíveis</span>
                           <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500"></span>{enrollmentRecord.enrolledCourseId ? 1 : 0} em andamento</span>
                         </div>
                       </div>
@@ -2206,7 +2208,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
                                 <button
                                   onClick={async () => {
-                                    const result = await dropStudentFromCourse(activeUser.name, activeCourse.id);
+                                    const result = await dropStudentFromCourse(activeUser.id, activeCourse.id);
                                     if (!result.ok) {
                                       showAlert(result.error || 'Não foi possível cancelar a inscrição.');
                                       return;
@@ -2264,8 +2266,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
                   {/* Scenario 2: Active Dropout Penalty Warning Card */}
                   {features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now() ? (() => {
-                    const pendingPenaltyRequest = academicRequests.find(r => r.studentName === activeUser.name && r.type === 'matricula' && r.status === 'pending');
-                    const rejectedPenaltyRequest = academicRequests.find(r => r.studentName === activeUser.name && r.type === 'matricula' && r.status === 'rejected');
+                    const pendingPenaltyRequest = academicRequests.find(r => r.userId === activeUser.id && r.type === 'matricula' && r.status === 'pending');
+                    const rejectedPenaltyRequest = academicRequests.find(r => r.userId === activeUser.id && r.type === 'matricula' && r.status === 'rejected');
 
                     return (
                       <div className="rounded-2xl border border-rose-200 bg-rose-50/50 p-6 shadow-xs animate-in fade-in duration-300 text-left">
@@ -2327,7 +2329,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                         return;
                                       }
                                       addAcademicRequest({
-                                        studentName: activeUser.name,
                                         type: 'matricula',
                                         description: `[Reversão de Restrição] Motivo: ${text}`,
                                         courseTitle: 'Justificativa de Cancelamento'
@@ -2629,7 +2630,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
           {/* Resumo */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div className="bg-white border border-emerald-100 rounded-2xl p-5 shadow-xs text-left">
-              <span className="text-3xl font-black text-emerald-600 block mb-1">{certificates.filter(c => c.studentName === activeUser.name).length}</span>
+              <span className="text-3xl font-black text-emerald-600 block mb-1">{certificates.filter(c => c.userId === activeUser.id).length}</span>
               <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Certificados Disponíveis</span>
             </div>
             <div className="bg-white border border-blue-100 rounded-2xl p-5 shadow-xs text-left">
@@ -2673,14 +2674,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
           <div className="text-left space-y-4">
             {activeCertificatesTab === 'available' && (
               <div className="space-y-4 animate-in fade-in duration-300">
-                {certificates.filter(c => c.studentName === activeUser.name).length === 0 ? (
+                {certificates.filter(c => c.userId === activeUser.id).length === 0 ? (
                   <div className="py-12 border-2 border-dashed border-slate-200 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-slate-500">
                     <Award className="h-10 w-10 mb-3 text-slate-300" />
                     <p className="text-sm font-bold text-slate-700">Você ainda não possui certificados disponíveis.</p>
                     <p className="text-xs mt-1">Conclua um curso para liberar seu primeiro certificado.</p>
                   </div>
                 ) : (
-                  certificates.filter(c => c.studentName === activeUser.name).map((cert, index) => {
+                  certificates.filter(c => c.userId === activeUser.id).map((cert, index) => {
                     const course = courses.find(c => c.id === cert.courseId);
                     const workload = course?.workloadHours ?? 40;
                     return (
@@ -2881,7 +2882,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
             </p>
             
             <div className="space-y-4 mb-8">
-              {academicRequests.filter(r => r.studentName === activeUser.name).map(req => (
+              {academicRequests.filter(r => r.userId === activeUser.id).map(req => (
                 <div key={req.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/30 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -2914,7 +2915,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
                   if (description) {
                     addAcademicRequest({
-                      studentName: activeUser.name,
                       type,
                       description,
                       courseTitle: courseTitle || undefined
@@ -3401,7 +3401,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 <div className="relative">
                   <User className="h-4 w-4 text-teal-600 shrink-0" />
                   <span className={`absolute -bottom-1 -right-1 block h-2.5 w-2.5 rounded-full border border-white ${
-                    (localStorage.getItem('ava_presence_status_Gestor de Conteúdos') || 'online') === 'online'
+                    (localStorage.getItem(`ava_presence_status_${enrolledCourseInstructorId}`) || 'online') === 'online'
                       ? 'bg-emerald-500 animate-pulse'
                       : 'bg-slate-400'
                   }`} />
@@ -3411,11 +3411,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   <span className="font-bold text-[10.5px] flex items-center gap-1.5 leading-none mt-0.5">
                     <span>Gestor de Conteúdos</span>
                     <span className={`text-[9px] font-black ${
-                      (localStorage.getItem('ava_presence_status_Gestor de Conteúdos') || 'online') === 'online'
+                      (localStorage.getItem(`ava_presence_status_${enrolledCourseInstructorId}`) || 'online') === 'online'
                         ? 'text-emerald-600'
                         : 'text-slate-500'
                     }`}>
-                      ({(localStorage.getItem('ava_presence_status_Gestor de Conteúdos') || 'online') === 'online' ? 'Online' : 'Offline'})
+                      ({(localStorage.getItem(`ava_presence_status_${enrolledCourseInstructorId}`) || 'online') === 'online' ? 'Online' : 'Offline'})
                     </span>
                   </span>
                 </div>
@@ -3428,7 +3428,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
             <div id="chat-portal-section" className="lg:col-span-8 rounded-2xl border border-slate-200 bg-slate-50/50 p-5 shadow-3xs flex flex-col h-[480px]">
               {/* Message history */}
               <div className="flex-1 space-y-3 overflow-y-auto pr-2 mb-4 flex flex-col gap-1.5 scrollbar-thin">
-                {directMessages.filter(m => m.studentName === activeUser.name).length === 0 ? (
+                {directMessages.filter(m => m.studentUserId === activeUser.id).length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-2 py-10">
                     <MessageSquare className="h-10 w-10 text-slate-300 animate-pulse" />
                     <p className="text-xs font-bold text-slate-500">Nenhuma conversa ativa no momento.</p>
@@ -3436,7 +3436,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   </div>
                 ) : (
                   directMessages
-                    .filter(m => m.studentName === activeUser.name)
+                    .filter(m => m.studentUserId === activeUser.id)
                     .map((msg, idx) => {
                       const isStudent = msg.senderRole === 'student';
                       return (
@@ -3467,7 +3467,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 const input = (e.currentTarget.elements.namedItem('messageText') as HTMLInputElement);
                 const text = input.value.trim();
                 if (text) {
-                  sendDirectMessage(activeUser.name, text);
+                  sendDirectMessage(activeUser.id, text);
                   input.value = '';
                   
                   // Smart auto reply simulation representing prompt responses from instructor
@@ -3482,6 +3482,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     const currentDMs = saved ? JSON.parse(saved) : [];
                     const tutorResponse = {
                       id: `dm-bot-${Date.now()}`,
+                      studentUserId: activeUser.id,
                       studentName: activeUser.name,
                       senderName: 'Gestor de Conteúdos',
                       senderRole: 'instructor',
@@ -4004,7 +4005,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       disabled={!isEnrollRulesChecked}
                       onClick={async () => {
                         // O servidor valida penalidade ativa e matrícula duplicada.
-                        const result = await enrollStudentInCourse(activeUser.name, viewingCatalogCourse!.id);
+                        const result = await enrollStudentInCourse(activeUser.id, viewingCatalogCourse!.id);
                         if (!result.ok) {
                           showAlert(result.error || 'Não foi possível efetuar a matrícula.');
                           return;
@@ -4305,7 +4306,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                       const scorePercent = Math.round((correctCount / activeQuizTaking.questions.length) * 100);
                                       const passed = scorePercent >= 70;
 
-                                      submitQuiz(activeUser.name, selectedCourse.id, activeQuizTaking.id, scorePercent, passed);
+                                      submitQuiz(selectedCourse.id, activeQuizTaking.id, scorePercent, passed);
                                       setQuizResult({ scorePercent, passed });
                                       setHasSubmitted(true);
                                     }

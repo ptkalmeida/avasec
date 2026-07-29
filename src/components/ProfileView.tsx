@@ -39,7 +39,6 @@ export function ProfileView({
     quizSubmissions,
     studentsList,
     professorsList,
-    toggleUserRole,
     accessibilitySettings,
     updateAccessibilitySettings,
     isSpeechEnabled,
@@ -198,15 +197,15 @@ export function ProfileView({
   });
 
   const [presenceStatus, setPresenceStatus] = useState<'online' | 'offline'>(() => {
-    return (localStorage.getItem(`ava_presence_status_${activeUser.name}`) as 'online' | 'offline') || 
-           (localStorage.getItem('ava_profile_presence_status') as 'online' | 'offline') || 
+    return (localStorage.getItem(`ava_presence_status_${activeUser.id}`) as 'online' | 'offline') ||
+           (localStorage.getItem('ava_profile_presence_status') as 'online' | 'offline') ||
            'online';
   });
 
   const togglePresenceStatus = () => {
     const next = presenceStatus === 'online' ? 'offline' : 'online';
     setPresenceStatus(next);
-    localStorage.setItem(`ava_presence_status_${activeUser.name}`, next);
+    localStorage.setItem(`ava_presence_status_${activeUser.id}`, next);
     localStorage.setItem('ava_profile_presence_status', next);
     speakText(`Status de presença alterado para ${next === 'online' ? 'online' : 'offline'}`);
   };
@@ -224,10 +223,10 @@ export function ProfileView({
     // Auto generate email if changed
     setSimulatedEmail(localStorage.getItem('ava_profile_email') || `${activeUser.name.toLowerCase().replace(/\s+/g, '.')}@lms.edu`);
     
-    // Also load status for active user name
-    const storedStatus = (localStorage.getItem(`ava_presence_status_${activeUser.name}`) as 'online' | 'offline') || 'online';
+    // Also load status for active user
+    const storedStatus = (localStorage.getItem(`ava_presence_status_${activeUser.id}`) as 'online' | 'offline') || 'online';
     setPresenceStatus(storedStatus);
-  }, [activeUser.name]);
+  }, [activeUser.id, activeUser.name]);
 
   // Save details
   const handleSaveDetails = async () => {
@@ -254,7 +253,14 @@ export function ProfileView({
       return;
     }
 
-    updateUserName(editableName);
+    // Rename real no backend (PUT /api/auth/users/{id}/name) — pode falhar.
+    const renameError = await updateUserName(editableName.trim());
+    if (renameError) {
+      setProfileError(renameError);
+      speakText('Aviso: Não foi possível atualizar o nome.');
+      return;
+    }
+
     localStorage.setItem('ava_profile_status', statusPhrase);
     localStorage.setItem('ava_profile_email', simulatedEmail);
     setCurrentPasswordInput(''); // Clear verification input
@@ -283,10 +289,10 @@ export function ProfileView({
 
   // Calculations for Student metrics
   const totalCourses = courses.length;
-  const studentCerts = certificates.filter(c => c.studentName === activeUser.name);
+  const studentCerts = certificates.filter(c => c.userId === activeUser.id);
   
   // Calculate average progress
-  const studentProgressRecords = progress.filter(p => p.studentName === activeUser.name);
+  const studentProgressRecords = progress.filter(p => p.userId === activeUser.id);
   const averageProgressPercent = studentProgressRecords.length > 0
     ? Math.round(studentProgressRecords.reduce((acc, current) => {
         const course = courses.find(c => c.id === current.courseId);
@@ -1298,7 +1304,7 @@ export function ProfileView({
 
       {isDossierOpen && (() => {
         const studentDossierRecords = courses.map(course => {
-          const record = progress.find(p => p.studentName === activeUser.name && p.courseId === course.id);
+          const record = progress.find(p => p.userId === activeUser.id && p.courseId === course.id);
           const totalLessons = course.lessons.length;
           const completedCount = record ? record.completedLessons.length : 0;
           const percent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
