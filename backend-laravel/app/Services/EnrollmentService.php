@@ -39,9 +39,7 @@ final class EnrollmentService
      */
     private function instructorCourseIds(array $requester): array
     {
-        $ids = Course::query()
-            ->where('instructorId', $requester['sub'])
-            ->orWhere(fn ($q) => $q->whereNull('instructorId')->where('instructorName', $requester['name']))
+        $ids = Identity::applyOwnRows(Course::query(), $requester, 'instructorId', 'instructorName')
             ->pluck('id')->all();
 
         return array_values(array_filter($ids, static fn ($id): bool => is_string($id)));
