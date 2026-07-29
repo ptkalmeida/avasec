@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
 
 /**
@@ -16,6 +16,7 @@ use Tests\TestCase;
 final class CertificatePdfTest extends TestCase
 {
     use DatabaseTransactions;
+    use SeedsIdentity;
 
     /**
      * Cria aluno + curso de 1 aula com progresso 100% e emite o certificado.
@@ -24,15 +25,7 @@ final class CertificatePdfTest extends TestCase
      */
     private function issueCertificateForNewStudent(): array
     {
-        $adminRow = DB::table('User')->where('role', 'admin')->first();
-        $admin = Jwt::issue($adminRow->id, $adminRow->name, 'admin');
-
-        $name = 'Aluno PDF '.uniqid();
-        $reg = $this->withHeader('Authorization', "Bearer $admin")->postJson('/api/auth/register', [
-            'name' => $name, 'email' => 'pdf-'.uniqid().'@example.com', 'password' => 'senha123456', 'role' => 'student',
-        ]);
-        $studentId = $reg->json('user.id');
-        $studentToken = Jwt::issue($studentId, $name, 'student');
+        $student = $this->makeStudent('Aluno PDF');
 
         $courseId = 'course-pdf-'.uniqid();
         $lessonId = 'lesson-pdf-'.uniqid();
@@ -44,18 +37,18 @@ final class CertificatePdfTest extends TestCase
             'id' => $lessonId, 'courseId' => $courseId, 'title' => 'A1', 'duration' => '5min', 'lesson_order' => 0,
         ]);
         DB::table('StudentProgress')->insert([
-            'id' => 'prog-pdf-'.uniqid(), 'studentName' => $name, 'userId' => $studentId, 'courseId' => $courseId,
+            'id' => 'prog-pdf-'.uniqid(), 'studentName' => $student['name'], 'userId' => $student['id'], 'courseId' => $courseId,
             'completedLessons' => json_encode([$lessonId]), 'attendedLiveSessions' => json_encode([]),
         ]);
 
-        $issued = $this->withHeader('Authorization', "Bearer $studentToken")
-            ->postJson('/api/certificates', ['studentName' => $name, 'courseId' => $courseId]);
+        $issued = $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->postJson('/api/certificates', ['courseId' => $courseId]);
         $issued->assertStatus(201);
 
         return [
             'certId' => $issued->json('id'),
             'hash' => $issued->json('verificationHash'),
-            'studentToken' => $studentToken,
+            'studentToken' => $student['token'],
             'courseId' => $courseId,
         ];
     }
@@ -78,10 +71,9 @@ final class CertificatePdfTest extends TestCase
     {
         $ctx = $this->issueCertificateForNewStudent();
 
-        $other = DB::table('User')->where('role', 'student')->where('status', 'active')->first(['id', 'name']);
-        $otherToken = Jwt::issue($other->id, $other->name, 'student');
+        $other = $this->makeStudent('Outro Aluno PDF');
 
-        $this->withHeader('Authorization', "Bearer $otherToken")
+        $this->withHeader('Authorization', "Bearer {$other['token']}")
             ->get("/api/certificates/{$ctx['certId']}/pdf")
             ->assertStatus(403);
     }
