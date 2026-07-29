@@ -87,7 +87,8 @@ Route::middleware('feature:matricula')->group(function (): void {
         ->middleware(['jwt', 'active', 'role:student']);
     Route::post('/enrollments/self/complete', [EnrollmentController::class, 'selfComplete'])
         ->middleware(['jwt', 'active', 'role:student']);
-    Route::put('/enrollments/{studentName}', [EnrollmentController::class, 'upsertEnrollment'])
+    // Identidade por FK (ADR 10): o recurso é endereçado pelo userId do aluno.
+    Route::put('/enrollments/{userId}', [EnrollmentController::class, 'upsertEnrollment'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
 
     Route::get('/admissions', [EnrollmentController::class, 'listAdmissions'])

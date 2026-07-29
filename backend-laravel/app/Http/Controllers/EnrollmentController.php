@@ -23,22 +23,23 @@ final class EnrollmentController extends Controller
 
     public function getProgress(Request $request): JsonResponse
     {
-        $studentName = $request->query('studentName');
+        $userId = $request->query('userId');
+        $userId = is_string($userId) ? $userId : null;
 
-        return response()->json($this->enrollments->getProgress($studentName, $this->requester($request)));
+        return response()->json($this->enrollments->getProgress($userId, $this->requester($request)));
     }
 
     public function upsertProgress(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'studentName' => ['required', 'string', 'min:2', 'max:150'],
+            'userId' => ['sometimes', 'nullable', 'string', 'max:191'],
             'courseId' => ['required', 'string', 'max:191'],
             'completedLessons' => ['sometimes', 'array', 'max:2000'],
             'attendedLiveSessions' => ['sometimes', 'array', 'max:2000'],
         ]);
 
         return response()->json($this->enrollments->upsertProgress([
-            'studentName' => $this->stringField($data, 'studentName'),
+            'userId' => $this->optionalString($data, 'userId'),
             'courseId' => $this->stringField($data, 'courseId'),
             'completedLessons' => $this->stringList($data, 'completedLessons'),
             'attendedLiveSessions' => $this->stringList($data, 'attendedLiveSessions'),
@@ -52,7 +53,7 @@ final class EnrollmentController extends Controller
         return response()->json($this->enrollments->getEnrollments($this->requester($request)));
     }
 
-    public function upsertEnrollment(Request $request, string $studentName): JsonResponse
+    public function upsertEnrollment(Request $request, string $userId): JsonResponse
     {
         $data = $this->validateInput($request, [
             'enrolledCourseId' => ['sometimes', 'nullable', 'string', 'max:191'],
@@ -77,12 +78,13 @@ final class EnrollmentController extends Controller
             $updates['dropOutPenaltyUntil'] = $this->optionalString($data, 'dropOutPenaltyUntil');
         }
 
-        $updated = $this->enrollments->upsertEnrollment($studentName, $updates, $this->requester($request));
+        $updated = $this->enrollments->upsertEnrollment($userId, $updates, $this->requester($request));
         $isCancellation = array_key_exists('enrolledCourseId', $updates) && $updates['enrolledCourseId'] === null;
+        $displayName = $this->optionalString($updated, 'studentName') ?? $userId;
         $this->audit->log(
             $request,
             $isCancellation ? 'Cancelamento de Inscrição' : 'Alteração de Matrícula',
-            "Matrícula de \"{$studentName}\" atualizada.",
+            "Matrícula de \"{$displayName}\" atualizada.",
         );
 
         return response()->json($updated);
@@ -131,18 +133,18 @@ final class EnrollmentController extends Controller
     {
         $data = $this->validateInput($request, [
             'id' => ['sometimes', 'string', 'max:191'],
-            'studentName' => ['required', 'string', 'min:2', 'max:150'],
+            'userId' => ['sometimes', 'nullable', 'string', 'max:191'],
             'courseId' => ['required', 'string', 'max:191'],
             'status' => ['sometimes', 'in:pending,approved,rejected'],
         ]);
 
-        $studentName = $this->stringField($data, 'studentName');
         $courseId = $this->stringField($data, 'courseId');
         $admission = $this->enrollments->createAdmission([
             'id' => $this->optionalString($data, 'id'),
-            'studentName' => $studentName,
+            'userId' => $this->optionalString($data, 'userId'),
             'courseId' => $courseId,
         ], $this->requester($request));
+        $studentName = $this->optionalString($admission, 'studentName') ?? '';
         $this->audit->log($request, 'Solicitação de Matrícula', "Matrícula solicitada por \"{$studentName}\" no curso {$courseId}.");
 
         return response()->json($admission, 201);
