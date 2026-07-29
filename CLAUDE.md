@@ -29,7 +29,7 @@ Logins demo (teclado numérico): Admin Superior **9999**, Gestor de Conteúdos
 ## Gates de qualidade (todos precisam passar antes de commit)
 
 ```bash
-npm run test:api                                   # 95 testes PHPUnit (exigem o MySQL de dev)
+npm run test:api                                   # 103 testes PHPUnit (exigem o MySQL de dev)
 npm test                                           # testes de frontend (Vitest + RTL)
 npm run lint                                       # tsc --noEmit
 cd backend-laravel && ./vendor/bin/pint --test     # PSR-12
@@ -55,6 +55,11 @@ Cobertura do backend (opcional, Xdebug sob demanda): `npm run test:api:coverage`
 - **Camadas**: rotas → controllers finos → services (toda regra de negócio) →
   Eloquent. Erros sempre `{error, code, message}`. Identidade autenticada nunca
   vem do corpo da request.
+- **Identidade por FK (ADR 10)**: `User.id` (sub do JWT) é a ÚNICA identidade;
+  `studentName`/`instructorName`/`senderName` são display/snapshot. Aluno age
+  via token; staff informa `userId` (`Identity::resolveActorUserId`). Nunca
+  reintroduzir comparação/filtro de identidade por nome (exceção única: busca
+  pública de certificado por nome no verify).
 - **Regras numéricas**: frequência mínima usa `??` (0% explícito é respeitado);
   penalidade de cancelamento 5/30 dias atrás de flag. Fonte:
   `config/constants.php` ↔ `src/config/constants.ts`.
