@@ -30,21 +30,18 @@ final class RequestService
     }
 
     /**
-     * @param  array{studentName:string,type:string,description:string,courseTitle?:string|null}  $input
+     * @param  array{userId?:string|null,type:string,description:string,courseTitle?:string|null}  $input
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function createAcademicRequest(array $input, array $requester): array
     {
-        if ($requester['role'] === 'student' && $input['studentName'] !== $requester['name']) {
-            throw ApiException::forbidden('Você só pode enviar solicitações em seu próprio nome.');
-        }
-
-        $userId = Identity::resolveStudentUserId($input['studentName'], $requester);
+        // Aluno solicita por si (token); staff informa o userId do aluno (ADR 10).
+        $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
 
         return AcademicRequest::query()->create([
             'id' => 'req-'.(int) round(microtime(true) * 1000),
-            'studentName' => $input['studentName'],
+            'studentName' => Identity::displayName($userId, $requester),
             'userId' => $userId,
             'type' => $input['type'],
             'description' => $input['description'],

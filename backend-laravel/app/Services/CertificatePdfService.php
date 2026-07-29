@@ -29,7 +29,7 @@ final class CertificatePdfService
         if ($cert === null) {
             throw ApiException::notFound('Certificado não encontrado.');
         }
-        if ($requester['role'] === 'student' && ! Identity::ownsRow($cert->userId, $cert->studentName, $requester)) {
+        if ($requester['role'] === 'student' && ! Identity::ownsRow($cert->userId, $requester)) {
             throw ApiException::forbidden('Você só pode baixar o próprio certificado.');
         }
 

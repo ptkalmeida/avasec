@@ -39,7 +39,7 @@ final class EnrollmentService
      */
     private function instructorCourseIds(array $requester): array
     {
-        $ids = Identity::applyOwnRows(Course::query(), $requester, 'instructorId', 'instructorName')
+        $ids = Identity::applyOwnRows(Course::query(), $requester, 'instructorId')
             ->pluck('id')->all();
 
         return array_values(array_filter($ids, static fn ($id): bool => is_string($id)));
