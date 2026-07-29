@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
+use App\Models\Course;
 use App\Models\User;
+use App\Support\Identity;
 use App\Support\Jwt;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -187,11 +189,8 @@ final class AuthService
      */
     public function listStudentsForInstructor(string $instructorSub, string $instructorName, int $skip, int $take): array
     {
-        $courseIds = DB::table('Course')
-            ->where('instructorId', $instructorSub)
-            ->orWhere(function ($q) use ($instructorName): void {
-                $q->whereNull('instructorId')->where('instructorName', $instructorName);
-            })
+        $requester = ['sub' => $instructorSub, 'name' => $instructorName, 'role' => 'instructor'];
+        $courseIds = Identity::applyOwnRows(Course::query(), $requester, 'instructorId', 'instructorName')
             ->pluck('id')
             ->all();
 

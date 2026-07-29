@@ -9,7 +9,6 @@ use App\Models\ChatMessage;
 use App\Models\DirectMessage;
 use App\Support\Identity;
 use Carbon\CarbonImmutable;
-use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Chat de aulas ao vivo e mensagens diretas — espelha src/server/services/messagingService.ts.
@@ -51,11 +50,7 @@ final class MessagingService
     public function listDirectMessages(array $requester, ?string $studentName): array
     {
         if ($requester['role'] === 'student') {
-            return DirectMessage::query()
-                ->where(function (Builder $q) use ($requester): void {
-                    $q->where('studentUserId', $requester['sub'])
-                        ->orWhere(fn (Builder $q2) => $q2->whereNull('studentUserId')->where('studentName', $requester['name']));
-                })
+            return Identity::applyOwnRows(DirectMessage::query(), $requester, 'studentUserId')
                 ->orderBy('timestamp')->get()->map->toArray()->all();
         }
 

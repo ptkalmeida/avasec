@@ -41,18 +41,26 @@ final class Identity
      * legadas (FK nula) que casam pelo nome. Impede que uma linha já associada a
      * outro userId seja lida por alguém com o mesmo nome de exibição.
      *
+     * Colunas parametrizadas para cobrir os pares divergentes do schema
+     * (studentUserId/studentName em DirectMessage, instructorId/instructorName
+     * em Course) com uma única implementação.
+     *
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
      * @param  Builder<TModel>  $query
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return Builder<TModel>
      */
-    public static function applyOwnRows(Builder $query, array $requester): Builder
-    {
-        return $query->where(function (Builder $q) use ($requester): void {
-            $q->where('userId', $requester['sub'])
-                ->orWhere(function (Builder $q2) use ($requester): void {
-                    $q2->whereNull('userId')->where('studentName', $requester['name']);
+    public static function applyOwnRows(
+        Builder $query,
+        array $requester,
+        string $userIdColumn = 'userId',
+        string $nameColumn = 'studentName',
+    ): Builder {
+        return $query->where(function (Builder $q) use ($requester, $userIdColumn, $nameColumn): void {
+            $q->where($userIdColumn, $requester['sub'])
+                ->orWhere(function (Builder $q2) use ($requester, $userIdColumn, $nameColumn): void {
+                    $q2->whereNull($userIdColumn)->where($nameColumn, $requester['name']);
                 });
         });
     }
