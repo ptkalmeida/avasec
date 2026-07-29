@@ -120,17 +120,16 @@ final class CourseTest extends TestCase
 
     public function test_instructor_cannot_edit_course_not_owned(): void
     {
-        // Cria um curso pertencente a um instrutor "A" (via admin atribuindo a outro nome),
-        // e tenta editar como um instrutor diferente "B".
+        // Curso criado pelo admin fica atribuído ao próprio admin (FK); um
+        // instrutor diferente não pode editar nem excluir.
         $adminToken = $this->tokenForRole('admin');
         $id = 'course-owned-'.uniqid();
         $this->withHeader('Authorization', "Bearer $adminToken")->postJson('/api/courses', [
             'id' => $id,
-            'title' => 'Curso do Instrutor A',
+            'title' => 'Curso do Admin',
             'description' => 'Descrição longa o suficiente aqui.',
             'category' => 'Testes',
             'thumbnail' => 'https://example.com/t.png',
-            'instructorName' => 'Instrutor A Inexistente '.uniqid(),
         ])->assertStatus(201);
 
         $instructorToken = $this->tokenForRole('instructor');
@@ -140,6 +139,47 @@ final class CourseTest extends TestCase
 
         $this->withHeader('Authorization', "Bearer $instructorToken")
             ->deleteJson("/api/courses/{$id}")
+            ->assertStatus(403);
+    }
+
+    public function test_admin_assigns_course_to_instructor_by_user_id(): void
+    {
+        $adminToken = $this->tokenForRole('admin');
+        $instructor = DB::table('User')->where('role', 'instructor')->where('status', 'active')->first(['id', 'name']);
+        $this->assertNotNull($instructor);
+
+        $id = 'course-assign-'.uniqid();
+        $response = $this->withHeader('Authorization', "Bearer $adminToken")->postJson('/api/courses', [
+            'id' => $id,
+            'title' => 'Curso Atribuído por FK',
+            'description' => 'Descrição longa o suficiente aqui.',
+            'category' => 'Testes',
+            'thumbnail' => 'https://example.com/t.png',
+            'instructorId' => $instructor->id,
+            // instructorName divergente de propósito: deve ser IGNORADO (display deriva do User).
+            'instructorName' => 'Nome Que Nao Vale',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('instructorId', $instructor->id)
+            ->assertJsonPath('instructorName', $instructor->name);
+    }
+
+    public function test_instructor_cannot_reassign_course_authorship(): void
+    {
+        $instructorToken = $this->tokenForRole('instructor');
+        $id = 'course-mine-'.uniqid();
+        $this->withHeader('Authorization', "Bearer $instructorToken")->postJson('/api/courses', [
+            'id' => $id,
+            'title' => 'Curso do Instrutor',
+            'description' => 'Descrição longa o suficiente aqui.',
+            'category' => 'Testes',
+            'thumbnail' => 'https://example.com/t.png',
+        ])->assertStatus(201);
+
+        $admin = DB::table('User')->where('role', 'admin')->first(['id']);
+        $this->withHeader('Authorization', "Bearer $instructorToken")
+            ->putJson("/api/courses/{$id}", ['instructorId' => $admin->id])
             ->assertStatus(403);
     }
 }

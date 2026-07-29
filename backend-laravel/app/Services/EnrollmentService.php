@@ -361,14 +361,10 @@ final class EnrollmentService
             return;
         }
         if ($requester['role'] === 'instructor' && $courseId) {
-            $course = Course::query()->find($courseId, ['instructorName', 'instructorId']);
-            if ($course !== null) {
-                $owns = $course->instructorId
-                    ? $course->instructorId === $requester['sub']
-                    : $course->instructorName === $requester['name'];
-                if ($owns) {
-                    return;
-                }
+            $course = Course::query()->find($courseId, ['instructorId']);
+            // Posse por FK apenas (ADR 10).
+            if ($course !== null && $course->instructorId !== null && $course->instructorId === $requester['sub']) {
+                return;
             }
         }
         throw ApiException::forbidden('Você só pode gerenciar matrículas de cursos vinculados ao seu perfil.');

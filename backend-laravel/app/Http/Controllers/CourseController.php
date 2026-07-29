@@ -67,7 +67,10 @@ final class CourseController extends Controller
             'description' => [$req, 'string', 'min:10', 'max:5000'],
             'category' => [$req, 'string', 'min:1', 'max:120'],
             'thumbnail' => [$req, 'string', 'min:1', 'max:2000'],
-            'instructorName' => [$req, 'string', 'min:1', 'max:150'],
+            // ADR 10: autoria por instructorId (admin); instructorName é aceito
+            // apenas por compat de payload e IGNORADO — display deriva do User.
+            'instructorId' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'instructorName' => ['sometimes', 'nullable', 'string', 'max:150'],
             'coverImage' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'courseType' => ['sometimes', 'in:fixo,ao_vivo'],
             'hasChat' => ['sometimes', 'boolean'],
