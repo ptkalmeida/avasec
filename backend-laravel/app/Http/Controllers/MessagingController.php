@@ -35,18 +35,21 @@ final class MessagingController extends Controller
 
     public function listDirectMessages(Request $request): JsonResponse
     {
-        return response()->json($this->messaging->listDirectMessages($this->requester($request), $request->query('studentName')));
+        $studentUserId = $request->query('studentUserId');
+        $studentUserId = is_string($studentUserId) ? $studentUserId : null;
+
+        return response()->json($this->messaging->listDirectMessages($this->requester($request), $studentUserId));
     }
 
     public function createDirectMessage(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'studentName' => ['required', 'string', 'min:2', 'max:150'],
+            'studentUserId' => ['sometimes', 'nullable', 'string', 'max:191'],
             'text' => ['required', 'string', 'min:1', 'max:2000'],
         ]);
 
         return response()->json($this->messaging->createDirectMessage([
-            'studentName' => $this->stringField($data, 'studentName'),
+            'studentUserId' => $this->optionalString($data, 'studentUserId'),
             'text' => $this->stringField($data, 'text'),
         ], $this->requester($request)), 201);
     }

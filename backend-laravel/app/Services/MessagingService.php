@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Exceptions\ApiException;
 use App\Models\ChatMessage;
 use App\Models\DirectMessage;
 use App\Support\Identity;
@@ -47,7 +46,7 @@ final class MessagingService
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<int, array<string, mixed>>
      */
-    public function listDirectMessages(array $requester, ?string $studentName): array
+    public function listDirectMessages(array $requester, ?string $studentUserId): array
     {
         if ($requester['role'] === 'student') {
             return Identity::applyOwnRows(DirectMessage::query(), $requester, 'studentUserId')
@@ -55,25 +54,23 @@ final class MessagingService
         }
 
         return DirectMessage::query()
-            ->when($studentName !== null, fn ($q) => $q->where('studentName', $studentName))
+            ->when($studentUserId !== null, fn ($q) => $q->where('studentUserId', $studentUserId))
             ->orderBy('timestamp')->get()->map->toArray()->all();
     }
 
     /**
-     * @param  array{studentName:string,text:string}  $input
+     * @param  array{studentUserId?:string|null,text:string}  $input
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function createDirectMessage(array $input, array $requester): array
     {
-        if ($requester['role'] === 'student' && $input['studentName'] !== $requester['name']) {
-            throw ApiException::forbidden('Você só pode enviar mensagens no seu próprio canal de atendimento.');
-        }
-        $studentUserId = Identity::resolveStudentUserId($input['studentName'], $requester);
+        // Aluno só escreve no próprio canal; staff endereça o aluno por userId (ADR 10).
+        $studentUserId = Identity::resolveActorUserId($requester, $input['studentUserId'] ?? null);
 
         return DirectMessage::query()->create([
             'id' => 'dm-'.$this->nowMs(),
-            'studentName' => $input['studentName'],
+            'studentName' => Identity::displayName($studentUserId, $requester),
             'studentUserId' => $studentUserId,
             'senderName' => $requester['name'],
             'senderUserId' => $requester['sub'],
