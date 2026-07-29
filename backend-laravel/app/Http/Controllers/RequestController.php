@@ -27,20 +27,20 @@ final class RequestController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'studentName' => ['required', 'string', 'min:2', 'max:150'],
+            'userId' => ['sometimes', 'nullable', 'string', 'max:191'],
             'type' => ['required', 'in:certificado,historico,matricula,outro'],
             'description' => ['required', 'string', 'min:10', 'max:4000'],
             'courseTitle' => ['sometimes', 'nullable', 'string', 'max:200'],
         ]);
 
         $type = $this->stringField($data, 'type');
-        $studentName = $this->stringField($data, 'studentName');
         $req = $this->requests->createAcademicRequest([
-            'studentName' => $studentName,
+            'userId' => $this->optionalString($data, 'userId'),
             'type' => $type,
             'description' => $this->stringField($data, 'description'),
             'courseTitle' => $this->optionalString($data, 'courseTitle'),
         ], $this->requester($request));
+        $studentName = $this->optionalString($req, 'studentName') ?? '';
         $this->audit->log($request, 'Solicitação Acadêmica', "Solicitação de \"{$type}\" enviada por {$studentName}.");
 
         return response()->json($req, 201);

@@ -190,7 +190,7 @@ final class AuthService
     public function listStudentsForInstructor(string $instructorSub, string $instructorName, int $skip, int $take): array
     {
         $requester = ['sub' => $instructorSub, 'name' => $instructorName, 'role' => 'instructor'];
-        $courseIds = Identity::applyOwnRows(Course::query(), $requester, 'instructorId', 'instructorName')
+        $courseIds = Identity::applyOwnRows(Course::query(), $requester, 'instructorId')
             ->pluck('id')
             ->all();
 
@@ -198,31 +198,21 @@ final class AuthService
             return ['items' => [], 'total' => 0];
         }
 
+        // Vínculo por FK apenas (ADR 10) — userId é NOT NULL nas duas tabelas.
         $admissions = DB::table('AdmissionRequest')
             ->whereIn('courseId', $courseIds)
             ->where('status', 'approved')
-            ->get(['studentName', 'userId']);
+            ->pluck('userId');
         $enrollments = DB::table('StudentEnrollment')
             ->whereIn('enrolledCourseId', $courseIds)
-            ->get(['studentName', 'userId']);
+            ->pluck('userId');
 
-        $linked = $admissions->concat($enrollments);
-        $studentIds = $linked->pluck('userId')->filter()->unique()->values()->all();
-        $legacyNames = $linked->filter(fn ($r) => empty($r->userId))
-            ->pluck('studentName')->unique()->values()->all();
-
-        if (count($studentIds) === 0 && count($legacyNames) === 0) {
+        $studentIds = $admissions->concat($enrollments)->filter()->unique()->values()->all();
+        if (count($studentIds) === 0) {
             return ['items' => [], 'total' => 0];
         }
 
-        $query = User::query()->where('role', 'student')->where(function ($q) use ($studentIds, $legacyNames): void {
-            if (count($studentIds) > 0) {
-                $q->orWhereIn('id', $studentIds);
-            }
-            if (count($legacyNames) > 0) {
-                $q->orWhereIn('name', $legacyNames);
-            }
-        });
+        $query = User::query()->where('role', 'student')->whereIn('id', $studentIds);
 
         $total = (clone $query)->count();
         $items = $query->orderBy('createdAt')->skip($skip)->take($take)->get()

@@ -178,7 +178,7 @@ final class LearningService
         if ($msg === null) {
             return;
         }
-        $owns = Identity::ownsRow($msg->senderUserId, $msg->senderName, $requester);
+        $owns = Identity::ownsRow($msg->senderUserId, $requester);
         if ($requester['role'] !== 'admin' && ! $owns) {
             throw ApiException::forbidden('Você só pode remover as próprias mensagens.');
         }
