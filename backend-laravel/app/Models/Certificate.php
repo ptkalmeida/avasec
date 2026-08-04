@@ -23,5 +23,8 @@ final class Certificate extends Model
 
     protected $casts = [
         'attendancePercent' => 'float',
+        // Armazenado como DATE, mas serializado no contrato como d/m/Y (frontend
+        // exibe direto, sem new Date). Ordenação passa a ser cronológica correta.
+        'issueDate' => 'date:d/m/Y',
     ];
 }

@@ -62,7 +62,9 @@ final class CertificateService
             'id' => $cert->id,
             'studentName' => $cert->studentName,
             'courseTitle' => $cert->courseTitle,
-            'issueDate' => $cert->issueDate,
+            // Acesso direto devolve Carbon (cast date) — formata explicitamente
+            // porque este array não passa pela serialização do model.
+            'issueDate' => $cert->issueDate?->format('d/m/Y'),
             'attendancePercent' => $cert->attendancePercent,
             'verificationHash' => $cert->verificationHash,
             'cargaHoraria' => is_numeric($cargaHoraria) ? (int) $cargaHoraria : null,
@@ -114,7 +116,8 @@ final class CertificateService
             'enrollmentId' => $enrollmentId,
             'courseId' => $course->id,
             'courseTitle' => $course->title,
-            'issueDate' => CarbonImmutable::now()->format('d/m/Y'),
+            // Coluna DATE — o cast do model serializa como d/m/Y no contrato.
+            'issueDate' => CarbonImmutable::now(),
             'attendancePercent' => $attendancePercent,
             'verificationHash' => "AVA-{$hashHex}",
         ]);

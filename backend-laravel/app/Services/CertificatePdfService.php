@@ -41,7 +41,8 @@ final class CertificatePdfService
             'courseTitle' => $cert->courseTitle,
             'cargaHoraria' => is_numeric($cargaHoraria) ? (int) $cargaHoraria : null,
             'attendancePercent' => $cert->attendancePercent,
-            'issueDate' => $cert->issueDate,
+            // Acesso direto devolve Carbon (cast date) — formata para o Blade.
+            'issueDate' => $cert->issueDate?->format('d/m/Y'),
             'verificationHash' => $cert->verificationHash,
             'verificationUrl' => $verificationUrl,
             'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
