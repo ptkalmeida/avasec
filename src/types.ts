@@ -18,6 +18,7 @@ export interface Lesson {
   duration: string;
   videoUrl?: string;
   content?: string;
+  isOptional?: boolean;
   order: number;
   documents?: LessonDocument[];
 }
@@ -150,7 +151,7 @@ export interface ChatMessage {
   id: string;
   sessionId: string;
   senderName: string;
-  senderRole: 'student' | 'instructor';
+  senderRole: 'student' | 'instructor' | 'admin';
   text: string;
   timestamp: string;
 }

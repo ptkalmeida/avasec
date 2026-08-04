@@ -2062,7 +2062,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
                                       <span className="text-slate-500 text-[9px] font-mono font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-150">
-                                        ⏰ {lesson.duration || `${lesson.durationMinutes || 45} min`}
+                                        ⏰ {lesson.duration || '45 min'}
                                       </span>
                                       <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                     </div>
@@ -2655,7 +2655,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
               <button
                 key={tab.id}
                 onClick={() => {
-                  setActiveCertificatesTab(tab.id);
+                  setActiveCertificatesTab(tab.id as 'available' | 'in_progress' | 'validation');
                   setValidationResult(null);
                   setValidationCode('');
                 }}
@@ -2683,7 +2683,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 ) : (
                   certificates.filter(c => c.userId === activeUser.id).map((cert, index) => {
                     const course = courses.find(c => c.id === cert.courseId);
-                    const workload = course?.workloadHours ?? 40;
+                    const workload = course?.cargaHoraria ?? 40;
                     return (
                       <div key={`${cert.id}-${index}`} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
                         <div className="space-y-2">
