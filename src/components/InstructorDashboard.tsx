@@ -8,7 +8,7 @@ import {
   BookOpen, Calendar, CheckCircle, Award, Video, Plus, Trash2, Edit3, Users,
   Globe, Clock, Grid, ChevronRight, TrendingUp, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
-  ChevronDown, ChevronUp, ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X
+  ChevronDown, ChevronUp, ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
@@ -480,10 +480,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     e.preventDefault();
     addWebinarEvent({
       title: webTitle,
-      host: webHost,
       date: webDate,
       time: webTime,
-      type: 'aula-especial',
+      description: '',
       link: webLink
     });
     setWebTitle('');

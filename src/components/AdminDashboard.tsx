@@ -160,6 +160,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     progresso?: number;
     horasConcluidas?: number;
     horasTotais?: number;
+    password?: string; // reset de senha do simulador (estado local de demonstração)
   }>>({});
 
   const [activeStudentProfile, setActiveStudentProfile] = useState<string | null>(null);

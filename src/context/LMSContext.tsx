@@ -35,7 +35,7 @@ interface LMSContextProps {
   quizzes: Quiz[];
   quizSubmissions: QuizSubmission[];
   professorsList: PersonRef[];
-  studentsList: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[];
+  studentsList: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[];
   academicRequests: AcademicRequest[];
   libraryItems: LibraryItem[];
   webinarEvents: WebinarEvent[];
@@ -294,7 +294,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [{ id: MOCK_IDS.gestor, name: 'Gestor de Conteúdos' }];
   });
 
-  const [studentsList, setStudentsList] = useState<{ id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[]>(() => {
+  const [studentsList, setStudentsList] = useState<{ id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[]>(() => {
     const defaultStudents = [
       { name: 'João Silva', email: 'joao.silva@lms.edu', password: '1234', municipio: 'São Paulo', uf: 'SP', areaInteresse: 'Design Digital', dataCadastro: '2026-01-10' },
       { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', password: '1234', municipio: 'Recife', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-02-14' },
@@ -310,7 +310,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           const seenEmails = new Set<string>();
-          const dedupedParsed: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[] = [];
+          const dedupedParsed: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[] = [];
           
           parsed.forEach(p => {
             if (p && p.email && !seenEmails.has(p.email.toLowerCase())) {

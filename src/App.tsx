@@ -785,7 +785,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   </div>
                 ) : (
                   <div className="flex items-center gap-3 mr-1 text-slate-400">
-                    <Search className="h-4.5 w-4.5 hover:text-slate-800 cursor-pointer transition-colors" title="Buscar no Site" onClick={() => setIsSearchOpen(true)} />
+                    <span title="Buscar no Site" onClick={() => setIsSearchOpen(true)} className="cursor-pointer"><Search className="h-4.5 w-4.5 hover:text-slate-800 transition-colors" /></span>
                   </div>
                 )}
               </div>
@@ -904,7 +904,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 <div 
                   onClick={() => {
-                    setPreviousView(currentView === 'perfil' ? previousView : currentView);
+                    setPreviousView(currentView);
                     setCurrentView('perfil');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     speakText("Carregando o seu perfil.");
@@ -930,10 +930,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 {/* Padlock and User icons (already interactive login triggers) */}
                 {!isSearchOpen && (
                   <div className="hidden sm:flex items-center gap-3.5 mr-2 text-slate-400 border-r border-slate-200 pr-4">
-                    <Lock className="h-4.5 w-4.5 hover:text-slate-800 cursor-pointer transition-colors" title="Simular Conexão" onClick={() => setIsLoginModalOpen(true)} />
-                    <User 
-                      className="h-4.5 w-4.5 hover:text-slate-800 cursor-pointer transition-colors" 
-                      title={isUserLoggedIn ? "Visualizar meu Perfil" : "Identidade Aluno/Professor"} 
+                    <span title="Simular Conexão" onClick={() => setIsLoginModalOpen(true)} className="cursor-pointer"><Lock className="h-4.5 w-4.5 hover:text-slate-800 transition-colors" /></span>
+                    <span
+                      className="cursor-pointer"
+                      title={isUserLoggedIn ? "Visualizar meu Perfil" : "Identidade Aluno/Professor"}
                       onClick={() => {
                         if (isUserLoggedIn) {
                           setPreviousView(currentView === 'perfil' ? previousView : currentView);
@@ -943,8 +943,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         } else {
                           setIsLoginModalOpen(true);
                         }
-                      }} 
-                    />
+                      }}
+                    >
+                      <User className="h-4.5 w-4.5 hover:text-slate-800 transition-colors" />
+                    </span>
                   </div>
                 )}
 
@@ -1298,7 +1300,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                               <div className="space-y-1">
                                 <span className="text-[9px] uppercase font-bold text-slate-400 block font-mono">CURSO ATIVO</span>
                                 <strong className="text-sm font-bold text-[#540D6E] block font-serif">{activeCourse.title}</strong>
-                                <span className="text-xs text-slate-500 block">Ministrado por: Prof. {activeCourse.instructor}</span>
+                                <span className="text-xs text-slate-500 block">Ministrado por: Prof. {activeCourse.instructorName}</span>
                               </div>
                               <button 
                                 onClick={() => { setCurrentView('active_app'); speakText(`Iniciando estudos no curso ${activeCourse.title}`); }}
