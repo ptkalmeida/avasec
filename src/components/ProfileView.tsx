@@ -14,6 +14,15 @@ interface ProfileViewProps {
   onLogout?: () => void;
 }
 
+// Atalho de troca rápida de perfil (SOMENTE em dev — import.meta.env.DEV).
+// Faz um login REAL com o PIN demo do perfil alvo; a identidade continua vindo
+// do token (nada do bug antigo de trocar papel sem reautenticar — ADR 10).
+const DEMO_PROFILES = [
+  { name: 'João Silva', pin: '1234', label: 'Aluno' },
+  { name: 'Gestor de Conteúdos', pin: '5678', label: 'Gestor' },
+  { name: 'Admin Superior', pin: '9999', label: 'Admin' },
+] as const;
+
 const AVATAR_PRESETS = [
   { id: 'cosmic', emoji: '🚀', label: 'Estudante Cósmico', color: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
   { id: 'creative', emoji: '🎨', label: 'Criador Cultural', color: 'bg-emerald-50 border-emerald-250 text-emerald-700' },
@@ -56,6 +65,18 @@ export function ProfileView({
   const [editableName, setEditableName] = useState(activeUser.name);
   const [isDossierOpen, setIsDossierOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [switchingProfile, setSwitchingProfile] = useState<string | null>(null);
+
+  const handleQuickSwitch = async (name: string, pin: string) => {
+    if (switchingProfile || name === activeUser.name) return;
+    setSwitchingProfile(name);
+    const result = await loginWithPassword(name, pin);
+    setSwitchingProfile(null);
+    if (result.ok) {
+      speakText(`Perfil alterado para ${name}.`);
+      onBack();
+    }
+  };
   
   // State to manage showing the main Profile view or the New password change view
   const [currentTab, setCurrentTab] = useState<'profile' | 'password'>('profile');
@@ -1153,6 +1174,34 @@ export function ProfileView({
               <LogOut className="h-4 w-4" />
               <span>Sair da Conta / Desconectar</span>
             </button>
+
+            {import.meta.env.DEV && (
+              <div className="mt-4 pt-4 border-t border-slate-150">
+                <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block mb-2">
+                  Troca rápida de perfil (dev)
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  {DEMO_PROFILES.map((p) => {
+                    const isActive = p.name === activeUser.name;
+                    return (
+                      <button
+                        key={p.name}
+                        onClick={() => handleQuickSwitch(p.name, p.pin)}
+                        disabled={isActive || switchingProfile !== null}
+                        className={`py-2 px-2 rounded-lg text-[11px] font-bold transition-all border ${
+                          isActive
+                            ? 'bg-teal-50 border-teal-200 text-teal-700 cursor-default'
+                            : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 cursor-pointer disabled:opacity-50 disabled:cursor-wait'
+                        }`}
+                        title={isActive ? 'Perfil atual' : `Entrar como ${p.name}`}
+                      >
+                        {switchingProfile === p.name ? '...' : p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
