@@ -652,7 +652,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           <ShieldCheck className="h-5 w-5 text-blue-400 shrink-0" />
           <div className="min-w-0">
             <span className="block text-sm font-bold text-white leading-tight truncate">Administração</span>
-            <span className="block text-[10px] text-slate-400">AVASEC · Master Root</span>
+            <span className="block text-[10px] text-slate-400">AVASEC · Administrador Superior</span>
           </div>
         </div>
 
@@ -724,7 +724,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               ))}
             </select>
             <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-blue-50 text-blue-600">
-              Master Root
+              Administrador Superior
             </span>
           </div>
         </header>
@@ -1531,8 +1531,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           
                           {/* Info metrics line & Swap Instructor controls */}
                           <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1.5 text-[10px] text-slate-400 font-medium">
-                            <span>Lessons: <strong>{course.lessons.length} aulas</strong></span>
-                            <span>Evaluations: <strong>{testsCount} testes</strong></span>
+                            <span>Aulas: <strong>{course.lessons.length} aulas</strong></span>
+                            <span>Avaliações: <strong>{testsCount} testes</strong></span>
                             <span>Professor Atual: <strong className="text-slate-800">{course.instructorName}</strong></span>
                           </div>
 
@@ -3392,7 +3392,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 leading-normal">
-                Modificar esta régua atualiza dinamicamente o gatilho automático que concede as certificações virtuais assinadas criptograficamente aos alunos (Global Attendance Threshold Customizer).
+                Modificar esta régua atualiza dinamicamente o gatilho automático que concede as certificações virtuais assinadas criptograficamente aos alunos (Personalizador Global do Limite de Presença).
               </p>
             </div>
 
@@ -3443,7 +3443,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-800 tracking-tight">Emissão Automática de Certificados</span>
-                  <p className="text-[9px] text-slate-400">Permitir que o Document Viewer emita os certificados automaticamente ao atingir os requisitos.</p>
+                  <p className="text-[9px] text-slate-400">Permitir que o Visualizador de Documentos emita os certificados automaticamente ao atingir os requisitos.</p>
                 </div>
               </label>
 

@@ -310,7 +310,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                     onClick={handleConfirmAttendance}
                     className="shrink-0 bg-white text-teal-700 hover:bg-slate-100 px-3 py-1.5 rounded-md font-semibold text-xs shadow-xs transition-all"
                   >
-                    Confirmar Presenção
+                    Confirmar Presença
                   </button>
                 </div>
               )}

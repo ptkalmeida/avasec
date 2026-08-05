@@ -910,7 +910,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     speakText("Carregando o seu perfil.");
                   }}
                   className="hidden md:flex items-center gap-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl cursor-pointer transition-all"
-                  title="Visualizar meu Perfil Actions"
+                  title="Visualizar meu Perfil"
                 >
                   <div className="text-right">
                     <span className="block text-xs font-bold text-slate-800 leading-none">{activeUser.name}</span>
@@ -1254,7 +1254,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <div className="w-72 h-72 sm:w-85 sm:h-85 rounded-full overflow-hidden border-8 border-white shadow-2xl relative z-10 bg-slate-900">
                       <img 
                         src={pauloFreirePortrait} 
-                        alt="Paulo Freire Tribute Portrait" 
+                        alt="Retrato em homenagem a Paulo Freire"
                         className="w-full h-full object-cover filter contrast-110 sepia-[10%] saturate-120"
                         referrerPolicy="no-referrer"
                       />
@@ -1638,7 +1638,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             onClick={() => setIsLoginModalOpen(true)}
                             className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-[#540D6E] hover:text-white transition-all text-slate-600 border border-slate-150 text-[10.5px] font-black uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1"
                           >
-                            <span>Increver-se</span>
+                            <span>Inscrever-se</span>
                             <ArrowRight className="h-3 w-3" />
                           </button>
                         </div>
@@ -1742,7 +1742,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <div className="w-full h-full rounded-[120px] overflow-hidden border-4 border-slate-800 shadow-2xl relative bg-slate-950">
                       <img 
                         src={pauloFreirePortrait} 
-                        alt="Paulo Freire Tribute Oval" 
+                        alt="Retrato oval em homenagem a Paulo Freire"
                         className="w-full h-full object-cover filter contrast-125 brightness-100"
                         referrerPolicy="no-referrer"
                       />
@@ -2563,7 +2563,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 
                 {/* Text Sizing Block */}
                 <div className="space-y-2 border-b border-slate-100 pb-4">
-                  <span className="text-xs font-black text-slate-700 block uppercase tracking-wider font-mono">Tamanho do Texto [Magnification]</span>
+                  <span className="text-xs font-black text-slate-700 block uppercase tracking-wider font-mono">Tamanho do Texto [Ampliação]</span>
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { label: "Padrão (100%)", value: 1.0 },
@@ -2726,13 +2726,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       onClick={() => { setIsSiteMapOpen(false); handleSmoothScroll('hero-section'); speakText("Ir para Banner Principal"); }} 
                       className="text-left py-1 hover:text-[#540D6E] transition-colors hover:underline block cursor-pointer bg-transparent border-0 outline-hidden font-bold"
                     >
-                      • Banner Principal (Hero Portal)
+                      • Banner Principal (Abertura do Portal)
                     </button>
                     <button 
                       onClick={() => { setIsSiteMapOpen(false); handleSmoothScroll('cursos'); speakText("Ir para Cursos em Destaque"); }} 
                       className="text-left py-1 hover:text-[#540D6E] transition-colors hover:underline block cursor-pointer bg-transparent border-0 outline-hidden font-bold"
                     >
-                      • Lista de Cursos em Destaque (LMS Slider)
+                      • Lista de Cursos em Destaque (Carrossel de Cursos)
                     </button>
                     <button 
                       onClick={() => { setIsSiteMapOpen(false); handleSmoothScroll('noticias'); speakText("Ir para Informativos Recentes"); }} 
@@ -3363,7 +3363,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </div>
                 <div className="text-left">
                   <span className="text-[11px] font-black text-slate-800 block leading-tight">{pendingLogin.name}</span>
-                  <span className="text-[8.5px] uppercase text-slate-450 font-mono tracking-wide block">Identidade: {pendingLogin.role.toUpperCase()}</span>
+                  <span className="text-[8.5px] uppercase text-slate-450 font-mono tracking-wide block">Identidade: {pendingLogin.role === 'student' ? 'Aluno' : pendingLogin.role === 'instructor' ? 'Instrutor' : 'Administrador'}</span>
                 </div>
               </div>
 
