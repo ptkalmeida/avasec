@@ -803,7 +803,7 @@ export function ProfileView({
                   />
                   <span className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-350 text-slate-700 rounded-xl text-[11px] font-black cursor-pointer transition-all uppercase tracking-wider">
                     <Upload className="h-3.5 w-3.5 text-indigo-600 animate-pulse" />
-                    <span>Upload</span>
+                    <span>Enviar foto</span>
                   </span>
                 </label>
 

@@ -1211,7 +1211,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
                                           <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-1 shrink-0 text-right">
                                             <span className="bg-amber-50 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200">
-                                              Max: {ex.maxPoints} pts
+                                              Máx: {ex.maxPoints} pts
                                             </span>
                                             {ex.dueDate && (
                                               <span className="text-[10px] text-slate-450">Prazo: {ex.dueDate}</span>
