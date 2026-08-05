@@ -8,10 +8,10 @@ describe('VideoPlayer', () => {
 
     const iframe = screen.getByTitle('Aula 1');
     expect(iframe.tagName).toBe('IFRAME');
-    expect(iframe).toHaveAttribute(
-      'src',
-      'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0&rel=0&modestbranding=1'
-    );
+    // Embed sem cookies + parâmetro origin dinâmico (ADR 08).
+    const src = iframe.getAttribute('src') ?? '';
+    expect(src).toContain('https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ');
+    expect(src).toContain('origin=');
   });
 
   it('renderiza <video> nativo para arquivo de vídeo e dispara callbacks', () => {

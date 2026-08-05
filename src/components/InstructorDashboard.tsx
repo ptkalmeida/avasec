@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
+import { LessonVideoField } from './shared/LessonVideoField';
 import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
@@ -1949,16 +1950,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">URL do Vídeo (Opcional)</label>
-                <input
-                  type="url"
-                  value={lessonVideoUrl}
-                  onChange={(e) => setLessonVideoUrl(e.target.value)}
-                  placeholder="Ex: https://www.youtube.com/watch?v=..."
-                  className="w-full rounded-lg border border-slate-200 p-2.5 text-xs font-semibold text-slate-800"
-                />
-              </div>
+              <LessonVideoField value={lessonVideoUrl} onChange={setLessonVideoUrl} />
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Conteúdo Teórico / Exercícios (Markdown)</label>
@@ -2392,16 +2384,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">URL do Vídeo (Opcional)</label>
-                <input
-                  type="url"
-                  value={editLessonVideoUrl}
-                  onChange={(e) => setEditLessonVideoUrl(e.target.value)}
-                  placeholder="Ex: https://www.youtube.com/watch?v=..."
-                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-semibold"
-                />
-              </div>
+              <LessonVideoField value={editLessonVideoUrl} onChange={setEditLessonVideoUrl} />
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Conteúdo (Markdown/Instruções)</label>

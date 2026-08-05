@@ -53,12 +53,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }
 
   if (source.provider === 'youtube') {
+    // O parâmetro origin é recomendado pelo YouTube para validar o embed e
+    // evita o erro "Ocorreu um erro / ID de reprodução" em alguns navegadores.
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const src = origin ? `${source.embedUrl}&origin=${encodeURIComponent(origin)}` : source.embedUrl;
     return (
       <iframe
         className={className}
-        src={source.embedUrl}
+        src={src}
         title={title}
         frameBorder="0"
+        referrerPolicy="strict-origin-when-cross-origin"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen
       ></iframe>

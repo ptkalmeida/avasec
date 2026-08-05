@@ -13,7 +13,6 @@ import {
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
-import { parseVideoSource } from '../utils/videoSource';
 import { downloadSubmissionFile, downloadCertificatePdf } from '../utils/fileDownload';
 import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS } from '../config/constants';
 import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQuestion } from '../types';
@@ -341,7 +340,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   React.useEffect(() => {
     if (activeLesson) {
       setLessonNoteText(savedNotes[activeLesson.id] || '');
-      setIsPlaying(false); // Reset player state on class switch
     }
   }, [activeLesson, savedNotes]);
 
@@ -352,21 +350,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
       localStorage.setItem('ava_student_lesson_notes', JSON.stringify(updated));
     }
   };
-
-  // Video Simulated States
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState('1.0x');
-  const [videoTime, setVideoTime] = useState(0);
-  const [videoDuration, setVideoDuration] = useState(0);
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-
-  // Effect to sync video playback speed
-  useEffect(() => {
-    if (videoRef.current) {
-      const rate = parseFloat(playbackSpeed.replace('x', ''));
-      videoRef.current.playbackRate = rate;
-    }
-  }, [playbackSpeed, isPlaying]);
 
   // Calculations for summary metrics based on the student's actual enrollment record
   const activeEnrollments = enrollmentRecord.enrolledCourseId ? 1 : 0;
@@ -705,16 +688,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 </div>
               </div>
 
-              {/* Attendance Indicator Warning or Success banner */}
-              {calculateAttendancePercent(selectedCourse.id) < 70 ? (
-                <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900 flex items-start gap-2.5">
-                  <Clock className="h-5 w-5 shrink-0 text-amber-600 mt-0.5 animate-pulse" />
-                  <div>
-                    <strong className="block font-bold mb-0.5">Módulo de Presença Pendente (&lt; 70%)</strong>
-                    Complete more lessons or active live video sessions. Currently, you need at least <strong>70% total presence</strong> to be eligible for automated certification. Mark lesson cards as completed inside modules to increment your progress.
-                  </div>
-                </div>
-              ) : (
+              {/* Banner de sucesso — só quando a frequência qualifica para certificação */}
+              {calculateAttendancePercent(selectedCourse.id) >= 70 && (
                 <div className="mb-6 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-800 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2.5">
                     <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
@@ -888,10 +863,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     /* Lesson Player Station active */
                     <div className="space-y-5 flex flex-col items-center">
                       
-                      <div className="flex items-center justify-between w-full mb-2">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-teal-600 bg-teal-50 px-2.5 py-1 rounded inline-block font-mono border border-teal-200">
-                          Aula em Foco
-                        </span>
+                      <div className="flex items-center justify-end w-full mb-2">
                         <button
                           onClick={() => setActiveLesson(null)}
                           className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1 cursor-pointer"
@@ -905,115 +877,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       <div className="relative rounded-2xl bg-slate-950 border border-slate-850 overflow-hidden shadow-md group w-full max-w-3xl mx-auto">
                         
                         {/* 16:9 Screen ratio representation with max height constraint */}
-                        <div className="aspect-video w-full max-h-[50vh] flex flex-col justify-between p-4 relative">
-                          
-                          {/* Player único da plataforma — provider derivado da URL (ADR 08) */}
-                          <div className="absolute inset-0 bg-slate-900 border border-slate-850 overflow-hidden group">
-                           {parseVideoSource(activeLesson.videoUrl)?.provider === 'file' && !isPlaying ? (
-                             <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center z-5">
-                               <button
-                                 onClick={() => setIsPlaying(true)}
-                                 className="rounded-full bg-white/10 hover:bg-white/15 text-white p-5 border border-white/20 transition-all scale-100 hover:scale-110 shadow-lg flex items-center justify-center cursor-pointer"
-                               >
-                                 <Play className="h-10 w-10 fill-white translate-x-0.5" />
-                               </button>
-                             </div>
-                           ) : (
-                             <VideoPlayer
-                               key={activeLesson.id}
-                               videoUrl={activeLesson.videoUrl}
-                               title={activeLesson.title}
-                               videoRef={videoRef}
-                               autoPlay
-                               playbackRate={parseFloat(playbackSpeed.replace('x', ''))}
-                               onEnded={() => setIsPlaying(false)}
-                               onTimeUpdate={setVideoTime}
-                               onLoadedMetadata={setVideoDuration}
-                             />
-                           )}
-                          </div>
-
-                          {/* Top video player hud bar */}
-                          <div className="z-10 flex items-center justify-between text-white/90">
-                            <span className="text-[10px] font-bold uppercase bg-teal-600 px-2 py-0.5 rounded font-mono">
-                              AULA {activeLesson.order}
-                            </span>
-                            <div className="flex items-center gap-3">
-                              <span className="text-[11px] font-medium font-mono bg-slate-900/80 px-2 py-0.5 rounded backdrop-blur-xs">
-                                {playbackSpeed} de Velocidade
-                              </span>
-                              <button 
-                                onClick={() => {
-                                  if (videoRef.current) {
-                                    if (videoRef.current.requestFullscreen) videoRef.current.requestFullscreen();
-                                  }
-                                }}
-                                className="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg transition-colors cursor-pointer"
-                                title="Tela Cheia"
-                              >
-                                <Monitor className="h-3.5 w-3.5 text-white" />
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Bottom video interface bar */}
-                          <div className="z-10 mt-auto flex flex-col gap-2">
-                             {/* Custom progress bar */}
-                             <div 
-                               className="w-full h-1 bg-white/20 rounded-full overflow-hidden cursor-pointer group/progress"
-                               onClick={(e) => {
-                                 if (videoRef.current && videoDuration) {
-                                   const rect = e.currentTarget.getBoundingClientRect();
-                                   const pos = (e.clientX - rect.left) / rect.width;
-                                   videoRef.current.currentTime = pos * videoDuration;
-                                 }
-                               }}
-                             >
-                               <div 
-                                 className="h-full bg-teal-500 transition-all"
-                                 style={{ width: `${(videoTime / videoDuration) * 100 || 0}%` }}
-                               />
-                             </div>
-
-                             <div className="bg-slate-900/95 p-3 rounded-xl border border-white/10 backdrop-blur-xs flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => setIsPlaying(!isPlaying)}
-                                  className="bg-teal-600 hover:bg-teal-500 text-white rounded-lg p-1.5 transition-colors cursor-pointer"
-                                >
-                                  {isPlaying ? (
-                                    <span className="font-mono font-black text-[10px] uppercase px-1">Pausar</span>
-                                  ) : (
-                                    <Play className="h-3.5 w-3.5 fill-white" />
-                                  )}
-                                </button>
-                                
-                                <div className="text-left leading-none">
-                                  <span className="block text-[11px] font-bold text-white leading-tight">
-                                    {activeLesson.title}
-                                  </span>
-                                  <span className="text-[9px] text-slate-400 font-mono">Duração: {activeLesson.duration}</span>
-                                </div>
-                              </div>
-
-                              {/* Speed selector controls */}
-                              <div className="flex items-center gap-1.5">
-                                {['1.0x', '1.5x', '2.0x'].map((speed) => (
-                                  <button
-                                    key={speed}
-                                    onClick={() => setPlaybackSpeed(speed)}
-                                    className={`rounded px-1.8 py-0.8 text-[10px] font-black transition-colors cursor-pointer ${
-                                      playbackSpeed === speed 
-                                        ? 'bg-teal-600 text-white' 
-                                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                                    }`}
-                                  >
-                                    {speed}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
+                        <div className="aspect-video w-full max-h-[50vh]">
+                          {/* Player único da plataforma (ADR 08) — usa os controles
+                              nativos: YouTube no iframe, navegador nos vídeos mp4. */}
+                          <VideoPlayer
+                            key={activeLesson.id}
+                            videoUrl={activeLesson.videoUrl}
+                            title={activeLesson.title}
+                            controls
+                          />
                         </div>
                       </div>
 
