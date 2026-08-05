@@ -157,7 +157,7 @@ server {
     # CSP espelhando a política de produção anterior: bundle próprio, estilos inline
     # (o app injeta <style> de acessibilidade), imagens/vídeos de catálogo em https
     # (Unsplash/CDNs) e embeds do YouTube nas aulas.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https://www.youtube.com; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-ancestors 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-ancestors 'self'" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
