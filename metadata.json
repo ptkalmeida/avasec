@@ -1,6 +1,0 @@
-{
-  "name": "AVASEC",
-  "description": "AVASEC - Escola da Cultura - Ambiente Virtual de Aprendizagem (LMS) com controle de presença, emissão de certificados, trilhas acadêmicas e mentoria síncrona.",
-  "requestFramePermissions": ["camera", "microphone"],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
