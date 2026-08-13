@@ -5,6 +5,10 @@
  * um valor próprio (Course.minAttendance). */
 export const DEFAULT_MIN_ATTENDANCE = 70;
 
+/** Percentual mínimo de acertos para um quiz ser considerado aprovado (passed).
+ * A nota é sempre recalculada no servidor a partir das respostas reais. */
+export const QUIZ_PASS_THRESHOLD = 70;
+
 /** Resolve o percentual mínimo efetivo de um curso.
  * Usa ?? (e não ||) de propósito: um curso configurado explicitamente com 0% é respeitado. */
 export function courseMinAttendance(course: { minAttendance?: number | null } | null | undefined): number {

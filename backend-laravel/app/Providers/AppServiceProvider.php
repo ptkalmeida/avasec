@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Exceptions\ApiException;
+use App\Support\Jwt;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use RuntimeException;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,7 +21,29 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->assertStrongJwtSecret();
         $this->configureRateLimiters();
+    }
+
+    /**
+     * Fail-fast em produção: um JWT_SECRET curto ou com valor de exemplo permite
+     * a qualquer um forjar tokens (inclusive de admin, já que o role vem do token).
+     * Reintroduz o guard que existia no backend Node (env.ts) e que se perdeu na
+     * migração — o invariante "JWT_SECRET ≥ 32 chars" (CLAUDE.md) passa a ser código.
+     */
+    private function assertStrongJwtSecret(): void
+    {
+        if (! $this->app->environment('production')) {
+            return;
+        }
+
+        $secret = Jwt::secret();
+        $isPlaceholder = $secret === '' || str_contains(mb_strtolower($secret), 'troque');
+        if (mb_strlen($secret) < 32 || $isPlaceholder) {
+            throw new RuntimeException(
+                'JWT_SECRET inseguro: defina um segredo aleatório com ao menos 32 caracteres em produção (o valor de exemplo não é aceito).'
+            );
+        }
     }
 
     /**

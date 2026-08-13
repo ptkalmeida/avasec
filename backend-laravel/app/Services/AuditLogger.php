@@ -63,11 +63,9 @@ final class AuditLogger
 
     private function clientIp(Request $request): string
     {
-        $forwarded = $request->header('X-Forwarded-For');
-        if (is_string($forwarded) && $forwarded !== '') {
-            return trim(explode(',', $forwarded)[0]);
-        }
-
+        // $request->ip() já resolve o X-Forwarded-For, mas SÓ quando vem de um proxy
+        // confiável (TrustProxies em bootstrap/app.php). Ler o header cru permitiria a
+        // qualquer cliente forjar o IP registrado na auditoria (X-Forwarded-For: 8.8.8.8).
         return $request->ip() ?? 'desconhecido';
     }
 }

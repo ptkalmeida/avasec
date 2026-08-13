@@ -17,7 +17,10 @@ final class MessagingController extends Controller
 
     public function listChatMessages(Request $request): JsonResponse
     {
-        return response()->json($this->messaging->listChatMessages($request->query('sessionId')));
+        $sessionId = $request->query('sessionId');
+        $sessionId = is_string($sessionId) ? $sessionId : null;
+
+        return response()->json($this->messaging->listChatMessages($sessionId, $this->requester($request)));
     }
 
     public function createChatMessage(Request $request): JsonResponse

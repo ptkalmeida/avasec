@@ -3468,16 +3468,20 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </button>
               </div>
 
-              {/* Demo PIN code guideline disclaimer */}
-              <div className="mt-5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-left text-[9.5px] text-slate-500 leading-relaxed font-mono">
-                <span className="font-bold text-indigo-700 block mb-0.5 uppercase tracking-wide">Dica para Avaliação do Fluxo:</span>
-                • Aluno: <code className="font-extrabold text-slate-800">1234</code><br />
-                • Gestão: <code className="font-extrabold text-slate-800">5678</code><br />
-                • Admin Superior: <code className="font-extrabold text-[#540D6E]">9999</code><br />
-                <span className="text-[8.5px] text-slate-400 block mt-1 leading-normal">
-                  (Senhas customizadas no perfil também servem para desbloqueio do aluno).
-                </span>
-              </div>
+              {/* Dica de PINs demo — SOMENTE em desenvolvimento (import.meta.env.DEV).
+                  Nunca vai para o build de produção: expor senhas padrão na tela de
+                  login, somado ao login por nome, permitiria tomada de contas reais. */}
+              {import.meta.env.DEV && (
+                <div className="mt-5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-left text-[9.5px] text-slate-500 leading-relaxed font-mono">
+                  <span className="font-bold text-indigo-700 block mb-0.5 uppercase tracking-wide">Dica para Avaliação do Fluxo (dev):</span>
+                  • Aluno: <code className="font-extrabold text-slate-800">1234</code><br />
+                  • Gestão: <code className="font-extrabold text-slate-800">5678</code><br />
+                  • Admin Superior: <code className="font-extrabold text-[#540D6E]">9999</code><br />
+                  <span className="text-[8.5px] text-slate-400 block mt-1 leading-normal">
+                    (Senhas customizadas no perfil também servem para desbloqueio do aluno).
+                  </span>
+                </div>
+              )}
 
               {/* Cancel button */}
               <div className="text-center mt-3.5">

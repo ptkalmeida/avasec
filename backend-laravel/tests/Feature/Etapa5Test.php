@@ -111,9 +111,12 @@ final class Etapa5Test extends TestCase
 
     // ---------- Learning ----------
 
-    public function test_quizzes_list_is_public_array(): void
+    public function test_quizzes_list_requires_authentication(): void
     {
-        $res = $this->getJson('/api/quizzes');
+        // Segurança: o gabarito (correctOptionIndex) não pode ser raspado anonimamente.
+        $this->getJson('/api/quizzes')->assertStatus(401);
+
+        $res = $this->getJson('/api/quizzes', $this->auth($this->token('student')));
         $res->assertOk();
         $this->assertIsArray($res->json());
     }

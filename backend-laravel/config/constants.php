@@ -7,6 +7,8 @@ declare(strict_types=1);
 return [
     // Percentual mínimo de frequência para certificado quando o curso não define o seu.
     'default_min_attendance' => 70,
+    // Percentual mínimo de acertos para um quiz ser considerado aprovado (passed).
+    'quiz_pass_threshold' => 70,
     // Dias após a matrícula em que o cancelamento passa a gerar restrição de rematrícula.
     'dropout_penalty_free_days' => 5,
     // Duração (em dias) da restrição de nova matrícula após cancelamento tardio.

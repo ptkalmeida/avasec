@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Models\Certificate;
 use App\Models\Course;
 use App\Support\Identity;
+use App\Support\InstructorScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use chillerlan\QRCode\QRCode;
 use RuntimeException;
@@ -31,6 +32,11 @@ final class CertificatePdfService
         }
         if ($requester['role'] === 'student' && ! Identity::ownsRow($cert->userId, $requester)) {
             throw ApiException::forbidden('Você só pode baixar o próprio certificado.');
+        }
+        // Instrutor só baixa PDF de certificado de curso que leciona (antes: qualquer um).
+        if ($requester['role'] === 'instructor'
+            && ! in_array($cert->courseId, InstructorScope::courseIds($requester), true)) {
+            throw ApiException::forbidden('Você só pode baixar certificados dos seus cursos.');
         }
 
         $verificationUrl = $this->verificationUrl($cert->verificationHash);

@@ -11,6 +11,7 @@ use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
 use App\Support\Identity;
+use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
 
 /**
@@ -26,9 +27,13 @@ final class CertificateService
      */
     public function listCertificates(array $requester, int $skip, int $take): array
     {
+        // Aluno vê só os próprios; instrutor só os dos cursos que leciona; admin, todos.
+        // Antes o instrutor listava todos os certificados da plataforma.
         $base = Certificate::query();
         if ($requester['role'] === 'student') {
             Identity::applyOwnRows($base, $requester);
+        } elseif ($requester['role'] === 'instructor') {
+            $base->whereIn('courseId', InstructorScope::courseIds($requester));
         }
 
         $total = (clone $base)->count();

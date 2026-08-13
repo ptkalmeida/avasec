@@ -11,7 +11,9 @@ use App\Models\PracticalExercise;
 use App\Models\Quiz;
 use App\Models\QuizQuestion;
 use App\Models\QuizSubmission;
+use App\Support\BusinessRules;
 use App\Support\Identity;
+use App\Support\InstructorScope;
 use App\Support\Payload;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -34,12 +36,20 @@ final class LearningService
 
     /**
      * @param  array<string, mixed>  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
-    public function createQuiz(array $input): array
+    public function createQuiz(array $input, array $requester): array
     {
+        $courseId = is_string($input['courseId'] ?? null) ? $input['courseId'] : null;
+        $this->assertInstructorOwnsCourse($courseId, $requester);
+
         $id = is_string($input['id'] ?? null) ? $input['id'] : ('quiz-'.$this->nowMs());
         $quiz = Quiz::query()->find($id);
+        // Um quiz existente não pode ser sequestrado para outro curso alheio.
+        if ($quiz !== null && is_string($quiz->courseId)) {
+            $this->assertInstructorOwnsCourse($quiz->courseId, $requester);
+        }
         if ($quiz !== null) {
             $quiz->fill(['courseId' => $input['courseId'], 'title' => $input['title']])->save();
         } else {
@@ -76,8 +86,14 @@ final class LearningService
         return Quiz::query()->with('questions')->find($id)?->toArray() ?? [];
     }
 
-    public function deleteQuiz(string $id): void
+    /** @param array{sub:string,name:string,role:string} $requester */
+    public function deleteQuiz(string $id, array $requester): void
     {
+        $quiz = Quiz::query()->find($id);
+        if ($quiz === null) {
+            return;
+        }
+        $this->assertInstructorOwnsCourse(is_string($quiz->courseId) ? $quiz->courseId : null, $requester);
         QuizSubmission::query()->where('quizId', $id)->delete();
         Quiz::query()->where('id', $id)->delete();
     }
@@ -91,13 +107,20 @@ final class LearningService
         $q = QuizSubmission::query();
         if ($requester['role'] === 'student') {
             Identity::applyOwnRows($q, $requester);
+        } elseif ($requester['role'] === 'instructor') {
+            $q->whereIn('courseId', InstructorScope::courseIds($requester));
         }
 
         return $q->get()->map->toArray()->all();
     }
 
     /**
-     * @param  array<string, mixed>  $input
+     * A nota NUNCA vem do cliente: é recalculada no servidor comparando as respostas
+     * enviadas ($input['answers']: questionId => índice escolhido) com o
+     * correctOptionIndex de cada QuizQuestion. O courseId também é derivado do quiz,
+     * não do corpo. Isso impede o aluno de auto-declarar scorePercent/passed.
+     *
+     * @param  array{quizId:string,answers:array<string,int>}  $input
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
@@ -106,16 +129,33 @@ final class LearningService
         if ($requester['role'] !== 'student') {
             throw ApiException::forbidden('Somente alunos podem responder quizzes.');
         }
+
+        $quiz = Quiz::query()->with('questions')->find($input['quizId']);
+        if ($quiz === null) {
+            throw ApiException::notFound('Quiz não encontrado.');
+        }
+
+        $total = $quiz->questions->count();
+        $correct = 0;
+        foreach ($quiz->questions as $question) {
+            $given = $input['answers'][$question->id] ?? null;
+            if (is_int($given) && $given === $question->correctOptionIndex) {
+                $correct++;
+            }
+        }
+        $scorePercent = $total === 0 ? 0 : (int) round(($correct / $total) * 100);
+        $passed = $scorePercent >= BusinessRules::quizPassThreshold();
+
         QuizSubmission::query()->where('userId', $requester['sub'])->where('quizId', $input['quizId'])->delete();
 
         return QuizSubmission::query()->create([
             'id' => 'sub-'.$this->nowMs().'-'.random_int(0, 999),
             'studentName' => $requester['name'],
             'userId' => $requester['sub'],
-            'courseId' => $input['courseId'],
-            'quizId' => $input['quizId'],
-            'scorePercent' => $input['scorePercent'],
-            'passed' => $input['passed'],
+            'courseId' => $quiz->courseId,
+            'quizId' => $quiz->id,
+            'scorePercent' => $scorePercent,
+            'passed' => $passed,
             'submittedAt' => CarbonImmutable::now()->format('d/m/Y').' às '.CarbonImmutable::now()->format('H:i'),
         ])->toArray();
     }
@@ -195,10 +235,13 @@ final class LearningService
 
     /**
      * @param  array<string, mixed>  $input
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
-    public function createExercise(array $input): array
+    public function createExercise(array $input, array $requester): array
     {
+        $this->assertInstructorOwnsCourse(is_string($input['courseId'] ?? null) ? $input['courseId'] : null, $requester);
+
         $id = $input['id'] ?? ('exercise-'.$this->nowMs());
         $data = $this->exerciseScalar($input);
         $data['id'] = $id;
@@ -208,22 +251,34 @@ final class LearningService
 
     /**
      * @param  array<string, mixed>  $updates
+     * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
-    public function updateExercise(string $id, array $updates): array
+    public function updateExercise(string $id, array $updates, array $requester): array
     {
         $exercise = PracticalExercise::query()->find($id);
         if ($exercise === null) {
             throw ApiException::notFound('Exercício não encontrado.');
+        }
+        // Posse do curso atual do exercício e, se o payload mudar o curso, também do novo.
+        $this->assertInstructorOwnsCourse(is_string($exercise->courseId) ? $exercise->courseId : null, $requester);
+        if (is_string($updates['courseId'] ?? null) && $updates['courseId'] !== $exercise->courseId) {
+            $this->assertInstructorOwnsCourse($updates['courseId'], $requester);
         }
         $exercise->fill($this->exerciseScalar($updates))->save();
 
         return $exercise->toArray();
     }
 
-    public function deleteExercise(string $id): void
+    /** @param array{sub:string,name:string,role:string} $requester */
+    public function deleteExercise(string $id, array $requester): void
     {
-        PracticalExercise::query()->where('id', $id)->delete();
+        $exercise = PracticalExercise::query()->find($id);
+        if ($exercise === null) {
+            return;
+        }
+        $this->assertInstructorOwnsCourse(is_string($exercise->courseId) ? $exercise->courseId : null, $requester);
+        $exercise->delete();
     }
 
     /**
@@ -235,6 +290,12 @@ final class LearningService
         $q = ExerciseSubmission::query();
         if ($requester['role'] === 'student') {
             Identity::applyOwnRows($q, $requester);
+        } elseif ($requester['role'] === 'instructor') {
+            // ExerciseSubmission não tem courseId; escopo via exercícios dos cursos do instrutor.
+            $exerciseIds = PracticalExercise::query()
+                ->whereIn('courseId', InstructorScope::courseIds($requester))
+                ->pluck('id')->all();
+            $q->whereIn('exerciseId', $exerciseIds);
         }
 
         return $q->get()->map->toArray()->all();
@@ -286,6 +347,9 @@ final class LearningService
         if ($submission === null) {
             throw ApiException::notFound('Entrega não encontrada.');
         }
+        // Instrutor só corrige entregas de exercícios dos seus cursos (antes: qualquer um).
+        $exerciseCourseId = PracticalExercise::query()->whereKey($submission->exerciseId)->value('courseId');
+        $this->assertInstructorOwnsCourse(is_string($exerciseCourseId) ? $exerciseCourseId : null, $requester);
         $submission->fill([
             'score' => is_numeric($input['score'] ?? null) ? (int) $input['score'] : 0,
             'feedback' => $input['feedback'],
@@ -304,6 +368,26 @@ final class LearningService
     private function exerciseScalar(array $input): array
     {
         return array_intersect_key($input, array_flip(['courseId', 'title', 'description', 'instructions', 'maxPoints', 'dueDate']));
+    }
+
+    /**
+     * Posse de curso do instrutor (ADR 10): admin é irrestrito; instrutor só age em
+     * curso que leciona; qualquer outro caso é 403. Evita que um instrutor gerencie
+     * quizzes/exercícios/notas de cursos de terceiros.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    private function assertInstructorOwnsCourse(?string $courseId, array $requester): void
+    {
+        if ($requester['role'] === 'admin') {
+            return;
+        }
+        if ($requester['role'] === 'instructor'
+            && $courseId !== null
+            && in_array($courseId, InstructorScope::courseIds($requester), true)) {
+            return;
+        }
+        throw ApiException::forbidden('Você só pode gerenciar conteúdo dos seus próprios cursos.');
     }
 
     private function nowMs(): int
