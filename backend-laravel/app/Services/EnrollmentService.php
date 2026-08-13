@@ -7,10 +7,13 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\AdmissionRequest;
 use App\Models\Course;
+use App\Models\Lesson;
+use App\Models\LiveSession;
 use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
 use App\Support\Identity;
+use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -33,18 +36,6 @@ final class EnrollmentService
         'dropOutPenaltyUntil' => null,
     ];
 
-    /**
-     * @param  array{sub:string,name:string,role:string}  $requester
-     * @return string[]
-     */
-    private function instructorCourseIds(array $requester): array
-    {
-        $ids = Identity::applyOwnRows(Course::query(), $requester, 'instructorId')
-            ->pluck('id')->all();
-
-        return array_values(array_filter($ids, static fn ($id): bool => is_string($id)));
-    }
-
     // ---------- PROGRESSO ----------
 
     /**
@@ -62,7 +53,7 @@ final class EnrollmentService
         }
 
         if ($requester['role'] === 'instructor') {
-            $courseIds = $this->instructorCourseIds($requester);
+            $courseIds = InstructorScope::courseIds($requester);
 
             return StudentProgress::query()
                 ->whereIn('courseId', $courseIds)
@@ -89,6 +80,16 @@ final class EnrollmentService
         $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
         $enrollmentId = StudentEnrollment::query()->whereKey($userId)->value('id');
 
+        // Integridade acadêmica: só contam como progresso os IDs de aulas/sessões que
+        // REALMENTE pertencem ao curso, sem duplicatas. Sem isto, o aluno inflava a
+        // própria frequência (e forjava certificado) enviando IDs inventados/repetidos,
+        // porque a frequência é recalculada a partir da contagem deste array.
+        [$completedLessons, $attendedLiveSessions] = $this->sanitizeProgressIds(
+            $input['courseId'],
+            $input['completedLessons'],
+            $input['attendedLiveSessions'],
+        );
+
         $existing = StudentProgress::query()
             ->where('userId', $userId)
             ->where('courseId', $input['courseId'])
@@ -97,8 +98,8 @@ final class EnrollmentService
         $data = [
             'studentName' => Identity::displayName($userId, $requester),
             'courseId' => $input['courseId'],
-            'completedLessons' => $input['completedLessons'],
-            'attendedLiveSessions' => $input['attendedLiveSessions'],
+            'completedLessons' => $completedLessons,
+            'attendedLiveSessions' => $attendedLiveSessions,
             'userId' => $userId,
             'enrollmentId' => $enrollmentId,
         ];
@@ -113,6 +114,32 @@ final class EnrollmentService
         $created = StudentProgress::query()->create($data);
 
         return $created->toArray();
+    }
+
+    /**
+     * Filtra as listas de progresso do cliente para conter apenas IDs de aulas
+     * (Lesson) e sessões ao vivo (LiveSession) que pertencem ao curso, sem
+     * duplicatas. Comparação por FK apenas (ADR 10).
+     *
+     * @param  list<string>  $completedLessons
+     * @param  list<string>  $attendedLiveSessions
+     * @return array{0: list<string>, 1: list<string>}
+     */
+    private function sanitizeProgressIds(string $courseId, array $completedLessons, array $attendedLiveSessions): array
+    {
+        $validLessonIds = array_values(array_filter(
+            Lesson::query()->where('courseId', $courseId)->pluck('id')->all(),
+            static fn ($id): bool => is_string($id),
+        ));
+        $validSessionIds = array_values(array_filter(
+            LiveSession::query()->where('courseId', $courseId)->pluck('id')->all(),
+            static fn ($id): bool => is_string($id),
+        ));
+
+        $keepLessons = array_values(array_unique(array_intersect($completedLessons, $validLessonIds)));
+        $keepSessions = array_values(array_unique(array_intersect($attendedLiveSessions, $validSessionIds)));
+
+        return [$keepLessons, $keepSessions];
     }
 
     // ---------- MATRÍCULA ----------
@@ -133,8 +160,15 @@ final class EnrollmentService
             ];
         }
 
+        // Instrutor só vê matrículas dos próprios alunos (admitidos/matriculados em seus
+        // cursos); admin vê todas. Antes vazava o mapa completo para qualquer não-aluno.
+        $query = StudentEnrollment::query();
+        if ($requester['role'] === 'instructor') {
+            $query->whereIn('userId', InstructorScope::studentIds($requester));
+        }
+
         $map = [];
-        foreach (StudentEnrollment::query()->get() as $row) {
+        foreach ($query->get() as $row) {
             $map[$row->userId] = $this->toPublicEnrollment($row);
         }
 
@@ -274,7 +308,7 @@ final class EnrollmentService
             return Identity::applyOwnRows(AdmissionRequest::query(), $requester)->get()->map->toArray()->all();
         }
         if ($requester['role'] === 'instructor') {
-            $courseIds = $this->instructorCourseIds($requester);
+            $courseIds = InstructorScope::courseIds($requester);
 
             return AdmissionRequest::query()->whereIn('courseId', $courseIds)->get()->map->toArray()->all();
         }

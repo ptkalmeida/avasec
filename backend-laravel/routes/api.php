@@ -35,8 +35,10 @@ Route::prefix('auth')->group(function (): void {
     Route::put('/password', [AuthController::class, 'changePassword'])
         ->middleware(['throttle:auth-password', 'jwt']);
 
+    // Aluno nunca lista usuários (vazava e-mails de todos, inclusive admins). Instrutor
+    // fica restrito aos próprios alunos no controller; admin é irrestrito.
     Route::get('/users', [AuthController::class, 'listUsers'])
-        ->middleware(['jwt', 'active']);
+        ->middleware(['jwt', 'active', 'role:instructor,admin']);
     Route::put('/users/{id}/status', [AuthController::class, 'updateStatus'])
         ->middleware(['jwt', 'active', 'role:admin']);
     // Rename seguro (ADR 10): self ou admin — identidade é o id, o nome é display.
@@ -129,7 +131,10 @@ Route::middleware(['feature:uploadArquivos', 'jwt', 'active'])->group(function (
 
 // Quizzes e submissões (flag quizSimples).
 Route::middleware('feature:quizSimples')->group(function (): void {
-    Route::get('/quizzes', [LearningController::class, 'listQuizzes']);
+    // Exige autenticação: o gabarito (correctOptionIndex) não pode ser raspado
+    // anonimamente. Alunos matriculados ainda recebem o gabarito para o fluxo de
+    // feedback imediato do quiz — a nota é validada no servidor (submitQuiz).
+    Route::get('/quizzes', [LearningController::class, 'listQuizzes'])->middleware(['jwt', 'active']);
     Route::post('/quizzes', [LearningController::class, 'createQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
     Route::delete('/quizzes/{id}', [LearningController::class, 'deleteQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
 

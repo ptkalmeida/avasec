@@ -111,13 +111,15 @@ final class AuthController extends Controller
 
     public function changePassword(Request $request): JsonResponse
     {
+        // currentPassword é OBRIGATÓRIO: sem ele, uma sessão sequestrada trocaria a
+        // senha e faria takeover permanente da conta sem nunca conhecer a original.
         $data = $this->validateInput($request, [
-            'currentPassword' => ['sometimes', 'nullable', 'string', 'max:128'],
+            'currentPassword' => ['required', 'string', 'min:1', 'max:128'],
             'newPassword' => ['required', 'string', 'min:6', 'max:128'],
         ]);
 
         $sub = $this->requester($request)['sub'];
-        $this->auth->changePassword($sub, $this->stringField($data, 'newPassword'), $this->optionalString($data, 'currentPassword'));
+        $this->auth->changePassword($sub, $this->stringField($data, 'newPassword'), $this->stringField($data, 'currentPassword'));
         $this->audit->log($request, 'Alteração de Senha', 'Senha alterada pelo próprio usuário.');
 
         return response()->json(['success' => true]);
@@ -133,16 +135,13 @@ final class AuthController extends Controller
         [$page, $pageSize, $skip, $take] = $this->pageParams($request);
         $authUser = $this->requester($request);
 
-        // Escopo por perfil: aluno não lista outros alunos; instrutor só vê os próprios; admin vê tudo.
-        if ($role === 'student') {
-            if ($authUser['role'] === 'student') {
-                throw ApiException::forbidden('Alunos não podem listar dados de outros alunos.');
-            }
-            if ($authUser['role'] === 'instructor') {
-                $result = $this->auth->listStudentsForInstructor($authUser['sub'], $authUser['name'], $skip, $take);
+        // Escopo por perfil (a rota já barra aluno): instrutor SÓ enxerga os próprios
+        // alunos, qualquer que seja o `role` pedido — nunca a lista de outros instrutores
+        // ou admins. Somente admin consulta usuários por perfil livremente.
+        if ($authUser['role'] === 'instructor') {
+            $result = $this->auth->listStudentsForInstructor($authUser['sub'], $authUser['name'], $skip, $take);
 
-                return response()->json($this->paginated($result['items'], $result['total'], $page, $pageSize));
-            }
+            return response()->json($this->paginated($result['items'], $result['total'], $page, $pageSize));
         }
 
         $result = $this->auth->listUsersByRole($role, $skip, $take);

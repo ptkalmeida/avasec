@@ -14,7 +14,7 @@ import {
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile, downloadCertificatePdf } from '../utils/fileDownload';
-import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS } from '../config/constants';
+import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS, QUIZ_PASS_THRESHOLD } from '../config/constants';
 import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQuestion } from '../types';
 import { CertificateTemplate } from './CertificateTemplate';
 import { LiveClassroom } from './LiveClassroom';
@@ -4176,9 +4176,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                         }
                                       });
                                       const scorePercent = Math.round((correctCount / activeQuizTaking.questions.length) * 100);
-                                      const passed = scorePercent >= 70;
+                                      const passed = scorePercent >= QUIZ_PASS_THRESHOLD;
 
-                                      submitQuiz(selectedCourse.id, activeQuizTaking.id, scorePercent, passed);
+                                      submitQuiz(selectedCourse.id, activeQuizTaking.id, scorePercent, passed, currentAnswers);
                                       setQuizResult({ scorePercent, passed });
                                       setHasSubmitted(true);
                                     }

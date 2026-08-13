@@ -21,6 +21,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Confia apenas no proxy reverso local (Nginx -> PHP-FPM no mesmo host, ver
+        // DEPLOY_LARAVEL.md). Sem isto: (a) $request->ip() retorna sempre o IP do proxy,
+        // colapsando todos os rate limiters (por IP) num balde único — um atacante trava
+        // o login de todos; (b) o X-Forwarded-For do cliente seria aceito, falsificando
+        // o IP da auditoria. Com TrustProxies, o XFF só é honrado vindo destes IPs.
+        $middleware->trustProxies(at: [
+            '127.0.0.1',
+            '::1',
+        ]);
+
         $middleware->alias([
             'feature' => FeatureGate::class,
             'jwt' => JwtAuthenticate::class,

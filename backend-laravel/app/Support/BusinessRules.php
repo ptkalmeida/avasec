@@ -24,6 +24,11 @@ final class BusinessRules
         return self::intConfig('constants.dropout_penalty_days', 30);
     }
 
+    public static function quizPassThreshold(): int
+    {
+        return self::intConfig('constants.quiz_pass_threshold', 70);
+    }
+
     private static function intConfig(string $key, int $default): int
     {
         $value = config($key);

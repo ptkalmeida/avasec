@@ -20,6 +20,14 @@ export function authFetch(url: string, options: RequestInit = {}): Promise<Respo
   return window.fetch(url, { ...options, headers, credentials: 'same-origin' });
 }
 
+// Senha temporária aleatória para contas provisionadas sem senha explícita.
+// Evita padrões compartilhados adivinháveis (ex.: '1234'/'5678').
+function generateTempPassword(): string {
+  const bytes = new Uint8Array(9);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 12);
+}
+
 interface LMSContextProps {
   courses: Course[];
   activeUser: { id: string; name: string; role: 'student' | 'instructor' | 'admin' };
@@ -65,7 +73,7 @@ interface LMSContextProps {
   sendDirectMessage: (studentUserId: string, text: string) => void;
   addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => void;
   deleteQuiz: (quizId: string) => void;
-  submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean) => QuizSubmission;
+  submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean, answers: Record<string, number>) => QuizSubmission;
   addProfessor: (name: string, password?: string) => void;
   deleteProfessor: (name: string) => void;
   addStudent: (name: string, email: string, password?: string, municipio?: string, uf?: string, areaInteresse?: string, dataCadastro?: string) => void;
@@ -1768,8 +1776,12 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     courseId: string,
     quizId: string,
     scorePercent: number,
-    passed: boolean
+    passed: boolean,
+    answers: Record<string, number>
   ): QuizSubmission => {
+    // scorePercent/passed aqui são só otimistas para feedback imediato na UI.
+    // A nota REAL é recalculada no servidor a partir de `answers` (o backend ignora
+    // qualquer nota vinda do cliente) — ver LearningService::submitQuiz.
     const newSubmission: QuizSubmission = {
       id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: activeUser.id,
@@ -1785,17 +1797,30 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const cleaned = prev.filter((sub) => !(sub.userId === activeUser.id && sub.quizId === quizId));
       return [...cleaned, newSubmission];
     });
-    const { userId: _userId, studentName: _studentName, ...body } = newSubmission;
     authFetch('/api/quiz-submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    }).catch(err => console.error(err));
+      body: JSON.stringify({ quizId, answers })
+    })
+      .then(res => res.ok ? res.json() : null)
+      .then((saved) => {
+        // Reconcilia o estado local com a nota autoritativa do servidor.
+        if (saved && typeof saved.scorePercent === 'number') {
+          setQuizSubmissions((prev) => prev.map((sub) =>
+            sub.id === newSubmission.id
+              ? { ...sub, scorePercent: saved.scorePercent, passed: !!saved.passed, id: saved.id ?? sub.id }
+              : sub
+          ));
+        }
+      })
+      .catch(err => console.error(err));
     return newSubmission;
   };
 
   const addProfessor = (name: string, password?: string) => {
-    const finalPassword = password && password.trim() ? password.trim() : '5678';
+    // Sem senha explícita: gera uma aleatória (nunca um padrão compartilhado como '5678',
+    // que somado ao login por nome permitiria adivinhar credenciais de contas reais).
+    const finalPassword = password && password.trim() ? password.trim() : generateTempPassword();
     setProfessorsList((prev) => {
       if (prev.some((p) => p.name === name)) return prev;
       // Id provisório até a hidratação trazer o id real criado pelo backend.
@@ -1819,7 +1844,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     areaInteresse?: string,
     dataCadastro?: string
   ) => {
-    const finalPassword = password && password.trim() ? password.trim() : '1234';
+    const finalPassword = password && password.trim() ? password.trim() : generateTempPassword();
     const finalMunicipio = municipio?.trim() || 'São Paulo';
     const finalUf = uf?.trim() || 'SP';
     const finalArea = areaInteresse?.trim() || 'Tecnologia';

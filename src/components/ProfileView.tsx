@@ -84,8 +84,10 @@ export function ProfileView({
   // Password shift parameters
   const [docType, setDocType] = useState<'cpf' | 'rg'>('cpf');
   const [docNumber, setDocNumber] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showChangeCurrentPassword, setShowChangeCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
@@ -419,6 +421,11 @@ export function ProfileView({
                 return;
               }
 
+              if (!currentPassword) {
+                setValidationError('Informe a sua senha atual para autorizar a troca.');
+                speakText("Aviso: Informe a sua senha atual.");
+                return;
+              }
               if (newPassword.length < 6) {
                 setValidationError('A nova senha precisa ter no mínimo 6 caracteres.');
                 speakText("Aviso: A nova senha precisa ter no mínimo 6 caracteres.");
@@ -430,8 +437,9 @@ export function ProfileView({
                 return;
               }
 
-              // Troca a senha de verdade no backend (hash bcrypt) em vez de salvar em texto puro.
-              const result = await changePassword(newPassword);
+              // Troca a senha de verdade no backend (hash bcrypt). O servidor exige a
+              // senha atual — sem ela, uma sessão sequestrada faria takeover permanente.
+              const result = await changePassword(newPassword, currentPassword);
               if (!result.ok) {
                 setValidationError(result.error || 'Não foi possível atualizar a senha. Tente novamente.');
                 speakText("Aviso: Falha ao atualizar a senha no servidor.");
@@ -599,6 +607,32 @@ export function ProfileView({
                     <Lock className="h-3 w-3" /> Bloqueado — Valide o documento acima
                   </span>
                 )}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold text-slate-550 block mb-1">
+                  Senha Atual
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-400" />
+                  <input
+                    type={showChangeCurrentPassword ? 'text' : 'password'}
+                    required={isDocVerified}
+                    disabled={!isDocVerified}
+                    placeholder={isDocVerified ? "Sua senha em uso hoje" : "Autentique o documento acima"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-[#540D6E] outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    disabled={!isDocVerified}
+                    onClick={() => setShowChangeCurrentPassword(!showChangeCurrentPassword)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-650 cursor-pointer disabled:pointer-events-none"
+                  >
+                    {showChangeCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

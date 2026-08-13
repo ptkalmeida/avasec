@@ -163,9 +163,19 @@ server {
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Arquivos públicos enviados pelos usuários (materiais, biblioteca).
+    # IMPORTANTE: um bloco `location` com `add_header` próprio DESCARTA todos os
+    # add_header herdados do server (inclusive os `always`). Como este conteúdo é
+    # controlado por terceiros e servido na MESMA origem do SPA (onde vive o cookie
+    # ava_session), os cabeçalhos de segurança precisam ser repetidos aqui — sem o
+    # `nosniff`, um arquivo malicioso viraria XSS same-origin. Servir como attachment
+    # (download) em vez de inline reduz ainda mais o risco de renderização no navegador.
     location /uploads/ {
         alias /var/www/avasec/uploads/public/;
-        add_header Content-Disposition "inline";
+        add_header Content-Security-Policy "default-src 'none'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Content-Disposition "attachment" always;
     }
 
     # API — encaminha para o PHP-FPM (Laravel).

@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\Course;
 use App\Models\User;
-use App\Support\Identity;
+use App\Support\InstructorScope;
 use App\Support\Jwt;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -147,17 +146,17 @@ final class AuthService
         return $this->toPublicUser($user);
     }
 
-    public function changePassword(string $userId, string $newPassword, ?string $currentPassword): void
+    public function changePassword(string $userId, string $newPassword, string $currentPassword): void
     {
         $user = User::query()->find($userId);
         if ($user === null) {
             throw ApiException::notFound('Usuário não encontrado.');
         }
 
-        if ($currentPassword !== null && $currentPassword !== '') {
-            if (! password_verify($currentPassword, $user->passwordHash)) {
-                throw ApiException::unauthorized('Senha atual incorreta.');
-            }
+        // A senha atual é SEMPRE verificada (autosserviço). Reset sem a senha atual,
+        // se necessário, deve ser um fluxo administrativo separado e auditado.
+        if (! password_verify($currentPassword, $user->passwordHash)) {
+            throw ApiException::unauthorized('Senha atual incorreta.');
         }
 
         $user->passwordHash = $this->hash($newPassword);
@@ -190,24 +189,9 @@ final class AuthService
     public function listStudentsForInstructor(string $instructorSub, string $instructorName, int $skip, int $take): array
     {
         $requester = ['sub' => $instructorSub, 'name' => $instructorName, 'role' => 'instructor'];
-        $courseIds = Identity::applyOwnRows(Course::query(), $requester, 'instructorId')
-            ->pluck('id')
-            ->all();
 
-        if (count($courseIds) === 0) {
-            return ['items' => [], 'total' => 0];
-        }
-
-        // Vínculo por FK apenas (ADR 10) — userId é NOT NULL nas duas tabelas.
-        $admissions = DB::table('AdmissionRequest')
-            ->whereIn('courseId', $courseIds)
-            ->where('status', 'approved')
-            ->pluck('userId');
-        $enrollments = DB::table('StudentEnrollment')
-            ->whereIn('enrolledCourseId', $courseIds)
-            ->pluck('userId');
-
-        $studentIds = $admissions->concat($enrollments)->filter()->unique()->values()->all();
+        // Vínculo por FK apenas (ADR 10). Fonte única do escopo: InstructorScope.
+        $studentIds = InstructorScope::studentIds($requester);
         if (count($studentIds) === 0) {
             return ['items' => [], 'total' => 0];
         }
