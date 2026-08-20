@@ -16,6 +16,7 @@ import { LessonVideoField } from './shared/LessonVideoField';
 import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
+import { renderLessonMarkdown } from '../utils/lessonMarkdown';
 import { courseMinAttendance } from '../config/constants';
 import { BackButton } from './BackButton';
 
@@ -2736,8 +2737,10 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   <FileText className="h-4 w-4 text-purple-400" />
                   Roteiro de Estudos / Conteúdo Teórico
                 </h4>
-                <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/60 text-slate-300 text-xs font-sans leading-relaxed whitespace-pre-line max-h-[250px] overflow-y-auto">
-                  {previewLesson.content || "Nenhum conteúdo de texto cadastrado para esta aula."}
+                <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/60 text-slate-300 text-xs font-sans leading-relaxed max-h-[250px] overflow-y-auto">
+                  {previewLesson.content
+                    ? renderLessonMarkdown(previewLesson.content, { headingClassName: 'text-white' })
+                    : "Nenhum conteúdo de texto cadastrado para esta aula."}
                 </div>
               </div>
 

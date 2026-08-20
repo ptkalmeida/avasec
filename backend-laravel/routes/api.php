@@ -6,6 +6,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HealthController;
@@ -184,6 +185,14 @@ Route::middleware('feature:solicitacoesAcademicas')->group(function (): void {
 // Configurações do sistema (sem feature flag). GET público; PUT só admin.
 Route::get('/system-settings', [SettingsController::class, 'show']);
 Route::put('/system-settings', [SettingsController::class, 'update'])->middleware(['jwt', 'active', 'role:admin']);
+
+// Templates de documentos (certificado, histórico) — leitura autenticada (o aluno
+// precisa ver os mesmos dados institucionais/assinaturas na prévia do próprio
+// certificado); edição só Admin Superior (sem feature flag: ferramenta administrativa).
+Route::prefix('document-templates')->middleware(['jwt', 'active'])->group(function (): void {
+    Route::get('/{type}', [DocumentTemplateController::class, 'show']);
+    Route::put('/{type}', [DocumentTemplateController::class, 'update'])->middleware('role:admin');
+});
 
 // Auditoria (SecurityLog) — só leitura/limpeza por admin; nunca há POST (gravação é server-side).
 Route::prefix('security-logs')->middleware(['jwt', 'active', 'role:admin'])->group(function (): void {

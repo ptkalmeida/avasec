@@ -108,6 +108,64 @@ final class EnrollmentTest extends TestCase
             ->assertJsonPath('studentName', $student['name']);
     }
 
+    public function test_second_enroll_still_blocked_when_flag_on_but_permission_not_granted(): void
+    {
+        config(['features.matriculasMultiplas' => true]);
+
+        $student = $this->makeStudent('Aluno Enrollment');
+        $courseA = $this->anySeededCourseId();
+        $courseB = $this->anotherSeededCourseId($courseA);
+
+        $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseA])->assertOk();
+
+        // Flag global ligada não basta — falta a permissão individual do aluno.
+        $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseB])
+            ->assertStatus(409);
+    }
+
+    public function test_admin_grants_multi_enroll_permission_and_student_gets_second_active_course(): void
+    {
+        config(['features.matriculasMultiplas' => true]);
+
+        $student = $this->makeStudent('Aluno Enrollment');
+        $admin = $this->staffToken('admin');
+        $courseA = $this->anySeededCourseId();
+        $courseB = $this->anotherSeededCourseId($courseA);
+
+        $this->withHeader('Authorization', "Bearer {$admin}")
+            ->putJson('/api/enrollments/'.$student['id'], ['canMultiEnroll' => true])
+            ->assertOk()
+            ->assertJsonPath('canMultiEnroll', true);
+
+        $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseA])->assertOk();
+
+        $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseB])
+            ->assertOk()
+            ->assertJsonPath('enrollment.enrolledCourseId', $courseA)
+            ->assertJsonPath('enrollment.extraCourseIds', [$courseB]);
+
+        // Cancelar a matrícula extra não afeta a matrícula principal.
+        $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->postJson('/api/enrollments/self/drop', ['courseId' => $courseB])
+            ->assertOk()
+            ->assertJsonPath('enrollment.enrolledCourseId', $courseA)
+            ->assertJsonPath('enrollment.extraCourseIds', []);
+    }
+
+    public function test_instructor_cannot_grant_multi_enroll_permission(): void
+    {
+        $student = $this->makeStudent('Aluno Enrollment');
+        $instructor = $this->staffToken('instructor');
+
+        $this->withHeader('Authorization', "Bearer {$instructor}")
+            ->putJson('/api/enrollments/'.$student['id'], ['canMultiEnroll' => true])
+            ->assertStatus(403);
+    }
+
     public function test_homonyms_do_not_leak_each_others_enrollment(): void
     {
         // Dois alunos com o MESMO nome de exibição: cada um só vê a própria matrícula.

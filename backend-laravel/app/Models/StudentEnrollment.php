@@ -25,10 +25,12 @@ final class StudentEnrollment extends Model
 
     protected $fillable = [
         'studentName', 'id', 'userId', 'enrolledCourseId', 'enrolledAt',
-        'completedCourseIds', 'dropOutPenaltyUntil',
+        'completedCourseIds', 'dropOutPenaltyUntil', 'canMultiEnroll', 'extraCourseIds',
     ];
 
     protected $casts = [
         'completedCourseIds' => 'array',
+        'extraCourseIds' => 'array',
+        'canMultiEnroll' => 'bool',
     ];
 }

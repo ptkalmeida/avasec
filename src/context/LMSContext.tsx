@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser, PersonRef } from '../types';
+import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser, PersonRef, DocumentTemplate } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS, MOCK_IDS } from '../data/mockData';
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
@@ -106,6 +106,9 @@ interface LMSContextProps {
   dropStudentFromCourse: (userId: string, courseId: string) => Promise<{ ok: boolean; penaltyApplied: boolean; error?: string }>;
   completeStudentCourse: (userId: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
   clearStudentPenalty: (userId: string) => void;
+  setStudentMultiEnrollPermission: (userId: string, allowed: boolean) => void;
+  getDocumentTemplate: (type: DocumentTemplate['type']) => Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }>;
+  updateDocumentTemplate: (type: DocumentTemplate['type'], updates: Partial<Pick<DocumentTemplate, 'institutionName' | 'institutionLogoPath' | 'signatories' | 'footerText' | 'customHtml'>>) => Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }>;
   forumMessages: ForumMessage[];
   addForumMessage: (courseId: string, text: string) => void;
   toggleForumMessageLike: (messageId: string) => void;
@@ -429,7 +432,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: 'course-1',
         enrolledAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
         completedCourseIds: [],
-        dropOutPenaltyUntil: null
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
       },
       [MOCK_IDS.gabriel]: {
         userId: MOCK_IDS.gabriel,
@@ -437,7 +442,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: 'course-2',
         enrolledAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
         completedCourseIds: [],
-        dropOutPenaltyUntil: null
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
       },
       [MOCK_IDS.beatriz]: {
         userId: MOCK_IDS.beatriz,
@@ -445,7 +452,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: null,
         enrolledAt: null,
         completedCourseIds: ['course-1'],
-        dropOutPenaltyUntil: null
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
       },
       [MOCK_IDS.sofia]: {
         userId: MOCK_IDS.sofia,
@@ -453,7 +462,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: null,
         enrolledAt: null,
         completedCourseIds: [],
-        dropOutPenaltyUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
+        dropOutPenaltyUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+        canMultiEnroll: false,
+        extraCourseIds: []
       }
     };
   });
@@ -2066,12 +2077,67 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: null,
         enrolledAt: null,
         completedCourseIds: [],
-        dropOutPenaltyUntil: null
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
       };
       const updated = { ...current, dropOutPenaltyUntil: null };
       syncEnrollment(userId, updated);
       return { ...prev, [userId]: updated };
     });
+  };
+
+  // Concessão da permissão de matrícula múltipla — só o Admin Superior pode
+  // chamar isto; o backend também recusa (403) se o requisitante não for admin.
+  const setStudentMultiEnrollPermission = (userId: string, allowed: boolean) => {
+    setStudentEnrollments(prev => {
+      const current = prev[userId] || {
+        userId,
+        studentName: studentsList.find((s) => s.id === userId)?.name ?? '',
+        enrolledCourseId: null,
+        enrolledAt: null,
+        completedCourseIds: [],
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
+      };
+      const updated = { ...current, canMultiEnroll: allowed };
+      syncEnrollment(userId, updated);
+      return { ...prev, [userId]: updated };
+    });
+  };
+
+  // Área de gerenciamento de templates de documentos — só Admin Superior lê/edita.
+  // Sem estado global: usados só pela tela de edição e pela prévia do certificado.
+  const getDocumentTemplate = async (type: DocumentTemplate['type']): Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }> => {
+    try {
+      const res = await authFetch(`/api/document-templates/${encodeURIComponent(type)}`);
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.message || 'Não foi possível carregar o template.' };
+      return { ok: true, template: data as DocumentTemplate };
+    } catch (err) {
+      console.error('Erro ao carregar template de documento:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
+  const updateDocumentTemplate = async (
+    type: DocumentTemplate['type'],
+    updates: Partial<Pick<DocumentTemplate, 'institutionName' | 'institutionLogoPath' | 'signatories' | 'footerText' | 'customHtml'>>
+  ): Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }> => {
+    try {
+      const res = await authFetch(`/api/document-templates/${encodeURIComponent(type)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.message || 'Não foi possível salvar o template.' };
+      return { ok: true, template: data as DocumentTemplate };
+    } catch (err) {
+      console.error('Erro ao salvar template de documento:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
   };
 
   const addForumMessage = (courseId: string, text: string) => {
@@ -2277,6 +2343,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dropStudentFromCourse,
         completeStudentCourse,
         clearStudentPenalty,
+        setStudentMultiEnrollPermission,
+        getDocumentTemplate,
+        updateDocumentTemplate,
         forumMessages,
         addForumMessage,
         toggleForumMessageLike,

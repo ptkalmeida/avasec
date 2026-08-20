@@ -13,15 +13,15 @@ import {
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
-import { downloadSubmissionFile, downloadCertificatePdf } from '../utils/fileDownload';
+import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS, QUIZ_PASS_THRESHOLD } from '../config/constants';
-import { Course, Lesson, LiveSession, Certificate, isCourseExpired, Quiz, QuizQuestion } from '../types';
-import { CertificateTemplate } from './CertificateTemplate';
+import { Course, Lesson, LiveSession, isCourseExpired, Quiz, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { CourseForum } from './CourseForum';
 import { StudentLibraryPanel } from './student/StudentLibraryPanel';
 import { StudentEventsPanel } from './student/StudentEventsPanel';
 import { features } from '../config/features';
+import { renderLessonMarkdown } from '../utils/lessonMarkdown';
 
 interface ModuleGroup {
   name: string;
@@ -89,10 +89,11 @@ const getCourseModules = (course: Course): ModuleGroup[] => {
 
 interface StudentDashboardProps {
   onBackToLanding?: () => void;
+  onNavigateToProfile?: () => void;
   speakText: (text: string) => void;
 }
 
-export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLanding, speakText }) => {
+export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLanding, onNavigateToProfile, speakText }) => {
   const {
     courses,
     progress,
@@ -128,7 +129,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     submitExercise,
   } = useLMS();
 
-  const enrollmentRecord = studentEnrollments[activeUser.id] || { enrolledCourseId: null, completedCourseIds: [], dropOutPenaltyUntil: null };
+  const enrollmentRecord = studentEnrollments[activeUser.id] || { enrolledCourseId: null, completedCourseIds: [], dropOutPenaltyUntil: null, canMultiEnroll: false, extraCourseIds: [] };
+  const activeEnrolledCourseIds = [enrollmentRecord.enrolledCourseId, ...(enrollmentRecord.extraCourseIds || [])]
+    .filter((id): id is string => !!id);
+  const canEnrollInMoreCourses = activeEnrolledCourseIds.length === 0
+    || (features.matriculasMultiplas && enrollmentRecord.canMultiEnroll);
 
   // Presença do gestor responsável pelo curso ativo — a chave de presença é por userId (ADR 10).
   const enrolledCourseInstructorId = courses.find(c => c.id === enrollmentRecord.enrolledCourseId)?.instructorId ?? '';
@@ -159,8 +164,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [activeLiveSession, setActiveLiveSession] = useState<LiveSession | null>(null);
-  const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
-  
+
   // Interactive Quiz Taking States
   const [activeQuizTaking, setActiveQuizTaking] = useState<Quiz | null>(null);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState<number>(0);
@@ -203,53 +207,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const [twoFactor, setTwoFactor] = useState(false);
   const [language, setLanguage] = useState('Português (BR)');
   const [penaltyJustification, setPenaltyJustification] = useState('');
-
-  // Certificates Area States
-  const [activeCertificatesTab, setActiveCertificatesTab] = useState<'available' | 'in_progress' | 'validation'>('available');
-  const [validationCode, setValidationCode] = useState('');
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<{
-    valid: boolean;
-    message: string;
-    studentName?: string;
-    courseTitle?: string;
-    cargaHoraria?: number | null;
-    issueDate?: string;
-  } | null>(null);
-
-  // Validação usa a rota pública real (mesma do autenticador da landing) —
-  // certificados de terceiros nunca estão no array em memória do aluno.
-  const handleValidateCertificate = async () => {
-    const code = validationCode.trim();
-    if (!code || isValidating) return;
-    setIsValidating(true);
-    try {
-      const res = await fetch(`/api/certificates/verify?q=${encodeURIComponent(code)}`);
-      const data = res.ok ? await res.json() : null;
-      if (data && data.verificationHash) {
-        setValidationResult({
-          valid: true,
-          message: 'Certificado válido',
-          studentName: data.studentName,
-          courseTitle: data.courseTitle,
-          cargaHoraria: data.cargaHoraria,
-          issueDate: data.issueDate
-        });
-      } else {
-        setValidationResult({
-          valid: false,
-          message: 'Certificado não encontrado. Confira se o código foi digitado corretamente.'
-        });
-      }
-    } catch {
-      setValidationResult({
-        valid: false,
-        message: 'Servidor indisponível para validação. Tente novamente em instantes.'
-      });
-    } finally {
-      setIsValidating(false);
-    }
-  };
 
   // Module sidebar accordion expansion states
   const [expandedModules, setExpandedModules] = useState<{[key: string]: boolean}>({
@@ -351,16 +308,28 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     }
   };
 
-  // Calculations for summary metrics based on the student's actual enrollment record
-  const activeEnrollments = enrollmentRecord.enrolledCourseId ? 1 : 0;
-  
-  // Average Global Attendance calculated only for the active enrolled course
-  const avgGlobalAttendance = enrollmentRecord.enrolledCourseId 
-    ? calculateAttendancePercent(enrollmentRecord.enrolledCourseId) 
+  const [lessonSupportMessage, setLessonSupportMessage] = useState('');
+  const [lessonSupportMessageSent, setLessonSupportMessageSent] = useState(false);
+
+  const handleSendLessonSupportMessage = () => {
+    const text = lessonSupportMessage.trim();
+    if (!text || !activeLesson) return;
+    sendDirectMessage(activeUser.id, `[Aula: ${activeLesson.title}] ${text}`);
+    setLessonSupportMessage('');
+    setLessonSupportMessageSent(true);
+    setTimeout(() => setLessonSupportMessageSent(false), 4000);
+  };
+
+  // Calculations for summary metrics based on the student's actual enrollment record(s)
+  const activeEnrollments = activeEnrolledCourseIds.length;
+
+  // Average Global Attendance across every active enrolled course
+  const avgGlobalAttendance = activeEnrolledCourseIds.length > 0
+    ? Math.round(
+        activeEnrolledCourseIds.reduce((sum, id) => sum + calculateAttendancePercent(id), 0) / activeEnrolledCourseIds.length
+      )
     : 0;
   
-  const totalCertificatesCount = certificates.length;
-
   // Filter courses based on search
   const filteredCourses = courses.filter((c) =>
     c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -368,12 +337,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   );
 
   const currentCourseProgress = selectedCourse
-    ? progress.find((p) => p.courseId === selectedCourse.id)
+    ? progress.find((p) => p.courseId === selectedCourse.id && p.userId === activeUser.id)
     : null;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-      {/* Student Welcome Header */}
+      {/* Student Welcome Header — só na página de boas-vindas (painel geral, sem curso selecionado) */}
+      {activeDashboardTab === 'general' && !selectedCourse && (
       <div className="mb-8 rounded-2xl bg-gradient-to-br from-purple-50/50 via-white to-teal-50/30 border border-slate-150 p-6 md:p-7 shadow-xs relative overflow-hidden text-left">
         {/* Ambient subtle light glows */}
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-48 h-48 bg-[#540D6E]/5 rounded-full blur-3xl pointer-events-none" />
@@ -432,13 +402,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
               <span className="block text-xl font-black text-teal-600 font-mono tracking-tight">{avgGlobalAttendance}%</span>
               <span className="text-[10px] text-slate-500 font-semibold block mt-0.5 whitespace-nowrap">Presença média</span>
             </div>
-            <div className="bg-white/60 border border-slate-150 rounded-xl px-4 py-2.5 text-left shadow-3xs hover:bg-white/90 transition-all flex-1 sm:flex-initial min-w-[115px]">
-              <span className="block text-xl font-black text-amber-600 font-mono tracking-tight">{totalCertificatesCount}</span>
-              <span className="text-[10px] text-slate-500 font-semibold block mt-0.5 whitespace-nowrap">Certificados</span>
-            </div>
           </div>
         </div>
       </div>
+      )}
 
       {/* Dynamic Tab Navigation System */}
       {features.mensagensDiretas && systemSettings.allowDirectMessages && (
@@ -454,20 +421,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
             <BookOpen className="h-4 w-4" />
             <span>Meu Painel de Estudos</span>
           </button>
-          
-          {features.certificados && (
-            <button
-              onClick={() => setActiveDashboardTab('certificates')}
-              className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-                activeDashboardTab === 'certificates'
-                  ? 'bg-[#540D6E] text-white shadow-md transform scale-[1.02]'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
-            >
-              <Award className="h-4 w-4" />
-              <span>Certificados</span>
-            </button>
-          )}
 
           {features.solicitacoesAcademicas && (
             <button
@@ -553,8 +506,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
         </div>
       )}
 
-      {((!features.certificados && activeDashboardTab === 'certificates') ||
-        (!features.solicitacoesAcademicas && activeDashboardTab === 'documents') ||
+      {((!features.solicitacoesAcademicas && activeDashboardTab === 'documents') ||
         (!features.forum && activeDashboardTab === 'messages') ||
         (!features.materiaisComplementares && activeDashboardTab === 'library') ||
         (!features.perfilBasico && activeDashboardTab === 'settings')) ? (
@@ -612,45 +564,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   <span>← Sair do Curso</span>
                 </button>
 
-                <div className="flex flex-wrap items-center gap-4">
-                  {/* Cancel enrollment control — a contagem de dias e a eventual restrição são
-                      decididas pelo servidor a partir da data real da matrícula. */}
-                  <div className="flex flex-wrap items-center gap-2 bg-slate-50 border border-slate-205 rounded-xl px-3 py-1.5 text-xs">
-                    {features.penalidadesCancelamento && (
-                      <span className="text-[10px] text-slate-500 font-bold">
-                        Cancelamentos após {DROPOUT_PENALTY_FREE_DAYS} dias de matrícula geram restrição temporária.
-                      </span>
-                    )}
-
-                    <button
-                      onClick={async () => {
-                        // A decisão de penalidade é do SERVIDOR (dias reais desde a matrícula + flag).
-                        const result = await dropStudentFromCourse(activeUser.id, selectedCourse.id);
-                        if (!result.ok) {
-                          showAlert(result.error || 'Não foi possível cancelar a matrícula.');
-                          return;
-                        }
-                        if (result.penaltyApplied) {
-                          speakText("Matrícula cancelada. Você desistiu deste curso após o limite de 5 dias letivos. Seu acesso agora está sob regime de restrição temporária de nova matrícula.");
-                        } else {
-                          speakText("Matrícula desfeita com sucesso.");
-                        }
-                        setSelectedCourse(null);
-                        setActiveLesson(null);
-                        setSelectedModulePageName(null);
-                      }}
-                      className="bg-rose-600 hover:bg-rose-500 text-white font-black text-[9.5px] uppercase tracking-wide px-3 py-1.5 rounded-lg transition-all cursor-pointer"
-                    >
-                      Solicitar Saída do Curso
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase font-bold text-slate-400">Trilha de Estudos:</span>
-                    <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">
-                      {selectedCourse.category}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase font-bold text-slate-400">Trilha de Estudos:</span>
+                  <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">
+                    {selectedCourse.category}
+                  </span>
                 </div>
               </div>
 
@@ -722,13 +640,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     {certificates.find((cert) => cert.courseId === selectedCourse.id && cert.userId === activeUser.id) && (
                       <button
                         onClick={() => {
-                          const cert = certificates.find((c) => c.courseId === selectedCourse.id && c.userId === activeUser.id);
-                          if (cert) setSelectedCertificate(cert);
+                          speakText("Seu certificado está disponível no seu Perfil.");
+                          onNavigateToProfile?.();
                         }}
                         className="shrink-0 rounded-lg bg-emerald-650 hover:bg-emerald-605 text-white font-semibold text-xs px-3.5 py-1.8 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
                       >
                         <Award className="h-3.5 w-3.5" />
-                        <span>Emitir Certificado</span>
+                        <span>Ver Certificado no Perfil</span>
                       </button>
                     )}
                   </div>
@@ -890,7 +808,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       </div>
 
                       {/* Lesson Controls: Mark as Complete, Previous & Next lessons */}
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/65 flex items-center justify-between gap-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/65 flex items-center justify-between gap-4 w-full max-w-3xl mx-auto">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => {
@@ -948,51 +866,51 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       </div>
 
                       {/* Modular Details Hub: Tabs system under Lesson */}
-                      <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white">
+                      <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white w-full max-w-3xl mx-auto">
                         
                         {/* Tab trigger anchors with design visual borders */}
                         <div className="flex border-b border-slate-200 bg-slate-50/50">
                           <button
                             onClick={() => setActiveTab('teoria')}
-                            className={`flex-1 py-3 px-4 text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                               activeTab === 'teoria' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                             }`}
                           >
-                            <FileText className="h-4 w-4" />
+                            <FileText className="h-4 w-4 shrink-0" />
                             <span>Material Didático</span>
                           </button>
-                          
+
                           <button
                             onClick={() => setActiveTab('anotacao')}
-                            className={`flex-1 py-3 px-4 text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                               activeTab === 'anotacao' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                             }`}
                           >
-                            <Notebook className="h-4 w-4" />
+                            <Notebook className="h-4 w-4 shrink-0" />
                             <span>Anotações Privadas</span>
                             {savedNotes[activeLesson.id] && (
-                              <span className="w-1.5 h-1.5 bg-teal-600 rounded-full inline-block" />
+                              <span className="w-1.5 h-1.5 bg-teal-600 rounded-full inline-block shrink-0" />
                             )}
                           </button>
 
                           <button
                             onClick={() => setActiveTab('suporte')}
-                            className={`flex-1 py-3 px-4 text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                               activeTab === 'suporte' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                             }`}
                           >
-                            <HelpCircle className="h-4 w-4" />
-                            <span>Suporte Técnico</span>
+                            <HelpCircle className="h-4 w-4 shrink-0" />
+                            <span>Suporte Pedagógico</span>
                           </button>
 
                           {features.forum && (
                             <button
                               onClick={() => setActiveTab('forum')}
-                              className={`flex-1 py-3 px-4 text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                                 activeTab === 'forum' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                               }`}
                             >
-                              <MessageSquare className="h-4 w-4 text-teal-650" />
+                              <MessageSquare className="h-4 w-4 text-teal-650 shrink-0" />
                               <span className="flex items-center gap-1">
                                 Fórum Interativo
                                 <span className="bg-teal-100 text-teal-800 text-[8px] font-black uppercase px-2 py-0.5 rounded-full animate-pulse shrink-0">Comunidade</span>
@@ -1003,11 +921,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           {features.atividadesPraticasAvancadas && (
                             <button
                               onClick={() => setActiveTab('exercicios')}
-                              className={`flex-1 py-3 px-4 text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
+                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                                 activeTab === 'exercicios' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                               }`}
                             >
-                              <FileCheck className="h-4 w-4 text-teal-650" />
+                              <FileCheck className="h-4 w-4 text-teal-650 shrink-0" />
                               <span className="flex items-center gap-1">
                                 Exercícios Práticos
                                 <span className="bg-teal-100 text-teal-800 text-[8px] font-bold px-2 py-0.5 rounded-full shrink-0">Novo</span>
@@ -1024,8 +942,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 <Sparkles className="h-4 w-4 text-teal-500 animate-pulse" />
                                 <span>Roteiro Consolidado de Aprendizado</span>
                               </h4>
-                              <div className="whitespace-pre-line text-[13px] text-slate-700 font-sans leading-relaxed mb-6">
-                                {activeLesson.content}
+                              <div className="text-[13px] text-slate-700 font-sans leading-relaxed mb-6">
+                                {renderLessonMarkdown(activeLesson.content)}
                               </div>
 
                               {/* Student-Facing attached documents list */}
@@ -1119,10 +1037,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             <div className="space-y-4">
                               <h4 className="font-bold text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
                                 <HelpCircle className="h-4 w-4 text-teal-500" />
-                                <span>Suporte Técnico & Pedagógico</span>
+                                <span>Suporte Pedagógico</span>
                               </h4>
                               <p className="text-[11px] text-slate-500 leading-relaxed">
-                                Tem dúvidas sobre as regras de arquitetura abordadas ou sobre um bug estrito na aula? Envie seu questionamento diretamente ao instrutor pelo painel de comunicação na coluna da direita! O Gestor de Conteúdos responderá em sua conta no portal de canais em instantes!
+                                Tem dúvidas sobre o conteúdo desta aula ou sobre algum problema técnico? Envie sua mensagem diretamente ao Gestor de Conteúdos abaixo — ela é registrada no seu canal de mensagens e respondida por lá.
                               </p>
 
                               <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-start gap-3 mt-2">
@@ -1146,6 +1064,31 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                     </span>
                                   </strong>
                                   <span className="text-[10px] text-slate-450 block">Tempo de resposta esperado: &lt; 2 horas</span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <textarea
+                                  value={lessonSupportMessage}
+                                  onChange={(e) => setLessonSupportMessage(e.target.value)}
+                                  placeholder="Escreva sua dúvida ou relate um problema sobre esta aula..."
+                                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 h-24 focus:outline-hidden focus:ring-1 focus:ring-teal-500 text-xs font-sans text-slate-800"
+                                />
+                                <div className="flex items-center justify-end gap-3">
+                                  {lessonSupportMessageSent && (
+                                    <span className="text-[10.5px] font-bold text-emerald-600 flex items-center gap-1">
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                      Mensagem enviada!
+                                    </span>
+                                  )}
+                                  <button
+                                    onClick={handleSendLessonSupportMessage}
+                                    disabled={!lessonSupportMessage.trim()}
+                                    className="rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-xs px-4 py-1.8 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    <Send className="h-3.5 w-3.5" />
+                                    <span>Enviar Mensagem</span>
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -1457,6 +1400,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       <CourseForum selectedCourse={selectedCourse} />
                     </div>
                   )}
+
                 </div>
 
                 {/* 2. Structured Syllabus Selector Sidebar Accordion Grid (lg:col-span-4) */}
@@ -1734,8 +1678,43 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 </div>
                 )}
 
+                </div>
+                )}
+
+              {/* Encerramento de Matrícula — card no final da página, mesmo estilo visual do card de Exercícios de Fixação */}
+              <div className="mt-8 border border-rose-100 bg-rose-50/10 rounded-2xl p-5 text-left space-y-3 shadow-2xs max-w-xs w-full mr-auto">
+                <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                  <ArrowLeft className="h-3.5 w-3.5 text-rose-600" />
+                  <span>Encerramento de Matrícula</span>
+                </h5>
+                {features.penalidadesCancelamento && (
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Cancelamentos após {DROPOUT_PENALTY_FREE_DAYS} dias de matrícula geram restrição temporária.
+                  </p>
+                )}
+                <button
+                  onClick={async () => {
+                    // A decisão de penalidade é do SERVIDOR (dias reais desde a matrícula + flag).
+                    const result = await dropStudentFromCourse(activeUser.id, selectedCourse.id);
+                    if (!result.ok) {
+                      showAlert(result.error || 'Não foi possível cancelar a matrícula.');
+                      return;
+                    }
+                    if (result.penaltyApplied) {
+                      speakText("Matrícula cancelada. Você desistiu deste curso após o limite de 5 dias letivos. Seu acesso agora está sob regime de restrição temporária de nova matrícula.");
+                    } else {
+                      speakText("Matrícula desfeita com sucesso.");
+                    }
+                    setSelectedCourse(null);
+                    setActiveLesson(null);
+                    setSelectedModulePageName(null);
+                  }}
+                  className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Solicitar Saída do Curso</span>
+                </button>
               </div>
-              )}
 
             </div>
           )
@@ -2035,106 +2014,88 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 </div>
               ) : (
                 <div className="space-y-6 text-left">
-                  {/* Certificados Resumo Widget */}
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in duration-300">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-teal-50 text-teal-600 rounded-xl">
-                        <Award className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider">Meus Certificados</h3>
-                        <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-slate-500">
-                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>{certificates.filter(c => c.userId === activeUser.id).length} disponíveis</span>
-                          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500"></span>{enrollmentRecord.enrolledCourseId ? 1 : 0} em andamento</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button onClick={() => setActiveDashboardTab('certificates')} className="shrink-0 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer border border-slate-200">
-                      Ver Certificados
-                    </button>
-                  </div>
+                  {/* Certificados agora vivem exclusivamente no Meu Perfil — sem card/atalho aqui. */}
 
-                  {/* Scenario 1: Active Enrolled Course Card */}
-                  {enrollmentRecord.enrolledCourseId ? (
-                    (() => {
-                      const activeCourse = courses.find(c => c.id === enrollmentRecord.enrolledCourseId);
-                      if (!activeCourse) return null;
-                      const attendance = calculateAttendancePercent(activeCourse.id);
-                      const minAttendance = courseMinAttendance(activeCourse);
-                      const expired = isCourseExpired(activeCourse.contractExpirationDate);
-                      
-                      if (expired) {
-                        return (
-                          <div className="rounded-2xl border border-amber-250 bg-amber-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
-                            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
-                              <div className="space-y-2 max-w-xl">
-                                <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono">⚠️ Vigência de Exibição Encerrada (Arquivado)</span>
-                                <h3 className="text-base md:text-lg font-black text-slate-850 leading-tight">{activeCourse.title}</h3>
-                                <p className="text-xs text-slate-500 leading-relaxed">
-                                  Este curso foi <strong>arquivado preventivamente</strong> e o acesso letivo foi suspenso, pois o prazo contratual de exibição encerrou em <strong>{activeCourse.contractExpirationDate}</strong>.
-                                </p>
-                                <p className="text-[11px] text-amber-900 bg-amber-100/40 p-3 rounded-xl border border-amber-200/50 leading-relaxed mt-2.5">
-                                  💡 <strong>Como estudar outra disciplina?</strong> Para liberar seu cadastro e escolher um novo curso ativo, clique no botão <strong>"Cancelar inscrição"</strong> ao lado. Isso abrirá imediatamente o catálogo de disciplinas disponíveis para você se matricular e começar a estudar!
-                                </p>
-                              </div>
-                              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-                                <button
-                                  onClick={async () => {
-                                    const result = await dropStudentFromCourse(activeUser.id, activeCourse.id);
-                                    if (!result.ok) {
-                                      showAlert(result.error || 'Não foi possível cancelar a inscrição.');
-                                      return;
-                                    }
-                                    speakText("Sua inscrição no curso expirado foi cancelada.");
-                                  }}
-                                  className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition-all shadow-md text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                                >
-                                  <Archive className="h-4 w-4 text-amber-400" />
-                                  <span>Cancelar inscrição</span>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      }
+                  {/* Scenario 1: Active Enrolled Course Card(s) — normalmente 1, mas pode haver mais
+                      de uma matrícula ativa quando o Admin Superior concede canMultiEnroll */}
+                  {activeEnrolledCourseIds.map((activeCourseId) => {
+                    const activeCourse = courses.find(c => c.id === activeCourseId);
+                    if (!activeCourse) return null;
+                    const attendance = calculateAttendancePercent(activeCourse.id);
+                    const minAttendance = courseMinAttendance(activeCourse);
+                    const expired = isCourseExpired(activeCourse.contractExpirationDate);
 
+                    if (expired) {
                       return (
-                        <div className="rounded-2xl border border-teal-200 bg-teal-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
+                        <div key={activeCourse.id} className="rounded-2xl border border-amber-250 bg-amber-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
                           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
                             <div className="space-y-2 max-w-xl">
-                              <span className="bg-teal-100 text-teal-850 border border-teal-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono">Curso Ativo em Andamento</span>
-                              <h3 className="text-base md:text-lg font-black text-slate-900 leading-tight">{activeCourse.title}</h3>
-                              <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{activeCourse.description}</p>
-                              
-                              <div className="flex flex-wrap items-center gap-4 mt-2">
-                                <div className="text-[10px] text-slate-600 font-medium">
-                                  Prof. <strong className="text-slate-800 font-bold">{activeCourse.instructorName}</strong>
-                                </div>
-                                <div className="text-[10px] text-slate-600 flex items-center gap-1.5">
-                                  <span>Frequência Atual:</span>
-                                  <strong className={`font-mono text-xs ${attendance >= minAttendance ? 'text-emerald-600 font-black' : 'text-amber-600'}`}>{attendance}%</strong>
-                                  <span className="text-slate-400">/ Mínimo {minAttendance}%</span>
-                                </div>
-                              </div>
+                              <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono">⚠️ Vigência de Exibição Encerrada (Arquivado)</span>
+                              <h3 className="text-base md:text-lg font-black text-slate-850 leading-tight">{activeCourse.title}</h3>
+                              <p className="text-xs text-slate-500 leading-relaxed">
+                                Este curso foi <strong>arquivado preventivamente</strong> e o acesso letivo foi suspenso, pois o prazo contratual de exibição encerrou em <strong>{activeCourse.contractExpirationDate}</strong>.
+                              </p>
+                              <p className="text-[11px] text-amber-900 bg-amber-100/40 p-3 rounded-xl border border-amber-200/50 leading-relaxed mt-2.5">
+                                💡 <strong>Como estudar outra disciplina?</strong> Para liberar seu cadastro e escolher um novo curso ativo, clique no botão <strong>"Cancelar inscrição"</strong> ao lado. Isso abrirá imediatamente o catálogo de disciplinas disponíveis para você se matricular e começar a estudar!
+                              </p>
                             </div>
-                            
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
                               <button
-                                onClick={() => {
-                                  setSelectedCourse(activeCourse);
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                onClick={async () => {
+                                  const result = await dropStudentFromCourse(activeUser.id, activeCourse.id);
+                                  if (!result.ok) {
+                                    showAlert(result.error || 'Não foi possível cancelar a inscrição.');
+                                    return;
+                                  }
+                                  speakText("Sua inscrição no curso expirado foi cancelada.");
                                 }}
-                                className="bg-[#540D6E] hover:bg-[#430858] text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition-all shadow-md hover:scale-[1.01] text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition-all shadow-md text-center flex items-center justify-center gap-1.5 cursor-pointer"
                               >
-                                <PlayCircle className="h-4 w-4 animate-pulse" />
-                                <span>Entrar na Sala de Aula</span>
+                                <Archive className="h-4 w-4 text-amber-400" />
+                                <span>Cancelar inscrição</span>
                               </button>
                             </div>
                           </div>
                         </div>
                       );
-                    })()
-                  ) : null}
+                    }
+
+                    return (
+                      <div key={activeCourse.id} className="rounded-2xl border border-teal-200 bg-teal-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
+                        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
+                          <div className="space-y-2 max-w-xl">
+                            <span className="bg-teal-100 text-teal-850 border border-teal-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono">Curso Ativo em Andamento</span>
+                            <h3 className="text-base md:text-lg font-black text-slate-900 leading-tight">{activeCourse.title}</h3>
+                            <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{activeCourse.description}</p>
+
+                            <div className="flex flex-wrap items-center gap-4 mt-2">
+                              <div className="text-[10px] text-slate-600 font-medium">
+                                Prof. <strong className="text-slate-800 font-bold">{activeCourse.instructorName}</strong>
+                              </div>
+                              <div className="text-[10px] text-slate-600 flex items-center gap-1.5">
+                                <span>Frequência Atual:</span>
+                                <strong className={`font-mono text-xs ${attendance >= minAttendance ? 'text-emerald-600 font-black' : 'text-amber-600'}`}>{attendance}%</strong>
+                                <span className="text-slate-400">/ Mínimo {minAttendance}%</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                            <button
+                              onClick={() => {
+                                setSelectedCourse(activeCourse);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="bg-[#540D6E] hover:bg-[#430858] text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition-all shadow-md hover:scale-[1.01] text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <PlayCircle className="h-4 w-4 animate-pulse" />
+                              <span>Entrar na Sala de Aula</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
 
                   {/* Scenario 2: Active Dropout Penalty Warning Card */}
                   {features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now() ? (() => {
@@ -2221,14 +2182,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     );
                   })() : null}
 
-                  {/* Scenario 3: Course Selection Catalog (Available when no active enrollment and not penalized) */}
-                  {!enrollmentRecord.enrolledCourseId && !(features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now()) && (
+                  {/* Scenario 3: Course Selection Catalog (sem matrícula ativa, ou com permissão de matrícula múltipla, e sem restrição) */}
+                  {canEnrollInMoreCourses && !(features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now()) && (
                     <div className="space-y-5">
                       <div className="bg-teal-50/55 p-4 rounded-2xl border border-teal-150/40 flex items-center gap-3">
                         <Sparkles className="h-4.5 w-4.5 text-teal-600 shrink-0" />
                         <div className="text-left text-xs text-slate-700 leading-relaxed">
                           <span className="font-extrabold text-teal-950 mr-1.5">Início da Jornada:</span>
-                          Selecione um curso na lista abaixo para se matricular e iniciar os seus estudos de forma imediata!
+                          {activeEnrolledCourseIds.length > 0
+                            ? 'Você tem permissão para cursar mais de uma disciplina ao mesmo tempo. Selecione outra disciplina abaixo para se matricular também!'
+                            : 'Selecione um curso na lista abaixo para se matricular e iniciar os seus estudos de forma imediata!'}
                         </div>
                       </div>
 
@@ -2340,7 +2303,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                         const filtered = courses
                           .filter(c => {
                             if (isCourseExpired(c.contractExpirationDate)) return false;
-                            const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            if (activeEnrolledCourseIds.includes(c.id)) return false;
+                            const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                                   c.category.toLowerCase().includes(searchQuery.toLowerCase());
                             const matchesCategory = selectedCategory === 'all' || c.category === selectedCategory;
                             return matchesSearch && matchesCategory;
@@ -2477,262 +2441,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
           )}
         </div>
       </div>
-      ) : activeDashboardTab === 'certificates' ? (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-5xl mx-auto space-y-4">
-          <div className="text-left mb-2">
-            <button
-              onClick={() => setActiveDashboardTab('general')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-xs font-black uppercase tracking-wider border border-slate-200/65"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Voltar ao Meu Painel de Estudos</span>
-            </button>
-          </div>
-          {/* Header */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-left mb-6">
-            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2 mb-2">
-              <Award className="h-6 w-6 text-teal-600" />
-              Meus Certificados
-            </h2>
-            <p className="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-100 inline-block">
-              <span className="font-bold text-teal-700 mr-1">Aviso:</span> O certificado será liberado conforme os critérios de conclusão definidos para este curso.
-            </p>
-          </div>
-
-          {/* Resumo */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <div className="bg-white border border-emerald-100 rounded-2xl p-5 shadow-xs text-left">
-              <span className="text-3xl font-black text-emerald-600 block mb-1">{certificates.filter(c => c.userId === activeUser.id).length}</span>
-              <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Certificados Disponíveis</span>
-            </div>
-            <div className="bg-white border border-blue-100 rounded-2xl p-5 shadow-xs text-left">
-              <span className="text-3xl font-black text-blue-600 block mb-1">{enrollmentRecord.enrolledCourseId ? 1 : 0}</span>
-              <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Cursos em Andamento</span>
-            </div>
-            <div className="bg-white border border-amber-100 rounded-2xl p-5 shadow-xs text-left">
-              <span className="text-3xl font-black text-amber-600 block mb-1">{
-                courses.filter(c => c.id === enrollmentRecord.enrolledCourseId && calculateAttendancePercent(c.id) < courseMinAttendance(c)).length
-              }</span>
-              <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Certificados Pendentes</span>
-            </div>
-          </div>
-
-          {/* Tabs Navigation */}
-          <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 mb-6 pb-2">
-            {[
-              { id: 'available', label: 'Disponíveis' },
-              { id: 'in_progress', label: 'Em andamento' },
-              { id: 'validation', label: 'Validação' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveCertificatesTab(tab.id as 'available' | 'in_progress' | 'validation');
-                  setValidationResult(null);
-                  setValidationCode('');
-                }}
-                className={`px-5 py-2.5 rounded-t-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                  activeCertificatesTab === tab.id
-                    ? 'bg-slate-800 text-white border-b-2 border-slate-800'
-                    : 'bg-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab Content */}
-          <div className="text-left space-y-4">
-            {activeCertificatesTab === 'available' && (
-              <div className="space-y-4 animate-in fade-in duration-300">
-                {certificates.filter(c => c.userId === activeUser.id).length === 0 ? (
-                  <div className="py-12 border-2 border-dashed border-slate-200 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-slate-500">
-                    <Award className="h-10 w-10 mb-3 text-slate-300" />
-                    <p className="text-sm font-bold text-slate-700">Você ainda não possui certificados disponíveis.</p>
-                    <p className="text-xs mt-1">Conclua um curso para liberar seu primeiro certificado.</p>
-                  </div>
-                ) : (
-                  certificates.filter(c => c.userId === activeUser.id).map((cert, index) => {
-                    const course = courses.find(c => c.id === cert.courseId);
-                    const workload = course?.cargaHoraria ?? 40;
-                    return (
-                      <div key={`${cert.id}-${index}`} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
-                              <CheckCircle className="h-3 w-3" /> Certificado disponível
-                            </span>
-                          </div>
-                          <h4 className="font-black text-slate-900 text-lg leading-tight">{cert.courseTitle}</h4>
-                          <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 font-medium">
-                            <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-slate-400" /> Concluído em: {cert.issueDate}</span>
-                            <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-slate-400" /> Carga Horária: {workload}h</span>
-                            <span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-slate-400" /> Concluído: 100%</span>
-                          </div>
-                          <div className="pt-1 flex items-center gap-2 text-[10px] font-mono text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 w-fit">
-                            <span>Código: <strong>{cert.verificationHash}</strong></span>
-                            <button 
-                              onClick={() => {
-                                navigator.clipboard.writeText(cert.verificationHash);
-                                showAlert('Código copiado para a área de transferência!');
-                              }}
-                              className="text-teal-600 hover:text-teal-700 font-bold ml-2 uppercase tracking-wider transition-colors cursor-pointer"
-                            >
-                              Copiar código
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-                          <button
-                            onClick={async () => {
-                              const error = await downloadCertificatePdf(cert.id);
-                              if (error) showAlert(error);
-                            }}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <Download className="h-4 w-4" />
-                            Baixar PDF
-                          </button>
-                          <button
-                            onClick={() => setSelectedCertificate(cert)}
-                            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <Award className="h-4 w-4" />
-                            Visualizar
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-
-            {activeCertificatesTab === 'in_progress' && (
-              <div className="space-y-4 animate-in fade-in duration-300">
-                {!enrollmentRecord.enrolledCourseId ? (
-                  <div className="py-12 border-2 border-dashed border-slate-200 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-slate-500">
-                    <BookOpen className="h-10 w-10 mb-3 text-slate-300" />
-                    <p className="text-sm font-bold text-slate-700">Você não possui cursos em andamento no momento.</p>
-                  </div>
-                ) : (
-                  (() => {
-                    const activeCourse = courses.find(c => c.id === enrollmentRecord.enrolledCourseId);
-                    if (!activeCourse) return null;
-                    const attendance = calculateAttendancePercent(activeCourse.id);
-                    const minAttendance = courseMinAttendance(activeCourse);
-                    
-                    if (activeCourse.category.includes('Sem Certificado')) {
-                      return (
-                         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-                          <h4 className="font-black text-slate-900 text-lg leading-tight mb-2">{activeCourse.title}</h4>
-                          <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[11px] font-bold inline-block">Este curso não possui emissão de certificado.</span>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="bg-white border border-amber-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row justify-between gap-6">
-                        <div className="space-y-4 w-full max-w-2xl">
-                          <div>
-                            <h4 className="font-black text-slate-900 text-lg leading-tight mb-1">{activeCourse.title}</h4>
-                            <p className="text-xs text-slate-500 font-medium">Você concluiu {attendance}% do curso. Para liberar o certificado, é necessário atingir {minAttendance}%.</p>
-                          </div>
-                          
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                              <span>Progresso Atual</span>
-                              <span className="text-amber-600 font-black">{attendance}% / {minAttendance}%</span>
-                            </div>
-                            <div className="w-full bg-slate-100 rounded-full h-2">
-                              <div className="bg-amber-500 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, attendance)}%` }}></div>
-                            </div>
-                          </div>
-                          
-                          <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800">
-                            <strong>O que falta?</strong> Continue assistindo as aulas teóricas e conclua os módulos pendentes para atingir o mínimo necessário.
-                          </div>
-                        </div>
-                        <div className="flex items-center shrink-0">
-                          <button
-                            onClick={() => {
-                              setSelectedCourse(activeCourse);
-                              setActiveDashboardTab('general');
-                              window.scrollTo({ top: 0, behavior: 'smooth' });
-                            }}
-                            className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 w-full md:w-auto cursor-pointer"
-                          >
-                            <PlayCircle className="h-4 w-4" />
-                            Continuar curso
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })()
-                )}
-              </div>
-            )}
-
-            {activeCertificatesTab === 'validation' && (
-              <div className="space-y-6 animate-in fade-in duration-300 max-w-2xl">
-                <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-                  <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider mb-2">Validar um Certificado</h3>
-                  <p className="text-xs text-slate-500 mb-6">
-                    Insira o código de validação (hash alfanumérico) que consta no certificado para verificar a autenticidade e os dados de emissão.
-                  </p>
-                  
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <input
-                      type="text"
-                      placeholder="Ex: AVA-1A2B3C4D5E6F7890"
-                      value={validationCode}
-                      onChange={(e) => setValidationCode(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleValidateCertificate(); }}
-                      className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                    />
-                    <button
-                      onClick={handleValidateCertificate}
-                      disabled={isValidating}
-                      className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-wait"
-                    >
-                      {isValidating ? 'Validando...' : 'Validar'}
-                    </button>
-                  </div>
-
-                  {validationResult && (
-                    <div className={`mt-6 p-5 rounded-xl border animate-in slide-in-from-bottom-2 duration-300 ${
-                      validationResult.valid ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
-                    }`}>
-                      {validationResult.valid ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 text-emerald-700 mb-2">
-                            <CheckCircle className="h-5 w-5" />
-                            <strong className="text-sm uppercase tracking-wider">Certificado Válido</strong>
-                          </div>
-                          <div className="space-y-1.5 text-xs text-slate-700">
-                            <p><strong className="text-slate-900 w-24 inline-block">Aluno:</strong> {validationResult.studentName}</p>
-                            <p><strong className="text-slate-900 w-24 inline-block">Curso:</strong> {validationResult.courseTitle}</p>
-                            {validationResult.cargaHoraria != null && (
-                              <p><strong className="text-slate-900 w-24 inline-block">Carga Horária:</strong> {validationResult.cargaHoraria}h</p>
-                            )}
-                            <p><strong className="text-slate-900 w-24 inline-block">Emissão:</strong> {validationResult.issueDate}</p>
-                            <p><strong className="text-slate-900 w-24 inline-block">Código:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-100">{validationCode}</span></p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3 text-amber-800">
-                          <Info className="h-5 w-5 shrink-0" />
-                          <p className="text-xs font-bold leading-relaxed">{validationResult.message}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       ) : activeDashboardTab === 'documents' ? (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
           <div className="text-left mb-2">
@@ -2897,7 +2605,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   id: 'faq-2',
                   category: 'certificates',
                   question: 'Como e quando posso emitir meu certificado?',
-                  answer: 'O certificado digital oficial chancelado é liberado de forma imediata assim que você atingir o progresso mínimo de 70% de presença ativa no curso. Basta acessar a aba "Certificados" na barra superior para baixá-lo em formato PDF seguro e chancelado com selo eletrônico.'
+                  answer: 'O certificado digital oficial chancelado é liberado de forma imediata assim que você atingir o progresso mínimo de 70% de presença ativa no curso. Basta acessar a seção "Certificados" no seu Perfil para baixá-lo em formato PDF seguro e chancelado com selo eletrônico.'
                 },
                 {
                   id: 'faq-3',
@@ -3532,7 +3240,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       id: 'faq-2',
                       category: 'certificates',
                       question: 'Como e quando posso emitir meu certificado?',
-                      answer: 'O certificado digital oficial chancelado é liberado de forma imediata assim que você atingir o progresso mínimo de 70% de presença ativa no curso. Basta acessar a aba "Certificados" na barra superior para baixá-lo em formato PDF seguro e chancelado com selo eletrônico.'
+                      answer: 'O certificado digital oficial chancelado é liberado de forma imediata assim que você atingir o progresso mínimo de 70% de presença ativa no curso. Basta acessar a seção "Certificados" no seu Perfil para baixá-lo em formato PDF seguro e chancelado com selo eletrônico.'
                     },
                     {
                       id: 'faq-3',
@@ -3629,14 +3337,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
             </div>
           </div>
         </>
-      )}
-
-      {/* Certificate Viewer Modal Overlay */}
-      {selectedCertificate && (
-        <CertificateTemplate
-          certificate={selectedCertificate}
-          onClose={() => setSelectedCertificate(null)}
-        />
       )}
 
       {/* Live Classroom modal overlay (controlado pela feature flag) */}

@@ -20,6 +20,10 @@ use RuntimeException;
  */
 final class CertificatePdfService
 {
+    public function __construct(
+        private readonly DocumentTemplateService $templates,
+    ) {}
+
     /**
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array{content: string, filename: string}
@@ -41,8 +45,9 @@ final class CertificatePdfService
 
         $verificationUrl = $this->verificationUrl($cert->verificationHash);
         $cargaHoraria = Course::query()->find($cert->courseId)?->cargaHoraria;
+        $template = $this->templates->get('certificado');
 
-        $pdf = Pdf::loadView('certificates.pdf', [
+        $vars = [
             'studentName' => $cert->studentName,
             'courseTitle' => $cert->courseTitle,
             'cargaHoraria' => is_numeric($cargaHoraria) ? (int) $cargaHoraria : null,
@@ -52,8 +57,17 @@ final class CertificatePdfService
             'verificationHash' => $cert->verificationHash,
             'verificationUrl' => $verificationUrl,
             'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
-        ])
-            ->setPaper('a4', 'landscape')
+            'institutionName' => $template['institutionName'],
+            'signatories' => $template['signatories'],
+            'footerText' => $template['footerText'],
+        ];
+
+        $customHtml = $template['customHtml'] ?? null;
+        $pdf = is_string($customHtml) && trim($customHtml) !== ''
+            ? Pdf::loadHTML($this->renderCustomHtml($customHtml, $vars))
+            : Pdf::loadView('certificates.pdf', $vars);
+
+        $pdf->setPaper('a4', 'landscape')
             // isRemoteEnabled=false (default) impede fetch de recursos externos via HTML/CSS.
             ->setOptions(['isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Serif']);
 
@@ -61,6 +75,33 @@ final class CertificatePdfService
             'content' => $pdf->output(),
             'filename' => "certificado-{$cert->verificationHash}.pdf",
         ];
+    }
+
+    /**
+     * Modo "layout livre": o HTML vem de um campo editável pelo Admin Superior
+     * (DocumentTemplate.customHtml), então NUNCA passa por Blade::render() —
+     * isso executaria diretivas PHP arbitrárias armazenadas no banco. Em vez
+     * disso, os placeholders documentados na tela de edição são substituídos
+     * por texto puro (str_replace), o que é inerte.
+     *
+     * @param  array<string, mixed>  $vars
+     */
+    private function renderCustomHtml(string $html, array $vars): string
+    {
+        $search = [];
+        $replace = [];
+        foreach ($vars as $key => $value) {
+            if ($key === 'signatories' || $value === null) {
+                continue;
+            }
+            $search[] = '{{'.$key.'}}';
+            $replace[] = is_scalar($value) ? htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') : '';
+        }
+        $qrDataUri = $vars['qrDataUri'] ?? '';
+        $search[] = '{{qrImg}}';
+        $replace[] = '<img src="'.htmlspecialchars(is_string($qrDataUri) ? $qrDataUri : '', ENT_QUOTES, 'UTF-8').'" width="76" height="76" alt="QR de verificação">';
+
+        return str_replace($search, $replace, $html);
     }
 
     private function verificationUrl(string $hash): string

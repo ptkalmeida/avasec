@@ -34,6 +34,8 @@ final class EnrollmentService
         'enrolledAt' => null,
         'completedCourseIds' => [],
         'dropOutPenaltyUntil' => null,
+        'canMultiEnroll' => false,
+        'extraCourseIds' => [],
     ];
 
     // ---------- PROGRESSO ----------
@@ -176,13 +178,19 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{enrolledCourseId?:string|null,enrolledAt?:string|null,completedCourseIds?:list<string>,dropOutPenaltyUntil?:string|null}  $updates
+     * @param  array{enrolledCourseId?:string|null,enrolledAt?:string|null,completedCourseIds?:list<string>,dropOutPenaltyUntil?:string|null,canMultiEnroll?:bool}  $updates
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function upsertEnrollment(string $userId, array $updates, array $requester): array
     {
         $this->assertInstructorCanManage($updates['enrolledCourseId'] ?? null, $requester);
+
+        // Só o Admin Superior concede matrícula múltipla concorrente — nem o
+        // instrutor dono do curso pode ligar isso para os próprios alunos.
+        if (array_key_exists('canMultiEnroll', $updates) && $requester['role'] !== 'admin') {
+            throw ApiException::forbidden('Apenas o Admin Superior pode conceder matrícula múltipla simultânea.');
+        }
 
         $targetUserId = Identity::resolveActorUserId($requester, $userId);
         $current = StudentEnrollment::query()->whereKey($targetUserId)->first();
@@ -210,13 +218,32 @@ final class EnrollmentService
         if ($this->hasActivePenalty($current)) {
             throw ApiException::forbidden('Você está em período de restrição temporária de nova matrícula por cancelamento tardio. Aguarde o fim da restrição ou solicite liberação à coordenação.');
         }
+
+        $extraCourseIds = $current->extraCourseIds ?? [];
+        if ($current?->enrolledCourseId === $courseId || in_array($courseId, $extraCourseIds, true)) {
+            throw new ApiException(409, 'CONFLICT', 'Você já está matriculado neste curso.');
+        }
+
         if ($current?->enrolledCourseId) {
-            throw new ApiException(409, 'CONFLICT', 'Você já possui uma matrícula ativa. Conclua ou cancele o curso atual antes de iniciar outro.');
+            // Segunda (ou mais) matrícula simultânea: só permitido com a flag global
+            // ligada E a permissão concedida pelo Admin Superior a este aluno.
+            if (config('features.matriculasMultiplas') !== true || $current->canMultiEnroll !== true) {
+                throw new ApiException(409, 'CONFLICT', 'Você já possui uma matrícula ativa. Conclua ou cancele o curso atual antes de iniciar outro.');
+            }
+
+            $merged = array_merge($this->currentRest($current), [
+                'extraCourseIds' => array_values(array_unique([...$extraCourseIds, $courseId])),
+            ]);
+            $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
+
+            return ['enrollment' => $this->toPublicEnrollment($saved)];
         }
 
         $merged = array_merge(self::EMPTY_ENROLLMENT, [
             'completedCourseIds' => $current->completedCourseIds ?? [],
             'dropOutPenaltyUntil' => $current?->dropOutPenaltyUntil,
+            'canMultiEnroll' => $current->canMultiEnroll ?? false,
+            'extraCourseIds' => $extraCourseIds,
             'enrolledCourseId' => $courseId,
             'enrolledAt' => CarbonImmutable::now()->toIso8601String(),
         ]);
@@ -232,8 +259,23 @@ final class EnrollmentService
     public function selfDrop(string $courseId, array $requester): array
     {
         $current = $this->ownEnrollment($requester);
-        if (! $current?->enrolledCourseId || $current->enrolledCourseId !== $courseId) {
+        $extraCourseIds = $current->extraCourseIds ?? [];
+        $isPrimary = $current?->enrolledCourseId === $courseId;
+        $isExtra = in_array($courseId, $extraCourseIds, true);
+        if (! $isPrimary && ! $isExtra) {
             throw new ApiException(400, 'BAD_REQUEST', 'Você não possui matrícula ativa neste curso.');
+        }
+
+        // Cancelamento de uma matrícula EXTRA (concorrente): sem penalidade — a
+        // penalidade de cancelamento tardio só se aplica ao curso principal, único
+        // com `enrolledAt` rastreado.
+        if ($isExtra) {
+            $merged = array_merge($this->currentRest($current), [
+                'extraCourseIds' => array_values(array_filter($extraCourseIds, fn ($id) => $id !== $courseId)),
+            ]);
+            $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
+
+            return ['enrollment' => $this->toPublicEnrollment($saved), 'penaltyApplied' => false];
         }
 
         // Dias contados a partir do enrolledAt REAL persistido — nunca de valor do cliente.
@@ -265,7 +307,10 @@ final class EnrollmentService
     public function selfComplete(string $courseId, array $requester): array
     {
         $current = $this->ownEnrollment($requester);
-        if (! $current?->enrolledCourseId || $current->enrolledCourseId !== $courseId) {
+        $extraCourseIds = $current->extraCourseIds ?? [];
+        $isPrimary = $current?->enrolledCourseId === $courseId;
+        $isExtra = in_array($courseId, $extraCourseIds, true);
+        if (! $isPrimary && ! $isExtra) {
             throw new ApiException(400, 'BAD_REQUEST', 'Você não possui matrícula ativa neste curso.');
         }
 
@@ -287,9 +332,10 @@ final class EnrollmentService
 
         $completed = array_values(array_unique([...($current->completedCourseIds ?? []), $courseId]));
         $merged = array_merge($this->currentRest($current), [
-            'enrolledCourseId' => null,
-            'enrolledAt' => null,
             'completedCourseIds' => $completed,
+            ...($isExtra
+                ? ['extraCourseIds' => array_values(array_filter($extraCourseIds, fn ($id) => $id !== $courseId))]
+                : ['enrolledCourseId' => null, 'enrolledAt' => null]),
         ]);
         $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
 
@@ -456,7 +502,10 @@ final class EnrollmentService
         if ($current === null) {
             return [];
         }
-        $rest = $current->only(['enrolledCourseId', 'enrolledAt', 'completedCourseIds', 'dropOutPenaltyUntil']);
+        $rest = $current->only([
+            'enrolledCourseId', 'enrolledAt', 'completedCourseIds', 'dropOutPenaltyUntil',
+            'canMultiEnroll', 'extraCourseIds',
+        ]);
 
         return $rest;
     }
@@ -476,6 +525,8 @@ final class EnrollmentService
             'enrolledAt' => $row->enrolledAt,
             'completedCourseIds' => $row->completedCourseIds ?? [],
             'dropOutPenaltyUntil' => $row->dropOutPenaltyUntil,
+            'canMultiEnroll' => (bool) $row->canMultiEnroll,
+            'extraCourseIds' => $row->extraCourseIds ?? [],
         ];
     }
 
