@@ -27,6 +27,7 @@ return [
     'dossieAcademico' => false,
     'penalidadesCancelamento' => false,
     'mensagensDiretas' => false,
+    'matriculasMultiplas' => true,
 
     // Ativadas por padrão no MVP
     'catalogoCursos' => true,

@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { 
-  User, Mail, ArrowLeft, Shield, Award, BookOpen, Sparkles, 
-  Clock, Settings, Volume2, VolumeX, Eye, EyeOff, RefreshCw, 
+import {
+  User, Mail, ArrowLeft, Shield, Award, BookOpen, Sparkles,
+  Clock, Settings, Volume2, VolumeX, Eye, EyeOff, RefreshCw,
   Trash2, FileText, CheckCircle2, Copy, Check, Globe, Layout, Gauge,
-  Lock, Key, Fingerprint, ShieldAlert, Camera, Upload, X, Printer, ShieldCheck, LogOut
+  Lock, Key, Fingerprint, ShieldAlert, Camera, Upload, X, Printer, ShieldCheck, LogOut,
+  Download, Calendar, PlayCircle, CheckCircle, Info
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
+import { features } from '../config/features';
+import { courseMinAttendance } from '../config/constants';
+import { CertificateTemplate } from './CertificateTemplate';
+import { downloadCertificatePdf } from '../utils/fileDownload';
+import type { Certificate } from '../types';
 
 interface ProfileViewProps {
   onBack: () => void;
@@ -24,12 +30,12 @@ const DEMO_PROFILES = [
 ] as const;
 
 const AVATAR_PRESETS = [
-  { id: 'cosmic', emoji: '🚀', label: 'Estudante Cósmico', color: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
-  { id: 'creative', emoji: '🎨', label: 'Criador Cultural', color: 'bg-emerald-50 border-emerald-250 text-emerald-700' },
-  { id: 'reader', emoji: '📚', label: 'Leitor Devoto', color: 'bg-amber-50 border-amber-200 text-amber-700' },
-  { id: 'dev', emoji: '💻', label: 'Hacker Cultural', color: 'bg-slate-900 border-slate-950 text-[#FFD23F]' },
-  { id: 'star', emoji: '🌟', label: 'Superstar', color: 'bg-rose-50 border-rose-220 text-rose-650' },
-  { id: 'peace', emoji: '🕊️', label: 'Embaixador da Paz', color: 'bg-sky-50 border-sky-200 text-sky-600' }
+  { id: 'cosmic', emoji: '🧑‍🚀', label: 'Estudante Cósmico', color: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
+  { id: 'creative', emoji: '🧑‍🎨', label: 'Criador Cultural', color: 'bg-emerald-50 border-emerald-250 text-emerald-700' },
+  { id: 'reader', emoji: '🦉', label: 'Leitor Devoto', color: 'bg-amber-50 border-amber-200 text-amber-700' },
+  { id: 'dev', emoji: '🧑‍💻', label: 'Hacker Cultural', color: 'bg-slate-900 border-slate-950 text-[#FFD23F]' },
+  { id: 'star', emoji: '🎓', label: 'Superstar', color: 'bg-rose-50 border-rose-220 text-rose-650' },
+  { id: 'peace', emoji: '🌱', label: 'Embaixador da Paz', color: 'bg-sky-50 border-sky-200 text-sky-600' }
 ];
 
 export function ProfileView({
@@ -58,7 +64,9 @@ export function ProfileView({
     setTextSizeMultiplier,
     securityLogs,
     addSecurityLog,
-    clearSecurityLogs
+    clearSecurityLogs,
+    studentEnrollments,
+    calculateAttendancePercent
   } = useLMS();
 
   // Local state for profile configurations
@@ -78,8 +86,56 @@ export function ProfileView({
     }
   };
   
-  // State to manage showing the main Profile view or the New password change view
-  const [currentTab, setCurrentTab] = useState<'profile' | 'password'>('profile');
+  // State to manage showing the main Profile view, the password change view, or Certificados
+  const [currentTab, setCurrentTab] = useState<'profile' | 'password' | 'certificates'>('profile');
+
+  // Certificados — antes vivia como aba do painel do aluno; agora único lugar é o Perfil.
+  const [activeCertificatesTab, setActiveCertificatesTab] = useState<'available' | 'in_progress' | 'validation'>('available');
+  const [selectedCertificate, setSelectedCertificate] = useState<Certificate | null>(null);
+  const [validationCode, setValidationCode] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationResult, setValidationResult] = useState<{
+    valid: boolean;
+    message: string;
+    studentName?: string;
+    courseTitle?: string;
+    cargaHoraria?: number | null;
+    issueDate?: string;
+  } | null>(null);
+
+  // Validação usa a rota pública real (mesma do autenticador da landing) — certificados
+  // de terceiros nunca estão no array em memória do aluno.
+  const handleValidateCertificate = async () => {
+    const code = validationCode.trim();
+    if (!code || isValidating) return;
+    setIsValidating(true);
+    try {
+      const res = await fetch(`/api/certificates/verify?q=${encodeURIComponent(code)}`);
+      const data = res.ok ? await res.json() : null;
+      if (data && data.verificationHash) {
+        setValidationResult({
+          valid: true,
+          message: 'Certificado válido',
+          studentName: data.studentName,
+          courseTitle: data.courseTitle,
+          cargaHoraria: data.cargaHoraria,
+          issueDate: data.issueDate
+        });
+      } else {
+        setValidationResult({
+          valid: false,
+          message: 'Certificado não encontrado. Confira se o código foi digitado corretamente.'
+        });
+      }
+    } catch {
+      setValidationResult({
+        valid: false,
+        message: 'Servidor indisponível para validação. Tente novamente em instantes.'
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
 
   // Password shift parameters
   const [docType, setDocType] = useState<'cpf' | 'rg'>('cpf');
@@ -735,9 +791,293 @@ export function ProfileView({
     );
   }
 
+  if (currentTab === 'certificates') {
+    if (!features.certificados) {
+      return (
+        <div className="mx-auto max-w-xl px-4 py-16 text-center animate-in fade-in duration-300">
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-8 space-y-3 shadow-3xs">
+            <Lock className="h-10 w-10 text-amber-600 mx-auto" />
+            <h3 className="font-extrabold text-base">Esta funcionalidade está temporariamente indisponível.</h3>
+            <p className="text-xs text-slate-500">Estamos trabalhando em melhorias e atualizações para esta seção. Por favor, tente novamente mais tarde.</p>
+            <button
+              type="button"
+              onClick={() => setCurrentTab('profile')}
+              className="mt-2 px-4 py-2 bg-white border border-amber-200 text-amber-800 text-xs font-bold rounded-xl hover:bg-amber-100 transition-colors uppercase tracking-wider cursor-pointer"
+            >
+              Voltar ao Perfil
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    const enrollmentRecord = studentEnrollments[activeUser.id] || { enrolledCourseId: null, completedCourseIds: [], dropOutPenaltyUntil: null, canMultiEnroll: false, extraCourseIds: [] };
+    const activeEnrolledCourse = courses.find(c => c.id === enrollmentRecord.enrolledCourseId) || null;
+    const activeEnrolledCourseCount = [enrollmentRecord.enrolledCourseId, ...(enrollmentRecord.extraCourseIds || [])]
+      .filter(Boolean).length;
+
+    return (
+      <div className="mx-auto max-w-5xl px-4 py-8 md:px-6 animate-in fade-in slide-in-from-bottom-4 duration-300 text-left space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+          <button
+            type="button"
+            onClick={() => { speakText("Voltando para o perfil."); setCurrentTab('profile'); }}
+            className="group flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-all bg-white border border-slate-200 px-4 py-2 rounded-xl cursor-pointer shadow-3xs"
+          >
+            <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+            <span>Voltar ao Meu Perfil</span>
+          </button>
+        </div>
+
+        {/* Header */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-left mb-2">
+          <h2 className="text-xl font-black text-slate-900 flex items-center gap-2 mb-2">
+            <Award className="h-6 w-6 text-teal-600" />
+            Meus Certificados
+          </h2>
+          <p className="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-100 inline-block">
+            <span className="font-bold text-teal-700 mr-1">Aviso:</span> O certificado será liberado conforme os critérios de conclusão definidos para este curso.
+          </p>
+        </div>
+
+        {/* Resumo */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
+          <div className="bg-white border border-emerald-100 rounded-2xl p-5 shadow-xs text-left">
+            <span className="text-3xl font-black text-emerald-600 block mb-1">{studentCerts.length}</span>
+            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Cursos Concluídos</span>
+          </div>
+          <div className="bg-white border border-blue-100 rounded-2xl p-5 shadow-xs text-left">
+            <span className="text-3xl font-black text-blue-600 block mb-1">{activeEnrolledCourseCount}</span>
+            <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Cursos em Andamento</span>
+          </div>
+          <div className="bg-white border border-amber-100 rounded-2xl p-5 shadow-xs text-left">
+            <span className="text-3xl font-black text-amber-600 block mb-1">
+              {activeEnrolledCourse && calculateAttendancePercent(activeEnrolledCourse.id) < courseMinAttendance(activeEnrolledCourse) ? 1 : 0}
+            </span>
+            <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Certificados Pendentes</span>
+          </div>
+        </div>
+
+        {/* Sub-abas */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 mb-6 pb-2">
+          {[
+            { id: 'available', label: 'Disponíveis' },
+            { id: 'in_progress', label: 'Em andamento' },
+            { id: 'validation', label: 'Validação' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveCertificatesTab(tab.id as 'available' | 'in_progress' | 'validation');
+                setValidationResult(null);
+                setValidationCode('');
+              }}
+              className={`px-5 py-2.5 rounded-t-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                activeCertificatesTab === tab.id
+                  ? 'bg-slate-800 text-white border-b-2 border-slate-800'
+                  : 'bg-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="text-left space-y-4">
+          {activeCertificatesTab === 'available' && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              {studentCerts.length === 0 ? (
+                <div className="py-12 border-2 border-dashed border-slate-200 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-slate-500">
+                  <Award className="h-10 w-10 mb-3 text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">Você ainda não possui certificados disponíveis.</p>
+                  <p className="text-xs mt-1">Conclua um curso para liberar seu primeiro certificado.</p>
+                </div>
+              ) : (
+                studentCerts.map((cert, index) => {
+                  const course = courses.find(c => c.id === cert.courseId);
+                  const workload = course?.cargaHoraria ?? 40;
+                  return (
+                    <div key={`${cert.id}-${index}`} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-5">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[9px] font-black uppercase tracking-wider flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" /> Certificado disponível
+                          </span>
+                        </div>
+                        <h4 className="font-black text-slate-900 text-lg leading-tight">{cert.courseTitle}</h4>
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-slate-600 font-medium">
+                          <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5 text-slate-400" /> Concluído em: {cert.issueDate}</span>
+                          <span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-slate-400" /> Carga Horária: {workload}h</span>
+                          <span className="flex items-center gap-1.5"><CheckCircle className="h-3.5 w-3.5 text-slate-400" /> Concluído: 100%</span>
+                        </div>
+                        <div className="pt-1 flex items-center gap-2 text-[10px] font-mono text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 w-fit">
+                          <span>Código: <strong>{cert.verificationHash}</strong></span>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(cert.verificationHash);
+                              speakText('Código copiado para a área de transferência!');
+                            }}
+                            className="text-teal-600 hover:text-teal-700 font-bold ml-2 uppercase tracking-wider transition-colors cursor-pointer"
+                          >
+                            Copiar código
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+                        <button
+                          onClick={async () => {
+                            const error = await downloadCertificatePdf(cert.id);
+                            if (error) speakText(error);
+                          }}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Download className="h-4 w-4" />
+                          Baixar PDF
+                        </button>
+                        <button
+                          onClick={() => setSelectedCertificate(cert)}
+                          className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          <Award className="h-4 w-4" />
+                          Visualizar
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {activeCertificatesTab === 'in_progress' && (
+            <div className="space-y-4 animate-in fade-in duration-300">
+              {!activeEnrolledCourse ? (
+                <div className="py-12 border-2 border-dashed border-slate-200 bg-slate-50 rounded-2xl flex flex-col items-center justify-center text-slate-500">
+                  <BookOpen className="h-10 w-10 mb-3 text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">Você não possui cursos em andamento no momento.</p>
+                </div>
+              ) : (() => {
+                const attendance = calculateAttendancePercent(activeEnrolledCourse.id);
+                const minAttendance = courseMinAttendance(activeEnrolledCourse);
+
+                if (activeEnrolledCourse.category.includes('Sem Certificado')) {
+                  return (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+                      <h4 className="font-black text-slate-900 text-lg leading-tight mb-2">{activeEnrolledCourse.title}</h4>
+                      <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[11px] font-bold inline-block">Este curso não possui emissão de certificado.</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="bg-white border border-amber-200 rounded-2xl p-5 shadow-xs flex flex-col md:flex-row justify-between gap-6">
+                    <div className="space-y-4 w-full max-w-2xl">
+                      <div>
+                        <h4 className="font-black text-slate-900 text-lg leading-tight mb-1">{activeEnrolledCourse.title}</h4>
+                        <p className="text-xs text-slate-500 font-medium">Você concluiu {attendance}% do curso. Para liberar o certificado, é necessário atingir {minAttendance}%.</p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                          <span>Progresso Atual</span>
+                          <span className="text-amber-600 font-black">{attendance}% / {minAttendance}%</span>
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-full h-2">
+                          <div className="bg-amber-500 h-2 rounded-full transition-all duration-500" style={{ width: `${Math.min(100, attendance)}%` }}></div>
+                        </div>
+                      </div>
+
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800">
+                        <strong>O que falta?</strong> Continue assistindo as aulas teóricas e conclua os módulos pendentes para atingir o mínimo necessário.
+                      </div>
+                    </div>
+                    <div className="flex items-center shrink-0">
+                      <button
+                        onClick={() => { speakText("Retornando ao painel de estudos."); onBack(); }}
+                        className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 w-full md:w-auto cursor-pointer"
+                      >
+                        <PlayCircle className="h-4 w-4" />
+                        Continuar curso
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {activeCertificatesTab === 'validation' && (
+            <div className="space-y-6 animate-in fade-in duration-300 max-w-2xl">
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
+                <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider mb-2">Validar um Certificado</h3>
+                <p className="text-xs text-slate-500 mb-6">
+                  Insira o código de validação (hash alfanumérico) que consta no certificado para verificar a autenticidade e os dados de emissão.
+                </p>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    placeholder="Ex: AVA-1A2B3C4D5E6F7890"
+                    value={validationCode}
+                    onChange={(e) => setValidationCode(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleValidateCertificate(); }}
+                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 font-mono focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  />
+                  <button
+                    onClick={handleValidateCertificate}
+                    disabled={isValidating}
+                    className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs uppercase tracking-wider px-6 py-3 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                  >
+                    {isValidating ? 'Validando...' : 'Validar'}
+                  </button>
+                </div>
+
+                {validationResult && (
+                  <div className={`mt-6 p-5 rounded-xl border animate-in slide-in-from-bottom-2 duration-300 ${
+                    validationResult.valid ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
+                  }`}>
+                    {validationResult.valid ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-emerald-700 mb-2">
+                          <CheckCircle className="h-5 w-5" />
+                          <strong className="text-sm uppercase tracking-wider">Certificado Válido</strong>
+                        </div>
+                        <div className="space-y-1.5 text-xs text-slate-700">
+                          <p><strong className="text-slate-900 w-24 inline-block">Aluno:</strong> {validationResult.studentName}</p>
+                          <p><strong className="text-slate-900 w-24 inline-block">Curso:</strong> {validationResult.courseTitle}</p>
+                          {validationResult.cargaHoraria != null && (
+                            <p><strong className="text-slate-900 w-24 inline-block">Carga Horária:</strong> {validationResult.cargaHoraria}h</p>
+                          )}
+                          <p><strong className="text-slate-900 w-24 inline-block">Emissão:</strong> {validationResult.issueDate}</p>
+                          <p><strong className="text-slate-900 w-24 inline-block">Código:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-100">{validationCode}</span></p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 text-amber-800">
+                        <Info className="h-5 w-5 shrink-0" />
+                        <p className="text-xs font-bold leading-relaxed">{validationResult.message}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {selectedCertificate && (
+          <CertificateTemplate
+            certificate={selectedCertificate}
+            onClose={() => setSelectedCertificate(null)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 animate-in fade-in duration-300">
-      
+
       {/* Upper header section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <button
@@ -1038,6 +1378,17 @@ export function ProfileView({
                 <Lock className="h-4 w-4 text-[#540D6E]" />
                 <span>Alterar Senha de Acesso</span>
               </button>
+
+              {activeUser.role === 'student' && features.certificados && (
+                <button
+                  type="button"
+                  onClick={() => { speakText("Abrindo Meus Certificados."); setCurrentTab('certificates'); }}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md uppercase tracking-wider mt-2.5 border border-amber-600/20"
+                >
+                  <Award className="h-4.5 w-4.5 text-white" />
+                  <span>Meus Certificados ({studentCerts.length})</span>
+                </button>
+              )}
             </div>
 
           </div>
@@ -1275,16 +1626,33 @@ export function ProfileView({
                     </div>
                   </div>
 
-                  <div className="bg-gradient-to-br from-amber-50/50 to-amber-100/30 border border-amber-150 p-4 rounded-xl flex flex-col justify-between">
-                    <div className="flex items-center justify-between text-amber-600 mb-4">
-                      <Award className="h-5 w-5" />
-                      <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-amber-200/65 font-bold">Autêntico</span>
+                  {features.certificados ? (
+                    <button
+                      type="button"
+                      onClick={() => { speakText("Abrindo Meus Certificados."); setCurrentTab('certificates'); }}
+                      className="text-left bg-gradient-to-br from-amber-50/50 to-amber-100/30 border border-amber-150 hover:border-amber-300 p-4 rounded-xl flex flex-col justify-between transition-all cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between text-amber-600 mb-4">
+                        <Award className="h-5 w-5" />
+                        <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-amber-200/65 font-bold">Ver todos ➔</span>
+                      </div>
+                      <div>
+                        <span className="text-2xl font-black text-slate-900 leading-none block">{studentCerts.length}</span>
+                        <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Certificados Emitidos</span>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="bg-gradient-to-br from-amber-50/50 to-amber-100/30 border border-amber-150 p-4 rounded-xl flex flex-col justify-between">
+                      <div className="flex items-center justify-between text-amber-600 mb-4">
+                        <Award className="h-5 w-5" />
+                        <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-amber-200/65 font-bold">Autêntico</span>
+                      </div>
+                      <div>
+                        <span className="text-2xl font-black text-slate-900 leading-none block">{studentCerts.length}</span>
+                        <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Certificados Emitidos</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-2xl font-black text-slate-900 leading-none block">{studentCerts.length}</span>
-                      <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Certificados Emitidos</span>
-                    </div>
-                  </div>
+                  )}
 
                 </div>
 

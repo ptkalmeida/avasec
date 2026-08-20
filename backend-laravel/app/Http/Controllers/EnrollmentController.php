@@ -60,6 +60,7 @@ final class EnrollmentController extends Controller
             'enrolledAt' => ['sometimes', 'nullable', 'string'],
             'completedCourseIds' => ['sometimes', 'array', 'max:500'],
             'dropOutPenaltyUntil' => ['sometimes', 'nullable', 'string'],
+            'canMultiEnroll' => ['sometimes', 'boolean'],
         ]);
 
         // Presença de chave importa: o service só mescla campos enviados, e
@@ -76,6 +77,9 @@ final class EnrollmentController extends Controller
         }
         if (array_key_exists('dropOutPenaltyUntil', $data)) {
             $updates['dropOutPenaltyUntil'] = $this->optionalString($data, 'dropOutPenaltyUntil');
+        }
+        if (array_key_exists('canMultiEnroll', $data)) {
+            $updates['canMultiEnroll'] = $request->boolean('canMultiEnroll');
         }
 
         $updated = $this->enrollments->upsertEnrollment($userId, $updates, $this->requester($request));

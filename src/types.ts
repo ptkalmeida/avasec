@@ -114,6 +114,23 @@ export interface StudentEnrollment {
   enrolledAt: string | null;
   completedCourseIds: string[];
   dropOutPenaltyUntil: string | null;
+  /** Concedida só pelo Admin Superior (feature matriculasMultiplas). */
+  canMultiEnroll: boolean;
+  /** Cursos ativos ALÉM do principal (enrolledCourseId) — só quando canMultiEnroll. */
+  extraCourseIds: string[];
+}
+
+/** Área de gerenciamento de templates de documentos (certificado, histórico) — Admin Superior. */
+export interface DocumentTemplate {
+  type: 'certificado' | 'historico';
+  institutionName: string;
+  institutionLogoPath: string | null;
+  signatories: { name: string; role: string }[];
+  footerText: string;
+  /** Presente e não-vazio = modo "layout livre" (substitui o template estruturado). */
+  customHtml: string | null;
+  updatedAt: string | null;
+  updatedByUserId: string | null;
 }
 
 export interface StudentProgress {

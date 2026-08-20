@@ -3,20 +3,43 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Award, Check, Download, Printer, ShieldCheck, X } from 'lucide-react';
-import { Certificate } from '../types';
+import { Certificate, DocumentTemplate } from '../types';
 import { downloadCertificatePdf } from '../utils/fileDownload';
+import { useLMS } from '../context/LMSContext';
 
 interface CertificateTemplateProps {
   certificate: Certificate;
   onClose: () => void;
 }
 
+const DEFAULT_TEMPLATE: Pick<DocumentTemplate, 'institutionName' | 'signatories' | 'footerText' | 'customHtml'> = {
+  institutionName: 'República Federativa do Brasil • AVA LMS',
+  signatories: [
+    { name: 'Alessandro Pinto', role: 'Diretor de Tecnologia & AVA' },
+    { name: 'Mariana Santos', role: 'Professora Responsável (Coordenação Acadêmica)' },
+  ],
+  footerText: 'A emissão de certificados na plataforma AVA respeita a presença mínima e obrigatória nas atividades letivas e transmissões ao vivo.',
+  customHtml: null,
+};
+
 export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certificate, onClose }) => {
+  const { getDocumentTemplate } = useLMS();
   const printRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
+
+  useEffect(() => {
+    let cancelled = false;
+    getDocumentTemplate('certificado').then((res) => {
+      if (!cancelled && res.ok && res.template) {
+        setTemplate(res.template);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [getDocumentTemplate]);
 
   const handlePrint = () => {
     if (printRef.current) {
@@ -132,7 +155,7 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
                 <Award className="h-10 w-10 text-amber-700" />
               </div>
               <p className="text-xs uppercase tracking-widest text-amber-800 font-semibold font-sans">
-                República Federativa do Brasil • AVA LMS
+                {template.institutionName}
               </p>
             </div>
 
@@ -163,21 +186,25 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
             </p>
 
             {/* Signatures */}
-            <div className="mt-12 grid w-full grid-cols-2 gap-8 border-t border-amber-900/10 pt-8 font-sans">
-              <div className="flex flex-col items-center">
-                <div className="h-8 text-slate-400 italic font-serif">Alessandro Pinto</div>
-                <div className="w-40 border-t border-slate-300 my-1" />
-                <span className="text-xs font-semibold text-slate-700">Alessandro Pinto</span>
-                <span className="text-[10px] text-slate-500">Diretor de Tecnologia & AVA</span>
-              </div>
-
-              <div className="flex flex-col items-center">
-                <div className="h-8 text-slate-400 italic font-serif">Mariana Santos</div>
-                <div className="w-40 border-t border-slate-300 my-1" />
-                <span className="text-xs font-semibold text-slate-700">Coordenação Acadêmica</span>
-                <span className="text-[10px] text-slate-500">Professora Responsável</span>
-              </div>
+            <div className={`mt-12 grid w-full gap-8 border-t border-amber-900/10 pt-8 font-sans ${
+              template.signatories.length >= 3 ? 'grid-cols-3' : template.signatories.length === 2 ? 'grid-cols-2' : 'grid-cols-1'
+            }`}>
+              {template.signatories.map((sig, idx) => (
+                <div key={idx} className="flex flex-col items-center">
+                  <div className="h-8 text-slate-400 italic font-serif">{sig.name}</div>
+                  <div className="w-40 border-t border-slate-300 my-1" />
+                  <span className="text-xs font-semibold text-slate-700">{sig.name}</span>
+                  <span className="text-[10px] text-slate-500">{sig.role}</span>
+                </div>
+              ))}
             </div>
+
+            {template.customHtml && (
+              <p className="mt-6 text-[10.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-xl">
+                Este documento usa um layout HTML personalizado — o PDF baixado pode ter uma aparência
+                diferente desta prévia. Use "Baixar PDF" para ver o resultado final.
+              </p>
+            )}
 
             {/* Validation Hash Block code */}
             <div className="mt-8 flex flex-col items-center gap-1 font-mono text-[10px] text-slate-400">
@@ -192,7 +219,7 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
 
         {/* Info footer */}
         <div className="mt-5 text-center text-xs text-slate-500">
-          * A emissão de certificados na plataforma AVA respeita a presença mínima e obrigatória de 70% nas atividades letivas e transmissões ao vivo.
+          * {template.footerText}
         </div>
       </div>
     </div>

@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.5
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLMS } from '../context/LMSContext';
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance } from '../config/constants';
-import { isCourseExpired, StudentEnrollment } from '../types';
+import { isCourseExpired, StudentEnrollment, DocumentTemplate } from '../types';
 import { BackButton } from './BackButton';
 import { 
   ShieldCheck, Users, User, BookOpen, Award, CheckSquare, Plus, ArrowLeft,
@@ -58,6 +58,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     updateSystemSettings,
     studentEnrollments,
     clearStudentPenalty,
+    setStudentMultiEnrollPermission,
+    getDocumentTemplate,
+    updateDocumentTemplate,
     practicalExercises,
     exerciseSubmissions,
     addPracticalExercise,
@@ -70,8 +73,61 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
   const mockStudents = studentsList;
 
   // Selected Section State: 'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi'
-  const [activeTab, setActiveTab] = useState<'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi' | 'templates'>('analytics');
   const [selectedBiBase, setSelectedBiBase] = useState<'alunos' | 'cursos' | 'matriculas' | 'progresso' | 'certificados'>('alunos');
+
+  // Área de gerenciamento de templates de documentos (certificado, histórico)
+  const [templateDocType, setTemplateDocType] = useState<DocumentTemplate['type']>('certificado');
+  const [templateDraft, setTemplateDraft] = useState<DocumentTemplate | null>(null);
+  const [templateMode, setTemplateMode] = useState<'estruturado' | 'livre'>('estruturado');
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [templateSaved, setTemplateSaved] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'templates') return;
+    let cancelled = false;
+    setTemplateLoading(true);
+    setTemplateError(null);
+    getDocumentTemplate(templateDocType).then((res) => {
+      if (cancelled) return;
+      setTemplateLoading(false);
+      if (res.ok && res.template) {
+        setTemplateDraft(res.template);
+        setTemplateMode(res.template.customHtml ? 'livre' : 'estruturado');
+      } else {
+        setTemplateError(res.error || 'Não foi possível carregar o template.');
+      }
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, templateDocType]);
+
+  const handleSaveTemplate = async () => {
+    if (!templateDraft) return;
+    setTemplateSaving(true);
+    setTemplateError(null);
+    setTemplateSaved(false);
+    const payload = templateMode === 'livre'
+      ? { customHtml: templateDraft.customHtml || '' }
+      : {
+          institutionName: templateDraft.institutionName,
+          signatories: templateDraft.signatories,
+          footerText: templateDraft.footerText,
+          customHtml: null
+        };
+    const res = await updateDocumentTemplate(templateDocType, payload);
+    setTemplateSaving(false);
+    if (res.ok && res.template) {
+      setTemplateDraft(res.template);
+      setTemplateSaved(true);
+      showToast('Template de documento salvo com sucesso.');
+      setTimeout(() => setTemplateSaved(false), 3000);
+    } else {
+      setTemplateError(res.error || 'Não foi possível salvar o template.');
+    }
+  };
 
   // Exercise form states
   const [exCourseId, setExCourseId] = useState('');
@@ -639,6 +695,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     { id: 'requests', label: 'Documentos', icon: FileCheck, visible: features.solicitacoesAcademicas },
     { id: 'exercicios', label: 'Exercícios Práticos', icon: CheckSquare, visible: features.atividadesPraticasAvancadas },
     { id: 'export_bi', label: 'Dados Gerenciais', icon: Database, visible: features.dadosGerenciais },
+    { id: 'templates', label: 'Templates de Documentos', icon: FileText, visible: true },
     { id: 'settings', label: 'Configurações', icon: Settings, visible: features.perfilBasico },
   ].filter((t) => t.visible);
   const activeNavItem = adminNavItems.find((t) => t.id === activeTab);
@@ -3495,6 +3552,194 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
         </div>
       )}
 
+      {activeTab === 'templates' && (
+        <div className="space-y-5 text-left">
+          <div>
+            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-[#540D6E]" />
+                Templates de Documentos
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-xl">
+                Edite os dados institucionais e as assinaturas dos documentos oficiais, ou escreva o layout completo em HTML.
+              </p>
+            </div>
+            <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
+              {(['certificado', 'historico'] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setTemplateDocType(t)}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    templateDocType === t ? 'bg-[#540D6E] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {t === 'certificado' ? 'Certificado de Conclusão' : 'Histórico Escolar'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {templateDocType === 'historico' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-[11px] text-amber-900 leading-relaxed">
+              ⚠️ O histórico escolar ainda não tem emissão de PDF própria na plataforma — este template fica
+              pronto e salvo para quando essa emissão for construída, mas por enquanto não afeta nenhum
+              documento gerado.
+            </div>
+          )}
+
+          {templateLoading ? (
+            <div className="text-center py-16 text-slate-400 text-sm">Carregando template...</div>
+          ) : !templateDraft ? (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-rose-800">
+              {templateError || 'Não foi possível carregar o template.'}
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5 shadow-xs">
+              <div className="flex gap-2 border-b border-slate-100 pb-4">
+                <button
+                  onClick={() => setTemplateMode('estruturado')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                    templateMode === 'estruturado'
+                      ? 'bg-teal-600 text-white border-teal-600'
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  Dados Estruturados
+                </button>
+                <button
+                  onClick={() => setTemplateMode('livre')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                    templateMode === 'livre'
+                      ? 'bg-teal-600 text-white border-teal-600'
+                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  Layout Livre (HTML)
+                </button>
+              </div>
+
+              {templateMode === 'estruturado' ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nome da Instituição</label>
+                    <input
+                      type="text"
+                      value={templateDraft.institutionName}
+                      onChange={(e) => setTemplateDraft({ ...templateDraft, institutionName: e.target.value })}
+                      className="w-full bg-white border border-slate-200 p-2.5 text-sm rounded-lg text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Texto de Rodapé</label>
+                    <textarea
+                      value={templateDraft.footerText}
+                      onChange={(e) => setTemplateDraft({ ...templateDraft, footerText: e.target.value })}
+                      rows={2}
+                      className="w-full bg-white border border-slate-200 p-2.5 text-sm rounded-lg text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase">Assinaturas</label>
+                    {templateDraft.signatories.map((sig, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          placeholder="Nome"
+                          value={sig.name}
+                          onChange={(e) => {
+                            const next = [...templateDraft.signatories];
+                            next[idx] = { ...next[idx], name: e.target.value };
+                            setTemplateDraft({ ...templateDraft, signatories: next });
+                          }}
+                          className="flex-1 bg-white border border-slate-200 p-2 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Cargo"
+                          value={sig.role}
+                          onChange={(e) => {
+                            const next = [...templateDraft.signatories];
+                            next[idx] = { ...next[idx], role: e.target.value };
+                            setTemplateDraft({ ...templateDraft, signatories: next });
+                          }}
+                          className="flex-1 bg-white border border-slate-200 p-2 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                        />
+                        <button
+                          onClick={() => {
+                            const next = templateDraft.signatories.filter((_, i) => i !== idx);
+                            setTemplateDraft({ ...templateDraft, signatories: next });
+                          }}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer shrink-0"
+                          title="Remover assinatura"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setTemplateDraft({ ...templateDraft, signatories: [...templateDraft.signatories, { name: '', role: '' }] })}
+                      className="text-[11px] font-bold text-teal-600 hover:text-teal-700 cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Adicionar Assinatura
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-[11px] text-slate-500 leading-relaxed bg-slate-50 border border-slate-150 rounded-lg p-3">
+                    Escreva o HTML completo do documento. Placeholders disponíveis (substituídos como texto puro,
+                    sem executar código): <code className="font-mono">{'{{studentName}}'}</code>,{' '}
+                    <code className="font-mono">{'{{courseTitle}}'}</code>,{' '}
+                    <code className="font-mono">{'{{cargaHoraria}}'}</code>,{' '}
+                    <code className="font-mono">{'{{attendancePercent}}'}</code>,{' '}
+                    <code className="font-mono">{'{{issueDate}}'}</code>,{' '}
+                    <code className="font-mono">{'{{verificationHash}}'}</code>,{' '}
+                    <code className="font-mono">{'{{verificationUrl}}'}</code>,{' '}
+                    <code className="font-mono">{'{{institutionName}}'}</code>,{' '}
+                    <code className="font-mono">{'{{footerText}}'}</code> e{' '}
+                    <code className="font-mono">{'{{qrImg}}'}</code> (imagem do QR code).
+                  </p>
+                  <textarea
+                    value={templateDraft.customHtml || ''}
+                    onChange={(e) => setTemplateDraft({ ...templateDraft, customHtml: e.target.value })}
+                    rows={16}
+                    placeholder="<html>...</html>"
+                    className="w-full bg-slate-950 text-teal-300 border border-slate-800 p-3 text-xs font-mono rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500/40"
+                  />
+                </div>
+              )}
+
+              {templateError && (
+                <p className="text-xs text-rose-600 font-semibold">{templateError}</p>
+              )}
+              {templateSaved && (
+                <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                  <Check className="h-3.5 w-3.5" /> Template salvo com sucesso.
+                </p>
+              )}
+
+              <div className="flex justify-end pt-2 border-t border-slate-100">
+                <button
+                  onClick={handleSaveTemplate}
+                  disabled={templateSaving}
+                  className="flex items-center gap-2 bg-[#540D6E] hover:bg-[#430858] text-white font-bold text-xs uppercase tracking-wider px-5 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                >
+                  <Save className="h-4 w-4" />
+                  {templateSaving ? 'Salvando...' : 'Salvar Template'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'export_bi' && (
         <div className="space-y-4 text-left">
           <div>
@@ -4172,6 +4417,36 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     )}
                   </div>
                 </div>
+
+                {/* Matrícula múltipla simultânea (feature matriculasMultiplas) — só o Admin
+                    Superior concede; nunca ligado por padrão. */}
+                {features.matriculasMultiplas && (
+                  <div className="bg-purple-50/50 border border-purple-150 rounded-[10px] p-3.5 flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <span className="text-[10.5px] font-bold text-slate-800 block">Permitir Matrícula Múltipla Simultânea</span>
+                      <span className="text-[10px] text-slate-500 block leading-snug">
+                        Quando ativo, {st.name.split(' ')[0]} pode cursar mais de uma disciplina ao mesmo tempo.
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={!!(st.id && studentEnrollments?.[st.id]?.canMultiEnroll)}
+                        onChange={(e) => {
+                          if (!st.id) return;
+                          setStudentMultiEnrollPermission(st.id, e.target.checked);
+                          showToast(
+                            e.target.checked
+                              ? `${st.name} agora pode cursar mais de uma disciplina ao mesmo tempo.`
+                              : `Matrícula múltipla revogada para ${st.name}.`
+                          );
+                        }}
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                )}
 
                 {/* Pendencies checklist */}
                 <div className="space-y-2.5">

@@ -92,8 +92,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     .map(s => s.name);
   
   // Navigation & UI States
-  const [currentView, setCurrentView] = useState<'landing' | 'active_app' | 'perfil'>('landing');
-  const [previousView, setPreviousView] = useState<'landing' | 'active_app'>('landing');
+  const [currentView, setCurrentView] = useState<'landing' | 'active_app' | 'perfil' | 'cursos'>('landing');
+  const [previousView, setPreviousView] = useState<'landing' | 'active_app' | 'cursos'>('landing');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   
   // Registration and external validator integration states
@@ -114,13 +114,6 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Contact form state
-  const [contactName, setContactName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactSubject, setContactSubject] = useState('');
-  const [contactMessage, setContactMessage] = useState('');
-  const [contactSuccess, setContactSuccess] = useState(false);
 
   // Certificate lookup state
   const [certQuery, setCertQuery] = useState('');
@@ -242,8 +235,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   };
 
   // Slider States
-  const [activeCourseIndex, setActiveCourseIndex] = useState(0);
   const [activeNewsIndex, setActiveNewsIndex] = useState(0);
+  // Filtros do catálogo unificado de cursos (busca + categoria).
+  const [courseCategory, setCourseCategory] = useState<string>('all');
+  const [courseSearch, setCourseSearch] = useState('');
 
   // Hero Mouse Follow State
   const heroRef = useRef<HTMLDivElement>(null);
@@ -338,73 +333,18 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     }
   ];
 
-  // Creative sectors category metadata inspired by Image 6
-  const categoriesData = [
-    {
-      title: 'Áreas Técnicas',
-      description: 'Oferecemos qualificação e certificação profissional nas diversas áreas que dão suporte ao fazer artístico e à Economia Criativa.',
-      coursesCount: 5,
-      icon: (
-        <svg className="h-16 w-16 mx-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="40" fill="#540D6E" className="fill-blue-600 opacity-10" />
-          <path d="M30 35 h40 v25 h-40 z" fill="#540D6E" />
-          <circle cx="40" cy="70" r="8" fill="#FFD23F" />
-          <circle cx="60" cy="70" r="8" fill="#EE4266" />
-          <path d="M70 42 l12-8 v18 l-12-6 z" fill="#3BCEAC" />
-        </svg>
-      )
-    },
-    {
-      title: 'Políticas e Gestão Culturais',
-      description: 'Especialize-se nas melhores práticas para o desenvolvimento, execução, gestão e análise de projetos culturais e na compreensão das leis de incentivo.',
-      coursesCount: 3,
-      icon: (
-        <svg className="h-16 w-16 mx-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="40" fill="#FFD23F" className="fill-amber-500 opacity-10" />
-          {/* Semicircle colonnade columns */}
-          <path d="M25 65 h50 v6 h-50 z" fill="#FFD23F" />
-          <path d="M28 35 a22 22 0 0 1 44 0 z" fill="#EE4266" />
-          <path d="M32 40 h6 v25 h-6 z" fill="#3BCEAC" />
-          <path d="M47 40 h6 v25 h-6 z" fill="#540D6E" />
-          <path d="M62 40 h6 v25 h-6 z" fill="#FFD23F" />
-        </svg>
-      )
-    },
-    {
-      title: 'Linguagens Artísticas',
-      description: 'Aqui você encontrará formação inicial, continuada e de especialização para música, artes visuais, teatro, dança e demais linguagens artísticas.',
-      coursesCount: 6,
-      icon: (
-        <svg className="h-16 w-16 mx-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="40" fill="#EE4266" className="fill-red-600 opacity-10" />
-          {/* Play/Comedy tragedy mask segments */}
-          <path d="M30 45 a15 15 0 0 1 30 0 v10 a15 15 0 0 1-30 0 z" fill="#EE4266" />
-          <path d="M50 45 a15 15 0 0 1 30 0 v10 a15 15 0 0 1-30 0 z" fill="#540D6E" />
-          <circle cx="38" cy="45" r="3" fill="#FFD23F" />
-          <circle cx="52" cy="45" r="3" fill="#FFD23F" />
-          <circle cx="62" cy="45" r="3" fill="#3BCEAC" />
-          <circle cx="72" cy="45" r="3" fill="#3BCEAC" />
-          <path d="M40 54 q5 4 10 0" stroke="#fff" strokeWidth="2" fill="none" />
-          <path d="M62 54 q5-4 10 0" stroke="#fff" strokeWidth="2" fill="none" />
-        </svg>
-      )
-    },
-    {
-      title: 'Economia Criativa',
-      description: 'Aprenda a transformar criatividade em negócio. Explore estratégias de empreendedorismo, inovação e novos modelos de gestão para fortalecer a cadeia produtiva.',
-      coursesCount: 4,
-      icon: (
-        <svg className="h-16 w-16 mx-auto" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="50" cy="50" r="40" fill="#3BCEAC" className="fill-green-600 opacity-10" />
-          <circle cx="50" cy="50" r="24" fill="#3BCEAC" />
-          <circle cx="45" cy="40" r="5" fill="#EE4266" />
-          <circle cx="60" cy="45" r="5" fill="#FFD23F" />
-          <circle cx="52" cy="58" r="5" fill="#540D6E" />
-          <circle cx="38" cy="52" r="5" fill="#ffffff" />
-        </svg>
-      )
-    }
-  ];
+  // Catálogo unificado: categorias disponíveis (derivadas dos cursos) + lista filtrada
+  // por categoria e por texto de busca. Fonte única = featuredCoursesData.
+  const courseCategories = ['all', ...Array.from(new Set(featuredCoursesData.map((c) => c.category)))];
+  const filteredCourses = featuredCoursesData.filter((course) => {
+    const matchesCategory = courseCategory === 'all' || course.category === courseCategory;
+    const q = courseSearch.trim().toLowerCase();
+    const matchesText =
+      q === '' ||
+      course.title.toLowerCase().includes(q) ||
+      course.description.toLowerCase().includes(q);
+    return matchesCategory && matchesText;
+  });
 
   // Dynamic matched searches
   const matchedCourses = searchQuery.trim() === '' 
@@ -422,13 +362,6 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       );
 
   // Dynamic sliders transitions
-  const handleCourseNext = () => {
-    setActiveCourseIndex((prev) => (prev + 1) % featuredCoursesData.length);
-  };
-  const handleCoursePrev = () => {
-    setActiveCourseIndex((prev) => (prev - 1 + featuredCoursesData.length) % featuredCoursesData.length);
-  };
-
   const handleNewsNext = () => {
     setActiveNewsIndex((prev) => (prev + 1) % newsData.length);
   };
@@ -551,21 +484,6 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleContactSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (contactName.trim() && contactEmail.trim()) {
-      setContactSuccess(true);
-      speakText("Sua mensagem foi enviada com sucesso para a Escola Estadual da Cultura.");
-      setTimeout(() => {
-        setContactSuccess(false);
-        setContactName('');
-        setContactEmail('');
-        setContactSubject('');
-        setContactMessage('');
-      }, 6000);
-    }
-  };
-
   const handleSmoothScroll = (elementId: string) => {
     const el = document.getElementById(elementId);
     if (el) {
@@ -676,7 +594,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <button onClick={() => { handleSmoothScroll('o-projeto'); speakText("O Projeto"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
                 O Projeto
               </button>
-              <button onClick={() => { handleSmoothScroll('cursos'); speakText("Cursos"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
+              <button onClick={() => { setCurrentView('cursos'); window.scrollTo({ top: 0, behavior: 'smooth' }); speakText("Cursos"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
                 Cursos
               </button>
               <button onClick={() => { handleSmoothScroll('certificados'); speakText("Certificados"); }} className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer">
@@ -1077,12 +995,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 >
                   O Projeto
                 </button>
-                <button 
-                  onClick={() => { 
-                    handleSmoothScroll('cursos'); 
-                    setIsMobileMenuOpen(false); 
+                <button
+                  onClick={() => {
+                    setCurrentView('cursos');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    setIsMobileMenuOpen(false);
                     speakText("Cursos");
-                  }} 
+                  }}
                   className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
                 >
                   Cursos
@@ -1538,155 +1457,76 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             </section>
 
             {/* FEATURED COURSES SECTION: Image 5 Grid Slider */}
+            {/* TEASER DO CATÁLOGO: amostra de cursos + CTA para a página completa (/cursos) */}
             <section id="cursos" className="bg-slate-50 py-16 px-4">
               <div className="mx-auto max-w-7xl space-y-8">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-6">
-                  <div className="text-left space-y-1">
-                    <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">Destaques Letivos</span>
-                    <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">Cursos em Destaque</h3>
+                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 text-left border-b border-slate-200 pb-6">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">Catálogo</span>
+                    <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">Cursos Disponíveis</h3>
+                    <p className="text-xs md:text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                      Conheça os cursos oferecidos pela Escola Estadual da Cultura.
+                    </p>
                   </div>
-
-                  {/* Navigation controls next to titles */}
-                  <div className="flex gap-2.5 items-center self-stretch sm:self-auto justify-between w-full sm:w-auto">
-                    <button 
-                      onClick={() => handleSmoothScroll('cursos')}
-                      className="rounded-full border border-slate-300 bg-white hover:bg-slate-100 px-4 py-2 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs text-slate-700"
-                    >
-                      <span>Ver todos os cursos</span>
-                    </button>
-                    <div className="flex gap-1.5">
-                      <button 
-                        onClick={handleCoursePrev}
-                        className="h-9 w-9 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-colors shadow-3xs cursor-pointer"
-                        title="Anterior"
-                      >
-                        <ChevronLeft className="h-5 w-5" />
-                      </button>
-                      <button 
-                        onClick={handleCourseNext}
-                        className="h-9 w-9 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-colors shadow-3xs cursor-pointer"
-                        title="Próximo"
-                      >
-                        <ChevronRight className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
+                  <button
+                    onClick={() => { setCurrentView('cursos'); window.scrollTo({ top: 0, behavior: 'smooth' }); speakText("Ver catálogo completo de cursos."); }}
+                    className="shrink-0 flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#540D6E] hover:bg-purple-950 text-white text-[11px] font-black uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    <span>Ver Catálogo Completo</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
                 </div>
 
-                {/* Grid slider list containing real items and custom primary badge elements */}
+                {/* Amostra: primeiros cursos do catálogo, sem filtros (filtros ficam na página completa) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
-                  {(() => {
-                    const displayedCourses = searchQuery.trim() === '' ? featuredCoursesData : matchedCourses;
-                    if (displayedCourses.length === 0) {
-                      return (
-                        <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-white shadow-3xs">
-                          <h4 className="text-[#540D6E] font-black text-sm uppercase tracking-wider mb-2 font-mono">Sem Resultados</h4>
-                          <p className="text-slate-500 text-xs leading-relaxed max-w-md mx-auto">Nenhum curso em destaque coincide com a sua busca por "<strong className="text-slate-800 font-bold">{searchQuery}</strong>".</p>
-                          <button 
-                            onClick={() => setSearchQuery('')}
-                            className="mt-4 px-4 py-2 bg-[#540D6E] text-white text-xs font-bold rounded-xl hover:bg-purple-950 transition-colors uppercase tracking-wider cursor-pointer font-sans"
-                          >
-                            Limpar Filtro de Busca
-                          </button>
-                        </div>
-                      );
-                    }
-                    return displayedCourses.map((course, idx) => {
-                      const isFocus = idx === (activeCourseIndex % displayedCourses.length);
-
-                      return (
-                        <div 
-                          key={`${course.title}-${idx}`}
-                          className={`bg-white rounded-2xl border transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md ${
-                            isFocus ? 'border-[#540D6E] ring-1.5 ring-[#540D6E]' : 'border-slate-200'
-                          }`}
-                        >
-                        <div className="h-44 overflow-hidden relative bg-slate-800">
-                          <img 
-                            src={course.image} 
-                            alt={course.title} 
-                            className="w-full h-full object-cover filter grayscale contrast-125 saturate-50 hover:grayscale-0 transition-all duration-500"
-                            referrerPolicy="no-referrer"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
-                          
-                          {/* Colored circular overlay badge representing icons (mic/camera/columns/parliament) in upper section */}
-                          <div className="absolute top-4 right-4 h-11 w-11 rounded-xl bg-slate-900/90 text-white flex items-center justify-center shadow-md">
-                            {course.iconType === 'mic' && <Award className="h-5 w-5 text-[#FFD23F]" />}
-                            {course.iconType === 'video' && <Video className="h-5 w-5 text-[#FFD23F]" />}
-                            {course.iconType === 'building' && <Play className="h-5 w-5 text-[#FFD23F] translate-x-[1px]" />}
-                            {course.iconType === 'columns' && <BookOpen className="h-5 w-5 text-[#FFD23F]" />}
-                          </div>
-
-                          <span className="absolute bottom-3 left-3 text-[9px] font-black uppercase tracking-widest bg-white/10 backdrop-blur-md text-white border border-white/20 py-0.8 px-2 rounded-md">
-                            {course.category}
-                          </span>
-                        </div>
-
-                        <div className="p-4.5 space-y-3 flex-1 flex flex-col justify-between">
-                          <div className="space-y-1.5">
-                            <h4 className="text-xs font-bold text-slate-900 leading-snug group-hover:text-[#540D6E] transition-colors line-clamp-2 h-9 font-serif">
-                              {course.title}
-                            </h4>
-                            <p className="text-[10px] text-slate-400 font-semibold">Tutorado por: Prof. {course.instructor}</p>
-                            <p className="text-[10.5px] text-slate-500 leading-relaxed font-light line-clamp-3">
-                              {course.description}
-                            </p>
-                          </div>
-
-                          <button 
-                            onClick={() => setIsLoginModalOpen(true)}
-                            className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-[#540D6E] hover:text-white transition-all text-slate-600 border border-slate-150 text-[10.5px] font-black uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1"
-                          >
-                            <span>Inscrever-se</span>
-                            <ArrowRight className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  });
-                })()}
-                </div>
-              </div>
-            </section>
-
-            {/* COURSE CATEGORIES SECTION: Image 6 Vectors */}
-            <section className="bg-white py-16 px-4">
-              <div className="mx-auto max-w-7xl text-center space-y-12">
-                
-                <div className="space-y-3 max-w-2xl mx-auto">
-                  <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">Nossos Quadrantes</span>
-                  <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">Categorias de Cursos</h3>
-                  <p className="text-xs md:text-[11px] text-slate-500 leading-relaxed">
-                    Explore um universo de possibilidades com as categorias de cursos que oferecemos. Cada categoria é uma porta de entrada para novos conhecimentos e habilidades, refletindo a diversidade e a riqueza das artes e da cultura.
-                  </p>
-                  <div className="h-1.5 w-16 bg-[#EE4266] mx-auto rounded-full mt-2" />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto text-center">
-                  {categoriesData.map((cat) => (
-                    <div 
-                      key={cat.title}
-                      className="bg-slate-50/50 hover:bg-slate-50 border border-slate-200/60 hover:border-slate-300 p-6.5 rounded-3xl transition-all hover:shadow-xs flex flex-col justify-between"
+                  {featuredCoursesData.slice(0, 4).map((course, idx) => (
+                    <div
+                      key={`${course.title}-${idx}`}
+                      className="bg-white rounded-2xl border border-slate-200 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md hover:border-[#540D6E]"
                     >
-                      <div className="space-y-4">
-                        <div className="transform hover:scale-105 transition-transform">
-                          {cat.icon}
+                      <div className="h-44 overflow-hidden relative bg-slate-800">
+                        <img
+                          src={course.image}
+                          alt={course.title}
+                          className="w-full h-full object-cover filter grayscale contrast-125 saturate-50 hover:grayscale-0 transition-all duration-500"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
+
+                        <div className="absolute top-4 right-4 h-11 w-11 rounded-xl bg-slate-900/90 text-white flex items-center justify-center shadow-md">
+                          {course.iconType === 'mic' && <Award className="h-5 w-5 text-[#FFD23F]" />}
+                          {course.iconType === 'video' && <Video className="h-5 w-5 text-[#FFD23F]" />}
+                          {course.iconType === 'building' && <Play className="h-5 w-5 text-[#FFD23F] translate-x-[1px]" />}
+                          {course.iconType === 'columns' && <BookOpen className="h-5 w-5 text-[#FFD23F]" />}
                         </div>
-                        <h4 className="text-[15px] font-extrabold text-[#111] font-serif">{cat.title}</h4>
-                        <p className="text-[10.5px] text-slate-500 leading-relaxed font-light">{cat.description}</p>
-                      </div>
-                      
-                      <div className="mt-6 pt-4 border-t border-slate-150 flex justify-between items-center text-[10px] font-mono font-bold text-slate-450 uppercase">
-                        <span>{cat.coursesCount} disciplinas</span>
-                        <span className="text-[#540D6E] hover:underline cursor-pointer flex items-center gap-0.5" onClick={() => setIsLoginModalOpen(true)}>
-                          Ver ➔
+
+                        <span className="absolute bottom-3 left-3 text-[9px] font-black uppercase tracking-widest bg-white/10 backdrop-blur-md text-white border border-white/20 py-0.8 px-2 rounded-md">
+                          {course.category}
                         </span>
+                      </div>
+
+                      <div className="p-4.5 space-y-3 flex-1 flex flex-col justify-between">
+                        <div className="space-y-1.5">
+                          <h4 className="text-xs font-bold text-slate-900 leading-snug transition-colors line-clamp-2 h-9 font-serif">
+                            {course.title}
+                          </h4>
+                          <p className="text-[10px] text-slate-400 font-semibold">Tutorado por: Prof. {course.instructor}</p>
+                          <p className="text-[10.5px] text-slate-500 leading-relaxed font-light line-clamp-3">
+                            {course.description}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => setIsLoginModalOpen(true)}
+                          className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-[#540D6E] hover:text-white transition-all text-slate-600 border border-slate-150 text-[10.5px] font-black uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1"
+                        >
+                          <span>Inscrever-se</span>
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-
               </div>
             </section>
 
@@ -2259,15 +2099,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             {/* SEÇÃO 9: CONTATOS */}
             <section id="contato" className="bg-slate-900 text-white py-20 px-4">
               <div className="mx-auto max-w-7xl">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
                   
-                  {/* Left Column: School Information */}
-                  <div className="lg:col-span-5 space-y-8 text-left">
+                  {/* Left Column: Contact Information */}
+                  <div className="space-y-8 text-left">
                     <div className="space-y-3">
-                      <span className="text-[10px] font-extrabold text-[#FFD23F] uppercase tracking-widest block font-mono">Canais de Atendimento</span>
+                      <span className="text-[10px] font-extrabold text-[#FFD23F] uppercase tracking-widest block font-mono">Informações de Contato</span>
                       <h3 className="text-2xl md:text-3.5xl font-black text-white uppercase tracking-tight font-serif">Contatos</h3>
                       <p className="text-xs text-slate-400 leading-relaxed font-light">
-                        A equipe de coordenação e suporte técnico da Escola de Cultura está de braços abertos para ajudar você. Entre em contato por meio de qualquer um dos canais disponíveis.
+                        Visite o site oficial da Secretaria de Estado de Cultura do Rio de Janeiro para mais informações e suporte.
                       </p>
                       <div className="h-1.5 w-12 bg-[#FFD23F] rounded-full" />
                     </div>
@@ -2275,11 +2115,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <div className="space-y-4">
                       <div className="flex gap-4.5 items-center">
                         <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#FFD23F]">
-                          <Mail className="h-5 w-5" />
+                          <MapPin className="h-5 w-5" />
                         </div>
                         <div className="text-xs">
-                          <span className="text-slate-400 block font-mono text-[9px] uppercase">Email Principal</span>
-                          <a href="mailto:contato@escoladecultura.edu.br" className="text-white hover:underline font-bold">contato@escoladecultura.edu.br</a>
+                          <span className="text-slate-400 block font-mono text-[9px] uppercase">Endereço Físico</span>
+                          <span className="text-white font-medium block leading-normal">
+                            Secretaria de Estado de Cultura e Economia Criativa<br />
+                            Centro, Rio de Janeiro - RJ
+                          </span>
                         </div>
                       </div>
 
@@ -2288,110 +2131,24 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           <Globe className="h-5 w-5" />
                         </div>
                         <div className="text-xs">
-                          <span className="text-slate-400 block font-mono text-[9px] uppercase">Telefone / WhatsApp</span>
-                          <span className="text-white font-bold block">(81) 3224-5566 / (81) 98877-0022</span>
+                          <span className="text-slate-400 block font-mono text-[9px] uppercase">Site Oficial</span>
+                          <a href="https://cultura.rj.gov.br/" target="_blank" rel="noopener noreferrer" className="text-white hover:text-[#FFD23F] hover:underline font-bold">cultura.rj.gov.br</a>
                         </div>
                       </div>
-
-                      <div className="flex gap-4.5 items-center">
-                        <div className="h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#FFD23F]">
-                          <MapPin className="h-5 w-5" />
-                        </div>
-                        <div className="text-xs">
-                          <span className="text-slate-400 block font-mono text-[9px] uppercase">Endereço Físico</span>
-                          <span className="text-white font-medium block leading-normal">
-                            Av. da Cultura, nº 120 - Bairro das Artes<br />
-                            Recife - PE, CEP: 50010-000
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-2">
-                      <a href="#" className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-slate-300 transition-colors"><Instagram className="h-4 w-4" /></a>
-                      <a href="#" className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-slate-300 transition-colors"><Youtube className="h-4 w-4" /></a>
-                      <a href="#" className="h-9 w-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 text-slate-300 transition-colors"><Facebook className="h-4 w-4" /></a>
                     </div>
                   </div>
 
-                  {/* Right Column: Contact Message Form */}
-                  <div className="lg:col-span-7 bg-white/5 border border-white/10 p-6 md:p-8 rounded-3xl text-left space-y-6">
-                    <div className="space-y-1.5">
-                      <h4 className="text-lg font-bold text-white font-serif">Formulário de Mensagem</h4>
-                      <p className="text-xs text-slate-400">Envie suas sugestões, críticas ou solicite suporte especial.</p>
+                  {/* Right Column: Illustration or Additional Info */}
+                  <div className="hidden lg:flex items-center justify-center">
+                    <div className="text-center space-y-4">
+                      <div className="inline-flex items-center justify-center h-24 w-24 rounded-2xl bg-[#FFD23F]/10 border border-[#FFD23F]/30">
+                        <MapPin className="h-12 w-12 text-[#FFD23F]" />
+                      </div>
+                      <h4 className="text-lg font-bold text-white font-serif">Nos Visite</h4>
+                      <p className="text-xs text-slate-400 max-w-xs">
+                        Estamos prontos para acolher você na sede da Escola Estadual da Cultura.
+                      </p>
                     </div>
-
-                    {contactSuccess ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="p-6 rounded-2xl bg-[#3BCEAC]/10 border border-[#3BCEAC]/30 text-center space-y-3"
-                      >
-                        <CheckCircle className="h-10 w-10 text-[#3BCEAC] mx-auto animate-bounce" />
-                        <strong className="text-sm font-bold text-[#3BCEAC] uppercase tracking-wider block font-serif">Mensagem Enviada!</strong>
-                        <p className="text-xs text-slate-300 font-light leading-relaxed max-w-md mx-auto">
-                          Agradecemos o seu contato. Nossa equipe de coordenação analisará sua mensagem e responderá ao email informado em até 24 horas úteis.
-                        </p>
-                      </motion.div>
-                    ) : (
-                      <form onSubmit={handleContactSubmit} className="space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Nome</label>
-                            <input
-                              type="text"
-                              required
-                              value={contactName}
-                              onChange={(e) => setContactName(e.target.value)}
-                              placeholder="Seu nome completo"
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#FFD23F] placeholder-slate-600"
-                            />
-                          </div>
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Email</label>
-                            <input
-                              type="email"
-                              required
-                              value={contactEmail}
-                              onChange={(e) => setContactEmail(e.target.value)}
-                              placeholder="seu.email@exemplo.com"
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#FFD23F] placeholder-slate-600"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Assunto</label>
-                          <input
-                            type="text"
-                            required
-                            value={contactSubject}
-                            onChange={(e) => setContactSubject(e.target.value)}
-                            placeholder="Ex: Dúvida sobre matrícula"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#FFD23F] placeholder-slate-600"
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Mensagem</label>
-                          <textarea
-                            rows={4}
-                            required
-                            value={contactMessage}
-                            onChange={(e) => setContactMessage(e.target.value)}
-                            placeholder="Escreva sua mensagem aqui..."
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-[#FFD23F] placeholder-slate-600 resize-none"
-                          />
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="w-full rounded-xl bg-[#FFD23F] hover:bg-amber-400 text-slate-950 font-black text-xs py-3 uppercase tracking-wider transition-all shadow-md cursor-pointer"
-                        >
-                          Enviar Mensagem
-                        </button>
-                      </form>
-                    )}
                   </div>
 
                 </div>
@@ -2412,11 +2169,138 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             onLogout={handleLogout}
             speakText={speakText}
           />
+        ) : currentView === 'cursos' ? (
+          /* PÁGINA DEDICADA: Catálogo completo de cursos, com busca e filtro por categoria */
+          <div className="bg-white min-h-[70vh] py-10 px-4 animate-in fade-in duration-300">
+            <div className="mx-auto max-w-7xl space-y-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentView('landing');
+                    speakText("Voltando para a Página Inicial.");
+                  }}
+                  className="group flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-all bg-white border border-slate-200 px-4 py-2 rounded-xl cursor-pointer shadow-3xs"
+                  title="Voltar ao Portal Inicial"
+                >
+                  <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+                  <span>Voltar</span>
+                </button>
+              </div>
+
+              <div className="text-left space-y-1 border-b border-slate-200 pb-6">
+                <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">Catálogo</span>
+                <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">Cursos Disponíveis</h3>
+                <p className="text-xs md:text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                  Conheça os cursos oferecidos pela Escola Estadual da Cultura. Use os filtros para encontrar por área ou por nome.
+                </p>
+              </div>
+
+              {/* Barra de filtros: busca por texto + categoria */}
+              <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+                <div className="relative w-full md:max-w-xs">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={courseSearch}
+                    onChange={(e) => setCourseSearch(e.target.value)}
+                    placeholder="Buscar curso pelo nome..."
+                    aria-label="Buscar curso"
+                    className="w-full bg-white border border-slate-200 focus:ring-2 focus:ring-[#540D6E]/15 focus:border-[#540D6E] focus:outline-none rounded-xl py-2.5 pl-10 pr-4 text-xs font-medium text-slate-800 shadow-3xs"
+                  />
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  {courseCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setCourseCategory(cat)}
+                      className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                        courseCategory === cat
+                          ? 'bg-[#540D6E] text-white border-transparent'
+                          : 'bg-white text-slate-500 border-slate-200 hover:text-slate-800 hover:border-slate-300'
+                      }`}
+                    >
+                      {cat === 'all' ? 'Todas' : cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lista de cursos disponíveis em cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+                {filteredCourses.length === 0 ? (
+                  <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-slate-50 shadow-3xs">
+                    <h4 className="text-[#540D6E] font-black text-sm uppercase tracking-wider mb-2 font-mono">Sem Resultados</h4>
+                    <p className="text-slate-500 text-xs leading-relaxed max-w-md mx-auto">Nenhum curso encontrado com os filtros atuais.</p>
+                    <button
+                      onClick={() => { setCourseSearch(''); setCourseCategory('all'); }}
+                      className="mt-4 px-4 py-2 bg-[#540D6E] text-white text-xs font-bold rounded-xl hover:bg-purple-950 transition-colors uppercase tracking-wider cursor-pointer font-sans"
+                    >
+                      Limpar Filtros
+                    </button>
+                  </div>
+                ) : (
+                  filteredCourses.map((course, idx) => (
+                    <div
+                      key={`${course.title}-${idx}`}
+                      className="bg-white rounded-2xl border border-slate-200 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md hover:border-[#540D6E]"
+                    >
+                      <div className="h-44 overflow-hidden relative bg-slate-800">
+                        <img
+                          src={course.image}
+                          alt={course.title}
+                          className="w-full h-full object-cover filter grayscale contrast-125 saturate-50 hover:grayscale-0 transition-all duration-500"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
+
+                        <div className="absolute top-4 right-4 h-11 w-11 rounded-xl bg-slate-900/90 text-white flex items-center justify-center shadow-md">
+                          {course.iconType === 'mic' && <Award className="h-5 w-5 text-[#FFD23F]" />}
+                          {course.iconType === 'video' && <Video className="h-5 w-5 text-[#FFD23F]" />}
+                          {course.iconType === 'building' && <Play className="h-5 w-5 text-[#FFD23F] translate-x-[1px]" />}
+                          {course.iconType === 'columns' && <BookOpen className="h-5 w-5 text-[#FFD23F]" />}
+                        </div>
+
+                        <span className="absolute bottom-3 left-3 text-[9px] font-black uppercase tracking-widest bg-white/10 backdrop-blur-md text-white border border-white/20 py-0.8 px-2 rounded-md">
+                          {course.category}
+                        </span>
+                      </div>
+
+                      <div className="p-4.5 space-y-3 flex-1 flex flex-col justify-between">
+                        <div className="space-y-1.5">
+                          <h4 className="text-xs font-bold text-slate-900 leading-snug transition-colors line-clamp-2 h-9 font-serif">
+                            {course.title}
+                          </h4>
+                          <p className="text-[10px] text-slate-400 font-semibold">Tutorado por: Prof. {course.instructor}</p>
+                          <p className="text-[10.5px] text-slate-500 leading-relaxed font-light line-clamp-3">
+                            {course.description}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => setIsLoginModalOpen(true)}
+                          className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-[#540D6E] hover:text-white transition-all text-slate-600 border border-slate-150 text-[10.5px] font-black uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1"
+                        >
+                          <span>Inscrever-se</span>
+                          <ArrowRight className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
           /* ACTIVE APP VIEW - ROUTING WITH ABSOLUTE BOUNDARIES EXPLICITLY RESPECTING THE GUIDELINES */
           <div className="bg-slate-50/20">
             {activeUser.role === 'student' && (
-              <StudentDashboard onBackToLanding={() => setCurrentView('landing')} speakText={speakText} />
+              <StudentDashboard
+                onBackToLanding={() => setCurrentView('landing')}
+                onNavigateToProfile={() => setCurrentView('perfil')}
+                speakText={speakText}
+              />
             )}
             
             {activeUser.role === 'instructor' && (
@@ -2728,11 +2612,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     >
                       • Banner Principal (Abertura do Portal)
                     </button>
-                    <button 
-                      onClick={() => { setIsSiteMapOpen(false); handleSmoothScroll('cursos'); speakText("Ir para Cursos em Destaque"); }} 
+                    <button
+                      onClick={() => { setIsSiteMapOpen(false); setCurrentView('cursos'); window.scrollTo({ top: 0, behavior: 'smooth' }); speakText("Ir para Cursos Disponíveis"); }}
                       className="text-left py-1 hover:text-[#540D6E] transition-colors hover:underline block cursor-pointer bg-transparent border-0 outline-hidden font-bold"
                     >
-                      • Lista de Cursos em Destaque (Carrossel de Cursos)
+                      • Cursos Disponíveis (catálogo com filtros)
                     </button>
                     <button 
                       onClick={() => { setIsSiteMapOpen(false); handleSmoothScroll('noticias'); speakText("Ir para Informativos Recentes"); }} 

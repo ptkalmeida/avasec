@@ -46,4 +46,12 @@ trait SeedsIdentity
 
         return $id;
     }
+
+    protected function anotherSeededCourseId(string $excludeId): string
+    {
+        $id = DB::table('Course')->where('id', '!=', $excludeId)->value('id');
+        $this->assertNotNull($id, 'Seed sem um segundo curso distinto — popular o MySQL de dev.');
+
+        return $id;
+    }
 }

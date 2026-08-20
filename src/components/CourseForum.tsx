@@ -24,7 +24,10 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
 
   // Check enrollment (mapa keyed por userId — ADR 10)
   const enrollment = studentEnrollments[activeUser.id];
-  const isEnrolled = enrollment && enrollment.enrolledCourseId === selectedCourse.id;
+  const isEnrolled = !!enrollment && (
+    enrollment.enrolledCourseId === selectedCourse.id
+    || (enrollment.extraCourseIds || []).includes(selectedCourse.id)
+  );
   const canParticipate = isEnrolled || activeUser.role === 'instructor' || activeUser.role === 'admin';
 
   // Quick Tags

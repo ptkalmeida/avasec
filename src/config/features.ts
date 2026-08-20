@@ -54,6 +54,10 @@ export const features = {
   // Sistema de mensagens diretas e chats de suporte internos
   mensagensDiretas: false,
 
+  // Permite que o Admin Superior conceda a alunos específicos a possibilidade
+  // de cursar mais de uma disciplina simultaneamente (por padrão, 1 por vez)
+  matriculasMultiplas: true,
+
   // --- FUNCIONALIDADES ATIVADAS POR PADRÃO NO MVP ---
   
   // Catálogo público de cursos disponíveis

@@ -71,7 +71,7 @@
         <div class="corner corner-bl"></div>
         <div class="corner corner-br"></div>
 
-        <div class="institution">República Federativa do Brasil &bull; AVA LMS</div>
+        <div class="institution">{{ $institutionName }}</div>
 
         <h1>Certificado de Conclusão</h1>
 
@@ -96,18 +96,14 @@
 
         <table class="signatures">
             <tr>
-                <td>
-                    <div class="sig-script">Alessandro Pinto</div>
-                    <div class="sig-line"></div>
-                    <div class="sig-name">Alessandro Pinto</div>
-                    <div class="sig-role">Diretor de Tecnologia &amp; AVA</div>
-                </td>
-                <td>
-                    <div class="sig-script">Mariana Santos</div>
-                    <div class="sig-line"></div>
-                    <div class="sig-name">Coordenação Acadêmica</div>
-                    <div class="sig-role">Professora Responsável</div>
-                </td>
+                @foreach ($signatories as $signatory)
+                    <td style="width: {{ 100 / max(count($signatories), 1) }}%;">
+                        <div class="sig-script">{{ $signatory['name'] }}</div>
+                        <div class="sig-line"></div>
+                        <div class="sig-name">{{ $signatory['name'] }}</div>
+                        <div class="sig-role">{{ $signatory['role'] }}</div>
+                    </td>
+                @endforeach
             </tr>
         </table>
 
@@ -125,7 +121,7 @@
         </table>
 
         <div class="footnote">
-            * A emissão de certificados na plataforma AVA respeita a presença mínima e obrigatória nas atividades letivas e transmissões ao vivo.
+            * {{ $footerText }}
         </div>
     </div>
 </body>
