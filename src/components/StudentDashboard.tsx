@@ -9,7 +9,7 @@ import {
   BookOpen, Calendar, CheckCircle, Award, Video, Clock, ChevronRight,
   TrendingUp, FileCheck, ArrowRight, ArrowLeft, User, Settings, Sparkles, BookMarked, Monitor, Linkedin, Download, Globe, PlayCircle,
   Lock, MessageSquare, Send, ChevronDown, Check, Play, FileText, Notebook, Layers, HelpCircle, CheckSquare, ExternalLink, Archive, Library, Info,
-  Bell, Shield, Smartphone, X
+  Bell, Shield, Smartphone, X, Bold, Italic, Underline, List, ListOrdered
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
@@ -291,21 +291,53 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     }
   });
 
-  const [lessonNoteText, setLessonNoteText] = useState('');
+  // Editor WYSIWYG (contentEditable + execCommand) — sem dependência nova.
+  // contentEditable é inerentemente não-controlado, então o conteúdo é lido/
+  // escrito via ref (innerHTML), não via state a cada tecla.
+  const noteEditorRef = React.useRef<HTMLDivElement>(null);
+  const [noteSaved, setNoteSaved] = useState(false);
 
-  // Sync state whenever active lesson switches
+  // Sync do editor sempre que a aula ativa muda (HTML salvo vira o conteúdo do editor).
   React.useEffect(() => {
-    if (activeLesson) {
-      setLessonNoteText(savedNotes[activeLesson.id] || '');
+    if (activeLesson && noteEditorRef.current) {
+      noteEditorRef.current.innerHTML = savedNotes[activeLesson.id] || '';
     }
-  }, [activeLesson, savedNotes]);
+    setNoteSaved(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLesson?.id]);
+
+  const applyNoteFormat = (command: string, value?: string) => {
+    noteEditorRef.current?.focus();
+    document.execCommand(command, false, value);
+  };
 
   const handleSaveNoteText = () => {
-    if (activeLesson) {
-      const updated = { ...savedNotes, [activeLesson.id]: lessonNoteText };
+    if (activeLesson && noteEditorRef.current) {
+      const html = noteEditorRef.current.innerHTML;
+      const updated = { ...savedNotes, [activeLesson.id]: html };
       setSavedNotes(updated);
       localStorage.setItem('ava_student_lesson_notes', JSON.stringify(updated));
+      setNoteSaved(true);
+      setTimeout(() => setNoteSaved(false), 3000);
     }
+  };
+
+  const handleDownloadNoteText = () => {
+    if (!activeLesson || !noteEditorRef.current) return;
+    const html = noteEditorRef.current.innerHTML;
+    if (!html.trim()) return;
+    const htmlDoc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Anotações — ${activeLesson.title}</title>
+<style>body{font-family:Arial,Helvetica,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#1e293b;line-height:1.6;} h1{font-size:18px;border-bottom:2px solid #0d9488;padding-bottom:8px;} </style>
+</head><body><h1>Anotações — ${activeLesson.title}</h1>${html}</body></html>`;
+    const blob = new Blob([htmlDoc], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `anotacoes-${activeLesson.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const [lessonSupportMessage, setLessonSupportMessage] = useState('');
@@ -847,6 +879,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           </button>
                         </div>
 
+                        <span className="hidden sm:inline text-[10px] font-mono text-slate-400 select-none">
+                          Aula {activeLesson.order} de {selectedCourse.lessons.length}
+                        </span>
+
                         {/* Complete checking in the classroom */}
                         <button
                           onClick={() => toggleLessonCompletion(selectedCourse.id, activeLesson.id)}
@@ -1015,14 +1051,75 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 <p className="text-[10px] text-slate-400 leading-none mt-1">Eles são gravados e persistidos localmente no seu navegador para consultas futuras.</p>
                               </div>
 
-                              <textarea
-                                value={lessonNoteText}
-                                onChange={(e) => setLessonNoteText(e.target.value)}
-                                placeholder="Grave observações importantes, trechos de código ou anotações teóricas desta aula aqui..."
-                                className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 h-32 focus:outline-hidden focus:ring-1 focus:ring-teal-500 text-xs font-sans text-slate-800"
-                              />
+                              <div className="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:ring-1 focus-within:ring-teal-500">
+                                {/* Barra de ferramentas do editor WYSIWYG */}
+                                <div className="flex items-center gap-1 border-b border-slate-200 bg-white px-2 py-1.5">
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('bold'); }}
+                                    title="Negrito"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                  >
+                                    <Bold className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('italic'); }}
+                                    title="Itálico"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                  >
+                                    <Italic className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('underline'); }}
+                                    title="Sublinhado"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                  >
+                                    <Underline className="h-3.5 w-3.5" />
+                                  </button>
+                                  <span className="w-px h-4 bg-slate-200 mx-1" />
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('insertUnorderedList'); }}
+                                    title="Lista com marcadores"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                  >
+                                    <List className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('insertOrderedList'); }}
+                                    title="Lista numerada"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                  >
+                                    <ListOrdered className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
 
-                              <div className="flex justify-end gap-2 text-right">
+                                <div
+                                  ref={noteEditorRef}
+                                  contentEditable
+                                  suppressContentEditableWarning
+                                  data-placeholder="Grave observações importantes, trechos de código ou anotações teóricas desta aula aqui..."
+                                  className="w-full min-h-32 p-3 text-xs font-sans text-slate-800 focus:outline-hidden empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                                />
+                              </div>
+
+                              <div className="flex items-center justify-end gap-3 text-right">
+                                {noteSaved && (
+                                  <span className="text-[10.5px] font-bold text-emerald-600 flex items-center gap-1">
+                                    <Check className="h-3.5 w-3.5" />
+                                    Anotação salva!
+                                  </span>
+                                )}
+                                <button
+                                  onClick={handleDownloadNoteText}
+                                  className="rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs px-4 py-1.8 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                                >
+                                  <Download className="h-3.5 w-3.5" />
+                                  Baixar Anotações
+                                </button>
                                 <button
                                   onClick={handleSaveNoteText}
                                   className="rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-4 py-1.8 shadow-xs transition-transform hover:scale-[1.02] cursor-pointer animate-none"
@@ -1681,7 +1778,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 </div>
                 )}
 
-              {/* Encerramento de Matrícula — card no final da página, mesmo estilo visual do card de Exercícios de Fixação */}
+              {/* Encerramento de Matrícula — só na página inicial do curso (visão geral),
+                  não dentro da aula: mesmo estilo visual do card de Exercícios de Fixação */}
+              {!activeLesson && !activeQuizTaking && (
               <div className="mt-8 border border-rose-100 bg-rose-50/10 rounded-2xl p-5 text-left space-y-3 shadow-2xs max-w-xs w-full mr-auto">
                 <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
                   <ArrowLeft className="h-3.5 w-3.5 text-rose-600" />
@@ -1715,6 +1814,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   <span>Solicitar Saída do Curso</span>
                 </button>
               </div>
+              )}
 
             </div>
           )

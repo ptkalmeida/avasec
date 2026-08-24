@@ -39,4 +39,23 @@ final class UploadController extends Controller
             'Content-Type' => $resolved['mime'],
         ]);
     }
+
+    /**
+     * Serve estaticamente um arquivo PÚBLICO em /uploads/<nome> — sem autenticação,
+     * equivalente ao express.static do Node legado (rota /uploads). BinaryFileResponse
+     * do Symfony já responde a Range requests, necessário para o <video> nativo buscar
+     * (seek) no arquivo.
+     */
+    public function servePublic(string $filename): BinaryFileResponse
+    {
+        // Rota fora de /api/* — o handler global só serializa ApiException como JSON
+        // para caminhos api/*, então aqui convertemos direto para o status HTTP puro.
+        try {
+            $resolved = $this->uploads->resolvePublicFile($filename);
+        } catch (ApiException $e) {
+            abort($e->status, $e->getMessage());
+        }
+
+        return response()->file($resolved['path'], ['Content-Type' => $resolved['mime']]);
+    }
 }

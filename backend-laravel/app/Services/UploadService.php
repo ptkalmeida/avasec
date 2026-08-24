@@ -113,6 +113,34 @@ final class UploadService
         ];
     }
 
+    /**
+     * Resolve caminho físico de um arquivo PÚBLICO para servir estaticamente em
+     * /uploads/<nome> (equivalente ao express.static do Node legado). Sem checagem de
+     * dono/StoredFile — arquivos públicos, incluindo os colocados manualmente na pasta
+     * (ex.: vídeo de teste), são acessíveis por qualquer um, como no comportamento antigo.
+     *
+     * @return array{path:string, mime:string}
+     */
+    public function resolvePublicFile(string $filename): array
+    {
+        if ($filename === '' || str_contains($filename, '/') || str_contains($filename, '\\') || str_contains($filename, '..')) {
+            throw ApiException::notFound('Arquivo não encontrado.');
+        }
+
+        $path = $this->dir('public').DIRECTORY_SEPARATOR.$filename;
+        if (! is_file($path)) {
+            throw ApiException::notFound('Arquivo não encontrado.');
+        }
+
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $mime = config("uploads.mime_by_ext.$ext", 'application/octet-stream');
+
+        return [
+            'path' => $path,
+            'mime' => is_string($mime) ? $mime : 'application/octet-stream',
+        ];
+    }
+
     private function dir(string $visibility): string
     {
         $root = config('uploads.root');

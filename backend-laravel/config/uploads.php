@@ -30,6 +30,9 @@ return [
     ],
 
     // Extensão -> MIME usado no Content-Type do download.
+    // mp4/webm/ogg não passam pelo endpoint de upload (não estão em allowed_types) — só
+    // servem para o Content-Type de vídeos colocados manualmente em uploads/public para
+    // simular armazenamento no servidor (ADR 08, provider 'file').
     'mime_by_ext' => [
         'pdf' => 'application/pdf',
         'png' => 'image/png',
@@ -38,5 +41,10 @@ return [
         'webp' => 'image/webp',
         'gif' => 'image/gif',
         'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'mp4' => 'video/mp4',
+        'webm' => 'video/webm',
+        'ogg' => 'video/ogg',
+        'm4v' => 'video/x-m4v',
+        'mov' => 'video/quicktime',
     ],
 ];

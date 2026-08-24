@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
 use App\Services\AuditLogger;
+use App\Services\CertificatePdfService;
 use App\Services\DocumentTemplateService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 final class DocumentTemplateController extends Controller
 {
@@ -16,12 +19,32 @@ final class DocumentTemplateController extends Controller
 
     public function __construct(
         private readonly DocumentTemplateService $templates,
+        private readonly CertificatePdfService $certificatePdf,
         private readonly AuditLogger $audit,
     ) {}
 
     public function show(Request $request, string $type): JsonResponse
     {
         return response()->json($this->templates->get($type));
+    }
+
+    /**
+     * Pré-visualização em PDF do template ATUALMENTE SALVO, com dados de
+     * exemplo — só existe pipeline de PDF para 'certificado' hoje.
+     */
+    public function preview(Request $request, string $type): Response
+    {
+        if ($type !== 'certificado') {
+            throw ApiException::validation('Pré-visualização em PDF ainda não disponível para este tipo de documento.');
+        }
+
+        $result = $this->certificatePdf->renderPreviewPdf();
+        $this->audit->log($request, 'Pré-visualização de Template', "Template \"{$type}\" pré-visualizado.");
+
+        return response($result['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "inline; filename=\"{$result['filename']}\"",
+        ]);
     }
 
     public function update(Request $request, string $type): JsonResponse
