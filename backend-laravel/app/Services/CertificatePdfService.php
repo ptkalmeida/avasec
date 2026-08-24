@@ -63,6 +63,52 @@ final class CertificatePdfService
         ];
 
         $customHtml = $template['customHtml'] ?? null;
+
+        return [
+            'content' => $this->renderFromVars($vars, is_string($customHtml) ? $customHtml : null),
+            'filename' => "certificado-{$cert->verificationHash}.pdf",
+        ];
+    }
+
+    /**
+     * Pré-visualização do template ATUALMENTE SALVO (não o rascunho em edição na
+     * tela do Admin) com dados de exemplo — só para o tipo 'certificado', o único
+     * com pipeline de PDF hoje. Admin-only (o controller já garante o papel).
+     *
+     * @return array{content: string, filename: string}
+     */
+    public function renderPreviewPdf(): array
+    {
+        $template = $this->templates->get('certificado');
+        $verificationUrl = $this->verificationUrl('PREVIEW');
+
+        $vars = [
+            'studentName' => 'Aluno(a) Exemplo',
+            'courseTitle' => 'Curso Modelo de Demonstração',
+            'cargaHoraria' => 40,
+            'attendancePercent' => 100,
+            'issueDate' => now()->format('d/m/Y'),
+            'verificationHash' => 'PREVIEW-'.strtoupper(substr(md5((string) microtime()), 0, 8)),
+            'verificationUrl' => $verificationUrl,
+            'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
+            'institutionName' => $template['institutionName'],
+            'signatories' => $template['signatories'],
+            'footerText' => $template['footerText'],
+        ];
+
+        $customHtml = $template['customHtml'] ?? null;
+
+        return [
+            'content' => $this->renderFromVars($vars, is_string($customHtml) ? $customHtml : null),
+            'filename' => 'preview-certificado.pdf',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $vars
+     */
+    private function renderFromVars(array $vars, ?string $customHtml): string
+    {
         $pdf = is_string($customHtml) && trim($customHtml) !== ''
             ? Pdf::loadHTML($this->renderCustomHtml($customHtml, $vars))
             : Pdf::loadView('certificates.pdf', $vars);
@@ -71,10 +117,7 @@ final class CertificatePdfService
             // isRemoteEnabled=false (default) impede fetch de recursos externos via HTML/CSS.
             ->setOptions(['isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Serif']);
 
-        return [
-            'content' => $pdf->output(),
-            'filename' => "certificado-{$cert->verificationHash}.pdf",
-        ];
+        return $pdf->output();
     }
 
     /**

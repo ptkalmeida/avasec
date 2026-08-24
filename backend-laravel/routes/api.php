@@ -192,6 +192,7 @@ Route::put('/system-settings', [SettingsController::class, 'update'])->middlewar
 Route::prefix('document-templates')->middleware(['jwt', 'active'])->group(function (): void {
     Route::get('/{type}', [DocumentTemplateController::class, 'show']);
     Route::put('/{type}', [DocumentTemplateController::class, 'update'])->middleware('role:admin');
+    Route::get('/{type}/preview', [DocumentTemplateController::class, 'preview'])->middleware('role:admin');
 });
 
 // Auditoria (SecurityLog) — só leitura/limpeza por admin; nunca há POST (gravação é server-side).

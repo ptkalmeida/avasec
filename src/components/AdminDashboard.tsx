@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLMS } from '../context/LMSContext';
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
-import { downloadSubmissionFile } from '../utils/fileDownload';
+import { downloadSubmissionFile, previewDocumentTemplatePdf } from '../utils/fileDownload';
 import { courseMinAttendance } from '../config/constants';
 import { isCourseExpired, StudentEnrollment, DocumentTemplate } from '../types';
 import { BackButton } from './BackButton';
@@ -84,6 +84,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const [templateSaved, setTemplateSaved] = useState(false);
+  const [templatePreviewLoading, setTemplatePreviewLoading] = useState(false);
 
   useEffect(() => {
     if (activeTab !== 'templates') return;
@@ -127,6 +128,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     } else {
       setTemplateError(res.error || 'Não foi possível salvar o template.');
     }
+  };
+
+  const handlePreviewTemplate = async () => {
+    setTemplatePreviewLoading(true);
+    setTemplateError(null);
+    const error = await previewDocumentTemplatePdf(templateDocType);
+    setTemplatePreviewLoading(false);
+    if (error) setTemplateError(error);
   };
 
   // Exercise form states
@@ -3568,18 +3577,29 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 Edite os dados institucionais e as assinaturas dos documentos oficiais, ou escreva o layout completo em HTML.
               </p>
             </div>
-            <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
-              {(['certificado', 'historico'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTemplateDocType(t)}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                    templateDocType === t ? 'bg-[#540D6E] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  {t === 'certificado' ? 'Certificado de Conclusão' : 'Histórico Escolar'}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
+                {(['certificado', 'historico'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTemplateDocType(t)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      templateDocType === t ? 'bg-[#540D6E] text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {t === 'certificado' ? 'Certificado de Conclusão' : 'Histórico Escolar'}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handlePreviewTemplate}
+                disabled={templatePreviewLoading || templateDocType !== 'certificado'}
+                title={templateDocType !== 'certificado' ? 'Pré-visualização em PDF ainda não disponível para este tipo de documento.' : 'Abre em uma nova aba o PDF do template atualmente salvo, com dados de exemplo.'}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              >
+                <Eye className="h-4 w-4" />
+                {templatePreviewLoading ? 'Gerando...' : 'Visualizar Documento Atual'}
+              </button>
             </div>
           </div>
 

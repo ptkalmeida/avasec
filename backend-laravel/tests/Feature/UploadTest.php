@@ -97,6 +97,23 @@ final class UploadTest extends TestCase
         $this->assertDatabaseHas('StoredFile', ['id' => $name, 'visibility' => 'public']);
     }
 
+    public function test_public_file_is_served_statically_without_auth(): void
+    {
+        $token = $this->studentToken();
+
+        $upload = $this->withHeader('Authorization', "Bearer $token")
+            ->post('/api/upload', ['file' => $this->realPng('material.png')], ['Accept' => 'application/json']);
+        $url = $upload->json('url');
+
+        $this->get($url)->assertOk()->assertHeader('content-type', 'image/png');
+    }
+
+    public function test_static_upload_route_rejects_traversal_and_missing_file(): void
+    {
+        $this->get('/uploads/'.rawurlencode('../../.env'))->assertStatus(404);
+        $this->get('/uploads/arquivo-inexistente.png')->assertStatus(404);
+    }
+
     public function test_private_download_authorization(): void
     {
         // Headers inline por requisição (withHeader persiste entre requests no mesmo teste).

@@ -88,6 +88,36 @@ final class DocumentTemplateTest extends TestCase
             ->assertJsonPath('institutionName', 'Escola Estadual da Cultura');
     }
 
+    public function test_admin_previews_certificado_template_as_pdf(): void
+    {
+        $admin = $this->staffToken('admin');
+
+        $response = $this->withHeader('Authorization', "Bearer {$admin}")
+            ->get('/api/document-templates/certificado/preview');
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', (string) $response->getContent());
+    }
+
+    public function test_student_cannot_preview_template(): void
+    {
+        $student = $this->makeStudent('Aluno Preview');
+
+        $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->get('/api/document-templates/certificado/preview')
+            ->assertStatus(403);
+    }
+
+    public function test_historico_preview_not_yet_available(): void
+    {
+        $admin = $this->staffToken('admin');
+
+        $this->withHeader('Authorization', "Bearer {$admin}")
+            ->get('/api/document-templates/historico/preview')
+            ->assertStatus(400);
+    }
+
     public function test_certificate_pdf_reflects_saved_institution_name(): void
     {
         $admin = $this->staffToken('admin');

@@ -330,6 +330,51 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       iconBg: 'bg-[#FFD23F]',
       image: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=500&auto=format&fit=crop&q=60',
       description: 'Como organizar recibos, despesas e relatórios de atividades para certificar que os fundos recebidos foram devidamente executados.'
+    },
+    {
+      title: 'UX/UI Design: Interfaces de Alta Performance',
+      category: 'Economia Criativa & IA',
+      instructor: 'Gestor de Conteúdos',
+      iconType: 'mic',
+      iconBg: 'bg-[#540D6E]',
+      image: 'https://images.unsplash.com/photo-1559028006-448665bd7c7f?w=500&auto=format&fit=crop&q=60',
+      description: 'Aprenda do zero ao avançado como planejar, estruturar e prototipar sistemas complexos utilizando as melhores práticas do Figma, Design Systems e testes de usabilidade.'
+    },
+    {
+      title: 'Fotografia Cultural e Patrimônio Histórico',
+      category: 'Áreas Técnicas',
+      instructor: 'Gestor de Conteúdos',
+      iconType: 'video',
+      iconBg: 'bg-[#540D6E]',
+      image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?w=500&auto=format&fit=crop&q=60',
+      description: 'Técnicas de composição, luz natural e pós-produção para registrar acervos, monumentos e manifestações culturais com qualidade profissional.'
+    },
+    {
+      title: 'Gestão de Editais e Leis de Incentivo à Cultura',
+      category: 'Políticas e Gestão Culturais',
+      instructor: 'Gestor de Conteúdos',
+      iconType: 'building',
+      iconBg: 'bg-[#FFD23F]',
+      image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&auto=format&fit=crop&q=60',
+      description: 'Panorama completo das principais leis de fomento cultural (Rouanet, ICMS Cultural, editais municipais) e como estruturar propostas competitivas.'
+    },
+    {
+      title: 'Empreendedorismo Criativo e Modelos de Negócio',
+      category: 'Economia Criativa & IA',
+      instructor: 'Gestor de Conteúdos',
+      iconType: 'columns',
+      iconBg: 'bg-[#540D6E]',
+      image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=500&auto=format&fit=crop&q=60',
+      description: 'Do plano de negócios à precificação: como transformar talento artístico e cultural em iniciativas sustentáveis e escaláveis.'
+    },
+    {
+      title: 'Produção de Podcast e Narrativas Sonoras',
+      category: 'Áreas Técnicas',
+      instructor: 'Gestor de Conteúdos',
+      iconType: 'mic',
+      iconBg: 'bg-[#FFD23F]',
+      image: 'https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=500&auto=format&fit=crop&q=60',
+      description: 'Roteiro, captação, edição e distribuição de podcasts — um guia prático para criadores que querem contar histórias em áudio.'
     }
   ];
 
