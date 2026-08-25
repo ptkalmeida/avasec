@@ -225,6 +225,3 @@ Confirme se o tipo de arquivo está na allowlist configurada no backend e se o t
 - `MIGRACAO_LARAVEL.md` — histórico da migração do backend Node para Laravel
 - `DEPLOY_LARAVEL.md` — guia de deploy em produção
 
-## Licença
-
-Defina a licença do projeto (ex.: MIT License) antes de publicar oficialmente.
