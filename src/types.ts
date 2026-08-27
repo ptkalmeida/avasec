@@ -290,22 +290,6 @@ export interface ExerciseSubmission {
   gradedBy?: string;
 }
 
-export interface LMSState {
-  courses: Course[];
-  activeUser: {
-    /** '' quando visitante — identidade real vem de authUser (ADR 10). */
-    id: string;
-    name: string;
-    role: 'student' | 'instructor' | 'admin';
-  };
-  progress: StudentProgress[]; // only relevant for students
-  certificates: Certificate[];
-  chatMessages: ChatMessage[];
-  directMessages: DirectMessage[];
-  quizzes: Quiz[];
-  quizSubmissions: QuizSubmission[];
-}
-
 export interface SecurityLog {
   id: string;
   timestamp: string;
@@ -316,6 +300,65 @@ export interface SecurityLog {
   action: string;
   details: string;
   status: 'SUCCESS' | 'WARNING' | 'FAILED';
+}
+
+/**
+ * Dados cadastrais coletados no cadastro de aluno (ADR 11). `cpf` é
+ * obrigatório para conta de aluno no backend — é o identificador de login dela.
+ */
+export interface RegistrationDetails {
+  cpf?: string;
+  celular?: string;
+  cep?: string;
+  endereco?: string;
+  nomeSocial?: string;
+  identidade?: string;
+}
+
+/** Chaves das páginas públicas cujo conteúdo o Admin Superior edita. */
+export type SitePageKey =
+  | 'o-ava'
+  | 'certificados'
+  | 'o-projeto'
+  | 'noticias'
+  | 'duvidas'
+  | 'calendario'
+  | 'orientacoes';
+
+/**
+ * Um item de lista de uma página (pilar, notícia, pergunta, encontro...). As
+ * chaves variam por página — o schema servido pela API descreve quais existem.
+ * `id` é gerado, não editável.
+ */
+export interface SitePageItem {
+  id: string;
+  [field: string]: string;
+}
+
+/** Conteúdo de uma página: campos de cabeçalho (strings) + a lista de itens. */
+export interface SitePageContent {
+  pageKey: SitePageKey;
+  items: SitePageItem[];
+  updatedAt: string | null;
+  updatedByUserId: string | null;
+  [headerField: string]: unknown;
+}
+
+/** Definição de um campo editável, usada para montar o formulário do admin. */
+export interface SitePageField {
+  key: string;
+  label: string;
+  type: 'text' | 'textarea';
+  maxLength: number;
+}
+
+/** Schema de uma página: rótulos em português + campos do cabeçalho e do item. */
+export interface SitePageSchema {
+  label: string;
+  itemsLabel: string;
+  maxItems: number;
+  header: SitePageField[];
+  item: SitePageField[];
 }
 
 export interface ForumMessage {

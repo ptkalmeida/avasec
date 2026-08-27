@@ -7,9 +7,13 @@ namespace App\Http\Controllers;
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
 use App\Http\Middleware\JwtAuthenticate;
+use App\Rules\CepRule;
+use App\Rules\CpfRule;
+use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
 use App\Support\Jwt;
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Cookie;
@@ -24,18 +28,45 @@ final class AuthController extends Controller
         private readonly AuditLogger $audit,
     ) {}
 
+    /**
+     * Política de senha única para cadastro e troca de senha (ADR 11): senha
+     * real, não mais o PIN numérico de 4 dígitos do MVP de demonstração.
+     * Ver StrongPasswordRule — sem dependência nova.
+     *
+     * @return list<ValidationRule|string>
+     */
+    private function passwordRules(): array
+    {
+        return ['required', 'string', 'max:128', new StrongPasswordRule];
+    }
+
     public function register(Request $request): JsonResponse
     {
+        // CPF é o identificador de login do ALUNO (ADR 11), então é obrigatório
+        // para conta de aluno. Conta de staff (instrutor/admin) entra por e-mail
+        // e pode nascer sem CPF — só o admin consegue provisionar essas.
+        $isStaffAccount = $this->optionalRequester($request)['role'] ?? null;
+        $isStaffAccount = $isStaffAccount === 'admin'
+            && in_array($request->input('role'), ['instructor', 'admin'], true);
+
         $data = $this->validateInput($request, [
             'name' => ['required', 'string', 'min:2', 'max:150'],
             'email' => ['required', 'email', 'max:254'],
-            'password' => ['required', 'string', 'min:6', 'max:128'],
+            'password' => $this->passwordRules(),
             'role' => ['sometimes', 'in:student,instructor,admin'],
-            'cpf' => ['nullable', 'string', 'max:20'],
+            'cpf' => $isStaffAccount
+                ? ['sometimes', 'nullable', 'string', 'max:20', new CpfRule]
+                : ['required', 'string', 'max:20', new CpfRule],
             'municipio' => ['nullable', 'string', 'max:120'],
             'uf' => ['nullable', 'string', 'max:2'],
             'areaInteresse' => ['nullable', 'string', 'max:120'],
             'dataCadastro' => ['nullable', 'string', 'max:30'],
+            // Dados cadastrais adicionais: validados quando enviados, não exigidos.
+            'celular' => ['sometimes', 'nullable', 'string', 'max:20'],
+            'cep' => ['sometimes', 'nullable', 'string', 'max:20', new CepRule],
+            'endereco' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'nomeSocial' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'identidade' => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
         $result = $this->auth->register([
             'name' => $this->stringField($data, 'name'),
@@ -47,6 +78,11 @@ final class AuthController extends Controller
             'uf' => $this->optionalString($data, 'uf'),
             'areaInteresse' => $this->optionalString($data, 'areaInteresse'),
             'dataCadastro' => $this->optionalString($data, 'dataCadastro'),
+            'celular' => $this->optionalString($data, 'celular'),
+            'cep' => $this->optionalString($data, 'cep'),
+            'endereco' => $this->optionalString($data, 'endereco'),
+            'nomeSocial' => $this->optionalString($data, 'nomeSocial'),
+            'identidade' => $this->optionalString($data, 'identidade'),
         ], $this->optionalRequester($request));
         $this->audit->log(
             $request,
@@ -64,24 +100,33 @@ final class AuthController extends Controller
 
     public function login(Request $request): JsonResponse
     {
+        // Três identificadores aceitos (ADR 11): CPF (aluno), e-mail (admin e
+        // gestor) e `name` (contas demo internas). A senha NÃO tem política
+        // mínima aqui de propósito: aplicar a política no login trancaria fora
+        // quem tem senha antiga — ela vale onde a senha é DEFINIDA.
         $data = $this->validateInput($request, [
             'name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'email' => ['sometimes', 'nullable', 'email', 'max:254'],
+            'cpf' => ['sometimes', 'nullable', 'string', 'max:20'],
             'password' => ['required', 'string', 'min:1', 'max:128'],
         ]);
-        if (empty($data['name']) && empty($data['email'])) {
-            throw ApiException::validation('Informe nome ou e-mail para login.');
+        if (empty($data['name']) && empty($data['email']) && empty($data['cpf'])) {
+            throw ApiException::validation('Informe CPF, e-mail ou nome para login.');
         }
         if (! empty($data['email'])) {
             $data['email'] = mb_strtolower(trim($this->stringField($data, 'email')));
         }
 
-        $identifier = $this->optionalString($data, 'email') ?? $this->optionalString($data, 'name') ?? '';
+        $identifier = $this->optionalString($data, 'cpf')
+            ?? $this->optionalString($data, 'email')
+            ?? $this->optionalString($data, 'name')
+            ?? '';
 
         try {
             $result = $this->auth->login([
                 'name' => $this->optionalString($data, 'name'),
                 'email' => $this->optionalString($data, 'email'),
+                'cpf' => $this->optionalString($data, 'cpf'),
                 'password' => $this->stringField($data, 'password'),
             ]);
         } catch (Throwable $err) {
@@ -115,7 +160,7 @@ final class AuthController extends Controller
         // senha e faria takeover permanente da conta sem nunca conhecer a original.
         $data = $this->validateInput($request, [
             'currentPassword' => ['required', 'string', 'min:1', 'max:128'],
-            'newPassword' => ['required', 'string', 'min:6', 'max:128'],
+            'newPassword' => $this->passwordRules(),
         ]);
 
         $sub = $this->requester($request)['sub'];

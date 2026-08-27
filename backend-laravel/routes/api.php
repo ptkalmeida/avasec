@@ -15,6 +15,7 @@ use App\Http\Controllers\LibraryController;
 use App\Http\Controllers\MessagingController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\SitePageContentController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\WebinarController;
 use Illuminate\Support\Facades\Route;
@@ -193,6 +194,16 @@ Route::prefix('document-templates')->middleware(['jwt', 'active'])->group(functi
     Route::get('/{type}', [DocumentTemplateController::class, 'show']);
     Route::put('/{type}', [DocumentTemplateController::class, 'update'])->middleware('role:admin');
     Route::get('/{type}/preview', [DocumentTemplateController::class, 'preview'])->middleware('role:admin');
+});
+
+// Conteúdo das páginas públicas do portal. GET é público sem autenticação: o
+// visitante anônimo monta o site com isso (mesma forma de /system-settings).
+// PUT é só Admin Superior — o service repete a checagem de papel.
+Route::prefix('site-content')->middleware('feature:gestaoConteudoSite')->group(function (): void {
+    Route::get('/', [SitePageContentController::class, 'index']);
+    Route::get('/{pageKey}', [SitePageContentController::class, 'show']);
+    Route::put('/{pageKey}', [SitePageContentController::class, 'update'])
+        ->middleware(['jwt', 'active', 'role:admin']);
 });
 
 // Auditoria (SecurityLog) — só leitura/limpeza por admin; nunca há POST (gravação é server-side).

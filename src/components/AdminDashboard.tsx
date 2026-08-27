@@ -10,6 +10,8 @@ import { downloadSubmissionFile, previewDocumentTemplatePdf } from '../utils/fil
 import { courseMinAttendance } from '../config/constants';
 import { isCourseExpired, StudentEnrollment, DocumentTemplate } from '../types';
 import { BackButton } from './BackButton';
+import { SiteContentPanel } from './admin/SiteContentPanel';
+import { SitePageKey } from '../types';
 import { 
   ShieldCheck, Users, User, BookOpen, Award, CheckSquare, Plus, ArrowLeft,
   Trash2, Lock, Settings, Activity, FileText, Search, Shield, Filter,
@@ -28,9 +30,11 @@ import { features } from '../config/features';
 interface AdminDashboardProps {
   onBackToLanding?: () => void;
   speakText: (text: string) => void;
+  /** Abre uma página pública do portal (usado pela gestão de conteúdo do site). */
+  onPreviewPage?: (pageKey: SitePageKey) => void;
 }
 
-export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardProps) {
+export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: AdminDashboardProps) {
   const {
     courses,
     progress,
@@ -73,7 +77,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
   const mockStudents = studentsList;
 
   // Selected Section State: 'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi'
-  const [activeTab, setActiveTab] = useState<'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi' | 'templates'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi' | 'templates' | 'site_content'>('analytics');
   const [selectedBiBase, setSelectedBiBase] = useState<'alunos' | 'cursos' | 'matriculas' | 'progresso' | 'certificados'>('alunos');
 
   // Área de gerenciamento de templates de documentos (certificado, histórico)
@@ -705,6 +709,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     { id: 'exercicios', label: 'Exercícios Práticos', icon: CheckSquare, visible: features.atividadesPraticasAvancadas },
     { id: 'export_bi', label: 'Dados Gerenciais', icon: Database, visible: features.dadosGerenciais },
     { id: 'templates', label: 'Templates de Documentos', icon: FileText, visible: true },
+    { id: 'site_content', label: 'Páginas do Site', icon: Layers, visible: features.gestaoConteudoSite },
     { id: 'settings', label: 'Configurações', icon: Settings, visible: features.perfilBasico },
   ].filter((t) => t.visible);
   const activeNavItem = adminNavItems.find((t) => t.id === activeTab);
@@ -3559,6 +3564,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'site_content' && features.gestaoConteudoSite && (
+        <SiteContentPanel
+          onBack={() => setActiveTab('analytics')}
+          onPreviewPage={(pageKey) => onPreviewPage?.(pageKey)}
+          speakText={speakText}
+          showToast={showToast}
+        />
       )}
 
       {activeTab === 'templates' && (

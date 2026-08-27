@@ -8,6 +8,7 @@ use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\GeneratesCpf;
 use Tests\TestCase;
 
 /**
@@ -18,6 +19,7 @@ use Tests\TestCase;
 final class AuthTest extends TestCase
 {
     use DatabaseTransactions;
+    use GeneratesCpf;
 
     private function tokenForRole(string $role): string
     {
@@ -64,6 +66,7 @@ final class AuthTest extends TestCase
             'name' => 'Aluno Pendente Teste',
             'email' => $email,
             'password' => 'senha123456',
+            'cpf' => $this->makeCpf(),
         ]);
 
         $register->assertStatus(201)
@@ -78,10 +81,14 @@ final class AuthTest extends TestCase
 
     public function test_public_registration_cannot_self_promote_to_admin(): void
     {
+        // O CPF vai preenchido DE PROPÓSITO: sem ele a requisição morreria em
+        // 400 na validação e o teste deixaria de provar o que importa — que é a
+        // regra de papel (e não a de campo obrigatório) que barra a escalada.
         $this->postJson('/api/auth/register', [
             'name' => 'Tentativa Escalada',
             'email' => $this->uniqueEmail('escalada'),
             'password' => 'senha123456',
+            'cpf' => $this->makeCpf(),
             'role' => 'admin',
         ])->assertStatus(403);
     }
@@ -114,6 +121,7 @@ final class AuthTest extends TestCase
             'email' => $email,
             'password' => 'senha123456',
             'role' => 'student',
+            'cpf' => $this->makeCpf(),
         ]);
         $userId = $register->json('user.id');
 
@@ -150,6 +158,7 @@ final class AuthTest extends TestCase
             'email' => $email,
             'password' => 'senha123456',
             'role' => 'student',
+            'cpf' => $this->makeCpf(),
         ])->assertStatus(201);
 
         // 5 tentativas erradas: as 4 primeiras retornam 401 genérico; a 5ª ainda 401,

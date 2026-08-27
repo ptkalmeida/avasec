@@ -13,22 +13,27 @@ use Illuminate\Support\Facades\DB;
  */
 trait SeedsIdentity
 {
-    /** @return array{id: string, name: string, token: string} */
+    use GeneratesCpf;
+
+    /** @return array{id: string, name: string, cpf: string, token: string} */
     protected function makeStudent(string $prefix = 'Aluno Teste', ?string $exactName = null): array
     {
         $adminToken = $this->staffToken('admin');
         $name = $exactName ?? $prefix.' '.uniqid();
+        $cpf = $this->makeCpf();
         $res = $this->withHeader('Authorization', "Bearer {$adminToken}")->postJson('/api/auth/register', [
             'name' => $name,
             'email' => 'id-'.uniqid().'@example.com',
             'password' => 'senha123456',
             'role' => 'student',
+            // CPF é obrigatório para conta de aluno (ADR 11) — é o login dela.
+            'cpf' => $cpf,
         ]);
         $res->assertStatus(201);
         $id = $res->json('user.id');
         $this->flushHeaders();
 
-        return ['id' => $id, 'name' => $name, 'token' => Jwt::issue($id, $name, 'student')];
+        return ['id' => $id, 'name' => $name, 'cpf' => $cpf, 'token' => Jwt::issue($id, $name, 'student')];
     }
 
     protected function staffToken(string $role): string

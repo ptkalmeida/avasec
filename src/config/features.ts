@@ -88,6 +88,11 @@ export const features = {
   dadosGerenciais: true,
   
   // Visualização do perfil básico do usuário (dados pessoais essenciais)
-  perfilBasico: true
+  perfilBasico: true,
+
+  // Gestão do conteúdo das páginas públicas do portal pelo Admin Superior
+  // (textos e listas de O AVA, O Projeto, Cursos, Certificados, Calendário,
+  // Notícias, Dúvidas e Orientações). Desligada = páginas usam os defaults.
+  gestaoConteudoSite: true
 };
 

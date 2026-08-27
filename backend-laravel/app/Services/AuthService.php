@@ -6,6 +6,8 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\User;
+use App\Support\Cep;
+use App\Support\Cpf;
 use App\Support\InstructorScope;
 use App\Support\Jwt;
 use Carbon\CarbonImmutable;
@@ -30,7 +32,7 @@ final class AuthService
     private const BCRYPT_COST = 10;
 
     /**
-     * @param  array{name:string,email:string,password:string,role?:string|null,cpf?:string|null,municipio?:string|null,uf?:string|null,areaInteresse?:string|null,dataCadastro?:string|null}  $input
+     * @param  array{name:string,email:string,password:string,role?:string|null,cpf?:string|null,municipio?:string|null,uf?:string|null,areaInteresse?:string|null,dataCadastro?:string|null,celular?:string|null,cep?:string|null,endereco?:string|null,nomeSocial?:string|null,identidade?:string|null}  $input
      * @param  array{sub:string,name:string,role:string}|null  $requester
      * @return array{token: string|null, user: PublicUser}
      */
@@ -47,6 +49,15 @@ final class AuthService
             throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este e-mail.');
         }
 
+        // CPF é o identificador de login do aluno (ADR 11) — guardado só em
+        // dígitos, e conflito precisa ser 409 explícito e não erro de índice.
+        $cpf = isset($input['cpf']) && $input['cpf'] !== ''
+            ? Cpf::normalize($input['cpf'])
+            : null;
+        if ($cpf !== null && User::query()->where('cpf', $cpf)->exists()) {
+            throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este CPF.');
+        }
+
         $role = 'student';
         if ($isAdminProvisioning && in_array($requestedRole, ['student', 'instructor', 'admin'], true)) {
             $role = $requestedRole;
@@ -60,11 +71,18 @@ final class AuthService
         $user->passwordHash = $this->hash($input['password']);
         $user->role = $role;
         $user->status = $status;
-        $user->cpf = $input['cpf'] ?? null;
+        $user->cpf = $cpf;
         $user->municipio = $input['municipio'] ?? null;
         $user->uf = $input['uf'] ?? null;
         $user->areaInteresse = $input['areaInteresse'] ?? null;
         $user->dataCadastro = $input['dataCadastro'] ?? CarbonImmutable::now()->format('Y-m-d');
+        $user->celular = $input['celular'] ?? null;
+        $user->cep = isset($input['cep']) && $input['cep'] !== ''
+            ? Cep::normalize($input['cep'])
+            : null;
+        $user->endereco = $input['endereco'] ?? null;
+        $user->nomeSocial = $input['nomeSocial'] ?? null;
+        $user->identidade = $input['identidade'] ?? null;
         $user->failedLoginAttempts = 0;
         $user->lockedUntil = null;
         $user->save();
@@ -79,14 +97,21 @@ final class AuthService
     }
 
     /**
-     * @param  array{name?:string|null,email?:string|null,password:string}  $input
+     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string}  $input
      * @return array{token: string, user: PublicUser}
      */
     public function login(array $input): array
     {
-        $user = ! empty($input['email'])
-            ? User::query()->where('email', $input['email'])->first()
-            : User::query()->where('name', $input['name'] ?? '')->first();
+        // Três identificadores possíveis (ADR 11): CPF é o do aluno; e-mail é o
+        // de admin/gestor; `name` permanece para as contas demo internas.
+        // A busca por CPF normaliza antes, para casar com o que está gravado.
+        if (! empty($input['cpf'])) {
+            $user = User::query()->where('cpf', Cpf::normalize($input['cpf']))->first();
+        } elseif (! empty($input['email'])) {
+            $user = User::query()->where('email', $input['email'])->first();
+        } else {
+            $user = User::query()->where('name', $input['name'] ?? '')->first();
+        }
 
         // Mensagem genérica sempre — nunca revela se o identificador existe.
         if ($user === null) {
