@@ -253,12 +253,10 @@ qualquer outro serviço padrão do Linux.
 
 ## 9. Rollback
 
-Como o Passo 5 (desligar o Node) é a única parte irreversível do corte, o rollback
-mais simples **antes** de descartar o Node é: apontar o Nginx de volta para o
-processo Node (`server.ts` + PM2, como documentado em `HARDENING.md`) enquanto
-investiga o problema no lado Laravel. Depois de desligar o Node de vez, o rollback
-passa a ser: restaurar o backup do banco (feito antes do corte) e reverter o deploy
-do Nginx/Laravel para a versão anterior.
+O Node foi descartado em 26/08/2026 (código removido do repositório — ver
+`MIGRACAO_LARAVEL.md`), então **não existe mais rollback para o backend Node**.
+O rollback hoje é: restaurar o backup do banco e reverter o deploy do
+Nginx/Laravel para a versão anterior.
 
 ## 10. Pendências conhecidas (fora do escopo deste corte)
 
