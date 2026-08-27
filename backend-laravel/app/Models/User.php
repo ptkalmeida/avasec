@@ -28,6 +28,8 @@ final class User extends Model
     protected $fillable = [
         'id', 'name', 'email', 'passwordHash', 'role', 'status',
         'cpf', 'municipio', 'uf', 'areaInteresse', 'dataCadastro',
+        // Dados cadastrais completos do aluno (ADR 11).
+        'celular', 'cep', 'endereco', 'nomeSocial', 'identidade',
         'failedLoginAttempts', 'lockedUntil',
     ];
 

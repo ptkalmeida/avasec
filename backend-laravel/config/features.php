@@ -40,4 +40,5 @@ return [
     'certificados' => true,
     'dadosGerenciais' => true,
     'perfilBasico' => true,
+    'gestaoConteudoSite' => true,
 ];

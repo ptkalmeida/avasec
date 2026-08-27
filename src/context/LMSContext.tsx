@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser, PersonRef, DocumentTemplate } from '../types';
+import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser, PersonRef, DocumentTemplate, SitePageContent, SitePageSchema, SitePageKey, RegistrationDetails } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS, MOCK_IDS } from '../data/mockData';
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
@@ -32,8 +32,9 @@ interface LMSContextProps {
   courses: Course[];
   activeUser: { id: string; name: string; role: 'student' | 'instructor' | 'admin' };
   authUser: AuthUser | null;
-  loginWithPassword: (nameOrEmail: string, password: string) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
-  registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin') => Promise<{ ok: boolean; pending?: boolean; user?: AuthUser; error?: string }>;
+  /** Identificador aceita e-mail (staff), CPF (aluno) ou nome (contas demo). */
+  loginWithPassword: (identifier: string, password: string) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
+  registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin', details?: RegistrationDetails) => Promise<{ ok: boolean; pending?: boolean; user?: AuthUser; error?: string }>;
   logoutAuth: () => void;
   changePassword: (newPassword: string, currentPassword?: string) => Promise<{ ok: boolean; error?: string }>;
   progress: StudentProgress[];
@@ -107,6 +108,11 @@ interface LMSContextProps {
   completeStudentCourse: (userId: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
   clearStudentPenalty: (userId: string) => void;
   setStudentMultiEnrollPermission: (userId: string, allowed: boolean) => void;
+  /** Conteúdo das páginas públicas; null enquanto não carregou (usa defaults). */
+  sitePageContent: Record<string, SitePageContent> | null;
+  /** Schema de campos servido pela API, usado para montar o formulário do admin. */
+  sitePageSchema: Record<string, SitePageSchema> | null;
+  updateSitePageContent: (pageKey: SitePageKey, content: Partial<SitePageContent>) => Promise<{ ok: boolean; page?: SitePageContent; error?: string }>;
   getDocumentTemplate: (type: DocumentTemplate['type']) => Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }>;
   updateDocumentTemplate: (type: DocumentTemplate['type'], updates: Partial<Pick<DocumentTemplate, 'institutionName' | 'institutionLogoPath' | 'signatories' | 'footerText' | 'customHtml'>>) => Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }>;
   forumMessages: ForumMessage[];
@@ -217,13 +223,24 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Faz login contra o backend por nome (usado pelo seletor de perfil/PIN) ou e-mail (contém "@").
-  const loginWithPassword = async (nameOrEmail: string, password: string) => {
+  const loginWithPassword = async (identifier: string, password: string) => {
     try {
-      const isEmail = nameOrEmail.includes('@');
+      // Três identificadores (ADR 11): e-mail (admin/gestor), CPF (aluno) e
+      // nome (contas demo internas). 11 dígitos = CPF.
+      const digits = identifier.replace(/\D/g, '');
+      let credentials: Record<string, string>;
+      if (identifier.includes('@')) {
+        credentials = { email: identifier, password };
+      } else if (digits.length === 11) {
+        credentials = { cpf: digits, password };
+      } else {
+        credentials = { name: identifier, password };
+      }
+
       const res = await authFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(isEmail ? { email: nameOrEmail, password } : { name: nameOrEmail, password }),
+        body: JSON.stringify(credentials),
       });
       const data = await res.json();
       // Erros padronizados vêm como { error: true, code, message } — inclui os 403
@@ -245,13 +262,24 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     name: string,
     email: string,
     password: string,
-    role: 'student' | 'instructor' | 'admin' = 'student'
+    role: 'student' | 'instructor' | 'admin' = 'student',
+    details: RegistrationDetails = {}
   ) => {
     try {
       const res = await authFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role }),
+        // CPF é obrigatório para conta de aluno no backend (ADR 11); campos
+        // vazios são omitidos para não gravar string vazia no banco.
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role,
+          ...Object.fromEntries(
+            Object.entries(details).filter(([, v]) => typeof v === 'string' && v.trim() !== '')
+          ),
+        }),
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: data.message || 'Falha ao cadastrar.' };
@@ -1122,6 +1150,54 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem('ava_system_settings', JSON.stringify(systemSettings));
   }, [systemSettings]);
+
+  // Conteúdo editável das páginas públicas. Buscado num efeito próprio, sem
+  // depender de login: o visitante anônimo precisa disso para montar o site.
+  // Null = ainda não carregou (ou API offline) e cada página usa seus defaults.
+  const [sitePageContent, setSitePageContent] = useState<Record<string, SitePageContent> | null>(null);
+  const [sitePageSchema, setSitePageSchema] = useState<Record<string, SitePageSchema> | null>(null);
+
+  useEffect(() => {
+    if (!features.gestaoConteudoSite) return;
+    let cancelled = false;
+
+    authFetch('/api/site-content')
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setSitePageContent(data.pages ?? null);
+        setSitePageSchema(data.schema ?? null);
+      })
+      .catch(() => {
+        // API offline: as páginas seguem com o conteúdo padrão embutido.
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const updateSitePageContent = async (
+    pageKey: SitePageKey,
+    content: Partial<SitePageContent>
+  ): Promise<{ ok: boolean; page?: SitePageContent; error?: string }> => {
+    try {
+      const res = await authFetch(`/api/site-content/${encodeURIComponent(pageKey)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(content)
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.message || 'Não foi possível salvar o conteúdo.' };
+
+      // O servidor devolve a versão canônica (normalizada); é ela que vale.
+      const page = data as SitePageContent;
+      setSitePageContent((prev) => ({ ...(prev ?? {}), [pageKey]: page }));
+      return { ok: true, page };
+    } catch (err) {
+      console.error('Erro ao salvar conteúdo do site:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
 
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>(() => {
     const saved = localStorage.getItem('ava_security_logs');
@@ -2344,6 +2420,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         completeStudentCourse,
         clearStudentPenalty,
         setStudentMultiEnrollPermission,
+        sitePageContent,
+        sitePageSchema,
+        updateSitePageContent,
         getDocumentTemplate,
         updateDocumentTemplate,
         forumMessages,

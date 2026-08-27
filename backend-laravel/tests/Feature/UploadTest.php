@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File as Files;
+use Tests\Support\GeneratesCpf;
 use Tests\TestCase;
 
 /**
@@ -19,6 +20,7 @@ use Tests\TestCase;
 final class UploadTest extends TestCase
 {
     use DatabaseTransactions;
+    use GeneratesCpf;
 
     private string $tmpRoot;
 
@@ -141,6 +143,7 @@ final class UploadTest extends TestCase
             'email' => 'outro-'.uniqid().'@example.com',
             'password' => 'senha123456',
             'role' => 'student',
+            'cpf' => $this->makeCpf(),
         ], $auth(Jwt::issue($admin->id, $admin->name, 'admin')));
         $otherToken = Jwt::issue($reg->json('user.id'), $reg->json('user.name'), 'student');
         $this->get($fileUrl, $auth($otherToken))->assertStatus(403);
