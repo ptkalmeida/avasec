@@ -760,7 +760,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         )}
 
                         {matchedNews.length > 0 && (
-                          <div className="space-y-1.5 pt-2 border-t border-slate-105">
+                          <div className="space-y-1.5 pt-2 border-t border-slate-100">
                             <span className="text-[9px] font-bold text-[#EE4266] block uppercase tracking-wide">Notícias ({matchedNews.length})</span>
                             {matchedNews.map((n, i) => (
                               <div 
@@ -1281,7 +1281,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       <strong className="text-3xl font-black text-[#EE4266] font-mono block">66K</strong>
                       <span className="text-[10px] text-slate-500 font-extrabold uppercase mt-1 block">Mil concluintes</span>
                     </div>
-                    <div className="p-5 bg-amber-50/50 border border-amber-105 rounded-2xl">
+                    <div className="p-5 bg-amber-50/50 border border-amber-100 rounded-2xl">
                       <strong className="text-3xl font-black text-amber-500 font-mono block">4M+</strong>
                       <span className="text-[10px] text-slate-500 font-extrabold uppercase mt-1 block">Visitas à plataforma</span>
                     </div>
@@ -1331,7 +1331,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             <section className="bg-[#FFD23F] py-4 px-4 text-center">
               <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 font-sans py-2">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-slate-905 text-white flex items-center justify-center shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center shrink-0">
                     <HelpCircle className="h-5 w-5 text-amber-300" />
                   </div>
                   <div className="text-left leading-tight">
@@ -2167,7 +2167,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               </div>
 
               {/* Role Select tab alignment */}
-              <div className="grid grid-cols-3 gap-1 bg-slate-105 p-1 rounded-xl text-center border border-slate-200">
+              <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl text-center border border-slate-200">
                 <button
                   onClick={() => setLoginRoleTab('student')}
                   className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
@@ -2377,7 +2377,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <ShieldCheck className="h-5 w-5 text-[#540D6E]" />
                   <span>Integração de Cadastro • AVASEC</span>
                 </h3>
-                <p className="text-xs text-slate-505 leading-relaxed">
+                <p className="text-xs text-slate-500 leading-relaxed">
                   Conforme solicitado: Você será direcionado para outro site externo onde irá se cadastrar. Preencha seus dados lá e, após validados, esse mesmo cadastro será homologado e usado de forma integrada no <strong className="text-[#540D6E] font-bold">AVASEC</strong> como sua credencial oficial de estudos.
                 </p>
               </div>

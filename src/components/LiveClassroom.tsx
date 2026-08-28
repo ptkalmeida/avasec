@@ -167,7 +167,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
             
             <button
               onClick={toggleFocusMode}
-              className="rounded-lg border border-indigo-750 bg-indigo-950/40 hover:bg-indigo-950/80 text-indigo-305 hover:text-indigo-200 text-indigo-400 px-4 py-2 text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 cursor-pointer uppercase shadow-3xs"
+              className="rounded-lg border border-indigo-750 bg-indigo-950/40 hover:bg-indigo-950/80 text-indigo-300 hover:text-indigo-200 text-indigo-400 px-4 py-2 text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 cursor-pointer uppercase shadow-3xs"
               title="Ativar o Modo Foco (Ocultar menus, manter apenas Player + Chat)"
             >
               <Maximize2 className="h-3.5 w-3.5" />

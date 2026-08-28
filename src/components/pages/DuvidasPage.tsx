@@ -50,7 +50,7 @@ export const DuvidasPage: React.FC<DuvidasPageProps> = ({ onBack, content }) => 
     >
       <div className="space-y-3.5 max-w-2xl mx-auto text-left">
         {items.map((faq) => (
-          <div key={faq.id} className="border border-slate-200/70 rounded-2xl bg-slate-55/30 transition-all">
+          <div key={faq.id} className="border border-slate-200/70 rounded-2xl bg-slate-50/30 transition-all">
             <button
               onClick={() => toggle(faq.id)}
               aria-expanded={expandedId === faq.id}

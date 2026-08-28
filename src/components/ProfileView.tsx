@@ -34,7 +34,7 @@ const AVATAR_PRESETS = [
   { id: 'creative', emoji: '🧑‍🎨', label: 'Criador Cultural', color: 'bg-emerald-50 border-emerald-250 text-emerald-700' },
   { id: 'reader', emoji: '🦉', label: 'Leitor Devoto', color: 'bg-amber-50 border-amber-200 text-amber-700' },
   { id: 'dev', emoji: '🧑‍💻', label: 'Hacker Cultural', color: 'bg-slate-900 border-slate-950 text-[#FFD23F]' },
-  { id: 'star', emoji: '🎓', label: 'Superstar', color: 'bg-rose-50 border-rose-220 text-rose-650' },
+  { id: 'star', emoji: '🎓', label: 'Superstar', color: 'bg-rose-50 border-rose-200 text-rose-650' },
   { id: 'peace', emoji: '🌱', label: 'Embaixador da Paz', color: 'bg-sky-50 border-sky-200 text-sky-600' }
 ];
 
@@ -257,7 +257,7 @@ export function ProfileView({
 
   const getPasswordStrength = (pass: string) => {
     if (!pass) return { label: 'Em branco', color: 'text-slate-400 bg-slate-100', width: 'w-0' };
-    if (pass.length < 6) return { label: 'Fraca', color: 'text-rose-650 bg-rose-50 border-rose-220', width: 'w-1/3 bg-rose-500' };
+    if (pass.length < 6) return { label: 'Fraca', color: 'text-rose-650 bg-rose-50 border-rose-200', width: 'w-1/3 bg-rose-500' };
     if (pass.length < 9) return { label: 'Média', color: 'text-amber-700 bg-amber-50 border-amber-200', width: 'w-2/3 bg-amber-500' };
     return { label: 'Forte', color: 'text-emerald-700 bg-emerald-50 border-emerald-200', width: 'w-full bg-emerald-500' };
   };
@@ -721,7 +721,7 @@ export function ProfileView({
                   {newPassword && isDocVerified && (
                     <div className="mt-2.5 space-y-1">
                       <div className="flex justify-between items-center text-[10px]">
-                        <span className="text-slate-455">Complexidade do código:</span>
+                        <span className="text-slate-450">Complexidade do código:</span>
                         <span className="font-extrabold text-slate-700">{strength.label}</span>
                       </div>
                       <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -767,7 +767,7 @@ export function ProfileView({
                   setCurrentTab('profile');
                   setIsResetSuccess(false);
                 }}
-                className="order-2 xs:order-1 px-4 py-2.5 border border-slate-240 text-slate-600 hover:text-slate-850 font-bold rounded-xl text-xs text-center transition-colors cursor-pointer uppercase tracking-wider"
+                className="order-2 xs:order-1 px-4 py-2.5 border border-slate-250 text-slate-600 hover:text-slate-850 font-bold rounded-xl text-xs text-center transition-colors cursor-pointer uppercase tracking-wider"
               >
                 Cancelar
               </button>
@@ -1544,7 +1544,7 @@ export function ProfileView({
               <ShieldAlert className="h-3.5 w-3.5 text-rose-500" />
               <span>Gerenciamento de Segurança da Conta</span>
             </span>
-            <p className="text-[11px] text-slate-505 mb-4 leading-relaxed font-sans">
+            <p className="text-[11px] text-slate-500 mb-4 leading-relaxed font-sans">
               Deseja se desconectar do sistema? Encerrar a sessão atual fará com que o perfil simulado seja limpo e você retornará com segurança ao Portal Acadêmico Institucional.
             </p>
             <button
@@ -1686,19 +1686,19 @@ export function ProfileView({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
-                <div className="bg-slate-50 border border-slate-180 p-4 rounded-xl">
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
                   <div className="text-slate-450 mb-3"><User className="h-5 w-5" /></div>
                   <span className="text-2xl font-black text-slate-850 block">{studentsList.length}</span>
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Alunos Co-Registrados</span>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-180 p-4 rounded-xl">
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
                   <div className="text-slate-450 mb-3"><Sparkles className="h-5 w-5" /></div>
                   <span className="text-2xl font-black text-slate-850 block">{professorsList.length}</span>
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Docentes Habilitados</span>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-180 p-4 rounded-xl">
+                <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl">
                   <div className="text-slate-450 mb-3"><Settings className="h-5 w-5" /></div>
                   <span className="text-2xl font-black text-slate-850 block">Ativos</span>
                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Acesso de Gestão AVA</span>
@@ -1717,7 +1717,7 @@ export function ProfileView({
                   {studentCerts.map((cert, index) => (
                     <div 
                       key={`${cert.id}-${index}`}
-                      className="bg-slate-50 border border-slate-205 p-3.5 rounded-xl flex justify-between items-center hover:bg-slate-100/50 transition-colors"
+                      className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl flex justify-between items-center hover:bg-slate-100/50 transition-colors"
                     >
                       <div className="min-w-0 pr-2">
                         <strong className="text-xs text-slate-800 font-bold block truncate leading-snug">{cert.courseTitle}</strong>
@@ -1822,7 +1822,7 @@ export function ProfileView({
               {/* Upper actions panel (Hidden in Print) */}
               <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-4 no-print">
                 <div className="flex items-center gap-2.5">
-                  <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-120 flex items-center justify-center">
+                  <div className="bg-indigo-50 p-2.5 rounded-xl border border-indigo-100 flex items-center justify-center">
                     <FileText className="h-6 w-6 text-indigo-650" />
                   </div>
                   <div>
@@ -2009,7 +2009,7 @@ export function ProfileView({
                             <h4 className="text-xs font-extrabold text-slate-900 font-sans block truncate mb-1">
                               {cert.courseTitle}
                             </h4>
-                            <span className="text-[9.5px] text-slate-405 block font-mono">
+                            <span className="text-[9.5px] text-slate-400 block font-mono">
                               Hash: SEC-{cert.verificationHash}
                             </span>
                           </div>
