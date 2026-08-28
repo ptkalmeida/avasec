@@ -26,7 +26,7 @@ import {
   Search, Menu, Star, Play, FileText,
   Mail, ExternalLink, X, Sparkles, Calendar, Info,
   Printer, Download, Monitor, CheckCircle, Instagram, Youtube, Facebook, Twitter, Home, Bell, MessageSquare,
-  Fingerprint
+  Fingerprint, AlertTriangle, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { features } from './config/features';
@@ -1224,7 +1224,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                                 onClick={() => goToPage('cursos', "Cursos disponíveis")}
                                 className="shrink-0 text-xs font-black uppercase tracking-wider text-[#540D6E] hover:underline"
                               >
-                                Ver Cursos ➔
+                                <span className="inline-flex items-center gap-1">Ver Cursos <ArrowRight className="h-3 w-3" /></span>
                               </button>
                             </div>
                           );
@@ -2240,7 +2240,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                     {studentLoginError && (
                       <div className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 leading-relaxed">
-                        ⚠️ {studentLoginError}
+                        <span className="flex items-start gap-1.5"><AlertTriangle className="h-3.5 w-3.5 mt-px shrink-0" />{studentLoginError}</span>
                       </div>
                     )}
 
@@ -2414,7 +2414,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       
                       {isExternalLinkClicked && (
                         <span className="text-[9.5px] text-emerald-600 font-bold block mt-1.5">
-                          ✓ Conexão externa simulada. Preencha e valide suas informações abaixo para liberá-la no AVASEC.
+                          <Check className="h-3 w-3 inline-block mr-1 -mt-px" />Conexão externa simulada. Preencha e valide suas informações abaixo para liberá-la no AVASEC.
                         </span>
                       )}
                     </div>
@@ -2591,7 +2591,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                     {validationError && (
                       <div className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 text-center leading-relaxed">
-                        ⚠️ Erro de Registro: {validationError}
+                        <span className="inline-flex items-start gap-1.5"><AlertTriangle className="h-3.5 w-3.5 mt-px shrink-0" />Erro de Registro: {validationError}</span>
                       </div>
                     )}
 
@@ -2865,7 +2865,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 
                 {isPinSuccess && (
                   <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-250 rounded px-2 py-0.5 inline-block text-center">
-                    ✓ Credencial Homologada!
+                    <Check className="h-3 w-3 inline-block mr-1 -mt-px" />Credencial Homologada!
                   </span>
                 )}
 

@@ -19,7 +19,7 @@ import {
   ArrowUpRight, ArrowDownRight, TrendingUp, Eye, EyeOff, Key,
   MoreVertical, Mail, AlertTriangle, UserCheck, RefreshCw, Unlock, 
   MessageSquare, CheckCircle2, XCircle, ExternalLink, ChevronDown, 
-  SlidersHorizontal, Sparkles, Clock, AlertCircle, HelpCircle, Database
+  SlidersHorizontal, Sparkles, Clock, AlertCircle, HelpCircle, Database, ArrowRight
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -1678,7 +1678,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                           {isCourseExpired(course.contractExpirationDate) ? (
                             <div className="flex flex-col gap-1.5 items-center shrink-0">
                               <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-100 font-black px-2.5 py-1 rounded-md uppercase flex items-center gap-1 shrink-0" title="Expirado preventivamente para segurança jurídica">
-                                ⚠️ Expirado (Arquivado)
+                                <AlertTriangle className="h-3 w-3" />Expirado (Arquivado)
                               </span>
                               <button
                                 onClick={() => {
@@ -3276,7 +3276,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                               <span className="text-[9px] text-slate-400">Trabalho enviado em {sub.submittedAt}</span>
                             </div>
                             <span className="text-[10px] text-slate-500 mt-1 block">
-                              Curso: <strong className="font-semibold text-slate-700">{course?.title || 'Fórum / Desconhecido'}</strong> ➔ <strong className="font-semibold text-slate-700">{ex?.title || 'Atividade Excluída'}</strong>
+                              Curso: <strong className="font-semibold text-slate-700">{course?.title || 'Fórum / Desconhecido'}</strong> <ArrowRight className="h-3 w-3 inline-block -mt-px" /> <strong className="font-semibold text-slate-700">{ex?.title || 'Atividade Excluída'}</strong>
                             </span>
                           </div>
 
@@ -3619,7 +3619,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
           {templateDocType === 'historico' && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-[11px] text-amber-900 leading-relaxed">
-              ⚠️ O histórico escolar ainda não tem emissão de PDF própria na plataforma — este template fica
+              <AlertTriangle className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5" />O histórico escolar ainda não tem emissão de PDF própria na plataforma — este template fica
               pronto e salvo para quando essa emissão for construída, mas por enquanto não afeta nenhum
               documento gerado.
             </div>

@@ -32,10 +32,10 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
 
   // Quick Tags
   const quickTags = [
-    { label: '👋 Olá', prefix: '[Apresentação] ' },
-    { label: '❓ Dúvida', prefix: '[Dúvida] ' },
-    { label: '💡 Insight', prefix: '[Insight] ' },
-    { label: '📌 Ideia', prefix: '[Sugerido] ' },
+    { label: 'Olá', prefix: '[Apresentação] ' },
+    { label: 'Dúvida', prefix: '[Dúvida] ' },
+    { label: 'Insight', prefix: '[Insight] ' },
+    { label: 'Ideia', prefix: '[Sugerido] ' },
   ];
 
   // Filter messages for this course
@@ -134,7 +134,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
         <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setActiveFilter('all')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
               activeFilter === 'all'
                 ? 'bg-slate-800 text-white'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -144,33 +144,33 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
           </button>
           <button
             onClick={() => setActiveFilter('questions')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
               activeFilter === 'questions'
                 ? 'bg-amber-100 text-amber-800 border border-amber-200'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-amber-50/50'
             }`}
           >
-            ❓ Dúvidas
+            <HelpCircle className="h-3 w-3" />Dúvidas
           </button>
           <button
             onClick={() => setActiveFilter('insights')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
               activeFilter === 'insights'
                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-emerald-50/50'
             }`}
           >
-            💡 Populares
+            <Lightbulb className="h-3 w-3" />Populares
           </button>
           <button
             onClick={() => setActiveFilter('instructor')}
-            className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
               activeFilter === 'instructor'
                 ? 'bg-teal-100 text-teal-800 border border-teal-200'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-teal-50/50'
             }`}
           >
-            👨‍🏫 Instrutores
+            <Users className="h-3 w-3" />Instrutores
           </button>
         </div>
       </div>
@@ -353,7 +353,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
             {/* Success feedback toast */}
             {successToast && (
               <p className="text-[10px] font-bold text-emerald-600 text-center animate-pulse flex items-center justify-center gap-1">
-                <span>✓ Mensagem adicionada com sucesso no fórum exclusivo!</span>
+                <Check className="h-3 w-3" /><span>Mensagem adicionada com sucesso no fórum exclusivo!</span>
               </p>
             )}
             
