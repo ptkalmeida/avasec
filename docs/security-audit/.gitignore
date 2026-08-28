@@ -1,0 +1,5 @@
+# Ambiente isolado e artefatos temporarios do gerador do relatorio.
+.venv/
+.graficos/
+.render/
+__pycache__/
