@@ -7,7 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Video, VideoOff, Mic, MicOff, MessageSquare, Send, Users,
   CheckCircle, Radio, ExternalLink, Calendar, Plus, Hand, Monitor,
-  Info, Sparkles, Smile, Maximize2, Minimize2
+  Info, Sparkles, Smile, Maximize2, Minimize2, AlertTriangle
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 import { Course, LiveSession } from '../types';
@@ -293,7 +293,8 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
 
                   {!isSessionLive && (activeUser.role === 'instructor' || activeUser.role === 'admin') && (
                     <div className="absolute bottom-4 left-4 right-4 bg-amber-500/90 text-slate-950 font-bold text-[11px] px-4 py-2.5 rounded-lg flex items-center justify-between gap-3 shadow-lg">
-                      <span>⚠️ Você está offline. Clique em "Iniciar Transmissão" no cabeçalho acima para iniciar a aula letiva.</span>
+                      <AlertTriangle className="h-4 w-4 shrink-0" />
+                      <span>Você está offline. Clique em "Iniciar Transmissão" no cabeçalho acima para iniciar a aula letiva.</span>
                     </div>
                   )}
                 </div>

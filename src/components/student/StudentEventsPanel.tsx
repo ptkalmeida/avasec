@@ -22,7 +22,7 @@ export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack }
       </div>
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-black text-slate-900 tracking-tight">📅 Eventos & Webinars</h3>
+          <h3 className="text-xl font-black text-slate-900 tracking-tight">Eventos & Webinars</h3>
           <p className="text-xs text-slate-500">Aulas magnas, workshops e eventos extracurriculares exclusivos.</p>
         </div>
       </div>

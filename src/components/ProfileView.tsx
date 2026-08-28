@@ -5,7 +5,7 @@ import {
   Clock, Settings, Volume2, VolumeX, Eye, EyeOff, RefreshCw,
   Trash2, FileText, CheckCircle2, Copy, Check, Globe, Layout, Gauge,
   Lock, Key, Fingerprint, ShieldAlert, Camera, Upload, X, Printer, ShieldCheck, LogOut,
-  Download, Calendar, PlayCircle, CheckCircle, Info
+  Download, Calendar, PlayCircle, CheckCircle, Info, ArrowRight
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 import { features } from '../config/features';
@@ -414,8 +414,8 @@ export function ProfileView({
 
         {isResetSuccess ? (
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-8 text-center space-y-6">
-            <div className="h-16 w-16 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full flex items-center justify-center mx-auto text-2xl font-black">
-              ✓
+            <div className="h-16 w-16 bg-emerald-50 text-emerald-600 border border-emerald-100 rounded-full flex items-center justify-center mx-auto">
+              <Check className="h-8 w-8" strokeWidth={3} />
             </div>
             <div className="space-y-2">
               <h3 className="text-lg font-black text-slate-900">Senha Alterada com Sucesso!</h3>
@@ -1634,7 +1634,7 @@ export function ProfileView({
                     >
                       <div className="flex items-center justify-between text-amber-600 mb-4">
                         <Award className="h-5 w-5" />
-                        <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-amber-200/65 font-bold">Ver todos ➔</span>
+                        <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-amber-200/65 font-bold inline-flex items-center gap-1">Ver todos <ArrowRight className="h-2.5 w-2.5" /></span>
                       </div>
                       <div>
                         <span className="text-2xl font-black text-slate-900 leading-none block">{studentCerts.length}</span>

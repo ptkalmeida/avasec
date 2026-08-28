@@ -22,7 +22,7 @@ export const StudentLibraryPanel: React.FC<StudentLibraryPanelProps> = ({ onBack
       </div>
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-black text-slate-900 tracking-tight">📚 Biblioteca Digital</h3>
+          <h3 className="text-xl font-black text-slate-900 tracking-tight">Biblioteca Digital</h3>
           <p className="text-xs text-slate-500">Repositório centralizado de materiais complementares e e-books.</p>
         </div>
       </div>

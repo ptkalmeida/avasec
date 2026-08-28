@@ -8,7 +8,7 @@ import {
   BookOpen, Calendar, CheckCircle, Award, Video, Plus, Trash2, Edit3, Users,
   Globe, Clock, Grid, ChevronRight, TrendingUp, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
-  ChevronDown, ChevronUp, ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock
+  ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
@@ -16,7 +16,10 @@ import { LessonVideoField } from './shared/LessonVideoField';
 import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
-import { renderLessonMarkdown } from '../utils/lessonMarkdown';
+import { parseLessonContent } from '../utils/lessonContent';
+import { LessonContent } from './student/LessonContent';
+import { LessonContentEditor } from './instructor/LessonContentEditor';
+import { LessonManagePage } from './instructor/LessonManagePage';
 import { courseMinAttendance } from '../config/constants';
 import { BackButton } from './BackButton';
 
@@ -173,7 +176,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [editLessonVideoUrl, setEditLessonVideoUrl] = useState('');
 
   // Expanded & Documents state inside curriculum
-  const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
+  // Aula aberta na página de gestão (substituiu o painel que expandia na lista).
+  const [managingLessonId, setManagingLessonId] = useState<string | null>(null);
   const [newDocTitle, setNewDocTitle] = useState('');
   const [newDocType, setNewDocType] = useState<'pdf' | 'doc' | 'url' | 'drive' | 'outro'>('pdf');
   const [newDocUrl, setNewDocUrl] = useState('');
@@ -232,7 +236,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
   const handleCreateLesson = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!lessonTitle.trim() || !lessonContent.trim()) return;
+    // O <textarea required> saiu junto com o editor novo: a exigência de conteúdo
+    // passa a ser checada aqui, com aviso — antes o submit falhava em silêncio.
+    if (!lessonTitle.trim() || !lessonContent.trim()) {
+      showToast('Informe o título e o texto de estudo da aula.');
+
+      return;
+    }
 
     addLessonToCourse(selectedCourseId, lessonTitle.trim(), lessonDuration, lessonContent.trim(), lessonVideoUrl.trim());
     
@@ -246,6 +256,12 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   
   const handleUpdateLesson = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editLessonTitle.trim() || !editLessonContent.trim()) {
+      showToast('Informe o título e o texto de estudo da aula.');
+
+      return;
+    }
+
     updateLesson(selectedCourseId, editingLessonId, {
       title: editLessonTitle.trim(),
       duration: editLessonDuration.trim(),
@@ -552,12 +568,273 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     showToast('Novo teste gerado com sucesso para os alunos!');
   };
 
+  /**
+   * Lista de documentos vinculados + formulário de anexo. Vive aqui porque o
+   * estado do upload (arquivo, tipo, tamanho) é do painel; a página de gestão da
+   * aula recebe isto pronto como slot.
+   */
+  const renderDocumentsManager = (lesson: Lesson) => {
+    const docs = lesson.documents || [];
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        {/* Col 1: Document & Attachment management */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-teal-600" />
+              Documentos Vinculados ({docs.length})
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">Os alunos podem abrir esses arquivos na seção de aula</span>
+          </div>
+
+          {/* Documents List */}
+          {docs.length === 0 ? (
+            <div className="bg-white border rounded-xl p-6 text-center shadow-3xs">
+              <FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs font-bold text-slate-600">Nenhum documento relacionado</p>
+              <p className="text-[10px] text-slate-400 max-w-xs mx-auto mt-0.5">Use o painel lateral para associar apostilas, links, slides ou documentos do Google Drive a esta aula.</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-150 rounded-xl divide-y divide-slate-100 shadow-3xs overflow-hidden">
+              {docs.map((doc, docIdx) => {
+                let typeColor = 'bg-slate-100 text-slate-700';
+                if (doc.type === 'pdf') typeColor = 'bg-rose-50 text-rose-700 border border-rose-100/40';
+                if (doc.type === 'doc') typeColor = 'bg-blue-50 text-blue-700 border border-blue-100/40';
+                if (doc.type === 'url') typeColor = 'bg-amber-50 text-amber-700 border border-amber-100/40';
+                if (doc.type === 'drive') typeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-100/40';
+
+                return (
+                  <div key={`${doc.id}-${typeof docIdx !== "undefined" ? docIdx : 0}`} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${typeColor}`}>
+                        {doc.type}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-800 truncate">{doc.title}</p>
+                        <p className="font-mono text-[9px] text-slate-400 truncate max-w-[280px]">
+                          {doc.size ? `${doc.size} • ` : ''}{doc.url}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 ml-4 shadow-3xs rounded-lg overflow-hidden bg-white border border-slate-200">
+                      <a 
+                        href={doc.url} 
+                        target="_blank" 
+                        referrerPolicy="no-referrer"
+                        rel="noopener noreferrer" 
+                        className="p-1.5 text-slate-600 hover:bg-slate-50 hover:text-teal-600 transition-colors"
+                        title="Testar Link Externo"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                      <button 
+                        onClick={() => handleDeleteDocument(lesson.id, doc.id)}
+                        className="p-1.5 text-slate-400 hover:bg-slate-50 hover:text-rose-600 transition-colors cursor-pointer border-l border-slate-150"
+                        title="Desvincular Documento"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Live student preview shortcut */}
+          <div className="bg-gradient-to-r from-[#540D6E]/5 to-teal-500/5 rounded-xl p-3 border border-[#540D6E]/10 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-[#540D6E]" />
+              <div>
+                <p className="font-bold text-[#540D6E]">Pré-visualização do Aluno</p>
+                <p className="text-[10px] text-slate-500">Veja exatamente como o aluno visualizará o material de estudos.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => {
+                setPreviewLesson(lesson);
+              }}
+              className="bg-white text-[#540D6E] font-extrabold hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-purple-200/50 text-[10px] cursor-pointer"
+            >
+              Olhar Prévia
+            </button>
+          </div>
+        </div>
+
+        {/* Col 2: Formulation input to attach new document */}
+        <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-3xs space-y-3">
+          <span className="text-[10px] font-black text-[#540D6E] uppercase tracking-wider block mb-1">Anexar Novo Arquivo / Link</span>
+
+          <div className="space-y-3 text-xs">
+            {/* File Upload Dropzone */}
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Upload de Arquivo Local</label>
+              {uploadedFile ? (
+                <div className="flex items-center justify-between p-3 rounded-xl border border-teal-200 bg-teal-50/50 animate-in fade-in duration-200">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-2 bg-teal-600 text-white rounded-lg">
+                      <File className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-800 text-xs truncate">{uploadedFile.name}</p>
+                      <p className="text-[10px] font-mono text-teal-600 font-semibold">{newDocSize}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearFile}
+                    className="p-1.5 hover:bg-teal-100 text-slate-500 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                    title="Remover arquivo"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      handleFileChange(e.dataTransfer.files[0]);
+                    }
+                  }}
+                  className={`relative border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
+                    isDragging
+                      ? 'border-teal-500 bg-teal-50/30'
+                      : 'border-slate-200 hover:border-teal-500 hover:bg-slate-50/50'
+                  }`}
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.onchange = (e: any) => {
+                      if (e.target?.files && e.target.files[0]) {
+                        handleFileChange(e.target.files[0]);
+                      }
+                    };
+                    input.click();
+                  }}
+                >
+                  <Upload className="h-5 w-5 text-slate-400 mb-1.5 animate-bounce" />
+                  <span className="font-semibold text-slate-700 text-[11px] block">Arraste um arquivo ou clique para fazer upload</span>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">Suporta PDF, Word, Imagens e outros</span>
+                </div>
+              )}
+            </div>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-slate-100"></div>
+              <span className="flex-shrink mx-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">OU preencha manualmente</span>
+              <div className="flex-grow border-t border-slate-100"></div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Título do Recurso</label>
+              <input
+                type="text"
+                placeholder="Ex: Slides Primeiros Passos.pdf, Exercício 1"
+                value={newDocTitle}
+                onChange={(e) => setNewDocTitle(e.target.value)}
+                className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-slate-400"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tipo de Link / Arquivo</label>
+                <select
+                  value={newDocType}
+                  onChange={(e) => setNewDocType(e.target.value as any)}
+                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all cursor-pointer"
+                >
+                  <option value="pdf">Apostila (.pdf)</option>
+                  <option value="doc">Anotações (.doc)</option>
+                  <option value="url">Link Externo</option>
+                  <option value="drive">Google Drive</option>
+                  <option value="outro">Outro Tipo</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tamanho aproximado</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 2.1 MB / Opcional"
+                  disabled={!uploadedFile && newDocType !== 'pdf' && newDocType !== 'doc'}
+                  value={newDocSize}
+                  onChange={(e) => setNewDocSize(e.target.value)}
+                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-mono text-center px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all disabled:opacity-40"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Endereço URL do Conteúdo</label>
+              <input
+                type="text"
+                placeholder={uploadedFile ? "Arquivo carregado localmente" : "https://exemplo.com/material-aula-1"}
+                disabled={!!uploadedFile}
+                value={uploadedFile ? "Arquivo carregado localmente" : newDocUrl}
+                onChange={(e) => setNewDocUrl(e.target.value)}
+                className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-slate-400 disabled:opacity-50"
+              />
+            </div>
+
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => handleAddDocument(lesson.id)}
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-teal-950/5 flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Vincular Documento</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Additional functional suggestions inside layout */}
+          <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
+            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">Configurações Avançadas de Aula</span>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-slate-600 font-semibold">Tornar Aula Opcional</span>
+              <button
+                onClick={() => {
+                  updateLesson(selectedCourseId, lesson.id, { isOptional: !lesson.isOptional });
+                  showToast(`${lesson.title} agora é ${!lesson.isOptional ? 'opcional' : 'obrigatória'}!`);
+                }}
+                className={`px-3 py-1 rounded-full text-[9px] font-black uppercase cursor-pointer transition-all ${
+                  lesson.isOptional 
+                    ? 'bg-slate-200 text-slate-700' 
+                    : 'bg-[#540D6E]/10 text-[#540D6E] border border-purple-300/30'
+                }`}
+              >
+                {lesson.isOptional ? "Desativar" : "Ativar"}
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  };
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(''), 4000);
   };
 
   const activeCourse = courses.find((c) => c.id === selectedCourseId) || courses[0];
+
+  // A aula em gestão vem sempre do estado atual do curso, não de uma cópia: assim a
+  // página reflete o que foi salvo sem precisar sincronizar nada à mão.
+  const managedLesson = managingLessonId === null
+    ? null
+    : activeCourse?.lessons.find((l) => l.id === managingLessonId) ?? null;
 
   // Simulated Student Directory tracking data
   const simulatedStudents = studentsList.map(item => ({
@@ -700,7 +977,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             >
               {courses.map((c, idx) => (
                 <option key={`${c.id}-${idx}`} value={c.id}>
-                  {isCourseExpired(c.contractExpirationDate) ? '⚠️ [VIGÊNCIA ENCERRADA] ' : ''}{c.category} • {c.title}
+                  {isCourseExpired(c.contractExpirationDate) ? '[VIGÊNCIA ENCERRADA] ' : ''}{c.category} • {c.title}
                 </option>
               ))}
             </select>
@@ -714,7 +991,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   <div className="flex items-start gap-3">
                     <Archive className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider">⚠️ Vigência de Direitos Encerrada (Arquivado Preventivamente)</h4>
+                      <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider">Vigência de Direitos Encerrada (Arquivado Preventivamente)</h4>
                       <p className="text-xs text-amber-700 mt-1 leading-normal">
                         O contrato de licença/exibição expirou em <strong className="font-bold underline">{activeCourse.contractExpirationDate}</strong>. 
                         Este curso foi <strong>arquivado preventivamente</strong> para novos acessos e está bloqueado no catálogo de alunos para proteção jurídica contra distribuição ilegal de direitos autorais expirados.
@@ -1044,7 +1321,48 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       )}
 
       {/* NEW: Dedicated Curriculum Tab Content */}
-      {activeDashboardTab === 'curriculum' && (
+      {/* Página de gestão de uma aula: abre em cima do currículo, no lugar da lista,
+          espelhando os blocos na ordem em que o aluno os recebe. */}
+      {activeDashboardTab === 'curriculum' && managedLesson && (
+        <div className="animate-in slide-in-from-bottom-2 duration-300 space-y-6">
+          <LessonManagePage
+            lesson={managedLesson}
+            courseTitle={activeCourse.title}
+            courseCategory={activeCourse.category}
+            totalLessons={activeCourse.lessons.length}
+            onBack={() => setManagingLessonId(null)}
+            onSaveHeader={(title, duration) => {
+              if (!title) {
+                showToast('O título da aula não pode ficar vazio.');
+
+                return;
+              }
+              updateLesson(selectedCourseId, managedLesson.id, { title, duration });
+              showToast('Identificação da aula atualizada!');
+            }}
+            onSaveVideo={(videoUrl) => {
+              updateLesson(selectedCourseId, managedLesson.id, { videoUrl });
+              showToast(videoUrl === '' ? 'Vídeo removido da aula.' : 'Vídeo da aula atualizado!');
+            }}
+            onSaveContent={(content) => {
+              if (!content) {
+                showToast('O material didático não pode ficar vazio.');
+
+                return;
+              }
+              updateLesson(selectedCourseId, managedLesson.id, { content });
+              showToast('Material didático atualizado!');
+            }}
+            onToggleOptional={() => {
+              updateLesson(selectedCourseId, managedLesson.id, { isOptional: !managedLesson.isOptional });
+              showToast(`${managedLesson.title} agora é ${!managedLesson.isOptional ? 'opcional' : 'obrigatória'}.`);
+            }}
+            documentsSlot={renderDocumentsManager(managedLesson)}
+          />
+        </div>
+      )}
+
+      {activeDashboardTab === 'curriculum' && !managedLesson && (
         <div className="animate-in slide-in-from-bottom-2 duration-300 space-y-6">
           <div className="text-left">
             <BackButton onClick={() => setActiveDashboardTab('general')} text="Voltar ao Painel do Instrutor" />
@@ -1086,14 +1404,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               </div>
             ) : (
               activeCourse.lessons.map((lesson, index) => {
-                const isExpanded = expandedLessonId === lesson.id;
                 const docs = lesson.documents || [];
                 return (
-                  <div 
-                    key={`${lesson.id}-${index}`} 
-                    className={`bg-white border rounded-2xl transition-all duration-200 shadow-3xs overflow-hidden ${
-                      isExpanded ? 'border-teal-500 ring-1 ring-teal-400/30' : 'border-slate-205 hover:border-teal-300'
-                    }`}
+                  <div
+                    key={`${lesson.id}-${index}`}
+                    className="bg-white border border-slate-200 hover:border-teal-300 rounded-2xl transition-all duration-200 shadow-3xs overflow-hidden"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
                     {/* Header Row */}
@@ -1126,7 +1441,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           <div className="flex flex-wrap items-center gap-2 mb-1">
                             <h4 className="font-extrabold text-slate-900 text-sm md:text-base leading-tight">{lesson.title}</h4>
                             <div className="flex items-center gap-1.5">
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[8px] font-mono font-bold tracking-tight">ID: {lesson.id.slice(0, 8)}</span>
                               {lesson.videoUrl && (
                                 <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[8px] font-bold uppercase tracking-wider flex items-center gap-1 border border-amber-100/40">
                                   <Video className="h-2 w-2" /> Vídeo
@@ -1156,15 +1470,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       <div className="flex items-center gap-1.5 shrink-0">
                         {/* Expand Details Button */}
                         <button
-                          onClick={() => setExpandedLessonId(isExpanded ? null : lesson.id)}
-                          className={`p-2 rounded-xl transition-all font-bold text-xs flex items-center gap-1 cursor-pointer ${
-                            isExpanded ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-slate-50 text-slate-700 border border-slate-100 hover:bg-slate-100'
-                          }`}
-                          title={isExpanded ? "Ocultar Documentos" : "Gerenciar Documentos & Recursos"}
+                          onClick={() => setManagingLessonId(lesson.id)}
+                          className="p-2 rounded-xl transition-all font-bold text-xs flex items-center gap-1 cursor-pointer bg-slate-50 text-slate-700 border border-slate-100 hover:bg-slate-100"
+                          title="Abrir a página de gestão desta aula"
                         >
                           <Archive className="h-4 w-4" />
-                          <span className="hidden md:inline">{isExpanded ? "Fechar Detalhes" : "Gerenciar Aula"}</span>
-                          {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                          <span className="hidden md:inline">Gerenciar Aula</span>
+                          <ChevronRight className="h-3 w-3" />
                         </button>
 
                         <button
@@ -1191,254 +1503,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       </div>
                     </div>
 
-                    {/* Expandable Panel */}
-                    {isExpanded && (
-                      <div className="bg-slate-50/50 p-5 border-t border-slate-150 space-y-6 text-left animate-in slide-in-from-top-1 duration-200">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                          
-                          {/* Col 1: Document & Attachment management */}
-                          <div className="lg:col-span-7 space-y-4">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-1.5">
-                                <FileText className="h-4 w-4 text-teal-600" />
-                                Documentos Vinculados ({docs.length})
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-medium">Os alunos podem abrir esses arquivos na seção de aula</span>
-                            </div>
-
-                            {/* Documents List */}
-                            {docs.length === 0 ? (
-                              <div className="bg-white border rounded-xl p-6 text-center shadow-3xs">
-                                <FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-                                <p className="text-xs font-bold text-slate-600">Nenhum documento relacionado</p>
-                                <p className="text-[10px] text-slate-400 max-w-xs mx-auto mt-0.5">Use o painel lateral para associar apostilas, links, slides ou documentos do Google Drive a esta aula.</p>
-                              </div>
-                            ) : (
-                              <div className="bg-white border border-slate-150 rounded-xl divide-y divide-slate-100 shadow-3xs overflow-hidden">
-                                {docs.map((doc, docIdx) => {
-                                  let typeColor = 'bg-slate-100 text-slate-700';
-                                  if (doc.type === 'pdf') typeColor = 'bg-rose-50 text-rose-700 border border-rose-100/40';
-                                  if (doc.type === 'doc') typeColor = 'bg-blue-50 text-blue-700 border border-blue-100/40';
-                                  if (doc.type === 'url') typeColor = 'bg-amber-50 text-amber-700 border border-amber-100/40';
-                                  if (doc.type === 'drive') typeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-100/40';
-                                  
-                                  return (
-                                    <div key={`${doc.id}-${typeof docIdx !== "undefined" ? docIdx : 0}`} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 transition-colors">
-                                      <div className="flex items-center gap-3 min-w-0">
-                                        <div className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${typeColor}`}>
-                                          {doc.type}
-                                        </div>
-                                        <div className="min-w-0">
-                                          <p className="font-bold text-slate-800 truncate">{doc.title}</p>
-                                          <p className="font-mono text-[9px] text-slate-400 truncate max-w-[280px]">
-                                            {doc.size ? `${doc.size} • ` : ''}{doc.url}
-                                          </p>
-                                        </div>
-                                      </div>
-                                      <div className="flex items-center gap-1 ml-4 shadow-3xs rounded-lg overflow-hidden bg-white border border-slate-200">
-                                        <a 
-                                          href={doc.url} 
-                                          target="_blank" 
-                                          referrerPolicy="no-referrer"
-                                          rel="noopener noreferrer" 
-                                          className="p-1.5 text-slate-600 hover:bg-slate-50 hover:text-teal-600 transition-colors"
-                                          title="Testar Link Externo"
-                                        >
-                                          <ExternalLink className="h-3.5 w-3.5" />
-                                        </a>
-                                        <button 
-                                          onClick={() => handleDeleteDocument(lesson.id, doc.id)}
-                                          className="p-1.5 text-slate-400 hover:bg-slate-50 hover:text-rose-600 transition-colors cursor-pointer border-l border-slate-150"
-                                          title="Desvincular Documento"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            {/* Live student preview shortcut */}
-                            <div className="bg-gradient-to-r from-[#540D6E]/5 to-teal-500/5 rounded-xl p-3 border border-[#540D6E]/10 flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2">
-                                <Sparkles className="h-4 w-4 text-[#540D6E]" />
-                                <div>
-                                  <p className="font-bold text-[#540D6E]">Pré-visualização do Aluno</p>
-                                  <p className="text-[10px] text-slate-500">Veja exatamente como o aluno visualizará o material de estudos.</p>
-                                </div>
-                              </div>
-                              <button 
-                                onClick={() => {
-                                  setPreviewLesson(lesson);
-                                }}
-                                className="bg-white text-[#540D6E] font-extrabold hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-purple-200/50 text-[10px] cursor-pointer"
-                              >
-                                Olhar Prévia
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Col 2: Formulation input to attach new document */}
-                          <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-3xs space-y-3">
-                            <span className="text-[10px] font-black text-[#540D6E] uppercase tracking-wider block mb-1">Anexar Novo Arquivo / Link</span>
-                            
-                            <div className="space-y-3 text-xs">
-                              {/* File Upload Dropzone */}
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Upload de Arquivo Local</label>
-                                {uploadedFile ? (
-                                  <div className="flex items-center justify-between p-3 rounded-xl border border-teal-200 bg-teal-50/50 animate-in fade-in duration-200">
-                                    <div className="flex items-center gap-2.5 min-w-0">
-                                      <div className="p-2 bg-teal-600 text-white rounded-lg">
-                                        <File className="h-4 w-4" />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p className="font-bold text-slate-800 text-xs truncate">{uploadedFile.name}</p>
-                                        <p className="text-[10px] font-mono text-teal-600 font-semibold">{newDocSize}</p>
-                                      </div>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={handleClearFile}
-                                      className="p-1.5 hover:bg-teal-100 text-slate-500 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-                                      title="Remover arquivo"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div
-                                    onDragOver={(e) => {
-                                      e.preventDefault();
-                                      setIsDragging(true);
-                                    }}
-                                    onDragLeave={() => setIsDragging(false)}
-                                    onDrop={(e) => {
-                                      e.preventDefault();
-                                      setIsDragging(false);
-                                      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                                        handleFileChange(e.dataTransfer.files[0]);
-                                      }
-                                    }}
-                                    className={`relative border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
-                                      isDragging
-                                        ? 'border-teal-500 bg-teal-50/30'
-                                        : 'border-slate-200 hover:border-teal-500 hover:bg-slate-50/50'
-                                    }`}
-                                    onClick={() => {
-                                      const input = document.createElement('input');
-                                      input.type = 'file';
-                                      input.onchange = (e: any) => {
-                                        if (e.target?.files && e.target.files[0]) {
-                                          handleFileChange(e.target.files[0]);
-                                        }
-                                      };
-                                      input.click();
-                                    }}
-                                  >
-                                    <Upload className="h-5 w-5 text-slate-400 mb-1.5 animate-bounce" />
-                                    <span className="font-semibold text-slate-700 text-[11px] block">Arraste um arquivo ou clique para fazer upload</span>
-                                    <span className="text-[9px] text-slate-400 block mt-0.5">Suporta PDF, Word, Imagens e outros</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="relative flex py-1 items-center">
-                                <div className="flex-grow border-t border-slate-100"></div>
-                                <span className="flex-shrink mx-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">OU preencha manualmente</span>
-                                <div className="flex-grow border-t border-slate-100"></div>
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Título do Recurso</label>
-                                <input
-                                  type="text"
-                                  placeholder="Ex: Slides Primeiros Passos.pdf, Exercício 1"
-                                  value={newDocTitle}
-                                  onChange={(e) => setNewDocTitle(e.target.value)}
-                                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-slate-400"
-                                />
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tipo de Link / Arquivo</label>
-                                  <select
-                                    value={newDocType}
-                                    onChange={(e) => setNewDocType(e.target.value as any)}
-                                    className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all cursor-pointer"
-                                  >
-                                    <option value="pdf">Apostila (.pdf)</option>
-                                    <option value="doc">Anotações (.doc)</option>
-                                    <option value="url">Link Externo</option>
-                                    <option value="drive">Google Drive</option>
-                                    <option value="outro">Outro Tipo</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tamanho aproximado</label>
-                                  <input
-                                    type="text"
-                                    placeholder="Ex: 2.1 MB / Opcional"
-                                    disabled={!uploadedFile && newDocType !== 'pdf' && newDocType !== 'doc'}
-                                    value={newDocSize}
-                                    onChange={(e) => setNewDocSize(e.target.value)}
-                                    className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-mono text-center px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all disabled:opacity-40"
-                                  />
-                                </div>
-                              </div>
-
-                              <div>
-                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Endereço URL do Conteúdo</label>
-                                <input
-                                  type="text"
-                                  placeholder={uploadedFile ? "Arquivo carregado localmente" : "https://exemplo.com/material-aula-1"}
-                                  disabled={!!uploadedFile}
-                                  value={uploadedFile ? "Arquivo carregado localmente" : newDocUrl}
-                                  onChange={(e) => setNewDocUrl(e.target.value)}
-                                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-slate-400 disabled:opacity-50"
-                                />
-                              </div>
-
-                              <div className="pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddDocument(lesson.id)}
-                                  className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-teal-950/5 flex items-center justify-center gap-1.5 cursor-pointer text-xs"
-                                >
-                                  <Plus className="h-4 w-4" />
-                                  <span>Vincular Documento</span>
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Additional functional suggestions inside layout */}
-                            <div className="pt-2 border-t border-slate-100 flex flex-col gap-1.5">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">Configurações Avançadas de Aula</span>
-                              <div className="flex items-center justify-between">
-                                <span className="text-[10px] text-slate-600 font-semibold">Tornar Aula Opcional</span>
-                                <button
-                                  onClick={() => {
-                                    updateLesson(selectedCourseId, lesson.id, { isOptional: !lesson.isOptional });
-                                    showToast(`${lesson.title} agora é ${!lesson.isOptional ? 'opcional' : 'obrigatória'}!`);
-                                  }}
-                                  className={`px-3 py-1 rounded-full text-[9px] font-black uppercase cursor-pointer transition-all ${
-                                    lesson.isOptional 
-                                      ? 'bg-slate-200 text-slate-700' 
-                                      : 'bg-[#540D6E]/10 text-[#540D6E] border border-purple-300/30'
-                                  }`}
-                                >
-                                  {lesson.isOptional ? "Desativar" : "Ativar"}
-                                </button>
-                              </div>
-                            </div>
-
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 );
               })
@@ -1588,7 +1652,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         </div>
                         <div className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-right">
                           <span className="block text-[8px] text-slate-400 font-bold uppercase leading-none">Curso Certificado</span>
-                          <span className="text-xs font-black text-teal-600">{hasCert ? '✓ Emitido' : '✕ Pendente'}</span>
+                          <span className="text-xs font-black text-teal-600"><span className="inline-flex items-center gap-1">{hasCert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}{hasCert ? 'Emitido' : 'Pendente'}</span></span>
                         </div>
                       </div>
                     </div>
@@ -1953,17 +2017,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               <LessonVideoField value={lessonVideoUrl} onChange={setLessonVideoUrl} />
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Conteúdo Teórico / Exercícios (Markdown)</label>
-                <textarea
-                  required
-                  rows={8}
-                  value={lessonContent}
-                  onChange={(e) => setLessonContent(e.target.value)}
-                  placeholder="#### Introdução à aula... use cabeçalhos e listas."
-                  className="w-full rounded-lg border border-slate-200 p-2.5 font-mono text-xs text-slate-700"
-                />
-              </div>
+              <LessonContentEditor value={lessonContent} onChange={setLessonContent} rows={10} />
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -2387,17 +2441,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               <LessonVideoField value={editLessonVideoUrl} onChange={setEditLessonVideoUrl} />
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Conteúdo (Markdown/Instruções)</label>
-                <textarea
-                  required
-                  rows={10}
-                  value={editLessonContent}
-                  onChange={(e) => setEditLessonContent(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-mono text-slate-700 bg-slate-50"
-                  placeholder="### Desafio Prático..."
-                />
-              </div>
+              <LessonContentEditor value={editLessonContent} onChange={setEditLessonContent} rows={12} />
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -2739,7 +2783,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 </h4>
                 <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/60 text-slate-300 text-xs font-sans leading-relaxed max-h-[250px] overflow-y-auto">
                   {previewLesson.content
-                    ? renderLessonMarkdown(previewLesson.content, { headingClassName: 'text-white' })
+                    ? <LessonContent blocks={parseLessonContent(previewLesson.content).blocks} tone="dark" />
                     : "Nenhum conteúdo de texto cadastrado para esta aula."}
                 </div>
               </div>

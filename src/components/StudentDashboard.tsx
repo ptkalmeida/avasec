@@ -9,7 +9,8 @@ import {
   BookOpen, Calendar, CheckCircle, Award, Video, Clock, ChevronRight,
   TrendingUp, FileCheck, ArrowRight, ArrowLeft, User, Settings, Sparkles, BookMarked, Monitor, Linkedin, Download, Globe, PlayCircle,
   Lock, MessageSquare, Send, ChevronDown, Check, Play, FileText, Notebook, Layers, HelpCircle, CheckSquare, ExternalLink, Archive, Library, Info,
-  Bell, Shield, Smartphone, X, Bold, Italic, Underline, List, ListOrdered
+  Bell, Shield, Smartphone, X, Bold, Italic, Underline, List, ListOrdered,
+  AlertTriangle, Lightbulb, Tag, LayoutGrid, Star, PartyPopper
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
@@ -21,7 +22,10 @@ import { CourseForum } from './CourseForum';
 import { StudentLibraryPanel } from './student/StudentLibraryPanel';
 import { StudentEventsPanel } from './student/StudentEventsPanel';
 import { features } from '../config/features';
-import { renderLessonMarkdown } from '../utils/lessonMarkdown';
+import { parseLessonContent } from '../utils/lessonContent';
+import { parseVideoSource } from '../utils/videoSource';
+import { LessonContent } from './student/LessonContent';
+import { LessonIndex } from './student/LessonIndex';
 
 interface ModuleGroup {
   name: string;
@@ -134,6 +138,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     .filter((id): id is string => !!id);
   const canEnrollInMoreCourses = activeEnrolledCourseIds.length === 0
     || (features.matriculasMultiplas && enrollmentRecord.canMultiEnroll);
+
+  // Cursos que o aluno realmente pode cursar agora: fora os vencidos, os que já
+  // cursa e os já concluídos (esses ficam em "Cursos Concluídos", para revisão).
+  // Fonte única do catálogo, para os filtros e a grade não divergirem na contagem.
+  const enrollableCourses = courses.filter(c =>
+    !isCourseExpired(c.contractExpirationDate)
+    && !activeEnrolledCourseIds.includes(c.id)
+    && !(enrollmentRecord.completedCourseIds ?? []).includes(c.id)
+  );
 
   // Presença do gestor responsável pelo curso ativo — a chave de presença é por userId (ADR 10).
   const enrolledCourseInstructorId = courses.find(c => c.id === enrollmentRecord.enrolledCourseId)?.instructorId ?? '';
@@ -310,6 +323,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     noteEditorRef.current?.focus();
     document.execCommand(command, false, value);
   };
+
+  // Conteúdo da aula parseado uma vez por aula (títulos, listas, blocos de
+  // código) — alimenta tanto a renderização quanto o índice de seções.
+  const parsedLesson = React.useMemo(
+    () => parseLessonContent(activeLesson?.content ?? ''),
+    [activeLesson?.id, activeLesson?.content]
+  );
+
+  // Uma aula pode não ter vídeo. Usamos o MESMO parser do player (ADR 08) para
+  // decidir, senão uma URL inválida abriria o player só para mostrar erro.
+  const lessonHasVideo = parseVideoSource(activeLesson?.videoUrl) !== null;
 
   const handleSaveNoteText = () => {
     if (activeLesson && noteEditorRef.current) {
@@ -562,7 +586,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 animate-bounce">
                     <Archive className="h-7 w-7" />
                   </div>
-                  <h3 className="text-xl font-black text-slate-800">⚠️ Vigência de Exibição Encerrada</h3>
+                  <h3 className="text-xl font-black text-slate-800">Vigência de Exibição Encerrada</h3>
                   <p className="text-sm text-slate-600 leading-relaxed text-center">
                     O contrato de licenciamento e exibição deste curso encerrou-se em <strong className="font-bold underline">{selectedCourse.contractExpirationDate}</strong>. 
                     Por razões de conformidade legal e direitos autorais da coordenação, este material foi <strong>arquivado preventivamente</strong> e o acesso às aulas foi suspenso.
@@ -570,9 +594,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   
                   <div className="bg-white border border-amber-200 rounded-xl p-4 text-xs text-amber-900 text-left space-y-1">
                     <strong className="block text-amber-950 font-bold uppercase text-[10px] tracking-wider mb-1">Proteção Jurídica Ativa:</strong>
-                    <p>✓ Reprodução de vídeos suspensa.</p>
-                    <p>✓ Download de anexos bloqueado de acordo com a vigência de exibição.</p>
-                    <p>✓ Cadastro de novas presenças desativado.</p>
+                    <p className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-700" />Reprodução de vídeos suspensa.</p>
+                    <p className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-700" />Download de anexos bloqueado de acordo com a vigência de exibição.</p>
+                    <p className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-700" />Cadastro de novas presenças desativado.</p>
                   </div>
 
                   <button
@@ -639,16 +663,26 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
               </div>
 
               {/* Banner de sucesso — só quando a frequência qualifica para certificação */}
-              {calculateAttendancePercent(selectedCourse.id) >= 70 && (
+              {calculateAttendancePercent(selectedCourse.id) >= 70 && (() => {
+                // Curso já concluído não pode ser concluído de novo: a matrícula
+                // deixou de ser ativa, então o botão só daria erro.
+                const jaConcluido = enrollmentRecord.completedCourseIds?.includes(selectedCourse.id) ?? false;
+
+                return (
                 <div className="mb-6 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-800 flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2.5">
                     <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
                     <div>
-                      <strong className="block font-bold mb-0.5">Parabéns! Frequência Qualificada para Certificação</strong>
-                      Você atingiu {calculateAttendancePercent(selectedCourse.id)}% de presença! Seu certificado acadêmico digital foi emitido e está pronto no painel lateral.
+                      <strong className="block font-bold mb-0.5">
+                        {jaConcluido ? 'Curso concluído' : 'Parabéns! Frequência Qualificada para Certificação'}
+                      </strong>
+                      {jaConcluido
+                        ? 'Você já concluiu este curso. Seu certificado acadêmico digital está disponível no seu perfil.'
+                        : `Você atingiu ${calculateAttendancePercent(selectedCourse.id)}% de presença! Seu certificado acadêmico digital foi emitido e está pronto no painel lateral.`}
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row items-center gap-2">
+                    {!jaConcluido && (
                     <button
                       onClick={async () => {
                         // O servidor confere o critério de frequência antes de concluir.
@@ -663,11 +697,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                         setSelectedModulePageName(null);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="shrink-0 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-3.5 py-1.8 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
+                      title="Marca o curso como concluído e volta para o catálogo"
+                      className="shrink-0 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-3.5 py-2 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
                     >
                       <Check className="h-3.5 w-3.5" />
-                      <span>Concluir Disciplina e Escolher Novo Curso</span>
+                      <span className="uppercase tracking-wider">Concluir curso</span>
                     </button>
+                    )}
 
                     {certificates.find((cert) => cert.courseId === selectedCourse.id && cert.userId === activeUser.id) && (
                       <button
@@ -675,15 +711,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           speakText("Seu certificado está disponível no seu Perfil.");
                           onNavigateToProfile?.();
                         }}
-                        className="shrink-0 rounded-lg bg-emerald-650 hover:bg-emerald-605 text-white font-semibold text-xs px-3.5 py-1.8 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
+                        title="Abre o certificado no seu perfil"
+                        className="shrink-0 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-3.5 py-2 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
                       >
                         <Award className="h-3.5 w-3.5" />
-                        <span>Ver Certificado no Perfil</span>
+                        <span className="uppercase tracking-wider">Ver certificado</span>
                       </button>
                     )}
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* Full Page Module View (hides the Grid) */}
               {selectedModulePageName && !activeLesson && !activeQuizTaking ? (
@@ -813,72 +851,71 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     /* Lesson Player Station active */
                     <div className="space-y-5 flex flex-col items-center">
                       
-                      <div className="flex items-center justify-end w-full mb-2">
-                        <button
-                          onClick={() => setActiveLesson(null)}
-                          className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1 cursor-pointer"
-                        >
-                          <ArrowRight className="h-3.5 w-3.5 rotate-180" />
-                          <span>Voltar ao Módulo</span>
-                        </button>
-                      </div>
+                      {/* Cabeçalho fixo: voltar, título e índice ficam alcançáveis
+                          em qualquer ponto da rolagem. */}
+                      <div className="sticky top-0 z-20 -mx-4 px-4 pt-2 pb-2.5 bg-white/95 backdrop-blur border-b border-slate-150 w-[calc(100%+2rem)]">
+                        <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
+                          <button
+                            onClick={() => setActiveLesson(null)}
+                            className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                          >
+                            <ArrowRight className="h-3.5 w-3.5 rotate-180" />
+                            <span className="hidden sm:inline">Voltar ao Módulo</span>
+                            <span className="sm:hidden">Voltar</span>
+                          </button>
 
-                      {/* Premium Simulated Video Canvas Player Board */}
-                      <div className="relative rounded-2xl bg-slate-950 border border-slate-850 overflow-hidden shadow-md group w-full max-w-3xl mx-auto">
-                        
-                        {/* 16:9 Screen ratio representation with max height constraint */}
-                        <div className="aspect-video w-full max-h-[50vh]">
-                          {/* Player único da plataforma (ADR 08) — usa os controles
-                              nativos: YouTube no iframe, navegador nos vídeos mp4. */}
-                          <VideoPlayer
-                            key={activeLesson.id}
-                            videoUrl={activeLesson.videoUrl}
-                            title={activeLesson.title}
-                            controls
-                          />
+                          <div className="min-w-0 flex-1 text-center hidden md:block">
+                            <p className="text-[11px] font-bold text-slate-700 truncate">{activeLesson.title}</p>
+                            <span className="text-[9px] font-mono text-slate-400">
+                              Aula {activeLesson.order} de {selectedCourse.lessons.length}
+                            </span>
+                          </div>
+
+                          <div className="shrink-0">
+                            <LessonIndex sections={parsedLesson.sections} />
+                          </div>
                         </div>
                       </div>
 
-                      {/* Lesson Controls: Mark as Complete, Previous & Next lessons */}
+                      {/* Vídeo só aparece quando a aula TEM vídeo — aula de
+                          leitura não deve abrir com meia tela de caixa preta. */}
+                      {lessonHasVideo && (
+                        <div className="relative rounded-2xl bg-slate-950 border border-slate-850 overflow-hidden shadow-md group w-full max-w-3xl mx-auto">
+                          {/* 16:9 Screen ratio representation with max height constraint */}
+                          <div className="aspect-video w-full max-h-[50vh]">
+                            {/* Player único da plataforma (ADR 08) — usa os controles
+                                nativos: YouTube no iframe, navegador nos vídeos mp4. */}
+                            <VideoPlayer
+                              key={activeLesson.id}
+                              videoUrl={activeLesson.videoUrl}
+                              title={activeLesson.title}
+                              controls
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Aula sem vídeo: abre com o título e a natureza do
+                          conteúdo, em vez de um player vazio. */}
+                      {!lessonHasVideo && (
+                        <div className="w-full max-w-3xl mx-auto text-left space-y-2 pt-1">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 border border-teal-150 text-teal-800 text-[9px] font-black uppercase tracking-widest px-2.5 py-1">
+                            <FileText className="h-3 w-3" />
+                            Conteúdo de leitura
+                          </span>
+                          <h2 className="text-lg md:text-2xl font-black text-slate-900 font-serif leading-tight">
+                            {activeLesson.title}
+                          </h2>
+                          <p className="text-[11px] text-slate-400 font-mono">
+                            Aula {activeLesson.order} de {selectedCourse.lessons.length}
+                            {activeLesson.duration ? ` • ${activeLesson.duration} de leitura` : ''}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Controles da aula. A navegação entre aulas vive só no rodapé
+                          da aula (um par de botões, não dois fazendo a mesma coisa). */}
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/65 flex items-center justify-between gap-4 w-full max-w-3xl mx-auto">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              const order = activeLesson.order;
-                              if (order > 1) {
-                                const prev = selectedCourse.lessons.find(l => l.order === order - 1);
-                                if (prev) setActiveLesson(prev);
-                              }
-                            }}
-                            disabled={activeLesson.order === 1}
-                            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
-                              activeLesson.order === 1
-                                ? 'border-slate-200 text-slate-305 cursor-not-allowed text-slate-300'
-                                : 'border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer'
-                            }`}
-                          >
-                            ← Anterior
-                          </button>
-                          
-                          <button
-                            onClick={() => {
-                              const order = activeLesson.order;
-                              if (order < selectedCourse.lessons.length) {
-                                const next = selectedCourse.lessons.find(l => l.order === order + 1);
-                                if (next) setActiveLesson(next);
-                              }
-                            }}
-                            disabled={activeLesson.order === selectedCourse.lessons.length}
-                            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
-                              activeLesson.order === selectedCourse.lessons.length
-                                ? 'border-slate-200 text-slate-305 cursor-not-allowed text-slate-300'
-                                : 'border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer'
-                            }`}
-                          >
-                            Próxima →
-                          </button>
-                        </div>
-
                         <span className="hidden sm:inline text-[10px] font-mono text-slate-400 select-none">
                           Aula {activeLesson.order} de {selectedCourse.lessons.length}
                         </span>
@@ -978,8 +1015,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 <Sparkles className="h-4 w-4 text-teal-500 animate-pulse" />
                                 <span>Roteiro Consolidado de Aprendizado</span>
                               </h4>
-                              <div className="text-[13px] text-slate-700 font-sans leading-relaxed mb-6">
-                                {renderLessonMarkdown(activeLesson.content)}
+                              <div className="mb-6">
+                                <LessonContent blocks={parsedLesson.blocks} />
                               </div>
 
                               {/* Student-Facing attached documents list */}
@@ -1448,6 +1485,61 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           )}
                         </div>
                       </div>
+
+                      {/* Navegação no FIM da aula: quem terminou de ler não deve
+                          rolar de volta ao topo para seguir adiante. */}
+                      <nav
+                        aria-label="Navegação entre aulas"
+                        className="w-full max-w-3xl mx-auto flex items-center justify-between gap-3 pt-1"
+                      >
+                        {(() => {
+                          const prev = selectedCourse.lessons.find(l => l.order === activeLesson.order - 1);
+                          const next = selectedCourse.lessons.find(l => l.order === activeLesson.order + 1);
+
+                          return (
+                            <>
+                              <button
+                                onClick={() => {
+                                  if (prev) {
+                                    setActiveLesson(prev);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }
+                                }}
+                                disabled={!prev}
+                                title={prev ? prev.title : 'Esta é a primeira aula'}
+                                className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-bold transition-all min-w-0 ${
+                                  prev
+                                    ? 'border-slate-300 text-slate-700 hover:bg-slate-100 cursor-pointer'
+                                    : 'border-slate-200 text-slate-300 cursor-not-allowed'
+                                }`}
+                              >
+                                <ArrowRight className="h-3.5 w-3.5 rotate-180 shrink-0" />
+                                {/* Rótulo genérico: o nome da aula de destino fica no title/tooltip. */}
+                                <span className="truncate uppercase tracking-wider">Aula anterior</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  if (next) {
+                                    setActiveLesson(next);
+                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  }
+                                }}
+                                disabled={!next}
+                                title={next ? next.title : 'Esta é a última aula'}
+                                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all min-w-0 ${
+                                  next
+                                    ? 'bg-[#540D6E] hover:bg-purple-950 text-white cursor-pointer shadow-xs'
+                                    : 'border border-slate-200 text-slate-300 cursor-not-allowed'
+                                }`}
+                              >
+                                <span className="truncate uppercase tracking-wider">{next ? 'Próxima aula' : 'Última aula'}</span>
+                                <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                              </button>
+                            </>
+                          );
+                        })()}
+                      </nav>
                     </div>
                   ) : (
                     /* Initial Welcome course billboard if no active lesson selected */
@@ -1884,11 +1976,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
                   {/* Main Header Presentation */}
                   <div className="space-y-3">
-                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-amber-600 font-bold">
-                      <span className="bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md">★ 4.9 de Avaliação Acadêmica Geral</span>
-                      <span className="text-slate-300">•</span>
-                      <span>Mais de 320 alunos formados e certificados neste curso</span>
-                    </div>
                     <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight tracking-tight">
                       {viewingCatalogCourse.title}
                     </h2>
@@ -1897,48 +1984,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     </p>
                   </div>
 
-                  {/* Churn Prevention Metric Pillars - Compact & Sleek */}
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-                    <div className="bg-emerald-50/40 border border-emerald-100/70 rounded-xl p-3 flex items-center gap-2.5 transition-all hover:bg-emerald-50/70">
-                      <span className="p-2 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
-                        <Award className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <strong className="block text-[11px] font-black text-slate-800 leading-none">Certificado Garantido</strong>
-                        <span className="text-[9.5px] text-slate-500 mt-1 block truncate">Frequência mínima de {courseMinAttendance(viewingCatalogCourse)}%</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-teal-50/40 border border-teal-100/70 rounded-xl p-3 flex items-center gap-2.5 transition-all hover:bg-teal-50/70">
-                      <span className="p-2 bg-teal-100 text-teal-700 rounded-lg shrink-0">
-                        <Layers className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <strong className="block text-[11px] font-black text-slate-800 leading-none">Fixação Rápida</strong>
-                        <span className="text-[9.5px] text-slate-500 mt-1 block truncate">Quizzes & leituras dinâmicas</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-sky-50/40 border border-sky-100/70 rounded-xl p-3 flex items-center gap-2.5 transition-all hover:bg-sky-50/70">
-                      <span className="p-2 bg-sky-100 text-sky-700 rounded-lg shrink-0">
-                        <Calendar className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <strong className="block text-[11px] font-black text-slate-800 leading-none">Aulas ao Vivo</strong>
-                        <span className="text-[9.5px] text-slate-500 mt-1 block truncate">Plantões semanais c/ Professor</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-blue-50/40 border border-blue-100/70 rounded-xl p-3 flex items-center gap-2.5 transition-all hover:bg-blue-50/70">
-                      <span className="p-2 bg-blue-100 text-blue-700 rounded-lg shrink-0">
-                        <Shield className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <strong className="block text-[11px] font-black text-slate-800 leading-none">Regras de Participação</strong>
-                        <span className="text-[9.5px] text-slate-500 mt-1 block truncate">Período de ajuste de 5 dias</span>
-                      </div>
-                    </div>
-                  </div>
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-2">
                     
                     {/* Course syllabus / Curriculum grade details */}
@@ -2048,10 +2093,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           </div>
                           <div className="min-w-0">
                             <strong className="text-xs font-black text-slate-800 block truncate">Prof. {viewingCatalogCourse.instructorName || 'Gestor de Conteúdos'}</strong>
-                            <span className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 rounded px-1.5 py-0.5 text-[8.5px] font-black text-emerald-700 uppercase tracking-widest mt-0.5">
-                              <span className="h-1 w-1 bg-emerald-500 rounded-full animate-pulse" />
-                              <span>ON-LINE NO CHAT</span>
-                            </span>
                           </div>
                         </div>
 
@@ -2130,13 +2171,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                         <div key={activeCourse.id} className="rounded-2xl border border-amber-250 bg-amber-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
                           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
                             <div className="space-y-2 max-w-xl">
-                              <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono">⚠️ Vigência de Exibição Encerrada (Arquivado)</span>
+                              <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Vigência de Exibição Encerrada (Arquivado)</span>
                               <h3 className="text-base md:text-lg font-black text-slate-850 leading-tight">{activeCourse.title}</h3>
                               <p className="text-xs text-slate-500 leading-relaxed">
                                 Este curso foi <strong>arquivado preventivamente</strong> e o acesso letivo foi suspenso, pois o prazo contratual de exibição encerrou em <strong>{activeCourse.contractExpirationDate}</strong>.
                               </p>
                               <p className="text-[11px] text-amber-900 bg-amber-100/40 p-3 rounded-xl border border-amber-200/50 leading-relaxed mt-2.5">
-                                💡 <strong>Como estudar outra disciplina?</strong> Para liberar seu cadastro e escolher um novo curso ativo, clique no botão <strong>"Cancelar inscrição"</strong> ao lado. Isso abrirá imediatamente o catálogo de disciplinas disponíveis para você se matricular e começar a estudar!
+                                <Lightbulb className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-amber-700" /><strong>Como estudar outra disciplina?</strong> Para liberar seu cadastro e escolher um novo curso ativo, clique no botão <strong>"Cancelar inscrição"</strong> ao lado. Isso abrirá imediatamente o catálogo de disciplinas disponíveis para você se matricular e começar a estudar!
                               </p>
                             </div>
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
@@ -2208,7 +2249,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           <div className="space-y-1.5 max-w-2xl w-full">
                             <div className="flex items-center gap-2 text-rose-800 font-bold text-sm">
                               <Lock className="h-5 w-5 text-rose-600 animate-pulse" />
-                              <span>⚠️ Restrição Temporária de Matrícula - Justificativa Pendente</span>
+                              <span>Restrição Temporária de Matrícula — Justificativa Pendente</span>
                             </div>
                             <p className="text-xs text-rose-900/85 leading-relaxed">
                               Caso o aluno possua uma restrição temporária de nova matrícula por não conclusão anterior, o sistema informa a data prevista para nova solicitação ou permite o envio de justificativa para análise da coordenação.
@@ -2338,9 +2379,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 onChange={(e) => setSortType(e.target.value as any)}
                                 className="appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2 pr-9 text-xs font-bold text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs cursor-pointer"
                               >
-                                <option value="recent">📅 Mais recentes</option>
-                                <option value="alphabetical-asc">🔤 Ordem alfabética (A-Z)</option>
-                                <option value="alphabetical-desc">🔤 Ordem alfabética (Z-A)</option>
+                                <option value="recent">Mais recentes</option>
+                                <option value="alphabetical-asc">Ordem alfabética (A-Z)</option>
+                                <option value="alphabetical-desc">Ordem alfabética (Z-A)</option>
                               </select>
                               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
                                 <ChevronDown className="h-3.5 w-3.5" />
@@ -2354,7 +2395,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Filtrar por Categoria / Área:</span>
                           <div className="flex flex-wrap gap-1.5">
                             {(() => {
-                              const activeCourses = courses.filter(c => !isCourseExpired(c.contractExpirationDate));
+                              const activeCourses = enrollableCourses;
                               return (
                                 <>
                                   <button
@@ -2363,13 +2404,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                       setSelectedCategory('all');
                                       speakText("Exibindo todas as áreas acadêmicas.");
                                     }}
-                                    className={`px-3 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-all ${
+                                    className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-colors ${
                                       selectedCategory === 'all'
-                                        ? 'bg-[#540D6E] text-white shadow-xs scale-102 font-black'
+                                        ? 'bg-[#540D6E] text-white shadow-md font-black'
                                         : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                                     }`}
                                   >
-                                    📂 Ver Tudo ({activeCourses.length})
+                                    <LayoutGrid className="h-3.5 w-3.5" />
+                                    <span>Ver Tudo ({activeCourses.length})</span>
                                   </button>
                                   {Array.from(new Set(activeCourses.map(c => c.category))).map(category => {
                                     const count = activeCourses.filter(c => c.category === category).length;
@@ -2381,13 +2423,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                           setSelectedCategory(category);
                                           speakText(`Filtrando disciplinas para a área de ${category}`);
                                         }}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-all ${
+                                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-colors ${
                                           selectedCategory === category
-                                            ? 'bg-teal-600 text-white shadow-xs scale-102 font-black'
+                                            ? 'bg-teal-600 text-white shadow-md font-black'
                                             : 'bg-white border border-slate-200 text-slate-600 hover:bg-teal-50'
                                         }`}
                                       >
-                                        🔖 {category} ({count})
+                                        <Tag className="h-3.5 w-3.5" />
+                                        <span>{category} ({count})</span>
                                       </button>
                                     );
                                   })}
@@ -2400,10 +2443,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
                       {/* Displaying match counts dynamically */}
                       {(() => {
-                        const filtered = courses
+                        const filtered = enrollableCourses
                           .filter(c => {
-                            if (isCourseExpired(c.contractExpirationDate)) return false;
-                            if (activeEnrolledCourseIds.includes(c.id)) return false;
                             const matchesSearch = c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                                                   c.category.toLowerCase().includes(searchQuery.toLowerCase());
                             const matchesCategory = selectedCategory === 'all' || c.category === selectedCategory;
@@ -2451,33 +2492,29 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                               {filtered.map((course, idx) => {
                                 const minAtt = courseMinAttendance(course);
-                                const isAlreadyCompleted = enrollmentRecord.completedCourseIds?.includes(course.id);
                                 return (
                                   <div key={`${course.id}-${idx}`} className="group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-with-duration hover:shadow-md hover:border-[#540D6E]/30 flex flex-col justify-between text-left animate-in fade-in zoom-in-95 duration-150">
                                     <div className="space-y-3 ms-0.5">
                                       <div className="flex items-center justify-between">
                                         <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500 border border-slate-200 flex items-center gap-1">
-                                          🔖 {course.category}
+                                          <Tag className="h-3 w-3" />
+                                          {course.category}
                                         </span>
-                                        {isAlreadyCompleted ? (
-                                          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-                                            ✓ Concluído
-                                          </span>
-                                        ) : (
-                                          <span className="text-[10px] text-teal-600 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full shadow-2xs">
-                                            Meta: {minAtt}% pres.
-                                          </span>
-                                        )}
+                                        <span className="text-[10px] text-teal-600 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full shadow-2xs">
+                                          Meta: {minAtt}% pres.
+                                        </span>
                                       </div>
                                       <div>
                                         <h4 className="text-sm font-black text-slate-950 group-hover:text-[#540D6E] transition-colors line-clamp-1">{course.title}</h4>
                                         <p className="mt-1 text-xs text-slate-500 leading-relaxed line-clamp-2">{course.description}</p>
                                         <div className="flex items-center gap-2 mt-2">
                                           <span className="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-slate-150">
-                                            📚 {course.lessons ? course.lessons.length : 0} {course.lessons && course.lessons.length === 1 ? 'Aula' : 'Aulas'}
+                                            <BookOpen className="h-3 w-3" />
+                                            {course.lessons ? course.lessons.length : 0} {course.lessons && course.lessons.length === 1 ? 'Aula' : 'Aulas'}
                                           </span>
                                           <span className="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-slate-150">
-                                            🎥 {course.liveSessions ? course.liveSessions.length : 0} {course.liveSessions && course.liveSessions.length === 1 ? 'Sessão Ao Vivo' : 'Sessões'}
+                                            <Video className="h-3 w-3" />
+                                            {course.liveSessions ? course.liveSessions.length : 0} {course.liveSessions && course.liveSessions.length === 1 ? 'Sessão Ao Vivo' : 'Sessões'}
                                           </span>
                                         </div>
                                       </div>
@@ -2489,7 +2526,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                       </div>
                                       <button
                                         onClick={() => setViewingCatalogCourse(course)}
-                                        className="text-xs bg-[#540D6E] hover:bg-[#430a58] text-white font-bold uppercase tracking-wider px-3.5 py-1.8 rounded-lg hover:scale-101 active:scale-98 transition-all cursor-pointer flex items-center gap-1 select-none shadow-2xs"
+                                        className="text-[10px] bg-[#540D6E] hover:bg-purple-950 text-white font-black uppercase tracking-widest px-4 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 select-none shadow-md"
                                       >
                                         <span>Ver e Escolher</span>
                                         <ArrowRight className="h-3 w-3" />
@@ -3484,7 +3521,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
               {/* Scrollable Curriculum list */}
               <div className="p-6 overflow-y-auto space-y-5 flex-1 max-h-[60vh] no-scrollbar">
                 <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-4 text-xs font-medium text-teal-900 leading-relaxed">
-                  💡 <strong>Diretrizes do Curso:</strong> Esta ementa foi planejada para fornecer competências reais de mercado passo a passo. Verifique abaixo todos os módulos e seus requisitos.
+                  <Lightbulb className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-teal-700" /><strong>Diretrizes do Curso:</strong> Esta ementa foi planejada para fornecer competências reais de mercado passo a passo. Verifique abaixo todos os módulos e seus requisitos.
                 </div>
 
                 <div className="space-y-4">
@@ -3554,7 +3591,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
                         <h4 className="text-xs font-black text-[#540D6E] uppercase tracking-wide">{module.title}</h4>
                         <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-150">
-                          ⏱️ {module.duration}
+                          <Clock className="h-2.5 w-2.5 inline-block mr-1 -mt-px" />{module.duration}
                         </span>
                       </div>
                       
@@ -3899,9 +3936,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                   : "bg-amber-50/50 border-amber-200 text-amber-950"
                               }`}>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-lg">
-                                    {isCorrect ? "🎉" : "💡"}
-                                  </span>
+                                  {isCorrect
+                                    ? <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                                    : <Lightbulb className="h-5 w-5 text-amber-600 shrink-0" />}
                                   <strong className="font-extrabold text-xs">
                                     {isCorrect ? "Resposta correta" : "Ainda não foi desta vez"}
                                   </strong>
@@ -4024,8 +4061,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                               ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
                               : 'bg-amber-50/50 border-amber-200 text-amber-950'
                           }`}>
-                            <span className="text-4xl block">
-                              {passed ? '🎉' : '📚'}
+                            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-current/15 bg-white/70">
+                              {passed
+                                ? <PartyPopper className="h-7 w-7 text-emerald-600" />
+                                : <BookOpen className="h-7 w-7 text-amber-600" />}
                             </span>
                             <h4 className="font-extrabold text-sm uppercase tracking-wide">
                               {passed ? 'Aprovado com Sucesso!' : 'Atividade Concluída — Revisão Recomendada'}
@@ -4075,7 +4114,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           {/* Message of successful completion */}
                           {passed && incorrectQuestions.length === 0 && (
                             <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/20 text-center text-[11px] text-slate-650">
-                              🌟 Você acertou todas as questões! Excelente desempenho teórico.
+                              <Sparkles className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-amber-500" />Você acertou todas as questões! Excelente desempenho teórico.
                             </div>
                           )}
                         </div>
