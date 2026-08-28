@@ -224,6 +224,12 @@ final class EnrollmentService
             throw new ApiException(409, 'CONFLICT', 'Você já está matriculado neste curso.');
         }
 
+        // Curso concluído não aceita nova matrícula. O acesso ao conteúdo continua
+        // pelo modo revisão (vitalício), que não depende de matrícula ativa.
+        if (in_array($courseId, $current->completedCourseIds ?? [], true)) {
+            throw new ApiException(409, 'CONFLICT', 'Você já concluiu este curso. Ele continua disponível para revisão, mas não aceita nova matrícula.');
+        }
+
         if ($current?->enrolledCourseId) {
             // Segunda (ou mais) matrícula simultânea: só permitido com a flag global
             // ligada E a permissão concedida pelo Admin Superior a este aluno.
