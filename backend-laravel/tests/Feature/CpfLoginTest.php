@@ -217,8 +217,12 @@ final class CpfLoginTest extends TestCase
 
     public function test_login_with_unknown_cpf_is_generic_401(): void
     {
+        // CPF gerado na hora, não a constante: CPF_VALIDO é um número real de domínio
+        // público que pode estar cadastrado no banco de dev, e aí a resposta viraria
+        // 401 por senha errada (ou 429 se a conta acumulou tentativas) em vez de
+        // "CPF não existe" — o teste passaria a medir outra coisa.
         $this->postJson('/api/auth/login', [
-            'cpf' => self::CPF_VALIDO,
+            'cpf' => $this->makeCpf(),
             'password' => 'senha123456',
         ])
             ->assertStatus(401)
