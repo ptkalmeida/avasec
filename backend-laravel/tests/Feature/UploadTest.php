@@ -110,6 +110,37 @@ final class UploadTest extends TestCase
         $this->get($url)->assertOk()->assertHeader('content-type', 'image/png');
     }
 
+    public function test_public_file_is_cacheable_so_it_does_not_hit_php_on_every_load(): void
+    {
+        // O nome gravado nunca é reaproveitado, então a URL pode ser imutável. Sem
+        // max-age o navegador revalidava a cada carga e cada revalidação subia o PHP.
+        $token = $this->studentToken();
+
+        $upload = $this->withHeader('Authorization', "Bearer $token")
+            ->post('/api/upload', ['file' => $this->realPng('cacheavel.png')], ['Accept' => 'application/json']);
+
+        $cacheControl = (string) $this->get($upload->json('url'))->assertOk()->headers->get('Cache-Control');
+
+        $this->assertStringContainsString('max-age=31536000', $cacheControl);
+        $this->assertStringContainsString('immutable', $cacheControl);
+        $this->assertStringContainsString('public', $cacheControl);
+    }
+
+    public function test_public_file_revalidation_answers_304_without_resending_the_body(): void
+    {
+        $token = $this->studentToken();
+        $upload = $this->withHeader('Authorization', "Bearer $token")
+            ->post('/api/upload', ['file' => $this->realPng('revalida.png')], ['Accept' => 'application/json']);
+        $url = $upload->json('url');
+
+        $lastModified = (string) $this->get($url)->assertOk()->headers->get('Last-Modified');
+        $this->assertNotSame('', $lastModified);
+
+        // Sem a checagem explícita de If-Modified-Since, o Laravel reenviava o arquivo
+        // inteiro com 200 em cada revalidação.
+        $this->withHeader('If-Modified-Since', $lastModified)->get($url)->assertStatus(304);
+    }
+
     public function test_static_upload_route_rejects_traversal_and_missing_file(): void
     {
         $this->get('/uploads/'.rawurlencode('../../.env'))->assertStatus(404);

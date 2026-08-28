@@ -213,7 +213,10 @@ Route::prefix('security-logs')->middleware(['jwt', 'active', 'role:admin'])->gro
 });
 
 // Telemetria (ClientEvent) — POST aceita anônimo (identidade vem do token se houver); GET só admin.
-Route::post('/telemetry', [AuditController::class, 'recordClientEvent'])->middleware('jwt.optional');
+// Rota pública que ESCREVE no banco (ClientEvent): precisa de limite, senão qualquer
+// anônimo enfileira linhas com texto próprio até encher a tabela.
+Route::post('/telemetry', [AuditController::class, 'recordClientEvent'])
+    ->middleware(['throttle:telemetry', 'jwt.optional']);
 Route::get('/telemetry', [AuditController::class, 'listClientEvents'])->middleware(['jwt', 'active', 'role:admin']);
 
 // Exportação de Dados Gerenciais (flag dadosGerenciais) — só admin, com rate limit e auditoria.
