@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\StudentEnrollment;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
@@ -154,6 +155,28 @@ final class EnrollmentTest extends TestCase
             ->assertOk()
             ->assertJsonPath('enrollment.enrolledCourseId', $courseA)
             ->assertJsonPath('enrollment.extraCourseIds', []);
+    }
+
+    public function test_self_enroll_in_already_completed_course_is_409(): void
+    {
+        $student = $this->makeStudent('Aluno Enrollment');
+        $courseId = $this->anySeededCourseId();
+
+        $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseId])->assertOk();
+
+        // Estado pós-conclusão: sem matrícula ativa e o curso na lista de concluídos.
+        StudentEnrollment::query()->whereKey($student['id'])->firstOrFail()->update([
+            'enrolledCourseId' => null,
+            'enrolledAt' => null,
+            'completedCourseIds' => [$courseId],
+        ]);
+
+        // Curso concluído não aceita nova matrícula, mesmo sem matrícula ativa.
+        $this->withHeader('Authorization', "Bearer {$student['token']}")
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseId])
+            ->assertStatus(409)
+            ->assertJsonPath('code', 'CONFLICT');
     }
 
     public function test_instructor_cannot_grant_multi_enroll_permission(): void
