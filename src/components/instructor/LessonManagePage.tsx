@@ -252,7 +252,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
 
         {zone === 'content' ? (
           <div className="p-4 space-y-3">
-            <LessonContentEditor value={content} onChange={setContent} rows={16} />
+            <LessonContentEditor value={content} onChange={setContent} />
             <div className="flex justify-end">
               <button
                 type="button"

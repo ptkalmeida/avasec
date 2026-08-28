@@ -1,10 +1,26 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useState } from 'react';
 import { LessonContentEditor } from '../../src/components/instructor/LessonContentEditor';
 
-/** Envolve o editor num estado real, como o formulário do instrutor faz. */
-const Harness: React.FC<{ inicial?: string }> = ({ inicial = '' }) => {
+const CONTEUDO = [
+  '## Do Rabisco ao Esqueleto Digital',
+  '',
+  'Os wireframes servem para validar a estrutura do layout.',
+  '',
+  '### Tipos de Wireframe',
+  '',
+  '1. Baixa Fidelidade',
+  '2. Média Fidelidade',
+  '',
+  'Código 1: exemplo:',
+  '```java',
+  'int a = 1;',
+  '```',
+].join('\n');
+
+/** Envolve o editor num estado real, como os formulários do instrutor fazem. */
+const Harness: React.FC<{ inicial?: string }> = ({ inicial = CONTEUDO }) => {
   const [valor, setValor] = useState(inicial);
 
   return (
@@ -15,106 +31,135 @@ const Harness: React.FC<{ inicial?: string }> = ({ inicial = '' }) => {
   );
 };
 
-const area = () => screen.getByRole('textbox') as HTMLTextAreaElement;
-const valor = () => screen.getByTestId('valor').textContent;
+const valor = () => screen.getByTestId('valor').textContent ?? '';
 
 describe('LessonContentEditor', () => {
-  it('insere seção numerada na área vazia', () => {
+  it('mostra a aula como o aluno vê, num card só, sem área de marcação', () => {
     render(<Harness />);
-    fireEvent.click(screen.getByRole('button', { name: /^seção$/i }));
 
+    expect(screen.getByText('Do Rabisco ao Esqueleto Digital')).toBeInTheDocument();
+    expect(screen.getByText('Tipos de Wireframe')).toBeInTheDocument();
+    // Nenhum campo aberto: a edição começa pelo lápis do trecho.
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+  });
+
+  it('dá um lápis e uma lixeira para cada trecho', () => {
+    render(<Harness />);
+
+    expect(screen.getByRole('button', { name: 'Editar seção' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar subtítulo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar parágrafo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar lista numerada' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar bloco de código' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remover seção' })).toBeInTheDocument();
+  });
+
+  it('edita a seção por campo de texto simples, sem expor marcação', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar seção' }));
+
+    const campo = screen.getByDisplayValue('Do Rabisco ao Esqueleto Digital');
+    // O campo traz o texto puro: nada de "##" para o gestor decifrar.
+    expect(campo).toBeInTheDocument();
+
+    fireEvent.change(campo, { target: { value: 'Título revisado' } });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    expect(valor()).toContain('## Título revisado');
+    expect(valor()).not.toContain('Do Rabisco');
+  });
+
+  it('não toca no resto do conteúdo ao salvar um trecho', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar parágrafo' }));
+    fireEvent.change(screen.getByDisplayValue(/wireframes servem/), { target: { value: 'Texto novo.' } });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    // A indentação do código e as demais linhas permanecem intactas.
+    expect(valor()).toContain('```java\nint a = 1;\n```');
+    expect(valor()).toContain('## Do Rabisco ao Esqueleto Digital');
+    expect(valor()).toContain('### Tipos de Wireframe');
+    expect(valor()).toContain('1. Baixa Fidelidade');
+  });
+
+  it('edita lista com um item por linha, sem pedir numeração', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar lista numerada' }));
+
+    // getByDisplayValue normaliza espaços; aqui as quebras de linha são o ponto,
+    // então pegamos o textarea e checamos o valor cru.
+    const campo = screen.getByRole('textbox') as HTMLTextAreaElement;
+    expect(campo.value).toBe('Baixa Fidelidade\nMédia Fidelidade');
+
+    fireEvent.change(campo, { target: { value: 'Um\nDois\nTrês' } });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    // A numeração é reconstruída pelo editor.
+    expect(valor()).toContain('1. Um\n2. Dois\n3. Três');
+  });
+
+  it('edita código com linguagem e legenda em campos próprios', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar bloco de código' }));
+
+    expect(screen.getByDisplayValue('Código 1: exemplo:')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('int a = 1;'), { target: { value: 'int b = 2;' } });
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'php' } });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    expect(valor()).toContain('```php\nint b = 2;\n```');
+    expect(valor()).toContain('Código 1: exemplo:');
+  });
+
+  it('cancelar edição não altera o conteúdo', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar seção' }));
+    fireEvent.change(screen.getByDisplayValue('Do Rabisco ao Esqueleto Digital'), { target: { value: 'descartar' } });
+    fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
+
+    expect(valor()).toBe(CONTEUDO);
+  });
+
+  it('remove o trecho pela lixeira', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Remover subtítulo' }));
+
+    expect(valor()).not.toContain('### Tipos de Wireframe');
+    expect(valor()).toContain('## Do Rabisco ao Esqueleto Digital');
+  });
+
+  it('insere trecho novo no ponto escolhido', () => {
+    render(<Harness />);
+
+    // O primeiro "Adicionar" insere antes de tudo.
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar bloco aqui/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^parágrafo$/i }));
+
+    expect(valor()).toContain('Escreva o parágrafo aqui.');
+    expect(valor()).toContain('## Do Rabisco ao Esqueleto Digital');
+  });
+
+  it('oferece os tipos de trecho quando a aula está vazia', () => {
+    render(<Harness inicial="" />);
+
+    expect(screen.getByText(/ainda não tem material escrito/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^seção$/i }));
     expect(valor()).toBe('## Título da seção');
   });
 
-  it('abre parágrafo novo em vez de colar na linha escrita', () => {
-    render(<Harness inicial="Texto que já estava aqui." />);
-    const t = area();
-    t.setSelectionRange(t.value.length, t.value.length);
-
-    fireEvent.click(screen.getByRole('button', { name: /^seção$/i }));
-
-    expect(valor()).toBe('Texto que já estava aqui.\n\n## Título da seção');
-  });
-
-  it('aplica negrito na seleção sem perder o texto', () => {
-    render(<Harness inicial="uma palavra importante" />);
-    const t = area();
-    t.setSelectionRange(4, 11); // "palavra"
-
-    fireEvent.click(screen.getByRole('button', { name: /negrito/i }));
-
-    expect(valor()).toBe('uma **palavra** importante');
-  });
-
-  it('marca a linha selecionada como subtítulo', () => {
-    render(<Harness inicial="Assunto da vez" />);
-    const t = area();
-    t.setSelectionRange(0, 7);
-
-    fireEvent.click(screen.getByRole('button', { name: /subtítulo/i }));
-
-    expect(valor()).toBe('### Assunto da vez');
-  });
-
-  it('insere bloco de código com a cerca da linguagem escolhida', () => {
+  it('conta seções e trechos para orientar quem edita', () => {
     render(<Harness />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'php' } });
-    fireEvent.click(screen.getByRole('button', { name: /bloco de código/i }));
 
-    expect(valor()).toContain('```php');
-    expect(valor()).toContain('// escreva o código aqui');
-    // A cerca de fechamento também entra, senão o bloco engoliria o resto da aula.
-    expect((valor() ?? '').match(/```/g)).toHaveLength(2);
+    expect(screen.getByText('1 seções')).toBeInTheDocument();
+    expect(screen.getByText('5 trechos')).toBeInTheDocument();
+    expect(screen.getByText('contém bloco de código')).toBeInTheDocument();
   });
 
-  it('conta as seções escritas para orientar quem edita', () => {
-    render(<Harness inicial={'## Uma\n\ntexto\n\n## Outra\n\n### Sub'} />);
-
-    // Só ## conta como seção; ### é subtítulo dentro dela.
-    expect(screen.getByText('2 seções')).toBeInTheDocument();
-  });
-
-  it('mostra a prévia do que o aluno verá', async () => {
-    render(<Harness inicial={'## Herança em Java\n\nTexto da aula.'} />);
-
-    expect(await screen.findByText('Herança em Java', {}, { timeout: 15000 })).toBeInTheDocument();
-    expect(screen.getByText('Texto da aula.')).toBeInTheDocument();
-  });
-
-  it('explica o formato em linguagem simples quando pedido', () => {
+  it('explica o funcionamento em linguagem simples quando pedido', () => {
     render(<Harness />);
-    fireEvent.click(screen.getByRole('button', { name: /como formatar/i }));
+    fireEvent.click(screen.getByRole('button', { name: /como funciona/i }));
 
-    expect(screen.getByText(/divide a aula em partes numeradas/i)).toBeInTheDocument();
-  });
-
-  it('não perde o conteúdo existente ao inserir marcação', () => {
-    const original = '## Seção existente\n\nParágrafo preservado.';
-    render(<Harness inicial={original} />);
-    const t = area();
-    t.setSelectionRange(t.value.length, t.value.length);
-
-    fireEvent.click(screen.getByRole('button', { name: /^lista$/i }));
-
-    expect(valor()).toContain(original);
-    expect(valor()).toContain('- Item da lista');
-  });
-});
-
-// requestAnimationFrame é usado para devolver o cursor ao textarea; no jsdom ele
-// existe, mas garantimos que a ausência não quebra a inserção.
-describe('LessonContentEditor sem requestAnimationFrame', () => {
-  it('ainda grava o texto inserido', () => {
-    const original = window.requestAnimationFrame;
-    window.requestAnimationFrame = undefined as unknown as typeof window.requestAnimationFrame;
-    const spy = vi.fn();
-
-    try {
-      render(<LessonContentEditor value="" onChange={spy} />);
-      expect(() => fireEvent.click(screen.getByRole('button', { name: /^seção$/i }))).not.toThrow();
-      expect(spy).toHaveBeenCalledWith('## Título da seção');
-    } finally {
-      window.requestAnimationFrame = original;
-    }
+    expect(screen.getByText(/entre dois trechos, para inserir/i)).toBeInTheDocument();
   });
 });

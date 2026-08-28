@@ -2017,7 +2017,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               <LessonVideoField value={lessonVideoUrl} onChange={setLessonVideoUrl} />
 
-              <LessonContentEditor value={lessonContent} onChange={setLessonContent} rows={10} />
+              <LessonContentEditor value={lessonContent} onChange={setLessonContent} />
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -2441,7 +2441,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               <LessonVideoField value={editLessonVideoUrl} onChange={setEditLessonVideoUrl} />
 
-              <LessonContentEditor value={editLessonContent} onChange={setEditLessonContent} rows={12} />
+              <LessonContentEditor value={editLessonContent} onChange={setEditLessonContent} />
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
