@@ -1636,7 +1636,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 const hasCert = certificates.some(cer => cer.userId === selectedStudent?.id);
                 
                 return (
-                  <div className="rounded-2xl border border-slate-205 bg-slate-50/50 p-5 flex flex-col h-[520px] transition-all justify-between">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-5 flex flex-col h-[520px] transition-all justify-between">
                     
                     {/* Active Student Header Info Banner */}
                     <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
@@ -1706,7 +1706,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         type="text"
                         required
                         placeholder={`Digite as orientações para o aluno ${selectedStudentName}...`}
-                        className="flex-1 rounded-xl border border-slate-205 bg-white px-4 py-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
+                        className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
                       />
                       <button
                         type="submit"

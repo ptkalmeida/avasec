@@ -1,0 +1,6 @@
+# O PDF do relatorio e binario: sem isto o git aplicaria conversao de fim de linha
+# e o arquivo chegaria corrompido no checkout de outra maquina.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.webp binary

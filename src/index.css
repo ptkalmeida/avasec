@@ -14,6 +14,46 @@
   --color-escult-dark: #111622;
 }
 
+/* Tons intermediarios usados pela interface (ex.: border-slate-150). O Tailwind
+   define a escala em passos de 100: sem estas declaracoes a classe nao existia e
+   a cor simplesmente NAO era aplicada — bordas herdavam currentColor e textos
+   herdavam a cor do pai. Cada tom e a media dos dois vizinhos oficiais, que era
+   a intencao de quem escreveu. */
+@theme {
+  --color-amber-150: color-mix(in oklab, var(--color-amber-100), var(--color-amber-200));
+  --color-amber-250: color-mix(in oklab, var(--color-amber-200), var(--color-amber-300));
+  --color-amber-550: color-mix(in oklab, var(--color-amber-500), var(--color-amber-600));
+  --color-amber-750: color-mix(in oklab, var(--color-amber-700), var(--color-amber-800));
+  --color-amber-850: color-mix(in oklab, var(--color-amber-800), var(--color-amber-900));
+  --color-emerald-150: color-mix(in oklab, var(--color-emerald-100), var(--color-emerald-200));
+  --color-emerald-250: color-mix(in oklab, var(--color-emerald-200), var(--color-emerald-300));
+  --color-emerald-650: color-mix(in oklab, var(--color-emerald-600), var(--color-emerald-700));
+  --color-emerald-850: color-mix(in oklab, var(--color-emerald-800), var(--color-emerald-900));
+  --color-indigo-150: color-mix(in oklab, var(--color-indigo-100), var(--color-indigo-200));
+  --color-indigo-250: color-mix(in oklab, var(--color-indigo-200), var(--color-indigo-300));
+  --color-indigo-550: color-mix(in oklab, var(--color-indigo-500), var(--color-indigo-600));
+  --color-indigo-650: color-mix(in oklab, var(--color-indigo-600), var(--color-indigo-700));
+  --color-indigo-750: color-mix(in oklab, var(--color-indigo-700), var(--color-indigo-800));
+  --color-purple-150: color-mix(in oklab, var(--color-purple-100), var(--color-purple-200));
+  --color-red-150: color-mix(in oklab, var(--color-red-100), var(--color-red-200));
+  --color-red-650: color-mix(in oklab, var(--color-red-600), var(--color-red-700));
+  --color-red-850: color-mix(in oklab, var(--color-red-800), var(--color-red-900));
+  --color-rose-150: color-mix(in oklab, var(--color-rose-100), var(--color-rose-200));
+  --color-rose-250: color-mix(in oklab, var(--color-rose-200), var(--color-rose-300));
+  --color-rose-650: color-mix(in oklab, var(--color-rose-600), var(--color-rose-700));
+  --color-slate-150: color-mix(in oklab, var(--color-slate-100), var(--color-slate-200));
+  --color-slate-250: color-mix(in oklab, var(--color-slate-200), var(--color-slate-300));
+  --color-slate-350: color-mix(in oklab, var(--color-slate-300), var(--color-slate-400));
+  --color-slate-450: color-mix(in oklab, var(--color-slate-400), var(--color-slate-500));
+  --color-slate-550: color-mix(in oklab, var(--color-slate-500), var(--color-slate-600));
+  --color-slate-650: color-mix(in oklab, var(--color-slate-600), var(--color-slate-700));
+  --color-slate-750: color-mix(in oklab, var(--color-slate-700), var(--color-slate-800));
+  --color-slate-850: color-mix(in oklab, var(--color-slate-800), var(--color-slate-900));
+  --color-teal-150: color-mix(in oklab, var(--color-teal-100), var(--color-teal-200));
+  --color-teal-650: color-mix(in oklab, var(--color-teal-600), var(--color-teal-700));
+  --color-teal-850: color-mix(in oklab, var(--color-teal-800), var(--color-teal-900));
+}
+
 /* Custom styles mimicking Brazilian cultural/creative sector styling */
 .brand-gradient {
   background: linear-gradient(135deg, #540D6E 0%, #350247 100%);

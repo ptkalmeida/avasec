@@ -2648,13 +2648,13 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
                           <button
                             onClick={() => setSendMessageInfo({ name: st.name, email: st.email })}
-                            className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
+                            className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
                           >
                             Mensagem
                           </button>
                           <button
                             onClick={() => setResetPassInfo({ name: st.name, email: st.email })}
-                            className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
+                            className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
                           >
                             Nova Senha
                           </button>
@@ -3032,7 +3032,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                 <CheckSquare className="h-5 w-5 text-blue-600" />
                 <span>Gestão de Exercícios Práticos & Avaliação</span>
               </h3>
-              <p className="text-[11px] text-slate-505 text-slate-500 mt-1">
+              <p className="text-[11px] text-slate-500 text-slate-500 mt-1">
                 Cadastre tarefas de entrega, consulte arquivos enviados por alunos e realize a correção direta com feedback acadêmico personalizado.
               </p>
             </div>
@@ -3437,7 +3437,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
           <div className="bg-white border border-slate-200 rounded-[10px] p-5 text-left space-y-6 settings-tab-content">
           <div>
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5">
-              <Settings className="h-4 w-4 text-slate-505" />
+              <Settings className="h-4 w-4 text-slate-500" />
               <span>Configurações Teóricas e Parâmetros Letivos</span>
             </h3>
             <p className="text-[11px] text-slate-500 mt-1">
@@ -4062,7 +4062,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                               {keys.map(k => (
                                 <td key={`${rIdx}-${k}`} className="p-3 whitespace-nowrap font-medium text-slate-800">
                                   {row[k] === '—' || !row[k] ? (
-                                    <span className="text-slate-355">—</span>
+                                    <span className="text-slate-350">—</span>
                                   ) : k.includes('id_') || k.includes('codigo') ? (
                                     <code className="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono text-[10px]">{row[k]}</code>
                                   ) : (
@@ -4258,7 +4258,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                       <p>
                         Certificamos de forma solene para os devidos fins legais, de competências e de complementação acadêmica que o aluno
                       </p>
-                      <p className="text-lg font-black text-slate-905 border-b border-slate-200 py-1.5 w-fit mx-auto px-4 uppercase tracking-normal">
+                      <p className="text-lg font-black text-slate-900 border-b border-slate-200 py-1.5 w-fit mx-auto px-4 uppercase tracking-normal">
                         {activeDocViewer.studentName}
                       </p>
                       <p className="text-[11px] leading-normal text-slate-400">
@@ -4271,7 +4271,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
                     <div className="flex justify-between items-end border-t border-slate-200 pt-8 mt-6">
                       <div className="text-left space-y-1">
-                        <span className="text-[9px] text-slate-405 block font-mono">Registro Criptográfico Único:</span>
+                        <span className="text-[9px] text-slate-400 block font-mono">Registro Criptográfico Único:</span>
                         <strong className="text-[10px] text-slate-800 font-mono block uppercase">
                           AVA-CERT-{Date.now().toString().substring(5)}
                         </strong>
@@ -4290,11 +4290,11 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                       <p className="text-[9px] text-slate-400 font-mono">Protocolo de Expedição: ADM-{Date.now().toString().substring(7)}</p>
                     </div>
 
-                    <p className="text-[11px] text-slate-705 leading-relaxed text-justify indent-8 pt-2">
+                    <p className="text-[11px] text-slate-700 leading-relaxed text-justify indent-8 pt-2">
                       Declaramos, para os devidos fins de direito e comprovação institucional acadêmica, que o estudante <strong className="font-bold text-slate-950 uppercase">{activeDocViewer.studentName}</strong> encontra-se regularmente cadastrado e ativamente matriculado nos sistemas desta Escola Estadual da Cultura, participando da grade didática atual no ano letivo corrente de 2026.
                     </p>
 
-                    <p className="text-[11px] text-slate-705 leading-normal text-justify">
+                    <p className="text-[11px] text-slate-700 leading-normal text-justify">
                       O aluno mantém status regular, frequentando as conferências de mentoria de forma remota, e submetendo-se a baterias de testes didáticos sob supervisão dos professores cadastrados.
                     </p>
 
