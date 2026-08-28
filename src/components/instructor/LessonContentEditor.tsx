@@ -3,16 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Heading1, Heading2, Bold, ListOrdered, List, Code2, Captions,
-  Eye, PenLine, HelpCircle, ChevronDown, ChevronUp
+  Pencil, Check, X, Trash2, Plus, HelpCircle, ChevronDown, ChevronUp,
+  Heading1, Heading2, AlignLeft, ListOrdered, List, Code2
 } from 'lucide-react';
-import { parseLessonContent } from '../../utils/lessonContent';
-
-// A prévia usa o MESMO renderizador do aluno — é essa a garantia de que o que o
-// instrutor vê aqui é o que o aluno recebe. O peso do realce de sintaxe continua
-// carregado sob demanda dentro dele (LessonCodeBlock em React.lazy).
+import {
+  LessonBlock, parseLessonContent, serializeLessonBlock,
+  replaceLessonBlock, removeLessonBlock, insertLessonBlockAfter,
+} from '../../utils/lessonContent';
 import { LessonContent } from '../student/LessonContent';
 
 /** Linguagens que o bloco de código realmente realça (LessonCodeBlock). */
@@ -29,238 +28,345 @@ const LINGUAGENS = [
   { fence: 'bash', label: 'Terminal' },
 ] as const;
 
+/** Tipos que o botão "+" oferece, com o texto inicial de cada um. */
+const NOVOS_BLOCOS = [
+  { kind: 'section', label: 'Seção', icon: Heading1, texto: '## Título da seção' },
+  { kind: 'subsection', label: 'Subtítulo', icon: Heading2, texto: '### Subtítulo' },
+  { kind: 'paragraph', label: 'Parágrafo', icon: AlignLeft, texto: 'Escreva o parágrafo aqui.' },
+  { kind: 'orderedList', label: 'Lista numerada', icon: ListOrdered, texto: '1. Primeiro item\n2. Segundo item' },
+  { kind: 'bulletList', label: 'Lista', icon: List, texto: '- Primeiro item\n- Segundo item' },
+  { kind: 'code', label: 'Código', icon: Code2, texto: '```java\n// escreva o código aqui\n```' },
+] as const;
+
+const ROTULO: Record<LessonBlock['kind'], string> = {
+  section: 'Seção',
+  subsection: 'Subtítulo',
+  paragraph: 'Parágrafo',
+  orderedList: 'Lista numerada',
+  bulletList: 'Lista',
+  code: 'Bloco de código',
+};
+
 interface LessonContentEditorProps {
   value: string;
   onChange: (next: string) => void;
-  /** Altura da área de escrita; o painel de detalhes usa uma caixa maior. */
-  rows?: number;
 }
 
+const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-[13px] text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500';
+const rotuloCampo = 'block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1';
+
 /**
- * Edição do texto da aula com barra de ferramentas e prévia idêntica à tela do
- * aluno. O formato gravado continua sendo texto puro — os botões só inserem a
- * marcação, para quem escreve não precisar decorá-la.
+ * Formulário do bloco em edição. Cada tipo mostra só os campos que fazem
+ * sentido para ele — quem escreve não vê marcação, vê "Título da seção",
+ * "Itens da lista", "Linguagem".
  */
-export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value, onChange, rows = 14 }) => {
-  const areaRef = useRef<HTMLTextAreaElement>(null);
+const BlockForm: React.FC<{
+  block: LessonBlock;
+  onCancel: () => void;
+  onConfirm: (texto: string) => void;
+}> = ({ block, onCancel, onConfirm }) => {
+  const [texto, setTexto] = useState(
+    block.kind === 'section' || block.kind === 'subsection' || block.kind === 'paragraph' ? block.text : ''
+  );
+  const [itens, setItens] = useState(
+    block.kind === 'orderedList' || block.kind === 'bulletList' ? block.items.join('\n') : ''
+  );
+  const [codigo, setCodigo] = useState(block.kind === 'code' ? block.code : '');
+  const [legenda, setLegenda] = useState(block.kind === 'code' ? (block.caption ?? '') : '');
+  const [linguagem, setLinguagem] = useState(block.kind === 'code' ? (block.language ?? 'java') : 'java');
+
+  const confirmar = () => {
+    switch (block.kind) {
+      case 'section':
+      case 'subsection':
+      case 'paragraph':
+        onConfirm(serializeLessonBlock({ ...block, text: texto.trim() }));
+        break;
+      case 'orderedList':
+      case 'bulletList':
+        onConfirm(serializeLessonBlock({
+          ...block,
+          items: itens.split('\n').map((i) => i.trim()).filter((i) => i !== ''),
+        }));
+        break;
+      case 'code':
+        onConfirm(serializeLessonBlock({
+          ...block,
+          language: linguagem,
+          caption: legenda.trim() === '' ? null : legenda.trim(),
+          code: codigo,
+        }));
+        break;
+    }
+  };
+
+  return (
+    <div className="rounded-xl border-2 border-teal-500/60 bg-teal-50/20 p-3 space-y-2.5">
+      <span className="text-[10px] font-black uppercase tracking-widest text-teal-700">
+        Editando: {ROTULO[block.kind]}
+      </span>
+
+      {(block.kind === 'section' || block.kind === 'subsection') && (
+        <div>
+          <label className={rotuloCampo}>
+            {block.kind === 'section' ? 'Título da seção (entra no índice)' : 'Subtítulo'}
+          </label>
+          <input type="text" autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} className={`${campo} font-bold`} />
+        </div>
+      )}
+
+      {block.kind === 'paragraph' && (
+        <div>
+          <label className={rotuloCampo}>Texto do parágrafo</label>
+          <textarea rows={4} autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} className={campo} />
+          <p className="mt-1 text-[10px] text-slate-400">
+            Para destacar uma palavra, envolva com dois asteriscos: **assim**.
+          </p>
+        </div>
+      )}
+
+      {(block.kind === 'orderedList' || block.kind === 'bulletList') && (
+        <div>
+          <label className={rotuloCampo}>Itens — um por linha</label>
+          <textarea rows={5} autoFocus value={itens} onChange={(e) => setItens(e.target.value)} className={`${campo} font-mono text-xs`} />
+          <p className="mt-1 text-[10px] text-slate-400">
+            A numeração é automática; não precisa escrever “1.” nem “-”.
+          </p>
+        </div>
+      )}
+
+      {block.kind === 'code' && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            <div>
+              <label className={rotuloCampo}>Linguagem</label>
+              <select value={linguagem} onChange={(e) => setLinguagem(e.target.value)} className={`${campo} cursor-pointer font-bold`}>
+                {LINGUAGENS.map((l) => <option key={l.fence} value={l.fence}>{l.label}</option>)}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={rotuloCampo}>Legenda (opcional)</label>
+              <input
+                type="text"
+                value={legenda}
+                onChange={(e) => setLegenda(e.target.value)}
+                placeholder="Ex: Código 1: declaração da classe"
+                className={campo}
+              />
+            </div>
+          </div>
+          <div>
+            <label className={rotuloCampo}>Código</label>
+            <textarea
+              rows={8}
+              autoFocus
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              spellCheck={false}
+              className={`${campo} font-mono text-xs leading-relaxed`}
+            />
+          </div>
+        </>
+      )}
+
+      <div className="flex justify-end gap-2 pt-0.5">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+        >
+          <X className="h-3 w-3" /> Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={confirmar}
+          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-500 px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-white transition-colors cursor-pointer"
+        >
+          <Check className="h-3 w-3" /> Aplicar
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Edição do conteúdo da aula NA PRÓPRIA tela do aluno: um único card, sem
+ * painel de marcação ao lado. Cada bloco renderizado tem um lápis que o abre
+ * em formulário no lugar; o resto da aula continua visível como o aluno vê.
+ *
+ * A gravação é um splice pelo `range` do bloco (ver lessonContent.ts), então
+ * editar um bloco NÃO reescreve o resto do texto — indentação de código,
+ * espaçamento e tudo o mais permanecem byte a byte.
+ */
+export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value, onChange }) => {
+  const [editando, setEditando] = useState<number | null>(null);
+  const [adicionandoEm, setAdicionandoEm] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-  // Em tela estreita não cabem escrita e prévia lado a lado: alterna.
-  const [mobileTab, setMobileTab] = useState<'escrever' | 'previa'>('escrever');
-  const [linguagem, setLinguagem] = useState<string>('java');
 
   const parsed = parseLessonContent(value);
 
-  /**
-   * Grava o texto e devolve o cursor para a área de escrita, já selecionando o
-   * trecho inserido — assim quem clicou em "Seção" pode digitar o título por cima.
-   * O reposicionamento é secundário: se o ambiente não tiver rAF, o texto entra
-   * do mesmo jeito em vez de a inserção falhar por causa do cursor.
-   */
-  const applyEdit = (next: string, selectionStart: number, selectionEnd: number) => {
-    onChange(next);
-
-    const restoreCursor = () => {
-      const area = areaRef.current;
-      if (!area) return;
-      area.focus();
-      area.setSelectionRange(selectionStart, selectionEnd);
-    };
-
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(restoreCursor);
-    }
+  const adicionar = (indice: number, texto: string) => {
+    const alvo = indice < 0 ? null : parsed.blocks[indice]?.range ?? null;
+    onChange(insertLessonBlockAfter(value, alvo, texto));
+    setAdicionandoEm(null);
   };
 
-  /** Prefixa a marcação na linha do cursor, sem atropelar o que já está escrito. */
-  const prefixLine = (marca: string, exemplo: string) => {
-    const area = areaRef.current;
-    if (!area) return;
+  /** Menu "+" que aparece entre blocos. `indice` = -1 insere no começo. */
+  const MenuAdicionar: React.FC<{ indice: number }> = ({ indice }) => {
+    const aberto = adicionandoEm === indice;
 
-    const { selectionStart, selectionEnd } = area;
-    const selecionado = value.slice(selectionStart, selectionEnd);
-    const texto = selecionado || exemplo;
-
-    const inicioLinha = value.lastIndexOf('\n', selectionStart - 1) + 1;
-    const proximaQuebra = value.indexOf('\n', selectionEnd);
-    const fimLinha = proximaQuebra === -1 ? value.length : proximaQuebra;
-    const linha = value.slice(inicioLinha, fimLinha);
-
-    // Havia seleção: transforma a linha dela e mantém o texto escolhido.
-    if (selecionado !== '') {
-      const next = value.slice(0, inicioLinha) + marca + value.slice(inicioLinha);
-      applyEdit(next, selectionStart + marca.length, selectionEnd + marca.length);
-
-      return;
-    }
-
-    // Linha vazia: escreve na própria linha.
-    if (linha.trim() === '') {
-      const next = value.slice(0, inicioLinha) + marca + texto + value.slice(fimLinha);
-      const cursor = inicioLinha + marca.length;
-      applyEdit(next, cursor, cursor + texto.length);
-
-      return;
-    }
-
-    // Linha com conteúdo: abre um novo parágrafo abaixo, para não colar no texto.
-    const insercao = `\n\n${marca}${texto}`;
-    const next = value.slice(0, fimLinha) + insercao + value.slice(fimLinha);
-    const cursor = fimLinha + insercao.length;
-    applyEdit(next, cursor - texto.length, cursor);
+    return (
+      <div className="relative py-1">
+        {aberto ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+            <span className="mb-1.5 block px-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+              Adicionar aqui
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {NOVOS_BLOCOS.map((n) => (
+                <button
+                  key={n.kind}
+                  type="button"
+                  onClick={() => adicionar(indice, n.texto)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                >
+                  <n.icon className="h-3 w-3" /> {n.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setAdicionandoEm(null)}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="h-3 w-3" /> Fechar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => { setAdicionandoEm(indice); setEditando(null); }}
+            aria-label="Adicionar bloco aqui"
+            className="group flex w-full items-center gap-2 py-0.5 cursor-pointer"
+          >
+            <span className="h-px flex-1 bg-slate-200 group-hover:bg-teal-400 transition-colors" />
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-400 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
+              <Plus className="h-2.5 w-2.5" /> Adicionar
+            </span>
+            <span className="h-px flex-1 bg-slate-200 group-hover:bg-teal-400 transition-colors" />
+          </button>
+        )}
+      </div>
+    );
   };
-
-  /** Envolve a seleção (ou insere um exemplo) entre delimitadores. */
-  const wrapSelection = (marca: string, exemplo: string) => {
-    const area = areaRef.current;
-    if (!area) return;
-
-    const { selectionStart, selectionEnd } = area;
-    const selecionado = value.slice(selectionStart, selectionEnd) || exemplo;
-    const next = value.slice(0, selectionStart) + marca + selecionado + marca + value.slice(selectionEnd);
-    const inicio = selectionStart + marca.length;
-    applyEdit(next, inicio, inicio + selecionado.length);
-  };
-
-  /** Insere um bloco de código já com a cerca e a linguagem escolhida. */
-  const insertCode = () => {
-    const area = areaRef.current;
-    if (!area) return;
-
-    const { selectionStart, selectionEnd } = area;
-    const selecionado = value.slice(selectionStart, selectionEnd) || '// escreva o código aqui';
-    const antes = value.slice(0, selectionStart);
-    const quebra = antes === '' || antes.endsWith('\n\n') ? '' : antes.endsWith('\n') ? '\n' : '\n\n';
-    const bloco = `${quebra}\`\`\`${linguagem}\n${selecionado}\n\`\`\`\n`;
-    const next = antes + bloco + value.slice(selectionEnd);
-    const inicioCodigo = antes.length + quebra.length + linguagem.length + 4;
-    applyEdit(next, inicioCodigo, inicioCodigo + selecionado.length);
-  };
-
-  const botao = 'inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer';
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
-          Conteúdo de estudo da aula
-        </label>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+            Conteúdo de estudo da aula
+          </label>
+          <p className="text-[10px] text-slate-400">
+            Esta é a tela do aluno. Clique no lápis de um trecho para alterá-lo.
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => setShowHelp((v) => !v)}
           className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-700 hover:text-teal-800 cursor-pointer"
         >
           <HelpCircle className="h-3 w-3" />
-          Como formatar
+          Como funciona
           {showHelp ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </div>
 
       {showHelp && (
         <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-[11px] leading-relaxed text-slate-700 space-y-1.5">
-          <p>
-            Você escreve o texto normalmente. Os botões abaixo inserem a marcação — não precisa
-            decorar nada, e a prévia à direita mostra o resultado exato que o aluno vê.
-          </p>
+          <p>O que você vê abaixo é exatamente o que o aluno vê. Para mudar algo:</p>
           <ul className="space-y-1 pl-4 list-disc marker:text-teal-600">
-            <li><strong>Seção</strong> divide a aula em partes numeradas e cria o índice “Nesta aula”.</li>
-            <li><strong>Subtítulo</strong> separa assuntos dentro de uma seção, sem numerar.</li>
-            <li><strong>Bloco de código</strong> mostra o código colorido, com botão de copiar.</li>
-            <li><strong>Legenda</strong> é a linha escrita logo ANTES do código (ex.: “Código 1: …”).</li>
-            <li>Linha vazia separa parágrafos.</li>
+            <li>Passe o mouse sobre um trecho e clique no <strong>lápis</strong> para editá-lo.</li>
+            <li>Clique em <strong>Adicionar</strong>, entre dois trechos, para inserir algo novo ali.</li>
+            <li>A <strong>lixeira</strong> remove o trecho.</li>
+            <li><strong>Seção</strong> numera a parte e cria o índice “Nesta aula”; <strong>Subtítulo</strong> separa assuntos dentro dela.</li>
           </ul>
         </div>
       )}
 
-      {/* Barra de ferramentas */}
-      <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-2">
-        <button type="button" className={botao} onClick={() => prefixLine('## ', 'Título da seção')} title="Seção numerada (entra no índice)">
-          <Heading1 className="h-3 w-3" /> Seção
-        </button>
-        <button type="button" className={botao} onClick={() => prefixLine('### ', 'Subtítulo')} title="Subtítulo dentro da seção">
-          <Heading2 className="h-3 w-3" /> Subtítulo
-        </button>
-        <button type="button" className={botao} onClick={() => wrapSelection('**', 'texto em destaque')} title="Negrito">
-          <Bold className="h-3 w-3" /> Negrito
-        </button>
-        <span className="mx-0.5 h-5 w-px bg-slate-200" />
-        <button type="button" className={botao} onClick={() => prefixLine('1. ', 'Primeiro item')} title="Lista numerada">
-          <ListOrdered className="h-3 w-3" /> Lista numerada
-        </button>
-        <button type="button" className={botao} onClick={() => prefixLine('- ', 'Item da lista')} title="Lista com marcadores">
-          <List className="h-3 w-3" /> Lista
-        </button>
-        <span className="mx-0.5 h-5 w-px bg-slate-200" />
-        <select
-          value={linguagem}
-          onChange={(e) => setLinguagem(e.target.value)}
-          title="Linguagem do próximo bloco de código"
-          className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-600 cursor-pointer"
-        >
-          {LINGUAGENS.map((l) => (
-            <option key={l.fence} value={l.fence}>{l.label}</option>
-          ))}
-        </select>
-        <button type="button" className={botao} onClick={insertCode} title="Inserir bloco de código">
-          <Code2 className="h-3 w-3" /> Bloco de código
-        </button>
-        <button type="button" className={botao} onClick={() => prefixLine('', 'Código 1: descreva o que o código faz:')} title="Legenda do código (escreva antes do bloco)">
-          <Captions className="h-3 w-3" /> Legenda
-        </button>
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        {parsed.blocks.length === 0 ? (
+          <div className="py-6 text-center space-y-3">
+            <p className="text-xs text-slate-400 italic">Esta aula ainda não tem material escrito.</p>
+            <div className="flex flex-wrap justify-center gap-1.5">
+              {NOVOS_BLOCOS.map((n) => (
+                <button
+                  key={n.kind}
+                  type="button"
+                  onClick={() => onChange(n.texto)}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                >
+                  <Plus className="h-3 w-3" /> {n.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
+            <MenuAdicionar indice={-1} />
+
+            {parsed.blocks.map((block, i) => (
+              <div key={`${block.kind}-${block.range.start}`}>
+                {editando === i ? (
+                  <BlockForm
+                    block={block}
+                    onCancel={() => setEditando(null)}
+                    onConfirm={(texto) => {
+                      onChange(replaceLessonBlock(value, block.range, texto));
+                      setEditando(null);
+                    }}
+                  />
+                ) : (
+                  <div className="group relative rounded-xl px-3 py-1 transition-colors hover:bg-slate-50/80">
+                    {/* Controles do bloco: aparecem no hover e no foco por teclado. */}
+                    <div className="absolute right-1.5 top-1.5 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => { setEditando(i); setAdicionandoEm(null); }}
+                        aria-label={`Editar ${ROTULO[block.kind].toLowerCase()}`}
+                        title={`Editar ${ROTULO[block.kind].toLowerCase()}`}
+                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 shadow-3xs hover:border-[#540D6E]/40 hover:text-[#540D6E] transition-colors cursor-pointer"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onChange(removeLessonBlock(value, block.range))}
+                        aria-label={`Remover ${ROTULO[block.kind].toLowerCase()}`}
+                        title={`Remover ${ROTULO[block.kind].toLowerCase()}`}
+                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-400 shadow-3xs hover:border-rose-300 hover:text-rose-600 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+
+                    {/* Renderizado pelo MESMO componente do aluno. */}
+                    <LessonContent blocks={[block]} />
+                  </div>
+                )}
+
+                <MenuAdicionar indice={i} />
+              </div>
+            ))}
+          </>
+        )}
       </div>
 
-      {/* Alternador só em tela estreita */}
-      <div className="flex gap-1 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setMobileTab('escrever')}
-          className={`flex-1 inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-black uppercase tracking-wider cursor-pointer ${
-            mobileTab === 'escrever' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-          }`}
-        >
-          <PenLine className="h-3 w-3" /> Escrever
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab('previa')}
-          className={`flex-1 inline-flex items-center justify-center gap-1 rounded-lg py-1.5 text-[10px] font-black uppercase tracking-wider cursor-pointer ${
-            mobileTab === 'previa' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
-          }`}
-        >
-          <Eye className="h-3 w-3" /> Prévia
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div className={mobileTab === 'escrever' ? '' : 'hidden lg:block'}>
-          <textarea
-            ref={areaRef}
-            rows={rows}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 p-3 text-[12.5px] font-mono leading-relaxed text-slate-700 bg-white focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-            placeholder={'## Comece pelo título da primeira seção\n\nEscreva o texto da aula normalmente.\n\nUse os botões acima para inserir seções, listas e código.'}
-          />
-          <div className="mt-1 flex flex-wrap gap-3 text-[10px] font-bold text-slate-400">
-            <span>{parsed.sections.filter((s) => s.level === 2).length} seções</span>
-            <span>{value.trim() === '' ? 0 : value.trim().split(/\s+/).length} palavras</span>
-            {parsed.hasCode && <span className="text-teal-600">contém bloco de código</span>}
-          </div>
-        </div>
-
-        <div className={mobileTab === 'previa' ? '' : 'hidden lg:block'}>
-          <div className="rounded-xl border border-slate-200 bg-white p-4 h-full max-h-[420px] overflow-y-auto">
-            <span className="mb-2.5 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
-              <Eye className="h-2.5 w-2.5" /> Como o aluno vê
-            </span>
-            {value.trim() === '' ? (
-              <p className="text-xs text-slate-400 italic">
-                Nada escrito ainda — o que você digitar aparece aqui.
-              </p>
-            ) : (
-              <LessonContent blocks={parsed.blocks} />
-            )}
-          </div>
-        </div>
+      <div className="flex flex-wrap gap-3 text-[10px] font-bold text-slate-400">
+        <span>{parsed.sections.filter((s) => s.level === 2).length} seções</span>
+        <span>{parsed.blocks.length} {parsed.blocks.length === 1 ? 'trecho' : 'trechos'}</span>
+        <span>{value.trim() === '' ? 0 : value.trim().split(/\s+/).length} palavras</span>
+        {parsed.hasCode && <span className="text-teal-600">contém bloco de código</span>}
       </div>
     </div>
   );

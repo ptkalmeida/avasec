@@ -1791,7 +1791,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
       {/* 1. Official Bottom Accessibility Bar (Moved to footer area for a more discrete look) */}
       <div className="bg-slate-950 text-slate-450 py-4 px-4 md:px-6 border-t border-b border-slate-900 select-none">
-        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row justify-between items-center gap-4 font-mono">
+        {/* justify-end: o grupo é o único filho, então "between" o jogava para a
+            esquerda deixando metade da barra vazia. */}
+        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row justify-center sm:justify-end items-center gap-4 font-mono">
           {/* Interactive Accessibility Settings Buttons */}
           <div className="flex flex-wrap justify-center gap-4 items-center text-[11px] text-slate-450">
             <button 
