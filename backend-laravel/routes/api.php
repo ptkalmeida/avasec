@@ -46,6 +46,12 @@ Route::prefix('auth')->group(function (): void {
     // Rename seguro (ADR 10): self ou admin — identidade é o id, o nome é display.
     Route::put('/users/{id}/name', [AuthController::class, 'renameUser'])
         ->middleware(['jwt', 'active']);
+    // Redefinição administrativa: sem a senha atual (o admin não a conhece), por isso
+    // restrita a admin e auditada. A tela de gestão oferecia esta ação desde sempre,
+    // mas sem endpoint: só alterava estado local, dando à coordenação a impressão
+    // falsa de ter revogado um acesso.
+    Route::put('/users/{id}/password', [AuthController::class, 'adminResetPassword'])
+        ->middleware(['throttle:auth-password', 'jwt', 'active', 'role:admin']);
     Route::delete('/users/{id}', [AuthController::class, 'removeUser'])
         ->middleware(['jwt', 'active', 'role:admin']);
 });
@@ -68,7 +74,12 @@ Route::middleware('feature:eventosWebinars')->group(function (): void {
 // Etapa 3 (núcleo de negócio) — Cursos. Espelha src/server/routes/courseRoutes.ts:
 // catálogo GET público; mutações restritas a instrutor/admin (ownership no service).
 Route::middleware('feature:catalogoCursos')->group(function (): void {
-    Route::get('/courses', [CourseController::class, 'index']);
+    // Catálogo público (escopo declarado), mas com `jwt.optional`: se houver sessão,
+    // o material de estudo das aulas do próprio aluno/instrutor vem junto; sem sessão,
+    // só a vitrine. Antes desta linha o curso inteiro — texto das aulas, videoUrl,
+    // documentos e link do Meet — saía para qualquer visitante.
+    Route::get('/courses', [CourseController::class, 'index'])
+        ->middleware('jwt.optional');
     Route::post('/courses', [CourseController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
     Route::put('/courses/{id}', [CourseController::class, 'update'])

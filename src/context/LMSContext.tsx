@@ -8,6 +8,10 @@ import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz,
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS, MOCK_IDS } from '../data/mockData';
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
+// Uma única geradora de senha inicial, ao lado da política que ela precisa cumprir.
+// A anterior (base-36 de bytes) podia sair só com dígitos ou só com letras, e nesse
+// caso a API rejeitava o cadastro sem a tela explicar por quê.
+import { generateInitialPassword } from '../utils/cpf';
 
 // Wrapper de fetch autenticado. A sessão do navegador vive num cookie HttpOnly
 // (ava_session), enviado automaticamente em requisições same-origin — nenhum token fica
@@ -20,13 +24,6 @@ export function authFetch(url: string, options: RequestInit = {}): Promise<Respo
   return window.fetch(url, { ...options, headers, credentials: 'same-origin' });
 }
 
-// Senha temporária aleatória para contas provisionadas sem senha explícita.
-// Evita padrões compartilhados adivinháveis (ex.: '1234'/'5678').
-function generateTempPassword(): string {
-  const bytes = new Uint8Array(9);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 12);
-}
 
 interface LMSContextProps {
   courses: Course[];
@@ -37,6 +34,8 @@ interface LMSContextProps {
   registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin', details?: RegistrationDetails) => Promise<{ ok: boolean; pending?: boolean; user?: AuthUser; error?: string }>;
   logoutAuth: () => void;
   changePassword: (newPassword: string, currentPassword?: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Redefinição pela coordenação (sem a senha atual). Restrita a admin no servidor. */
+  adminResetPassword: (userId: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
   progress: StudentProgress[];
   certificates: Certificate[];
   chatMessages: ChatMessage[];
@@ -44,7 +43,7 @@ interface LMSContextProps {
   quizzes: Quiz[];
   quizSubmissions: QuizSubmission[];
   professorsList: PersonRef[];
-  studentsList: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[];
+  studentsList: { id?: string; name: string; email: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[];
   academicRequests: AcademicRequest[];
   libraryItems: LibraryItem[];
   webinarEvents: WebinarEvent[];
@@ -320,6 +319,26 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Redefinição de senha pela coordenação. Antes disso a tela de admin só alterava
+  // estado local: a senha do aluno continuava a antiga e ninguém percebia.
+  const adminResetPassword = async (userId: string, newPassword: string) => {
+    try {
+      const res = await authFetch(`/api/auth/users/${userId}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.message || 'Falha ao redefinir a senha.' };
+      }
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao redefinir senha:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
   // Identidade ativa é sempre DERIVADA da sessão autenticada (ADR 10) — nada de
   // perfil paralelo persistido em localStorage.
   const activeUser = useMemo(
@@ -333,15 +352,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [{ id: MOCK_IDS.gestor, name: 'Gestor de Conteúdos' }];
   });
 
-  const [studentsList, setStudentsList] = useState<{ id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[]>(() => {
+  const [studentsList, setStudentsList] = useState<{ id?: string; name: string; email: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[]>(() => {
     const defaultStudents = [
-      { name: 'João Silva', email: 'joao.silva@lms.edu', password: '1234', municipio: 'São Paulo', uf: 'SP', areaInteresse: 'Design Digital', dataCadastro: '2026-01-10' },
-      { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', password: '1234', municipio: 'Recife', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-02-14' },
-      { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu', password: '1234', municipio: 'Rio de Janeiro', uf: 'RJ', areaInteresse: 'Design Digital', dataCadastro: '2026-03-05' },
-      { name: 'Sofia Rocha', email: 'sofia.rocha@lms.edu', password: '1234', municipio: 'Salvador', uf: 'BA', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-03-12' },
-      { name: 'Ana Souza', email: 'ana.souza@lms.edu', password: '1234', municipio: 'Olinda', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-04-01' },
-      { name: 'Lucas Santana', email: 'lucas.santana@lms.edu', password: '1234', municipio: 'Belo Horizonte', uf: 'MG', areaInteresse: 'Áreas Técnicas', dataCadastro: '2026-04-18' },
-      { name: 'Carolina Mendes', email: 'carol.mendes@lms.edu', password: '1234', municipio: 'Caruaru', uf: 'PE', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-05-02' }
+      { name: 'João Silva', email: 'joao.silva@lms.edu', municipio: 'São Paulo', uf: 'SP', areaInteresse: 'Design Digital', dataCadastro: '2026-01-10' },
+      { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', municipio: 'Recife', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-02-14' },
+      { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu', municipio: 'Rio de Janeiro', uf: 'RJ', areaInteresse: 'Design Digital', dataCadastro: '2026-03-05' },
+      { name: 'Sofia Rocha', email: 'sofia.rocha@lms.edu', municipio: 'Salvador', uf: 'BA', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-03-12' },
+      { name: 'Ana Souza', email: 'ana.souza@lms.edu', municipio: 'Olinda', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-04-01' },
+      { name: 'Lucas Santana', email: 'lucas.santana@lms.edu', municipio: 'Belo Horizonte', uf: 'MG', areaInteresse: 'Áreas Técnicas', dataCadastro: '2026-04-18' },
+      { name: 'Carolina Mendes', email: 'carol.mendes@lms.edu', municipio: 'Caruaru', uf: 'PE', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-05-02' }
     ];
     const saved = localStorage.getItem('ava_students');
     if (saved) {
@@ -349,7 +368,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           const seenEmails = new Set<string>();
-          const dedupedParsed: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[] = [];
+          const dedupedParsed: { id?: string; name: string; email: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[] = [];
           
           parsed.forEach(p => {
             if (p && p.email && !seenEmails.has(p.email.toLowerCase())) {
@@ -1907,7 +1926,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addProfessor = (name: string, password?: string) => {
     // Sem senha explícita: gera uma aleatória (nunca um padrão compartilhado como '5678',
     // que somado ao login por nome permitiria adivinhar credenciais de contas reais).
-    const finalPassword = password && password.trim() ? password.trim() : generateTempPassword();
+    const finalPassword = password && password.trim() ? password.trim() : generateInitialPassword();
     setProfessorsList((prev) => {
       if (prev.some((p) => p.name === name)) return prev;
       // Id provisório até a hidratação trazer o id real criado pelo backend.
@@ -1931,7 +1950,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     areaInteresse?: string,
     dataCadastro?: string
   ) => {
-    const finalPassword = password && password.trim() ? password.trim() : generateTempPassword();
+    const finalPassword = password && password.trim() ? password.trim() : generateInitialPassword();
     const finalMunicipio = municipio?.trim() || 'São Paulo';
     const finalUf = uf?.trim() || 'SP';
     const finalArea = areaInteresse?.trim() || 'Tecnologia';
@@ -1939,10 +1958,12 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setStudentsList((prev) => {
       if (prev.some((s) => s.name.toLowerCase() === name.toLowerCase() || s.email.toLowerCase() === email.toLowerCase())) return prev;
+      // A senha NÃO entra nesta lista: ela é persistida em localStorage ('ava_students'),
+      // e ninguém a lia — era credencial em texto plano guardada no navegador de quem
+      // cadastra. O servidor guarda só o hash; para trocar, há o fluxo de redefinição.
       return [...prev, {
         name,
         email,
-        password: finalPassword,
         municipio: finalMunicipio,
         uf: finalUf,
         areaInteresse: finalArea,
@@ -2092,6 +2113,22 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // resposta (já indexada pelo userId que ela mesma traz) — nada de calcular no navegador.
   const applySelfEnrollmentResponse = (enrollment: StudentEnrollment) => {
     setStudentEnrollments(prev => ({ ...prev, [enrollment.userId]: enrollment }));
+    // O catálogo entrega o material de estudo apenas dos cursos a que o aluno
+    // pertence. Matricular/cancelar muda esse conjunto, e a sincronização geral só
+    // reage a login/logout — sem este refetch, o aluno acabaria de se matricular e
+    // veria a aula sem texto, vídeo nem documentos até recarregar a página.
+    void refreshCourses();
+  };
+
+  /** Rebusca só o catálogo, para refletir mudança de acesso ao material. */
+  const refreshCourses = async () => {
+    if (!features.catalogoCursos) return;
+    try {
+      const res = await authFetch('/api/courses');
+      if (res.ok) setCourses(await res.json());
+    } catch (err) {
+      console.error('Erro ao atualizar catálogo:', err);
+    }
   };
 
   const enrollStudentInCourse = async (_userId: string, courseId: string): Promise<{ ok: boolean; error?: string }> => {
@@ -2356,6 +2393,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerUser,
         logoutAuth,
         changePassword,
+        adminResetPassword,
         progress,
         certificates,
         chatMessages,

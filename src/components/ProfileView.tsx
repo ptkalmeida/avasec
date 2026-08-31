@@ -10,6 +10,7 @@ import {
 import { useLMS } from '../context/LMSContext';
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
+import { demoProfiles } from '../dev/demoProfiles';
 import { CertificateTemplate } from './CertificateTemplate';
 import { downloadCertificatePdf } from '../utils/fileDownload';
 import type { Certificate } from '../types';
@@ -20,14 +21,11 @@ interface ProfileViewProps {
   onLogout?: () => void;
 }
 
-// Atalho de troca rápida de perfil (SOMENTE em dev — import.meta.env.DEV).
-// Faz um login REAL com o PIN demo do perfil alvo; a identidade continua vindo
-// do token (nada do bug antigo de trocar papel sem reautenticar — ADR 10).
-const DEMO_PROFILES = [
-  { name: 'João Silva', pin: '1234', label: 'Aluno' },
-  { name: 'Gestor de Conteúdos', pin: '5678', label: 'Gestor' },
-  { name: 'Admin Superior', pin: '9999', label: 'Admin' },
-] as const;
+// Atalho de troca rápida de perfil (SOMENTE em dev). Faz um login REAL com o PIN do
+// perfil alvo; a identidade continua vindo do token (nada do bug antigo de trocar
+// papel sem reautenticar — ADR 10). Os PINs vêm de VITE_DEMO_PINS e NÃO ficam no
+// código: array em escopo de módulo vai para o pacote mesmo atrás de um guard de
+// dev — ver src/dev/demoProfiles.ts.
 
 const AVATAR_PRESETS = [
   { id: 'cosmic', emoji: '🧑‍🚀', label: 'Estudante Cósmico', color: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
@@ -1560,13 +1558,15 @@ export function ProfileView({
               <span>Sair da Conta / Desconectar</span>
             </button>
 
-            {import.meta.env.DEV && (
+            {/* Sem VITE_DEMO_PINS a lista é vazia e o bloco não aparece — o atalho
+                deixa de existir por ausência do dado, não por lembrança do guard. */}
+            {import.meta.env.DEV && demoProfiles.length > 0 && (
               <div className="mt-4 pt-4 border-t border-slate-150">
                 <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block mb-2">
                   Troca rápida de perfil (dev)
                 </span>
                 <div className="grid grid-cols-3 gap-2">
-                  {DEMO_PROFILES.map((p) => {
+                  {demoProfiles.map((p) => {
                     const isActive = p.name === activeUser.name;
                     return (
                       <button

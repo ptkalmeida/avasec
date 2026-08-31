@@ -170,6 +170,29 @@ final class AuthController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Redefinição de senha por admin (sem a senha atual, que o admin não conhece).
+     * A senha nova é gerada e exibida pelo cliente; o servidor guarda só o hash e
+     * registra na auditoria QUEM redefiniu de QUEM — nunca o valor da senha.
+     */
+    public function adminResetPassword(Request $request, string $id): JsonResponse
+    {
+        $data = $this->validateInput($request, [
+            'newPassword' => $this->passwordRules(),
+        ]);
+
+        $updated = $this->auth->adminResetPassword($id, $this->stringField($data, 'newPassword'));
+        $nome = $this->optionalString($updated, 'name') ?? '(sem nome)';
+        $this->audit->log(
+            $request,
+            'Redefinição de Senha',
+            "Senha de \"{$nome}\" ({$id}) redefinida pela coordenação.",
+            'WARNING'
+        );
+
+        return response()->json(['success' => true]);
+    }
+
     public function listUsers(Request $request): JsonResponse
     {
         $role = $request->query('role');

@@ -79,3 +79,41 @@ export const passwordProblem = (password: string): string | null => {
 
   return null;
 };
+
+/**
+ * Senha inicial para conta provisionada pela coordenação. Substitui o antigo padrão
+ * fixo `1234`, que era senha conhecida em todas as contas novas — e que, desde a
+ * ADR 11, a API nem aceita mais (não cumpre `passwordProblem`).
+ *
+ * Sem "I", "l", "O", "0" e "1": a senha é ditada por telefone ou copiada de tela,
+ * e caractere ambíguo volta como pedido de suporte.
+ */
+export const generateInitialPassword = (): string => {
+  const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+  const digitos = '23456789';
+  const alfabeto = letras + digitos;
+
+  const sorteio = (quantidade: number): number[] => {
+    const bytes = new Uint32Array(quantidade);
+    crypto.getRandomValues(bytes);
+
+    return Array.from(bytes);
+  };
+
+  const bytes = sorteio(10);
+  // Garante ao menos uma letra e um dígito nas duas primeiras posições, depois
+  // embaralha — do contrário a senha teria formato previsível.
+  const obrigatorios = [
+    letras[bytes[0] % letras.length],
+    digitos[bytes[1] % digitos.length],
+  ];
+  const restantes = bytes.slice(2).map((b) => alfabeto[b % alfabeto.length]);
+  const caracteres = [...obrigatorios, ...restantes];
+
+  for (let i = caracteres.length - 1; i > 0; i -= 1) {
+    const j = sorteio(1)[0] % (i + 1);
+    [caracteres[i], caracteres[j]] = [caracteres[j], caracteres[i]];
+  }
+
+  return caracteres.join('');
+};
