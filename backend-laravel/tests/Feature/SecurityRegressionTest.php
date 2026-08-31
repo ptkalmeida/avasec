@@ -62,6 +62,13 @@ final class SecurityRegressionTest extends TestCase
         $student = $this->makeStudent();
         $auth = $this->auth($student['token']);
 
+        // Matrícula no curso do quiz-1: responder avaliação de curso ao qual não se
+        // pertence agora é 403, e o cenário sem matrícula nunca foi o objeto deste
+        // teste — o objeto é a nota ser recalculada no servidor.
+        $this->withHeaders($auth)
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => 'course-1'])
+            ->assertOk();
+
         // Gabarito de quiz-1 (seed): q1=0, q2=1, q3=2.
         $correct = ['quiz-1-q1' => 0, 'quiz-1-q2' => 1, 'quiz-1-q3' => 2];
         $wrong = ['quiz-1-q1' => 1, 'quiz-1-q2' => 0, 'quiz-1-q3' => 0];
@@ -199,6 +206,27 @@ final class SecurityRegressionTest extends TestCase
             $this->postJson('/api/courses', array_merge($base, $payload), $this->auth($token))
                 ->assertStatus(400, "Campo {$campo} aceitou javascript:");
         }
+    }
+
+    // POST /api/certificates não tinha `role:` na rota, e o service não conferia
+    // titularidade: um instrutor emitia certificado para curso que não leciona. A regra
+    // já existia no download do PDF (CertificatePdfService), faltava na emissão.
+    public function test_instructor_cannot_issue_certificate_for_course_they_do_not_teach(): void
+    {
+        $alheio = DB::table('User')->where('role', 'instructor')->where('status', 'active')
+            ->whereNotIn('id', DB::table('Course')->distinct()->select('instructorId'))
+            ->first(['id', 'name']);
+        if ($alheio === null) {
+            $this->markTestSkipped('Seed sem instrutor fora da titularidade dos cursos.');
+        }
+
+        $aluno = $this->makeStudent();
+        $token = Jwt::issue($alheio->id, $alheio->name, 'instructor');
+
+        $this->postJson('/api/certificates', [
+            'userId' => $aluno['id'],
+            'courseId' => 'course-1',
+        ], $this->auth($token))->assertStatus(403);
     }
 
     public function test_library_item_rejects_javascript_url(): void

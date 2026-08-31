@@ -12,6 +12,7 @@ use App\Models\Quiz;
 use App\Models\QuizQuestion;
 use App\Models\QuizSubmission;
 use App\Support\BusinessRules;
+use App\Support\CourseAccess;
 use App\Support\Identity;
 use App\Support\InstructorScope;
 use App\Support\Payload;
@@ -28,10 +29,26 @@ final class LearningService
 {
     // ---------- QUIZZES ----------
 
-    /** @return array<int, array<string, mixed>> */
-    public function listQuizzes(): array
+    /**
+     * Quizzes dos cursos a que o requester pertence.
+     *
+     * O gabarito (correctOptionIndex) continua vindo junto de propósito, para o
+     * feedback imediato do aluno — decisão registrada na rota, e a nota é sempre
+     * recalculada no servidor em submitQuiz. O que estava errado era o alcance:
+     * a listagem entregava as questões de TODAS as avaliações da escola a qualquer
+     * autenticado, inclusive de cursos que a pessoa nunca fez.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<int, array<string, mixed>>
+     */
+    public function listQuizzes(array $requester): array
     {
-        return Quiz::query()->with('questions')->get()->map->toArray()->all();
+        $query = Quiz::query()->with('questions');
+        if ($requester['role'] !== 'admin') {
+            $query->whereIn('courseId', CourseAccess::accessibleCourseIds($requester));
+        }
+
+        return $query->get()->map->toArray()->all();
     }
 
     /**
@@ -135,6 +152,12 @@ final class LearningService
             throw ApiException::notFound('Quiz não encontrado.');
         }
 
+        // Responder avaliação de curso alheio gerava submissão válida num curso ao qual
+        // o aluno não pertence — poluindo o painel do instrutor daquela turma.
+        if (! is_string($quiz->courseId) || ! CourseAccess::canAccess($requester, $quiz->courseId)) {
+            throw ApiException::forbidden('Você não participa deste curso.');
+        }
+
         $total = $quiz->questions->count();
         $correct = 0;
         foreach ($quiz->questions as $question) {
@@ -162,10 +185,22 @@ final class LearningService
 
     // ---------- FÓRUM ----------
 
-    /** @return array<int, array<string, mixed>> */
-    public function listForumMessages(): array
+    /**
+     * Fórum escopado por curso, como o chat de aula (MessagingService::listChatMessages).
+     * Antes devolvia o fórum de TODOS os cursos para qualquer autenticado: a regra já
+     * existia no projeto, faltava aqui.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<int, array<string, mixed>>
+     */
+    public function listForumMessages(array $requester): array
     {
-        return ForumMessage::query()->get()->map->toArray()->all();
+        $query = ForumMessage::query();
+        if ($requester['role'] !== 'admin') {
+            $query->whereIn('courseId', CourseAccess::accessibleCourseIds($requester));
+        }
+
+        return $query->get()->map->toArray()->all();
     }
 
     /**
@@ -175,6 +210,12 @@ final class LearningService
      */
     public function createForumMessage(array $input, array $requester): array
     {
+        // courseId vem do corpo: sem esta checagem, qualquer autenticado publicava no
+        // fórum de qualquer turma. createChatMessage já barrava o caso equivalente.
+        if (! CourseAccess::canAccess($requester, $input['courseId'])) {
+            throw ApiException::forbidden('Você não participa deste curso.');
+        }
+
         return ForumMessage::query()->create([
             'id' => 'forum-msg-'.$this->nowMs(),
             'courseId' => $input['courseId'],
@@ -227,10 +268,18 @@ final class LearningService
 
     // ---------- EXERCÍCIOS PRÁTICOS ----------
 
-    /** @return array<int, array<string, mixed>> */
-    public function listExercises(): array
+    /**
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<int, array<string, mixed>>
+     */
+    public function listExercises(array $requester): array
     {
-        return PracticalExercise::query()->get()->map->toArray()->all();
+        $query = PracticalExercise::query();
+        if ($requester['role'] !== 'admin') {
+            $query->whereIn('courseId', CourseAccess::accessibleCourseIds($requester));
+        }
+
+        return $query->get()->map->toArray()->all();
     }
 
     /**

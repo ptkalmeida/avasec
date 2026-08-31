@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Support\CourseAccess;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
@@ -179,11 +180,48 @@ final class UploadTest extends TestCase
         $otherToken = Jwt::issue($reg->json('user.id'), $reg->json('user.name'), 'student');
         $this->get($fileUrl, $auth($otherToken))->assertStatus(403);
 
-        // Instrutor (staff): 200.
+        // Instrutor do curso do dono: 200. (Não é "por ser staff": o escopo é o vínculo
+        // com a turma — ver o caso seguinte, que era o furo.)
         $inst = DB::table('User')->where('role', 'instructor')->where('status', 'active')->first(['id', 'name']);
+        $this->assertNotEmpty(
+            array_intersect(
+                DB::table('Course')->where('instructorId', $inst->id)->pluck('id')->all(),
+                CourseAccess::accessibleCourseIds(['sub' => $ownerId, 'name' => '', 'role' => 'student'])
+            ),
+            'Dono do arquivo não é aluno deste instrutor — o 200 abaixo não provaria escopo.'
+        );
         $this->get($fileUrl, $auth(Jwt::issue($inst->id, $inst->name, 'instructor')))->assertOk();
 
         // Sem token: 401.
         $this->get($fileUrl, $json)->assertStatus(401);
+    }
+
+    // Entrega privada é documento pessoal do aluno. Antes bastava ter papel de
+    // instrutor — sem escopo algum — para baixar a de qualquer aluno da escola.
+    public function test_instructor_of_another_course_cannot_download_private_file(): void
+    {
+        $auth = fn (string $token) => ['Accept' => 'application/json', 'Authorization' => "Bearer $token"];
+
+        $ownerId = null;
+        $ownerName = null;
+        $ownerToken = $this->studentToken($ownerId, $ownerName);
+
+        $up = $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth($ownerToken));
+        $fileUrl = $up->assertStatus(201)->json('url');
+
+        // Instrutor sem curso nenhum atribuído: não alcança aluno algum.
+        $alheio = DB::table('User')->where('role', 'instructor')->where('status', 'active')
+            ->whereNotIn('id', DB::table('Course')->distinct()->select('instructorId'))
+            ->first(['id', 'name']);
+        if ($alheio === null) {
+            $this->markTestSkipped('Seed sem instrutor fora da titularidade dos cursos.');
+        }
+
+        $this->get($fileUrl, $auth(Jwt::issue($alheio->id, $alheio->name, 'instructor')))
+            ->assertStatus(403);
+
+        // Admin segue irrestrito (coordenação).
+        $admin = DB::table('User')->where('role', 'admin')->first(['id', 'name']);
+        $this->get($fileUrl, $auth(Jwt::issue($admin->id, $admin->name, 'admin')))->assertOk();
     }
 }

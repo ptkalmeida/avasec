@@ -90,6 +90,15 @@ final class CertificateService
             throw ApiException::notFound('Curso não encontrado.');
         }
 
+        // Instrutor emite certificado apenas nos cursos que leciona — a mesma regra
+        // que CertificatePdfService já aplica no download. Faltava aqui: quem podia
+        // baixar só o próprio conseguia EMITIR para qualquer curso da escola.
+        // Para o aluno o risco já era contido (a frequência é recalculada abaixo).
+        if ($requester['role'] === 'instructor'
+            && ! in_array($course->id, InstructorScope::courseIds($requester), true)) {
+            throw ApiException::forbidden('Você só pode emitir certificados dos seus cursos.');
+        }
+
         // Idempotência: se já existe certificado para aluno+curso, apenas retorna.
         $existing = Certificate::query()
             ->where('userId', $userId)
