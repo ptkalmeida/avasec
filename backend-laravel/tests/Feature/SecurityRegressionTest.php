@@ -167,4 +167,47 @@ final class SecurityRegressionTest extends TestCase
             $this->assertContains($courseId, $ownCourseIds, 'Instrutor viu certificado de curso alheio.');
         }
     }
+
+    // URL de curso só era validada como "string, max:2000": um instrutor podia gravar
+    // javascript: em thumbnail, coverImage, documents[].url ou meetingLink, e o valor
+    // ia direto para um href na tela do aluno. O cookie é HttpOnly, mas viaja sozinho,
+    // então o script agiria como a vítima.
+    public function test_course_rejects_javascript_url_in_every_url_field(): void
+    {
+        $token = $this->staffToken('instructor');
+        $base = [
+            'title' => 'Curso XSS Teste',
+            'description' => 'Descrição suficientemente longa para passar na validação.',
+            'category' => 'Teste',
+            'thumbnail' => 'https://exemplo.com/capa.png',
+        ];
+
+        $variantes = [
+            'thumbnail' => ['thumbnail' => 'javascript:alert(1)'],
+            'coverImage' => ['coverImage' => 'javascript:alert(1)'],
+            'documents.url' => ['lessons' => [[
+                'title' => 'Aula 1', 'duration' => '10min', 'order' => 0,
+                'documents' => [['title' => 'Doc', 'type' => 'url', 'url' => 'javascript:alert(1)']],
+            ]]],
+            'meetingLink' => ['liveSessions' => [[
+                'title' => 'Encontro', 'scheduledAt' => '2026-09-01T10:00:00Z',
+                'durationMinutes' => 60, 'meetingLink' => 'javascript:alert(1)',
+            ]]],
+        ];
+
+        foreach ($variantes as $campo => $payload) {
+            $this->postJson('/api/courses', array_merge($base, $payload), $this->auth($token))
+                ->assertStatus(400, "Campo {$campo} aceitou javascript:");
+        }
+    }
+
+    public function test_library_item_rejects_javascript_url(): void
+    {
+        $this->postJson('/api/library', [
+            'title' => 'Item XSS',
+            'type' => 'link',
+            'category' => 'Teste',
+            'url' => 'javascript:alert(1)',
+        ], $this->auth($this->staffToken('instructor')))->assertStatus(400);
+    }
 }

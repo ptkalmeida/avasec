@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Rules\SafeUrlRule;
 use App\Rules\VideoUrlRule;
 use App\Services\AuditLogger;
 use App\Services\CourseService;
@@ -20,9 +21,14 @@ final class CourseController extends Controller
         private readonly AuditLogger $audit,
     ) {}
 
-    public function index(): JsonResponse
+    /**
+     * Catálogo. Segue público (escopo declarado em 01-visao-geral.md), mas o material
+     * de estudo sai só para quem tem acesso — a rota usa `jwt.optional`, então aqui o
+     * requester pode ser nulo (visitante) e isso NÃO é erro.
+     */
+    public function index(Request $request): JsonResponse
     {
-        return response()->json($this->courses->listCourses());
+        return response()->json($this->courses->listCoursesFor($this->optionalRequester($request)));
     }
 
     public function store(Request $request): JsonResponse
@@ -66,12 +72,12 @@ final class CourseController extends Controller
             'title' => [$req, 'string', 'min:3', 'max:200'],
             'description' => [$req, 'string', 'min:10', 'max:5000'],
             'category' => [$req, 'string', 'min:1', 'max:120'],
-            'thumbnail' => [$req, 'string', 'min:1', 'max:2000'],
+            'thumbnail' => [$req, 'string', 'min:1', 'max:2000', new SafeUrlRule],
             // ADR 10: autoria por instructorId (admin); instructorName é aceito
             // apenas por compat de payload e IGNORADO — display deriva do User.
             'instructorId' => ['sometimes', 'nullable', 'string', 'max:191'],
             'instructorName' => ['sometimes', 'nullable', 'string', 'max:150'],
-            'coverImage' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'coverImage' => ['sometimes', 'nullable', 'string', 'max:2000', new SafeUrlRule],
             'courseType' => ['sometimes', 'in:fixo,ao_vivo'],
             'hasChat' => ['sometimes', 'boolean'],
             'minAttendance' => ['sometimes', 'numeric', 'min:0', 'max:100'],
@@ -93,7 +99,7 @@ final class CourseController extends Controller
             'lessons.*.documents' => ['sometimes', 'array'],
             'lessons.*.documents.*.title' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:200'],
             'lessons.*.documents.*.type' => ['required_with:lessons.*.documents', 'in:pdf,doc,url,drive,outro'],
-            'lessons.*.documents.*.url' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:2000'],
+            'lessons.*.documents.*.url' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:2000', new SafeUrlRule],
             'lessons.*.documents.*.size' => ['sometimes', 'nullable', 'string', 'max:30'],
             // Sessões ao vivo aninhadas
             'liveSessions' => ['sometimes', 'array'],
@@ -101,7 +107,7 @@ final class CourseController extends Controller
             'liveSessions.*.title' => ['required_with:liveSessions', 'string', 'min:1', 'max:200'],
             'liveSessions.*.scheduledAt' => ['required_with:liveSessions', 'string', 'min:1', 'max:100'],
             'liveSessions.*.durationMinutes' => ['required_with:liveSessions', 'integer', 'min:1', 'max:600'],
-            'liveSessions.*.meetingLink' => ['required_with:liveSessions', 'string', 'min:1', 'max:2000'],
+            'liveSessions.*.meetingLink' => ['required_with:liveSessions', 'string', 'min:1', 'max:2000', new SafeUrlRule],
             'liveSessions.*.isLive' => ['sometimes', 'boolean'],
         ];
 

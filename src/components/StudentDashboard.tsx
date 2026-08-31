@@ -26,6 +26,7 @@ import { parseLessonContent } from '../utils/lessonContent';
 import { parseVideoSource } from '../utils/videoSource';
 import { LessonContent } from './student/LessonContent';
 import { LessonIndex } from './student/LessonIndex';
+import { safeHref } from '../utils/safeUrl';
 
 interface ModuleGroup {
   name: string;
@@ -1046,7 +1047,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                       return (
                                         <a
                                           key={`${doc.id}-${typeof docIdx !== "undefined" ? docIdx : 0}`}
-                                          href={doc.url}
+                                          href={safeHref(doc.url)}
                                           target="_blank"
                                           referrerPolicy="no-referrer"
                                           rel="noopener noreferrer"
@@ -1708,7 +1709,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 </button>
                                 
                                 <a
-                                  href={session.meetingLink}
+                                  href={safeHref(session.meetingLink)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/60 font-bold py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-center"
@@ -1942,7 +1943,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 <span className="flex items-center gap-1"><Globe className="h-2.5 w-2.5" />Horário de Brasília (Local)</span>
                               </div>
                            </div>
-                           <a href={session.meetingLink} target="_blank" rel="noreferrer" className="bg-slate-950 text-white p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                           <a href={safeHref(session.meetingLink)} target="_blank" rel="noreferrer" className="bg-slate-950 text-white p-2 rounded-lg hover:bg-slate-800 transition-colors">
                               <ExternalLink className="h-4 w-4" />
                            </a>
                         </div>

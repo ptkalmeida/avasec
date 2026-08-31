@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 import { Course, LiveSession } from '../types';
+import { safeHref } from '../utils/safeUrl';
 
 interface LiveClassroomProps {
   course: Course;
@@ -527,7 +528,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                 <span className="text-slate-400 uppercase tracking-widest text-[10px] font-bold">Link de Videoconferência</span>
                 <p className="font-mono text-[11px] text-emerald-400 truncate select-all">{session.meetingLink}</p>
                 <a
-                  href={session.meetingLink}
+                  href={safeHref(session.meetingLink)}
                   target="_blank"
                   referrerPolicy="no-referrer"
                   className="mt-2 inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold px-3 py-1.5 rounded text-[11px] transition-all"
