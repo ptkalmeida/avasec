@@ -16,9 +16,9 @@ final class LearningController extends Controller
     public function __construct(private readonly LearningService $learning) {}
 
     // Quizzes
-    public function listQuizzes(): JsonResponse
+    public function listQuizzes(Request $request): JsonResponse
     {
-        return response()->json($this->learning->listQuizzes());
+        return response()->json($this->learning->listQuizzes($this->requester($request)));
     }
 
     public function createQuiz(Request $request): JsonResponse
@@ -77,9 +77,9 @@ final class LearningController extends Controller
     }
 
     // Fórum
-    public function listForumMessages(): JsonResponse
+    public function listForumMessages(Request $request): JsonResponse
     {
-        return response()->json($this->learning->listForumMessages());
+        return response()->json($this->learning->listForumMessages($this->requester($request)));
     }
 
     public function createForumMessage(Request $request): JsonResponse
@@ -108,9 +108,9 @@ final class LearningController extends Controller
     }
 
     // Exercícios
-    public function listExercises(): JsonResponse
+    public function listExercises(Request $request): JsonResponse
     {
-        return response()->json($this->learning->listExercises());
+        return response()->json($this->learning->listExercises($this->requester($request)));
     }
 
     public function createExercise(Request $request): JsonResponse

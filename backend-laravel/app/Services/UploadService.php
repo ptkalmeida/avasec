@@ -6,6 +6,8 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\StoredFile;
+use App\Support\CourseAccess;
+use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
 use finfo;
 use Illuminate\Http\UploadedFile;
@@ -92,9 +94,7 @@ final class UploadService
             throw ApiException::notFound('Arquivo não encontrado.');
         }
 
-        $isOwner = $record->ownerUserId === $requester['sub'];
-        $isStaff = in_array($requester['role'] ?? null, ['instructor', 'admin'], true);
-        if ($record->visibility === 'private' && ! $isOwner && ! $isStaff) {
+        if ($record->visibility === 'private' && ! $this->podeBaixar($record, $requester)) {
             throw ApiException::forbidden('Você não tem permissão para acessar este arquivo.');
         }
 
@@ -111,6 +111,42 @@ final class UploadService
             'mime' => is_string($mime) ? $mime : 'application/octet-stream',
             'originalName' => $record->originalName,
         ];
+    }
+
+    /**
+     * Quem pode baixar um arquivo PRIVADO.
+     *
+     * Antes bastava ser instrutor: `$isStaff` valia para qualquer um deles, sem escopo,
+     * então um instrutor baixava a entrega privada de aluno de turma alheia. Arquivo
+     * privado aqui é entrega de atividade — documento pessoal, às vezes com dado
+     * sensível. O escopo agora é o mesmo do resto do sistema: instrutor alcança quem
+     * é aluno de um curso que ele leciona.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    private function podeBaixar(StoredFile $record, array $requester): bool
+    {
+        if ($record->ownerUserId === $requester['sub']) {
+            return true;
+        }
+
+        $role = $requester['role'] ?? null;
+        if ($role === 'admin') {
+            return true;
+        }
+        if ($role !== 'instructor' || ! is_string($record->ownerUserId) || $record->ownerUserId === '') {
+            return false;
+        }
+
+        // Cursos do dono do arquivo, vistos como aluno — reaproveita CourseAccess em vez
+        // de reescrever a consulta de vínculo (matrícula + concluídos + admissão aprovada).
+        $cursosDoDono = CourseAccess::accessibleCourseIds([
+            'sub' => $record->ownerUserId,
+            'name' => '',
+            'role' => 'student',
+        ]);
+
+        return array_intersect($cursosDoDono, InstructorScope::courseIds($requester)) !== [];
     }
 
     /**

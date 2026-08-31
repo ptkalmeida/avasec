@@ -27,6 +27,7 @@ import { parseVideoSource } from '../utils/videoSource';
 import { LessonContent } from './student/LessonContent';
 import { LessonIndex } from './student/LessonIndex';
 import { safeHref } from '../utils/safeUrl';
+import { sanitizeNoteHtml, escapeHtml } from '../utils/noteHtml';
 
 interface ModuleGroup {
   name: string;
@@ -314,7 +315,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   // Sync do editor sempre que a aula ativa muda (HTML salvo vira o conteúdo do editor).
   React.useEffect(() => {
     if (activeLesson && noteEditorRef.current) {
-      noteEditorRef.current.innerHTML = savedNotes[activeLesson.id] || '';
+      // Sanitiza na ENTRADA: a anotação pode ter sido gravada antes desta regra,
+      // ou colada de outra página trazendo a marcação da origem.
+      noteEditorRef.current.innerHTML = sanitizeNoteHtml(savedNotes[activeLesson.id] || '');
     }
     setNoteSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -338,7 +341,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   const handleSaveNoteText = () => {
     if (activeLesson && noteEditorRef.current) {
-      const html = noteEditorRef.current.innerHTML;
+      const html = sanitizeNoteHtml(noteEditorRef.current.innerHTML);
       const updated = { ...savedNotes, [activeLesson.id]: html };
       setSavedNotes(updated);
       localStorage.setItem('ava_student_lesson_notes', JSON.stringify(updated));
@@ -349,11 +352,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   const handleDownloadNoteText = () => {
     if (!activeLesson || !noteEditorRef.current) return;
-    const html = noteEditorRef.current.innerHTML;
+    const html = sanitizeNoteHtml(noteEditorRef.current.innerHTML);
     if (!html.trim()) return;
-    const htmlDoc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Anotações — ${activeLesson.title}</title>
+    // O título vem do servidor (quem gerencia o curso), então precisa de escape:
+    // sem ele, `</title><script>` num título executaria no arquivo baixado pelo aluno.
+    const tituloSeguro = escapeHtml(activeLesson.title);
+    const htmlDoc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Anotações — ${tituloSeguro}</title>
 <style>body{font-family:Arial,Helvetica,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#1e293b;line-height:1.6;} h1{font-size:18px;border-bottom:2px solid #0d9488;padding-bottom:8px;} </style>
-</head><body><h1>Anotações — ${activeLesson.title}</h1>${html}</body></html>`;
+</head><body><h1>Anotações — ${tituloSeguro}</h1>${html}</body></html>`;
     const blob = new Blob([htmlDoc], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
