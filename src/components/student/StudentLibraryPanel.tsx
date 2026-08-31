@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, FileText, Globe, Download, ExternalLink } from 'lucide-react';
 import { useLMS } from '../../context/LMSContext';
+import { safeHref } from '../../utils/safeUrl';
 
 interface StudentLibraryPanelProps {
   onBack: () => void;
@@ -38,7 +39,7 @@ export const StudentLibraryPanel: React.FC<StudentLibraryPanelProps> = ({ onBack
             <h4 className="font-bold text-sm text-slate-900 leading-tight group-hover:text-teal-600 transition-colors">{item.title}</h4>
             <p className="text-[11px] text-slate-500 mt-2 leading-relaxed line-clamp-2">{item.description}</p>
             <a
-              href={item.url}
+              href={safeHref(item.url)}
               target="_blank"
               rel="noreferrer"
               className="mt-4 w-full bg-slate-50 hover:bg-teal-600 hover:text-white text-slate-600 font-bold py-2 rounded-xl text-[10px] transition-all flex items-center justify-center gap-2 border border-slate-100"

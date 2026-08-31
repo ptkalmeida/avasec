@@ -22,6 +22,7 @@ import { LessonContentEditor } from './instructor/LessonContentEditor';
 import { LessonManagePage } from './instructor/LessonManagePage';
 import { courseMinAttendance } from '../config/constants';
 import { BackButton } from './BackButton';
+import { safeHref } from '../utils/safeUrl';
 
 interface InstructorDashboardProps {
   onBackToLanding?: () => void;
@@ -620,7 +621,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                     </div>
                     <div className="flex items-center gap-1 ml-4 shadow-3xs rounded-lg overflow-hidden bg-white border border-slate-200">
                       <a 
-                        href={doc.url} 
+                        href={safeHref(doc.url)} 
                         target="_blank" 
                         referrerPolicy="no-referrer"
                         rel="noopener noreferrer" 
@@ -1192,7 +1193,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
                           <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-150">
                             <a
-                              href={session.meetingLink}
+                              href={safeHref(session.meetingLink)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-[9px] text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 font-mono truncate max-w-[150px] cursor-pointer"
@@ -2809,7 +2810,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       return (
                         <a
                           key={`${doc.id}-${typeof docIdx !== "undefined" ? docIdx : 0}`}
-                          href={doc.url}
+                          href={safeHref(doc.url)}
                           target="_blank"
                           rel="noopener noreferrer"
                           referrerPolicy="no-referrer"
