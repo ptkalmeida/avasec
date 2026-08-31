@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { features } from './config/features';
+import { demoProfiles } from './dev/demoProfiles';
 // @ts-ignore
 import pauloFreirePortrait from './assets/images/paulo_freire_portrait_1779991080618.png';
 
@@ -2924,15 +2925,19 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </button>
               </div>
 
-              {/* Dica de PINs demo — SOMENTE em desenvolvimento (import.meta.env.DEV).
-                  Nunca vai para o build de produção: expor senhas padrão na tela de
-                  login, somado ao login por nome, permitiria tomada de contas reais. */}
-              {import.meta.env.DEV && (
+              {/* Dica de PINs — SOMENTE desenvolvimento. Os valores NÃO ficam escritos
+                  aqui: vêm de VITE_DEMO_PINS (ver src/dev/demoProfiles.ts), porque texto
+                  no JSX vai para o pacote mesmo atrás de um guard de dev. Sem a variável
+                  a lista é vazia e o bloco não existe. Expor senha padrão nesta tela,
+                  somado ao login por nome, é tomada de conta real. */}
+              {import.meta.env.DEV && demoProfiles.length > 0 && (
                 <div className="mt-5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-left text-[9.5px] text-slate-500 leading-relaxed font-mono">
                   <span className="font-bold text-indigo-700 block mb-0.5 uppercase tracking-wide">Dica para Avaliação do Fluxo (dev):</span>
-                  • Aluno: <code className="font-extrabold text-slate-800">1234</code><br />
-                  • Gestão: <code className="font-extrabold text-slate-800">5678</code><br />
-                  • Admin Superior: <code className="font-extrabold text-[#540D6E]">9999</code><br />
+                  {demoProfiles.map(p => (
+                    <span key={p.name} className="block">
+                      • {p.label}: <code className="font-extrabold text-slate-800">{p.pin}</code>
+                    </span>
+                  ))}
                   <span className="text-[8.5px] text-slate-400 block mt-1 leading-normal">
                     (Senhas customizadas no perfil também servem para desbloqueio do aluno).
                   </span>

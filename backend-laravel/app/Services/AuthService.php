@@ -189,6 +189,28 @@ final class AuthService
     }
 
     /**
+     * Redefinição administrativa: troca a senha SEM a senha atual, porque quem faz não
+     * a conhece. É o "fluxo administrativo separado e auditado" citado acima, que até
+     * agora não existia — a interface de admin oferecia "Redefinir Senha" e só mexia em
+     * estado local, então a coordenação acreditava ter revogado um acesso que continuava
+     * valendo. Restrita a admin na rota; a auditoria fica no controller.
+     *
+     * @return array<string, mixed> usuário público (nunca o hash)
+     */
+    public function adminResetPassword(string $userId, string $newPassword): array
+    {
+        $user = User::query()->find($userId);
+        if ($user === null) {
+            throw ApiException::notFound('Usuário não encontrado.');
+        }
+
+        $user->passwordHash = $this->hash($newPassword);
+        $user->save();
+
+        return $this->toPublicUser($user);
+    }
+
+    /**
      * @return array{items: array<int, array<string, mixed>>, total: int}
      */
     public function listUsersByRole(?string $role, int $skip, int $take): array

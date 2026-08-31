@@ -26,6 +26,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area 
 } from 'recharts';
 import { features } from '../config/features';
+import { generateInitialPassword, passwordProblem } from '../utils/cpf';
 
 interface AdminDashboardProps {
   onBackToLanding?: () => void;
@@ -71,6 +72,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
     updatePracticalExercise,
     deletePracticalExercise,
     gradeSubmission,
+    adminResetPassword,
   } = useLMS();
 
   // List of registered student accounts for master academic academic progress tracking
@@ -229,7 +231,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
     progresso?: number;
     horasConcluidas?: number;
     horasTotais?: number;
-    password?: string; // reset de senha do simulador (estado local de demonstração)
   }>>({});
 
   const [activeStudentProfile, setActiveStudentProfile] = useState<string | null>(null);
@@ -249,7 +250,10 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
   // Mini interactions
   const [activeStudentMenu, setActiveStudentMenu] = useState<string | null>(null);
-  const [resetPassInfo, setResetPassInfo] = useState<{ name: string; email: string } | null>(null);
+  const [resetPassInfo, setResetPassInfo] = useState<{ id?: string; name: string; email: string } | null>(null);
+  // Senha inicial gerada no cadastro: mostrada uma vez, para a coordenação repassar.
+  // Não é persistida em lugar nenhum — some ao fechar, e a partir daí só há redefinição.
+  const [senhaGerada, setSenhaGerada] = useState<{ nome: string; senha: string } | null>(null);
   const [sendMessageInfo, setSendMessageInfo] = useState<{ name: string; email: string } | null>(null);
 
   // Customizable certificate attendance barrier state simulation (defaults 70)
@@ -260,7 +264,11 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   const getEnrichedStudent = (st: { id?: string; name: string; email: string; password?: string }) => {
     const name = st.name;
     const email = st.email;
-    const activePass = st.password || localStorage.getItem(`ava_active_password_${st.name}`) || '1234';
+    // Senha de aluno NÃO é exibida nem transitada por aqui. O campo `password`
+    // devolvido antes nunca era renderizado, mas carregava um padrão `1234` e uma
+    // leitura de localStorage — dado de credencial vivo num objeto de listagem.
+    // Para trocar a senha de um aluno existe o fluxo de redefinição, que passa
+    // pelo servidor e é auditado.
 
     // Core default mapping as requested by the prompt
     let defaultRA = '1234';
@@ -437,7 +445,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       name,
       email,
       ra: defaultRA,
-      password: activePass,
       curso: finalStatusMatricula === 'Sem matrícula' ? '—' : defaultCurso,
       turma: finalStatusMatricula === 'Sem matrícula' ? '—' : defaultTurma,
       polo: finalStatusMatricula === 'Sem matrícula' ? '—' : defaultPolo,
@@ -599,7 +606,16 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       return;
     }
 
-    const pass = newStudentPassword.trim() || '1234';
+    // Senha em branco gera uma aleatória que cumpre a política da ADR 11. O padrão
+    // fixo antigo (`1234`) era senha conhecida em toda conta nova e, desde a ADR 11,
+    // a API o rejeitava — o cadastro falhava sem que a tela dissesse por quê.
+    const informada = newStudentPassword.trim();
+    const problema = informada === '' ? null : passwordProblem(informada);
+    if (problema !== null) {
+      showToast(problema);
+      return;
+    }
+    const pass = informada || generateInitialPassword();
     const studentName = newStudentName.trim();
     const studentEmail = newStudentEmail.trim();
     const studentMunicipio = newStudentMunicipio.trim() || 'São Paulo';
@@ -621,6 +637,12 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       }
     } else {
       showToast(`Aluno ${studentName} matriculado(a) com sucesso!`);
+    }
+
+    // Senha gerada aparece num painel fixo, não em toast: nada a guarda, e o toast
+    // desaparece antes de a coordenação conseguir repassá-la ao aluno.
+    if (informada === '') {
+      setSenhaGerada({ nome: studentName, senha: pass });
     }
 
     setNewStudentName('');
@@ -1324,10 +1346,10 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                   <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Especialidade Principal</span>
                   <span className="text-xs font-semibold text-slate-700 block mt-1">Design de Interfaces & Novas Mídias</span>
                 </div>
-                <div>
-                  <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">PIN de Acesso</span>
-                  <span className="text-xs font-mono font-bold text-[#3B82F6] block mt-1">5678 ou 1234</span>
-                </div>
+                {/* O "PIN de Acesso" que ficava aqui expunha as senhas de demonstração
+                    (5678/1234) no pacote de produção, e desde a ADR 11 a política de
+                    senha nem aceita mais PIN de 4 dígitos — era informação vazada e
+                    errada ao mesmo tempo. Credencial não se exibe em tela de gestão. */}
               </div>
             </div>
           </div>
@@ -1994,12 +2016,12 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
                     <span>Senha Inicial</span>
-                    <span className="text-[8.5px] text-slate-400 font-normal normal-case">Padrão: 1234</span>
+                    <span className="text-[8.5px] text-slate-400 font-normal normal-case">Em branco: gerada automaticamente</span>
                   </label>
                   <div className="relative">
                     <input
                       type={showStudentPassword ? 'text' : 'password'}
-                      placeholder="Defina a senha"
+                      placeholder="Mín. 8, com letra e número"
                       value={newStudentPassword}
                       onChange={(e) => setNewStudentPassword(e.target.value)}
                       className="w-full border border-slate-200 p-2.5 pr-10 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
@@ -2458,7 +2480,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                                         <button
                                           onClick={() => {
                                             setActiveStudentMenu(null);
-                                            setResetPassInfo({ name: st.name, email: st.email });
+                                            setResetPassInfo({ id: st.id, name: st.name, email: st.email });
                                           }}
                                           className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-bold"
                                         >
@@ -2653,7 +2675,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                             Mensagem
                           </button>
                           <button
-                            onClick={() => setResetPassInfo({ name: st.name, email: st.email })}
+                            onClick={() => setResetPassInfo({ id: st.id, name: st.name, email: st.email })}
                             className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
                           >
                             Nova Senha
@@ -4550,7 +4572,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                 <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-2">
                   <button
                     onClick={() => {
-                      setResetPassInfo({ name: st.name, email: st.email });
+                      setResetPassInfo({ id: st.id, name: st.name, email: st.email });
                     }}
                     className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
                   >
@@ -4592,6 +4614,42 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       })()}
 
       {/* RESET PASSWORD MODAL */}
+      {/* SENHA INICIAL GERADA — exibida uma única vez */}
+      {senhaGerada && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-[10px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100">
+            <header className="p-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/50">
+              <Key className="h-4 w-4 text-emerald-600" />
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Senha Inicial Gerada</h3>
+            </header>
+
+            <div className="p-4 space-y-4">
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Repasse esta senha a <strong className="font-bold text-slate-800">{senhaGerada.nome}</strong> por
+                canal seguro. Ela <strong className="font-bold text-slate-800">não será exibida novamente</strong> —
+                o sistema guarda apenas o hash. Se for perdida, use "Redefinir Senha" na lista de alunos.
+              </p>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-md p-3 text-center">
+                <span className="text-base font-mono font-black tracking-widest text-slate-900 select-all">
+                  {senhaGerada.senha}
+                </span>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSenhaGerada(null)}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-md transition-colors uppercase tracking-wider cursor-pointer"
+                >
+                  Já anotei
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {resetPassInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-white rounded-[10px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100">
@@ -4608,14 +4666,30 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
               </button>
             </header>
 
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const form = e.currentTarget;
               const newPasswordValue = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
-              updateOverride(resetPassInfo.name, { password: newPasswordValue });
-              showToast(`A senha de ${resetPassInfo.name} foi redefinida para: ${newPasswordValue}`);
-              speakText(`A senha de ${resetPassInfo.name} foi atualizada.`);
+              const problema = passwordProblem(newPasswordValue);
+              if (problema !== null) {
+                showToast(problema);
+                return;
+              }
+              // Sem id não há como endereçar o usuário no servidor. Antes isso passava
+              // batido porque nada era enviado: a "redefinição" era só estado local.
+              if (!resetPassInfo.id) {
+                showToast('Cadastro ainda sincronizando com o servidor. Recarregue a página e tente de novo.');
+                return;
+              }
+              const alvo = resetPassInfo.name;
+              const res = await adminResetPassword(resetPassInfo.id, newPasswordValue);
+              if (!res.ok) {
+                showToast(res.error ?? 'Falha ao redefinir a senha.');
+                return;
+              }
               setResetPassInfo(null);
+              setSenhaGerada({ nome: alvo, senha: newPasswordValue });
+              speakText(`A senha de ${alvo} foi atualizada.`);
             }} className="p-4 space-y-4">
               <p className="text-[11px] text-slate-500 leading-relaxed">
                 Insira abaixo a nova credencial de segurança para o aluno <strong className="font-bold text-slate-800">{resetPassInfo.name}</strong>. Esta ação revogará qualquer senha anterior de acesso.
@@ -4627,8 +4701,8 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                   name="newPassword"
                   type="text"
                   required
-                  placeholder="Ex: 5678"
-                  defaultValue={Math.floor(1000 + Math.random() * 9000).toString()}
+                  placeholder="Mín. 8, com letra e número"
+                  defaultValue={generateInitialPassword()}
                   className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 font-mono focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                 />
               </div>
