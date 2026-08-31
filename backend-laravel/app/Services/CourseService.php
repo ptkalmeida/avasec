@@ -10,6 +10,7 @@ use App\Models\Lesson;
 use App\Models\LessonDocument;
 use App\Models\LiveSession;
 use App\Models\User;
+use App\Support\CourseAccess;
 use App\Support\Payload;
 use App\Support\VideoSource;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +23,76 @@ use Illuminate\Support\Str;
  */
 final class CourseService
 {
-    /** @return array<int, array<string, mixed>> */
-    public function listCourses(): array
+    /**
+     * Catálogo com o material protegido. O catálogo é PÚBLICO por escopo declarado
+     * (01-visao-geral.md), mas devolvia o curso inteiro — texto de estudo de cada
+     * aula, videoUrl, documentos e o link do Meet — para qualquer visitante sem
+     * login. O que era indevido não é a rota ser aberta: é o tamanho do payload.
+     *
+     * Vitrine (todos): título, descrição, categoria, capa, carga horária, instrutor,
+     * e a lista de aulas apenas com título/duração/ordem — o programa do curso é
+     * argumento de matrícula, não material.
+     * Completo: admin; instrutor nos cursos que leciona; aluno nos cursos a que
+     * pertence (matriculado, concluído ou admissão aprovada) — via CourseAccess,
+     * a mesma fonte usada pelo chat e pelos certificados.
+     *
+     * @param  array{sub:string,name:string,role:string}|null  $requester
+     * @return array<int, array<string, mixed>>
+     */
+    public function listCoursesFor(?array $requester): array
     {
-        return Course::query()->with($this->courseInclude())->get()
-            ->map(fn (Course $c) => $c->toArray())->all();
+        $irrestrito = $requester !== null && $requester['role'] === 'admin';
+        $liberados = ($requester === null || $irrestrito)
+            ? []
+            : CourseAccess::accessibleCourseIds($requester);
+
+        $catalogo = [];
+        foreach (Course::query()->with($this->courseInclude())->get() as $course) {
+            $curso = $course->toArray();
+            $catalogo[] = ($irrestrito || in_array($course->id, $liberados, true))
+                ? $curso
+                : self::semMaterial($curso);
+        }
+
+        return $catalogo;
+    }
+
+    /**
+     * Remove do curso o que só quem tem acesso deve receber. Os campos são zerados
+     * em vez de removidos para o contrato não mudar de forma: o cliente continua
+     * lendo `lessons[].content`, só que vazio, e não precisa de dois caminhos.
+     *
+     * @param  array<string, mixed>  $curso
+     * @return array<string, mixed>
+     */
+    private static function semMaterial(array $curso): array
+    {
+        if (is_array($curso['lessons'] ?? null)) {
+            $curso['lessons'] = array_map(static function (mixed $aula): mixed {
+                if (! is_array($aula)) {
+                    return $aula;
+                }
+                $aula['content'] = '';
+                $aula['videoUrl'] = null;
+                $aula['documents'] = [];
+
+                return $aula;
+            }, $curso['lessons']);
+        }
+
+        if (is_array($curso['liveSessions'] ?? null)) {
+            $curso['liveSessions'] = array_map(static function (mixed $sessao): mixed {
+                if (! is_array($sessao)) {
+                    return $sessao;
+                }
+                // Link do Meet é a chave da sala: com ele, qualquer um entra na aula.
+                $sessao['meetingLink'] = '';
+
+                return $sessao;
+            }, $curso['liveSessions']);
+        }
+
+        return $curso;
     }
 
     /** @return array<string, mixed> */
