@@ -32,14 +32,25 @@ const curso = (id: string, title: string, sessoes: Array<[string, string, string
   })),
 } as unknown as Course);
 
-const props = (courses: Course[], webinars: WebinarEvent[] = []) => ({
+const props = (courses: Course[], webinars: WebinarEvent[] = [], isUserLoggedIn = false) => ({
   onBack: vi.fn(),
-  isUserLoggedIn: false,
+  isUserLoggedIn,
   onRequireLogin: vi.fn(),
   speakText: vi.fn(),
   courses,
   webinars,
 });
+
+const webinar = (over: Partial<WebinarEvent> = {}): WebinarEvent => ({
+  id: 'w1',
+  title: 'Masterclass de Fotografia',
+  date: '15/09/2026',
+  time: '19:00',
+  description: 'Composição e luz natural.',
+  link: 'https://meet.google.com/masterclass-foto',
+  image: 'i',
+  ...over,
+} as unknown as WebinarEvent);
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -102,14 +113,9 @@ describe('CalendarioPage', () => {
   });
 
   it('inclui webinars globais junto das aulas', () => {
-    const webinar = {
-      id: 'w1', title: 'IA no Design', date: '15/09/2026', time: '19:00',
-      description: 'd', link: '#', image: 'i',
-    } as unknown as WebinarEvent;
-
     render(<CalendarioPage {...props(
       [curso('c1', 'Curso', [['s1', 'Mentoria', emDias(2, 19, 0)]])],
-      [webinar]
+      [webinar({ title: 'IA no Design' })]
     )} />);
 
     expect(screen.getByText('IA no Design')).toBeInTheDocument();
@@ -124,16 +130,52 @@ describe('CalendarioPage', () => {
     expect(screen.getByText(/nenhum encontro agendado para os próximos 30 dias/i)).toBeInTheDocument();
   });
 
-  it('nunca expõe o link da sala nesta página pública', () => {
-    // O catálogo anônimo já vem sem meetingLink (ISO-01); a página também não
-    // oferece link algum, nem quando o dado chega preenchido.
+  it('nunca expõe o link da sala de AULA AO VIVO, nem para quem está logado', () => {
+    // O meetingLink é a chave da sala de uma turma: o catálogo anônimo já vem sem ele
+    // (ISO-01) e publicá-lo nesta página aberta desfaria a correção. Quem está
+    // matriculado acessa pelo painel do curso.
     const c = curso('c1', 'Curso', [['s1', 'Mentoria', emDias(3, 19, 0)]]);
-    c.liveSessions[0].meetingLink = 'https://meet.google.com/secreto';
+    c.liveSessions[0].meetingLink = 'https://meet.google.com/sala-da-turma';
 
-    const { container } = render(<CalendarioPage {...props([c])} />);
+    for (const logado of [false, true]) {
+      const { container, unmount } = render(<CalendarioPage {...props([c], [], logado)} />);
+      expect(container.querySelectorAll('a[href]')).toHaveLength(0);
+      expect(container.innerHTML).not.toContain('sala-da-turma');
+      unmount();
+    }
+  });
 
-    expect(container.querySelectorAll('a[href]')).toHaveLength(0);
-    expect(container.innerHTML).not.toContain('meet.google.com');
+  it('webinar logado leva ao link cadastrado, em aba nova e sem alcançar a janela de origem', () => {
+    render(<CalendarioPage {...props([], [webinar()], true)} />);
+
+    const link = screen.getByRole('link', { name: /acessar sala/i });
+    expect(link).toHaveAttribute('href', 'https://meet.google.com/masterclass-foto');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('webinar para visitante anônimo não expõe o link: manda fazer login', () => {
+    const p = props([], [webinar()], false);
+    render(<CalendarioPage {...p} />);
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /participar/i }));
+    expect(p.onRequireLogin).toHaveBeenCalled();
+  });
+
+  it('webinar com javascript: no link não vira link algum', () => {
+    render(<CalendarioPage {...props([], [webinar({ link: 'javascript:alert(1)' })], true)} />);
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ir ao painel/i })).toBeInTheDocument();
+  });
+
+  it('webinar antigo com link "#" cai no botão, não num link morto', () => {
+    // Os 4 webinars da carga inicial tem link '#': um <a href="#"> pareceria
+    // funcionar e nao iria a lugar nenhum.
+    render(<CalendarioPage {...props([], [webinar({ link: '#' })], true)} />);
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('visitante anônimo é levado ao login ao tentar participar', () => {

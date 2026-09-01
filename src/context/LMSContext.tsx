@@ -211,13 +211,26 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else localStorage.removeItem('ava_auth_user');
   }, [authUser]);
 
-  // Valida a sessão do cookie HttpOnly ao carregar: o perfil salvo em localStorage é só
-  // exibição — se o cookie expirou/foi limpo, o usuário é deslogado de verdade.
+  // A sessão do cookie HttpOnly é a fonte da verdade; o perfil em localStorage é só
+  // exibição. Ao carregar, pergunta ao servidor quem está autenticado:
+  //  - 200 -> adota a identidade que o servidor informou (ADR 10: identidade vem do token);
+  //  - 401 -> desloga de verdade, mesmo que o localStorage ainda tenha um perfil.
+  //
+  // Antes havia um `if (!authUser) return;` no começo, que só VALIDAVA uma sessão já
+  // conhecida e nunca a ESTABELECIA. Efeito: com o cookie válido e o localStorage
+  // limpo — outra aba, dados do site apagados, navegador que descarta storage — a
+  // pessoa aparecia deslogada enquanto a sessão seguia ativa por 12h no servidor,
+  // exatamente o contrário do que este comentário promete.
   useEffect(() => {
-    if (!authUser) return;
     authFetch('/api/auth/me')
-      .then((res) => {
-        if (res.status === 401) setAuthUser(null);
+      .then(async (res) => {
+        if (res.status === 401) {
+          setAuthUser(null);
+          return;
+        }
+        if (!res.ok) return;
+        const usuario: AuthUser = await res.json();
+        if (usuario?.id) setAuthUser(usuario);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
