@@ -28,6 +28,7 @@ import { LessonContent } from './student/LessonContent';
 import { LessonIndex } from './student/LessonIndex';
 import { safeHref } from '../utils/safeUrl';
 import { sanitizeNoteHtml, escapeHtml } from '../utils/noteHtml';
+import { formatScheduledAt, dataCurta, horaCurta } from '../utils/liveSchedule';
 
 interface ModuleGroup {
   name: string;
@@ -1688,7 +1689,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             <div className="flex items-start justify-between gap-1.5">
                               <div>
                                 <strong className="font-bold text-slate-900">{session.title}</strong>
-                                <span className="text-[9px] text-slate-400 block mt-0.5">{session.scheduledAt} ({session.durationMinutes} min)</span>
+                                <span className="text-[9px] text-slate-400 block mt-0.5">{formatScheduledAt(session.scheduledAt)} ({session.durationMinutes} min)</span>
                               </div>
 
                               <span className={`text-[8px] font-extrabold uppercase px-1.5 rounded shrink-0 leading-normal ${
@@ -1937,7 +1938,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                         <div key={`${session.id}-${idx}`} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition-colors group">
                            <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center min-w-[70px] group-hover:border-teal-200 group-hover:bg-teal-50 transition-all">
                               <span className="block text-[10px] font-black text-slate-400 uppercase leading-none mb-1">DATA</span>
-                              <span className="text-sm font-black text-slate-700 leading-none">{session.scheduledAt.split(',')[0]}</span>
+                              <span className="text-sm font-black text-slate-700 leading-none">{dataCurta(session.scheduledAt)}</span>
                            </div>
                            <div className="flex-1 min-w-0">
                               <span className="text-[9px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded uppercase tracking-wide">
@@ -1945,7 +1946,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                               </span>
                               <h5 className="text-[11px] font-bold text-slate-900 mt-1 truncate">{session.title}</h5>
                               <div className="flex items-center gap-3 mt-1.5 text-[9px] text-slate-500 font-medium">
-                                <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{session.scheduledAt.split('às')[1] || 'TBD'}</span>
+                                <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{horaCurta(session.scheduledAt)}</span>
                                 <span className="flex items-center gap-1"><Globe className="h-2.5 w-2.5" />Horário de Brasília (Local)</span>
                               </div>
                            </div>

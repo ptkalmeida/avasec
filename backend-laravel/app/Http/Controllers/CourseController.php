@@ -105,7 +105,15 @@ final class CourseController extends Controller
             'liveSessions' => ['sometimes', 'array'],
             'liveSessions.*.id' => ['sometimes', 'string', 'max:191'],
             'liveSessions.*.title' => ['required_with:liveSessions', 'string', 'min:1', 'max:200'],
-            'liveSessions.*.scheduledAt' => ['required_with:liveSessions', 'string', 'min:1', 'max:100'],
+            // Data real, no formato do <input type="datetime-local"> (ISO local, sem fuso).
+            // Antes era texto livre e chegavam valores como "Hoje, as 19:30" ou "Proxima
+            // Segunda, as 20:00" — impossivel de ordenar ou filtrar, o que impedia a
+            // agenda dos proximos 30 dias na aba Calendario. Fuso literal e deliberado:
+            // a escola opera num unico fuso (ver src/utils/liveSchedule.ts).
+            'liveSessions.*.scheduledAt' => [
+                'required_with:liveSessions', 'string', 'max:100',
+                'date_format:Y-m-d\TH:i,Y-m-d\TH:i:s',
+            ],
             'liveSessions.*.durationMinutes' => ['required_with:liveSessions', 'integer', 'min:1', 'max:600'],
             'liveSessions.*.meetingLink' => ['required_with:liveSessions', 'string', 'min:1', 'max:2000', new SafeUrlRule],
             'liveSessions.*.isLive' => ['sometimes', 'boolean'],

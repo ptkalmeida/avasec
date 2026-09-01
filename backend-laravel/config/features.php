@@ -22,7 +22,7 @@ return [
     'trilhasAvancadas' => false,
     'solicitacoesAcademicas' => false,
     'bibliotecaDigital' => false,
-    'eventosWebinars' => false,
+    'eventosWebinars' => true,
     'liveClassroom' => false,
     'dossieAcademico' => false,
     'penalidadesCancelamento' => false,

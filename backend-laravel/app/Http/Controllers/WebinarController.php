@@ -34,8 +34,12 @@ final class WebinarController extends Controller
         return $this->validateInput($request, [
             'id' => ['sometimes', 'string', 'max:191'],
             'title' => ['required', 'string', 'max:200'],
-            'date' => ['required', 'string', 'max:30'],
-            'time' => ['required', 'string', 'max:20'],
+            // Data e hora precisam ser parseaveis: a aba Calendario monta a agenda dos
+            // proximos 30 dias a partir delas (src/utils/liveSchedule.ts). Como texto
+            // livre, um "junho de 2026" entraria no banco e sumiria da agenda em
+            // silencio. O formato dd/mm/aaaa e o que os 4 webinars existentes ja usam.
+            'date' => ['required', 'string', 'max:30', 'date_format:d/m/Y'],
+            'time' => ['required', 'string', 'max:20', 'date_format:H:i'],
             'description' => ['required', 'string', 'max:2000'],
             'link' => ['required', 'string', 'max:2000'],
             'image' => ['nullable', 'string', 'max:2000'],
