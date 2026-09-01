@@ -139,6 +139,23 @@ describe('LessonContentEditor', () => {
     expect(valor()).toContain('## Do Rabisco ao Esqueleto Digital');
   });
 
+  it('não oferece criar bloco de código: quem edita não é programador', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar bloco aqui/i })[0]);
+
+    expect(screen.getByRole('button', { name: /^parágrafo$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^código$/i })).not.toBeInTheDocument();
+  });
+
+  it('mas continua editando bloco de código que já existe na aula', () => {
+    // Tirar a edição junto tornaria o código das 13 aulas atuais impossível de corrigir.
+    render(<Harness />);
+
+    expect(screen.getByRole('button', { name: 'Editar bloco de código' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Editar bloco de código' }));
+    expect(screen.getByDisplayValue('int a = 1;')).toBeInTheDocument();
+  });
+
   it('oferece os tipos de trecho quando a aula está vazia', () => {
     render(<Harness inicial="" />);
 
