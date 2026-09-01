@@ -113,11 +113,23 @@ final class CatalogPilotTest extends TestCase
             ->assertJson(['error' => true, 'code' => 'VALIDATION_ERROR']);
     }
 
-    public function test_get_webinars_is_disabled_by_feature_flag(): void
+    public function test_route_behind_a_disabled_feature_flag_returns_404(): void
     {
-        $response = $this->getJson('/api/webinars');
+        // O objeto do teste é o FeatureGate: flag desligada some da API, não só do menu.
+        // A flag é desligada AQUI de propósito — antes o teste dependia de
+        // eventosWebinars estar false em config/features.php, então virava vermelho
+        // quando o produto decidia ligar o recurso, sem nada ter quebrado.
+        config(['features.eventosWebinars' => false]);
 
-        $response->assertStatus(404)
+        $this->getJson('/api/webinars')
+            ->assertStatus(404)
             ->assertJson(['error' => true, 'code' => 'FEATURE_DISABLED']);
+    }
+
+    public function test_get_webinars_responds_when_the_flag_is_on(): void
+    {
+        config(['features.eventosWebinars' => true]);
+
+        $this->getJson('/api/webinars')->assertOk();
     }
 }

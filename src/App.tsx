@@ -87,6 +87,7 @@ function DashboardSwitcher() {
     professorsList,
     studentsList,
     courses,
+    webinarEvents,
     directMessages,
     systemSettings,
     sitePageContent,
@@ -1505,6 +1506,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             onRequireLogin={() => setIsLoginModalOpen(true)}
             speakText={speakText}
             content={sitePageContent?.['calendario']}
+            courses={courses}
+            webinars={webinarEvents}
           />
         ) : currentView === 'orientacoes' ? (
           <OrientacoesPage

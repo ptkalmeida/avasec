@@ -40,7 +40,7 @@ export const features = {
   bibliotecaDigital: false,
 
   // Eventos, Webinars e palestras integradas ao vivo
-  eventosWebinars: false,
+  eventosWebinars: true,
 
   // Sala de Transmissão ao Vivo (LiveClassroom) e aulas síncronas integradas
   liveClassroom: false,

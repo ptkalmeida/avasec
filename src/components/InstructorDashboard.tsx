@@ -16,6 +16,7 @@ import { LessonVideoField } from './shared/LessonVideoField';
 import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
+import { toDatetimeLocalValue, formatScheduledAt } from '../utils/liveSchedule';
 import { parseLessonContent } from '../utils/lessonContent';
 import { LessonContent } from './student/LessonContent';
 import { LessonContentEditor } from './instructor/LessonContentEditor';
@@ -189,7 +190,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   // Create Live Session State
   const [isCreatingLive, setIsCreatingLive] = useState(false);
   const [liveTitle, setLiveTitle] = useState('');
-  const [liveDate, setLiveDate] = useState('Hoje, às 20:00');
+  // Sugestao inicial: hoje as 20:00, no formato que o datetime-local espera.
+  const [liveDate, setLiveDate] = useState(() => {
+    const d = new Date();
+    d.setHours(20, 0, 0, 0);
+
+    return toDatetimeLocalValue(d);
+  });
   const [liveDuration, setLiveDuration] = useState(60);
   const [liveMeetingLink, setLiveMeetingLink] = useState('https://meet.google.com/abc-defg-hij');
 
@@ -1168,7 +1175,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           <div className="flex items-start justify-between gap-2">
                             <div className="text-left min-w-0 flex-1">
                               <span className="font-semibold text-slate-800 block truncate">{session.title}</span>
-                              <span className="text-[9px] text-slate-400 block mt-1">{session.scheduledAt} ({session.durationMinutes} min)</span>
+                              <span className="text-[9px] text-slate-400 block mt-1">{formatScheduledAt(session.scheduledAt)} ({session.durationMinutes} min)</span>
                             </div>
 
                             <div className="flex items-center gap-2">
@@ -2064,9 +2071,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data/Hora Agendado</label>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data e Hora</label>
+                  {/* Seletor de data real, nao texto livre: o valor alimenta a agenda
+                      dos proximos 30 dias na aba Calendario. Como texto, chegavam
+                      valores como "Proxima Segunda, as 20:00", que nao da para ordenar
+                      nem filtrar — e a API agora recusa. */}
                   <input
-                    type="text"
+                    type="datetime-local"
                     required
                     value={liveDate}
                     onChange={(e) => setLiveDate(e.target.value)}

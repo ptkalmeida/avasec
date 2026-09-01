@@ -229,6 +229,50 @@ final class SecurityRegressionTest extends TestCase
         ], $this->auth($token))->assertStatus(403);
     }
 
+    // A agenda dos próximos 30 dias (aba Calendário) só existe se scheduledAt for
+    // data de verdade. Como texto livre chegavam "Hoje, às 19:30" e "Próxima Segunda,
+    // às 20:00", impossíveis de ordenar ou filtrar.
+    public function test_live_session_requires_real_date(): void
+    {
+        $token = $this->staffToken('instructor');
+        $base = [
+            'title' => 'Curso Agenda Teste',
+            'description' => 'Descrição suficientemente longa para passar na validação.',
+            'category' => 'Teste',
+            'thumbnail' => 'https://exemplo.com/capa.png',
+        ];
+        $sessao = static fn (string $quando): array => ['liveSessions' => [[
+            'title' => 'Encontro', 'scheduledAt' => $quando,
+            'durationMinutes' => 60, 'meetingLink' => 'https://meet.google.com/abc-defg-hij',
+        ]]];
+
+        foreach (['Hoje, às 19:30', 'Próxima Segunda, às 20:00', '15/09/2026', 'amanhã'] as $texto) {
+            $this->postJson('/api/courses', array_merge($base, $sessao($texto)), $this->auth($token))
+                ->assertStatus(400, "Aceitou texto livre em scheduledAt: {$texto}");
+        }
+
+        $this->postJson('/api/courses', array_merge($base, $sessao('2026-09-15T19:30')), $this->auth($token))
+            ->assertStatus(201)
+            ->assertJsonPath('liveSessions.0.scheduledAt', '2026-09-15T19:30');
+    }
+
+    public function test_webinar_requires_parseable_date_and_time(): void
+    {
+        $token = $this->staffToken('instructor');
+        $base = [
+            'title' => 'Webinar Agenda Teste',
+            'description' => 'Descrição do webinar.',
+            'link' => 'https://exemplo.com/inscricao',
+        ];
+
+        $this->postJson('/api/webinars', array_merge($base, ['date' => 'junho de 2026', 'time' => '19:00']), $this->auth($token))
+            ->assertStatus(400);
+        $this->postJson('/api/webinars', array_merge($base, ['date' => '15/09/2026', 'time' => '19h']), $this->auth($token))
+            ->assertStatus(400);
+        $this->postJson('/api/webinars', array_merge($base, ['date' => '15/09/2026', 'time' => '19:00']), $this->auth($token))
+            ->assertStatus(201);
+    }
+
     public function test_library_item_rejects_javascript_url(): void
     {
         $this->postJson('/api/library', [
