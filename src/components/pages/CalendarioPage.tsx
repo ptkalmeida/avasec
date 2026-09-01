@@ -9,6 +9,7 @@ import { PageShell } from './PageShell';
 import { SitePageContent, Course, WebinarEvent } from '../../types';
 import { pageField } from '../../utils/sitePageContent';
 import { features } from '../../config/features';
+import { safeHref } from '../../utils/safeUrl';
 import {
   buildAgenda,
   formatDia,
@@ -48,7 +49,8 @@ const EventoCard: React.FC<{
   agora: Date;
   isUserLoggedIn: boolean;
   onParticipar: () => void;
-}> = ({ evento, faixa, agora, isUserLoggedIn, onParticipar }) => (
+  onAcessarSala: () => void;
+}> = ({ evento, faixa, agora, isUserLoggedIn, onParticipar, onAcessarSala }) => (
   <div
     className={`bg-slate-50 rounded-2xl p-5 border border-slate-200/60 ${faixa} hover:shadow-md transition-all flex flex-col justify-between text-left h-full`}
   >
@@ -82,15 +84,39 @@ const EventoCard: React.FC<{
         {distanciaEmDias(evento.quando, agora)}
         {evento.durationMinutes !== null && ` · ${evento.durationMinutes} min`}
       </span>
-      {/* O link da sala NÃO é exibido aqui: esta página é pública, e o catálogo
-          anônimo já vem sem meetingLink. Quem tem acesso entra pelo painel. */}
-      <button
-        onClick={onParticipar}
-        className="text-[10px] font-black uppercase text-[#540D6E] hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
-      >
-        <span>{isUserLoggedIn ? 'Ir ao painel' : 'Participar'}</span>
-        <ExternalLink className="h-3.5 w-3.5" />
-      </button>
+
+      {/*
+        Webinar aberto é evento público e o link é o convite dele: quem está
+        autenticado vai direto para a sala que a coordenação cadastrou.
+
+        Aula ao vivo NÃO ganha link aqui. O meetingLink é a chave da sala de uma
+        turma, o catálogo anônimo já vem sem ele (ISO-01), e quem está matriculado
+        acessa pelo painel do curso. Publicar esse link nesta página aberta
+        desfaria a correção.
+
+        safeHref filtra `javascript:` e afins, e devolve undefined para o link "#"
+        dos webinars antigos — nesse caso cai no botão, não num link morto.
+      */}
+      {evento.kind === 'webinar' && isUserLoggedIn && safeHref(evento.link) !== undefined ? (
+        <a
+          href={safeHref(evento.link)}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={onAcessarSala}
+          className="text-[10px] font-black uppercase text-[#540D6E] hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
+        >
+          <span>Acessar sala</span>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      ) : (
+        <button
+          onClick={onParticipar}
+          className="text-[10px] font-black uppercase text-[#540D6E] hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
+        >
+          <span>{isUserLoggedIn ? 'Ir ao painel' : 'Participar'}</span>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </button>
+      )}
     </div>
   </div>
 );
@@ -154,6 +180,7 @@ export const CalendarioPage: React.FC<CalendarioPageProps> = ({
                     speakText('Acesso restrito. Faça login para participar dos encontros ao vivo.');
                   }
                 }}
+                onAcessarSala={() => speakText(`Abrindo a sala do webinar ${evento.titulo}.`)}
               />
             ))}
           </div>

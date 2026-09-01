@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Rules\SafeUrlRule;
 use App\Services\AuditLogger;
 use App\Services\CatalogService;
 use Illuminate\Http\JsonResponse;
@@ -53,7 +54,12 @@ final class WebinarController extends Controller
             'date' => ['required', 'string', 'max:30', 'date_format:d/m/Y'],
             'time' => ['required', 'string', 'max:20', 'date_format:H:i'],
             'description' => ['required', 'string', 'max:2000'],
-            'link' => ['required', 'string', 'max:2000'],
+            // O link passou a ser RENDERIZADO num href (botao "Acessar sala" da aba
+            // Calendario), entao entra na mesma regra das outras URLs do sistema:
+            // sem isso, `javascript:...` num webinar executaria na sessao de quem
+            // clicasse. Os 4 webinars da carga inicial tem link '#', que a regra
+            // recusa — ao editar um deles, e preciso informar o link de verdade.
+            'link' => ['required', 'string', 'max:2000', new SafeUrlRule],
             'image' => ['nullable', 'string', 'max:2000'],
         ]);
 

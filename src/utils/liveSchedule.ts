@@ -30,6 +30,15 @@ export interface AgendaEvent {
   contexto: string;
   kind: AgendaKind;
   durationMinutes: number | null;
+  /**
+   * Link de acesso, quando o evento tem um que pode ser divulgado.
+   *
+   * Preenchido SOMENTE para webinar: webinar aberto é evento público e o link é o
+   * convite dele. Aula ao vivo fica sempre null aqui de propósito — o meetingLink é
+   * a chave da sala de uma turma, e o catálogo anônimo já vem sem ele (ISO-01). Quem
+   * está matriculado acessa pelo painel do curso, não por uma página pública.
+   */
+  link: string | null;
 }
 
 const MES_ABREVIADO = [
@@ -117,6 +126,8 @@ export function buildAgenda(
         contexto: curso.title,
         kind: 'aula',
         durationMinutes: sessao.durationMinutes ?? null,
+        // Nunca o meetingLink: ver o comentário de `link` em AgendaEvent.
+        link: null,
       });
     }
   }
@@ -131,6 +142,7 @@ export function buildAgenda(
       contexto: 'Webinar aberto',
       kind: 'webinar',
       durationMinutes: null,
+      link: typeof webinar.link === 'string' && webinar.link.trim() !== '' ? webinar.link : null,
     });
   }
 

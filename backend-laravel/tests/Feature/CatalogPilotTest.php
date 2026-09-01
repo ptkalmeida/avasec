@@ -182,6 +182,20 @@ final class CatalogPilotTest extends TestCase
         $this->assertDatabaseMissing('WebinarEvent', ['id' => $id]);
     }
 
+    public function test_webinar_rejects_javascript_link(): void
+    {
+        config(['features.eventosWebinars' => true]);
+
+        // O link vai para um href no botao "Acessar sala" da aba Calendario.
+        $this->postJson('/api/webinars', [
+            'title' => 'Webinar XSS',
+            'date' => '15/09/2026',
+            'time' => '19:00',
+            'description' => 'Descricao.',
+            'link' => 'javascript:alert(1)',
+        ], $this->auth($this->tokenForRole('instructor')))->assertStatus(400);
+    }
+
     public function test_student_cannot_remove_a_webinar(): void
     {
         config(['features.eventosWebinars' => true]);
