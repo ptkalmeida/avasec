@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import {
   Pencil, Check, X, Trash2, Plus, HelpCircle, ChevronDown, ChevronUp,
-  Heading1, Heading2, AlignLeft, ListOrdered, List, Code2
+  Heading1, Heading2, AlignLeft, ListOrdered, List
 } from 'lucide-react';
 import {
   LessonBlock, parseLessonContent, serializeLessonBlock,
@@ -28,14 +28,21 @@ const LINGUAGENS = [
   { fence: 'bash', label: 'Terminal' },
 ] as const;
 
-/** Tipos que o botão "+" oferece, com o texto inicial de cada um. */
+/**
+ * Tipos que o botão "+" oferece, com o texto inicial de cada um.
+ *
+ * "Código" NÃO entra aqui de propósito: quem edita o texto das aulas é gestor de
+ * conteúdo, não programador, e oferecer um bloco que pede linguagem e indentação
+ * convida ao erro em vez de ajudar. Os blocos de código que JÁ existem nas aulas
+ * continuam aparecendo e sendo editáveis pelo lápis — tirar a edição deles tornaria
+ * esse conteúdo impossível de corrigir.
+ */
 const NOVOS_BLOCOS = [
   { kind: 'section', label: 'Seção', icon: Heading1, texto: '## Título da seção' },
   { kind: 'subsection', label: 'Subtítulo', icon: Heading2, texto: '### Subtítulo' },
   { kind: 'paragraph', label: 'Parágrafo', icon: AlignLeft, texto: 'Escreva o parágrafo aqui.' },
   { kind: 'orderedList', label: 'Lista numerada', icon: ListOrdered, texto: '1. Primeiro item\n2. Segundo item' },
   { kind: 'bulletList', label: 'Lista', icon: List, texto: '- Primeiro item\n- Segundo item' },
-  { kind: 'code', label: 'Código', icon: Code2, texto: '```java\n// escreva o código aqui\n```' },
 ] as const;
 
 const ROTULO: Record<LessonBlock['kind'], string> = {
