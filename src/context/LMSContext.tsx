@@ -76,7 +76,12 @@ interface LMSContextProps {
   submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean, answers: Record<string, number>) => QuizSubmission;
   addProfessor: (name: string, password?: string) => void;
   deleteProfessor: (name: string) => void;
-  addStudent: (name: string, email: string, password?: string, municipio?: string, uf?: string, areaInteresse?: string, dataCadastro?: string) => void;
+  /**
+   * Cria a conta do aluno no backend. `cpf` é o identificador de login (ADR 11)
+   * e por isso obrigatório. Devolve o resultado REAL do servidor: quem chama
+   * precisa saber se a conta nasceu antes de dizer "matriculado com sucesso".
+   */
+  addStudent: (name: string, email: string, password: string | undefined, municipio: string | undefined, uf: string | undefined, areaInteresse: string | undefined, dataCadastro: string | undefined, cpf: string) => Promise<{ ok: boolean; error?: string }>;
   deleteStudent: (name: string) => void;
   addAcademicRequest: (req: Omit<AcademicRequest, 'id' | 'status' | 'submittedAt' | 'userId' | 'studentName'> & { userId?: string }) => void;
   updateRequestStatus: (reqId: string, status: 'approved' | 'rejected') => void;
@@ -1998,20 +2003,43 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProfessorsList((prev) => prev.filter((p) => p.name !== name));
   };
 
-  const addStudent = (
+  const addStudent = async (
     name: string,
     email: string,
-    password?: string,
-    municipio?: string,
-    uf?: string,
-    areaInteresse?: string,
-    dataCadastro?: string
-  ) => {
+    password: string | undefined,
+    municipio: string | undefined,
+    uf: string | undefined,
+    areaInteresse: string | undefined,
+    dataCadastro: string | undefined,
+    cpf: string
+  ): Promise<{ ok: boolean; error?: string }> => {
     const finalPassword = password && password.trim() ? password.trim() : generateInitialPassword();
     const finalMunicipio = municipio?.trim() || 'São Paulo';
     const finalUf = uf?.trim() || 'SP';
     const finalArea = areaInteresse?.trim() || 'Tecnologia';
     const finalData = dataCadastro?.trim() || new Date().toISOString().split('T')[0];
+
+    // A conta real vem PRIMEIRO. A inserção otimista na lista local ficava antes
+    // e nunca era desfeita: quando a API recusava o cadastro (por exemplo, sem
+    // CPF, que ela exige para aluno), o aluno aparecia na tabela da gestão sem
+    // existir no banco — e ninguém conseguia logar com ele.
+    try {
+      const res = await authFetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, email, cpf, password: finalPassword, role: 'student',
+          municipio: finalMunicipio, uf: finalUf, areaInteresse: finalArea, dataCadastro: finalData
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.message || 'O servidor recusou o cadastro do aluno.' };
+      }
+    } catch (err) {
+      console.error('Erro ao registrar aluno:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
 
     setStudentsList((prev) => {
       if (prev.some((s) => s.name.toLowerCase() === name.toLowerCase() || s.email.toLowerCase() === email.toLowerCase())) return prev;
@@ -2028,15 +2056,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }];
     });
 
-    // Cria a conta real no backend (hash bcrypt) — necessária para o login funcionar de verdade.
-    authFetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name, email, password: finalPassword, role: 'student',
-        municipio: finalMunicipio, uf: finalUf, areaInteresse: finalArea, dataCadastro: finalData
-      })
-    }).catch((err) => console.error('Erro ao registrar aluno:', err));
+    return { ok: true };
   };
 
   const deleteStudent = (name: string) => {

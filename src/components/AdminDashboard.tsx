@@ -27,7 +27,7 @@ import {
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area 
 } from 'recharts';
 import { features } from '../config/features';
-import { generateInitialPassword, passwordProblem } from '../utils/cpf';
+import { generateInitialPassword, passwordProblem, maskCpf, isValidCpf } from '../utils/cpf';
 
 interface AdminDashboardProps {
   onBackToLanding?: () => void;
@@ -177,6 +177,9 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   const [newProfSpecialty, setNewProfSpecialty] = useState('Design de Interfaces');
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
+  // CPF é o identificador de login do aluno (ADR 11). Sem ele a conta nasce
+  // impossível de autenticar — e a API recusa o cadastro.
+  const [newStudentCpf, setNewStudentCpf] = useState('');
   const [newStudentPassword, setNewStudentPassword] = useState('');
   const [newStudentMunicipio, setNewStudentMunicipio] = useState('');
   const [newStudentUf, setNewStudentUf] = useState('');
@@ -598,10 +601,18 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
     setNewProfPassword('');
   };
 
-  const handleCreateStudent = (e: React.FormEvent) => {
+  const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStudentName.trim() || !newStudentEmail.trim()) {
       showToast('Por favor, digite o nome e e-mail do aluno.');
+      return;
+    }
+
+    // Sem CPF válido não existe login de aluno (a aba "Aluno" da tela de acesso
+    // pede CPF, e a API recusa conta de aluno sem ele). Barrar aqui evita o
+    // cadastro que morria no servidor sem ninguém saber.
+    if (!isValidCpf(newStudentCpf)) {
+      showToast('Informe um CPF válido — é o identificador de login do aluno.');
       return;
     }
 
@@ -627,8 +638,19 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
     const studentArea = newStudentAreaInteresse.trim() || 'Tecnologia';
     const studentDate = new Date().toISOString().split('T')[0];
 
-    addStudent(studentName, studentEmail, pass, studentMunicipio, studentUf, studentArea, studentDate);
-    
+    // O cadastro é AGUARDADO. Antes o resultado era ignorado (só `.catch` de
+    // rede), então um 400 do servidor passava batido: a tela dizia "matriculado
+    // com sucesso", mostrava senha inicial e o aluno entrava na lista local —
+    // sem que conta nenhuma existisse no banco.
+    const criado = await addStudent(
+      studentName, studentEmail, pass, studentMunicipio, studentUf, studentArea, studentDate,
+      newStudentCpf
+    );
+    if (!criado.ok) {
+      showToast(criado.error ?? 'Não foi possível matricular o aluno.');
+      return;
+    }
+
     // Auto-enroll in the selected course with approved status
     if (selectedEnrollCourseId) {
       // Aluno recém-criado ainda não tem id local (o cadastro no backend é assíncrono);
@@ -651,6 +673,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
     setNewStudentName('');
     setNewStudentEmail('');
+    setNewStudentCpf('');
     setNewStudentPassword('');
     setNewStudentMunicipio('');
     setNewStudentUf('');
@@ -1987,6 +2010,28 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                     value={newStudentEmail}
                     onChange={(e) => setNewStudentEmail(e.target.value)}
                     className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
+                  />
+                </div>
+
+                {/*
+                  CPF é o que a tela de login pede do aluno (aba "Aluno" só
+                  aceita CPF). Este formulário não tinha o campo: a conta era
+                  criada sem identificador de login e o aluno não tinha por onde
+                  entrar. Obrigatório aqui, como já é no cadastro público.
+                */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1" htmlFor="inp-new-student-cpf">
+                    C.P.F. <span className="text-slate-300 font-normal normal-case">— é com ele que o aluno faz login</span>
+                  </label>
+                  <input
+                    id="inp-new-student-cpf"
+                    type="text"
+                    required
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
+                    value={newStudentCpf}
+                    onChange={(e) => setNewStudentCpf(maskCpf(e.target.value))}
+                    className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
                   />
                 </div>
 

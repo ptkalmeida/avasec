@@ -102,7 +102,6 @@ function DashboardSwitcher() {
     setTextSizeMultiplier,
     addSecurityLog,
     securityLogs,
-    addStudent,
     certificates,
     studentEnrollments
   } = useLMS();
@@ -2744,8 +2743,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         setValidationError(result.error || 'Não foi possível concluir o cadastro.');
                         return;
                       }
-                      // Mantém a lista de alunos visível para o admin/instrutor (best-effort).
-                      addStudent(registerName, registerEmail, registerPassword);
+                      // Nada de inserir na lista local aqui: `registerUser` acima já
+                      // criou a conta, e a lista da gestão é hidratada de
+                      // /api/users?role=student. A chamada que existia aqui era um
+                      // SEGUNDO cadastro do mesmo aluno, que o servidor recusava por
+                      // e-mail duplicado — falha engolida, sem efeito nenhum.
 
                       if (result.pending) {
                         speakText('Cadastro recebido. Seu acesso será liberado após a confirmação da coordenação.');
