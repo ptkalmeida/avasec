@@ -10,4 +10,9 @@ coverage/
 uploads/
 logs/
 .claude/settings.local.json
-SKILL.md
+
+# SKILL.md solto na raiz (skill pessoal colada no diretório de trabalho) fica fora
+# do versionamento. O padrão sem barra, porém, casa esse nome em QUALQUER pasta — e
+# skill do projeto precisa ser versionada, senão cada pessoa redescobre o ambiente.
+/SKILL.md
+!.claude/skills/**/SKILL.md
