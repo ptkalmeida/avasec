@@ -11,6 +11,7 @@ import { courseMinAttendance } from '../config/constants';
 import { isCourseExpired, StudentEnrollment, DocumentTemplate } from '../types';
 import { BackButton } from './BackButton';
 import { SiteContentPanel } from './admin/SiteContentPanel';
+import { AnchoredMenu } from './shared/AnchoredMenu';
 import { SitePageKey } from '../types';
 import { 
   ShieldCheck, Users, User, BookOpen, Award, CheckSquare, Plus, ArrowLeft,
@@ -250,6 +251,9 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
   // Mini interactions
   const [activeStudentMenu, setActiveStudentMenu] = useState<string | null>(null);
+  // Botão que abriu o menu de ações: o painel é renderizado em portal (fora da
+  // tabela, que recorta por overflow) e precisa dessa referência para se ancorar.
+  const [studentMenuAnchor, setStudentMenuAnchor] = useState<HTMLElement | null>(null);
   const [resetPassInfo, setResetPassInfo] = useState<{ id?: string; name: string; email: string } | null>(null);
   // Senha inicial gerada no cadastro: mostrada uma vez, para a coordenação repassar.
   // Não é persistida em lugar nenhum — some ao fechar, e a partir daí só há redefinição.
@@ -2439,22 +2443,24 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                                   <span>Gerenciar</span>
                                 </button>
                                 
-                                <div className="relative">
+                                <div>
                                   <button
-                                    onClick={() => setActiveStudentMenu(activeStudentMenu === st.email ? null : st.email)}
+                                    onClick={(e) => {
+                                      const abrindo = activeStudentMenu !== st.email;
+                                      setStudentMenuAnchor(abrindo ? e.currentTarget : null);
+                                      setActiveStudentMenu(abrindo ? st.email : null);
+                                    }}
                                     className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
                                     title="Ações Rápidas"
                                   >
                                     <MoreVertical className="h-4 w-4" />
                                   </button>
-                                  
+
                                   {activeStudentMenu === st.email && (
-                                    <>
-                                      <div 
-                                        className="fixed inset-0 z-10" 
-                                        onClick={() => setActiveStudentMenu(null)}
-                                      />
-                                      <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-[10px] shadow-xl py-1.5 z-20 text-left animate-in fade-in slide-in-from-top-1 duration-150">
+                                    <AnchoredMenu
+                                      anchor={studentMenuAnchor}
+                                      onClose={() => setActiveStudentMenu(null)}
+                                    >
                                         <button
                                           onClick={() => {
                                             setActiveStudentMenu(null);
@@ -2531,8 +2537,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                                           <Trash2 className="h-3.5 w-3.5" />
                                           <span>Excluir Aluno</span>
                                         </button>
-                                      </div>
-                                    </>
+                                    </AnchoredMenu>
                                   )}
                                 </div>
                               </div>
