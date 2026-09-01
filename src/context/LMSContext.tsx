@@ -83,7 +83,9 @@ interface LMSContextProps {
   addCategory: (categoryName: string) => void;
   updateAccessibilitySettings: (updates: Partial<AccessibilitySettings>) => void;
   addLibraryItem: (item: Omit<LibraryItem, 'id'>) => void;
-  addWebinarEvent: (webinar: Omit<WebinarEvent, 'id'>) => void;
+  /** Agenda ou atualiza um webinar; espera o servidor confirmar antes de mexer no estado. */
+  addWebinarEvent: (webinar: Omit<WebinarEvent, 'id'> & { id?: string }) => Promise<{ ok: boolean; error?: string }>;
+  deleteWebinarEvent: (id: string) => Promise<{ ok: boolean; error?: string }>;
   systemSettings: {
     allowDirectMessages: boolean;
     allowGlobalChat: boolean;
@@ -704,14 +706,56 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error(err));
   };
 
-  const addWebinarEvent = (webinar: Omit<WebinarEvent, 'id'>) => {
-    const newWebinar = { ...webinar, id: `web-${Date.now()}` };
-    setWebinarEvents(prev => [newWebinar, ...prev]);
-    authFetch('/api/webinars', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newWebinar)
-    }).catch(err => console.error(err));
+  /**
+   * Agenda (ou atualiza, informando o id) um webinar.
+   *
+   * Espera a resposta do servidor antes de mexer no estado. Antes inseria na lista
+   * local ANTES de chamar a API e engolia o erro com console.error: o webinar
+   * aparecia na tela de quem agendou, era gravado em localStorage, e não existia no
+   * banco. Quem agendava via a confirmação e o evento nunca chegava ao site.
+   */
+  const addWebinarEvent = async (
+    webinar: Omit<WebinarEvent, 'id'> & { id?: string }
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const payload = { ...webinar, id: webinar.id ?? `web-${Date.now()}` };
+    try {
+      const res = await authFetch('/api/webinars', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.message || 'Não foi possível agendar o webinar.' };
+      }
+      // Usa o registro que o servidor devolveu, não o que foi enviado: o id e os
+      // campos normalizados passam a ser os mesmos que os outros clientes verão.
+      const salvo: WebinarEvent = await res.json();
+      setWebinarEvents(prev => [salvo, ...prev.filter(w => w.id !== salvo.id)]);
+
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao agendar webinar:', err);
+
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
+  const deleteWebinarEvent = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await authFetch(`/api/webinars/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.message || 'Não foi possível remover o webinar.' };
+      }
+      setWebinarEvents(prev => prev.filter(w => w.id !== id));
+
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao remover webinar:', err);
+
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
   };
 
   useEffect(() => {
@@ -2436,6 +2480,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateAccessibilitySettings,
         addLibraryItem,
         addWebinarEvent,
+        deleteWebinarEvent,
         isSpeechEnabled,
         setIsSpeechEnabled,
         currentLang,

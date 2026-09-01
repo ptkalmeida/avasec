@@ -69,6 +69,11 @@ Route::middleware('feature:eventosWebinars')->group(function (): void {
     Route::get('/webinars', [WebinarController::class, 'index']);
     Route::post('/webinars', [WebinarController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
+    // Exclusao existe para a area de gestao de webinars poder desmarcar um evento;
+    // antes so havia criar e listar, e um webinar agendado por engano ficava na
+    // agenda publica para sempre.
+    Route::delete('/webinars/{id}', [WebinarController::class, 'destroy'])
+        ->middleware(['jwt', 'active', 'role:instructor,admin']);
 });
 
 // Etapa 3 (núcleo de negócio) — Cursos. Espelha src/server/routes/courseRoutes.ts:

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Services\AuditLogger;
 use App\Services\CatalogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,7 +14,10 @@ final class WebinarController extends Controller
 {
     use ApiRequestHelpers;
 
-    public function __construct(private readonly CatalogService $catalog) {}
+    public function __construct(
+        private readonly CatalogService $catalog,
+        private readonly AuditLogger $audit,
+    ) {}
 
     public function index(): JsonResponse
     {
@@ -25,6 +29,14 @@ final class WebinarController extends Controller
         $data = $this->validated($request);
 
         return response()->json($this->catalog->upsertWebinar($data), 201);
+    }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $this->catalog->deleteWebinar($id);
+        $this->audit->log($request, 'Exclusão de Webinar', "Webinar {$id} removido da agenda.", 'WARNING');
+
+        return response()->json(['success' => true]);
     }
 
     /** @return array<string, mixed> */

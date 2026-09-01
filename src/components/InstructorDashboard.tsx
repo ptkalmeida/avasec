@@ -8,7 +8,7 @@ import {
   BookOpen, Calendar, CheckCircle, Award, Video, Plus, Trash2, Edit3, Users,
   Globe, Clock, Grid, ChevronRight, TrendingUp, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
-  ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock
+  ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock, Pencil
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
@@ -52,6 +52,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     setActiveDashboardTab,
     addLibraryItem,
     addWebinarEvent,
+    deleteWebinarEvent,
+    webinarEvents,
     updateCourseProps,
     updateLesson,
     deleteLesson,
@@ -87,9 +89,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   // Webinar Meta
   const [webTitle, setWebTitle] = useState('');
   const [webHost, setWebHost] = useState('Alessandro Pinto');
+  // Data no formato do <input type="date"> (aaaa-mm-dd); convertida para dd/mm/aaaa
+  // ao enviar, que e o formato do contrato da API.
   const [webDate, setWebDate] = useState('');
-  const [webTime, setWebTime] = useState('');
+  const [webTime, setWebTime] = useState('19:00');
   const [webLink, setWebLink] = useState('');
+  const [webDescription, setWebDescription] = useState('');
+  // Preenchido ao editar um webinar existente: o POST faz upsert pelo id.
+  const [webEditingId, setWebEditingId] = useState<string | null>(null);
+  const [webSaving, setWebSaving] = useState(false);
   
   // Custom Category State
   const [customCategory, setCustomCategory] = useState('');
@@ -502,19 +510,60 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     showToast('Recurso adicionado à biblioteca digital!');
   };
 
-  const handleAddWebinar = (e: React.FormEvent) => {
+  const handleAddWebinar = async (e: React.FormEvent) => {
     e.preventDefault();
-    addWebinarEvent({
-      title: webTitle,
-      date: webDate,
+    if (webSaving) return;
+
+    // O <input type="date"> entrega aaaa-mm-dd; a API espera dd/mm/aaaa.
+    const [ano, mes, dia] = webDate.split('-');
+    if (!ano || !mes || !dia) {
+      showToast('Informe a data do webinar.');
+      return;
+    }
+
+    setWebSaving(true);
+    const res = await addWebinarEvent({
+      ...(webEditingId !== null ? { id: webEditingId } : {}),
+      title: webTitle.trim(),
+      date: `${dia}/${mes}/${ano}`,
       time: webTime,
-      description: '',
-      link: webLink
+      description: webDescription.trim(),
+      link: webLink.trim(),
     });
+    setWebSaving(false);
+
+    // O erro do servidor aparece na tela. Antes era engolido com console.error e o
+    // webinar sumia sem explicacao: a tela dizia "agendado" e nada tinha sido gravado.
+    if (!res.ok) {
+      showToast(res.error ?? 'Nao foi possivel agendar o webinar.');
+      return;
+    }
+
     setWebTitle('');
     setWebLink('');
+    setWebDescription('');
+    setWebDate('');
+    setWebEditingId(null);
     setIsCreatingWebinar(false);
-    showToast('Webinar global agendado na agenda da escola!');
+    showToast(webEditingId !== null ? 'Webinar atualizado!' : 'Webinar agendado na agenda da escola!');
+  };
+
+  /** Abre o modal com os dados de um webinar existente (upsert pelo id). */
+  const handleEditWebinar = (webinar: { id: string; title: string; date: string; time: string; description: string; link: string }) => {
+    const [dia, mes, ano] = webinar.date.split('/');
+    setWebEditingId(webinar.id);
+    setWebTitle(webinar.title);
+    setWebDate(ano && mes && dia ? `${ano}-${mes}-${dia}` : '');
+    setWebTime(webinar.time);
+    setWebDescription(webinar.description ?? '');
+    setWebLink(webinar.link ?? '');
+    setIsCreatingWebinar(true);
+  };
+
+  const handleDeleteWebinar = async (id: string, title: string) => {
+    if (!confirm(`Remover o webinar "${title}" da agenda?`)) return;
+    const res = await deleteWebinarEvent(id);
+    showToast(res.ok ? 'Webinar removido da agenda.' : (res.error ?? 'Falha ao remover.'));
   };
 
   const toggleLiveTransmit = (courseId: string, sessionId: string, currentlyLive: boolean) => {
@@ -1307,6 +1356,63 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 </div>
               </button>
             </div>
+          </section>
+
+          {/* GESTÃO DE WEBINARS — antes só existia o botão de agendar: um webinar
+              marcado por engano ficava na agenda pública sem forma de editar ou tirar. */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+            <h4 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2 text-slate-800">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>Webinars Agendados ({webinarEvents.length})</span>
+            </h4>
+
+            {webinarEvents.length === 0 ? (
+              <p className="text-[11px] text-slate-500 leading-relaxed border border-dashed border-slate-250 rounded-xl p-4 text-center">
+                Nenhum webinar agendado. Os que você agendar aparecem aqui e na aba
+                Calendário do site, se a data estiver nos próximos 30 dias.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {webinarEvents.map((webinar) => (
+                  <li
+                    key={webinar.id}
+                    className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <strong className="block text-[11px] font-bold text-slate-900 leading-snug">
+                          {webinar.title}
+                        </strong>
+                        <span className="text-[9px] text-slate-500 block mt-0.5 font-mono">
+                          {webinar.date} às {webinar.time}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => handleEditWebinar(webinar)}
+                          title="Editar webinar"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteWebinar(webinar.id, webinar.title)}
+                          title="Remover da agenda"
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    {webinar.description !== '' && (
+                      <p className="text-[10px] text-slate-500 leading-relaxed line-clamp-2">
+                        {webinar.description}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <div className="rounded-2xl border border-slate-200 bg-slate-900 text-slate-100 p-5 shadow-sm space-y-4">
@@ -2662,7 +2768,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             onSubmit={handleAddWebinar}
             className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl relative text-left animate-in fade-in duration-200"
           >
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Agendar Novo Webinar Global</h3>
+            <h3 className="text-lg font-bold text-slate-900 mb-4">{webEditingId !== null ? 'Editar Webinar' : 'Agendar Novo Webinar Global'}</h3>
             
             <div className="space-y-4">
               <div>
@@ -2680,36 +2786,51 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Data</label>
+                  {/* Seletor de data real: como texto livre entrava "25 de Junho", que
+                      a API recusa e que nao da para ordenar na agenda do Calendario. */}
                   <input
-                    type="text"
+                    type="date"
                     required
                     value={webDate}
                     onChange={(e) => setWebDate(e.target.value)}
-                    placeholder="25 de Junho"
                     className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Horário</label>
                   <input
-                    type="text"
+                    type="time"
                     required
                     value={webTime}
                     onChange={(e) => setWebTime(e.target.value)}
-                    placeholder="19:00"
                     className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
                   />
                 </div>
               </div>
 
               <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descrição</label>
+                {/* Campo obrigatorio no contrato da API e exibido ao aluno no painel de
+                    eventos. O formulario nao o tinha e enviava string vazia, entao TODO
+                    agendamento era recusado com 400 — em silencio. */}
+                <textarea
+                  required
+                  rows={3}
+                  value={webDescription}
+                  onChange={(e) => setWebDescription(e.target.value)}
+                  placeholder="Sobre o que e o encontro, para quem se inscrever saber o que esperar."
+                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
+                />
+              </div>
+
+              <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Link da Sala</label>
                 <input
-                  type="text"
+                  type="url"
                   required
                   value={webLink}
                   onChange={(e) => setWebLink(e.target.value)}
-                  placeholder="Link do Meet/Zoom"
+                  placeholder="https://meet.google.com/..."
                   className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
                 />
               </div>
@@ -2718,7 +2839,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             <div className="mt-6 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setIsCreatingWebinar(false)}
+                onClick={() => { setIsCreatingWebinar(false); setWebEditingId(null); }}
                 className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-650"
               >
                 Cancelar
@@ -2727,7 +2848,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 type="submit"
                 className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-xs"
               >
-                Confirmar Agendamento
+                {webSaving ? 'Salvando...' : (webEditingId !== null ? 'Salvar Alterações' : 'Confirmar Agendamento')}
               </button>
             </div>
           </form>
