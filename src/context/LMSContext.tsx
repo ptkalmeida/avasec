@@ -37,6 +37,26 @@ export interface QuizResult {
   passed?: boolean;
 }
 
+/**
+ * Abas do painel de gestão. Era a mesma união literal copiada em três lugares
+ * (contrato, setter e useState) — acrescentar uma aba exigia acertar as três,
+ * e um esquecimento só aparecia como erro de tipo no ponto de uso.
+ */
+export type DashboardTab =
+  | 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events'
+  | 'settings' | 'curriculum' | 'students' | 'faq' | 'avaliacoes';
+
+/**
+ * Resultado de gravar/apagar uma avaliação. `quiz` traz o que o SERVIDOR gravou
+ * (com os ids definitivos das questões), para a tela não seguir com uma versão
+ * inventada no cliente.
+ */
+export interface QuizWriteResult {
+  ok: boolean;
+  error?: string;
+  quiz?: Quiz;
+}
+
 /** Resultado de uma escrita de exercício: quem chama precisa poder avisar a pessoa. */
 export interface ExerciseResult {
   ok: boolean;
@@ -89,8 +109,11 @@ interface LMSContextProps {
   sendLiveChatMessage: (sessionId: string, text: string) => void;
   setLiveSessionStatus: (courseId: string, sessionId: string, isLive: boolean) => void;
   sendDirectMessage: (studentUserId: string, text: string) => void;
-  addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => void;
-  deleteQuiz: (quizId: string) => void;
+  addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => Promise<QuizWriteResult>;
+  updateQuiz: (
+    quizId: string, courseId: string, title: string, questions: QuizQuestion[]
+  ) => Promise<QuizWriteResult>;
+  deleteQuiz: (quizId: string) => Promise<QuizWriteResult>;
   submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean, answers: Record<string, number>) => Promise<QuizResult>;
   addProfessor: (name: string, password?: string) => void;
   deleteProfessor: (name: string) => void;
@@ -118,8 +141,8 @@ interface LMSContextProps {
     liveClassRecording: boolean;
   };
   updateSystemSettings: (updates: Partial<LMSContextProps['systemSettings']>) => void;
-  activeDashboardTab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq';
-  setActiveDashboardTab: (tab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq') => void;
+  activeDashboardTab: DashboardTab;
+  setActiveDashboardTab: (tab: DashboardTab) => void;
   admissionRequests: AdmissionRequest[];
   addAdmissionRequest: (userId: string, courseId: string, status?: 'pending' | 'approved' | 'rejected') => void;
   updateAdmissionStatus: (reqId: string, status: 'approved' | 'rejected') => void;
@@ -695,7 +718,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return deduped;
   });
 
-  const [activeDashboardTab, setActiveDashboardTab] = useState<'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq'>('general');
+  const [activeDashboardTab, setActiveDashboardTab] = useState<DashboardTab>('general');
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>(() => {
     const saved = localStorage.getItem('ava_library_items');
     let parsed: LibraryItem[] | null = null;
@@ -1928,25 +1951,69 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error(err));
   };
 
-  const addQuiz = (courseId: string, title: string, questions: QuizQuestion[]) => {
-    const newQuiz: Quiz = {
-      id: `quiz-${Date.now()}`,
-      courseId,
-      title,
-      questions
-    };
-    setQuizzes((prev) => [...prev, newQuiz]);
-    authFetch('/api/quizzes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newQuiz)
-    }).catch(err => console.error(err));
+  /**
+   * Grava uma avaliação (nova ou existente) e devolve o desfecho.
+   *
+   * `POST /api/quizzes` é upsert pela chave `id` no servidor: com um id que já
+   * existe ele atualiza título/curso e reconcilia as questões (apaga as que não
+   * vieram, atualiza as que vieram com id, cria as novas). Por isso criar e
+   * editar usam a MESMA rota — e por isso a edição precisa reenviar o id de cada
+   * questão que deve sobreviver, senão o servidor a apaga e recria, o que
+   * quebraria a ligação com as respostas já entregues pelos alunos.
+   *
+   * Diferente do padrão antigo, o estado só muda com o que o servidor devolveu:
+   * a versão otimista deixava a avaliação na tela mesmo quando a gravação era
+   * recusada, e o professor só descobria no recarregamento.
+   */
+  const gravaQuiz = async (quiz: Quiz): Promise<QuizWriteResult> => {
+    const r = await escreveApi(
+      '/api/quizzes',
+      'POST',
+      quiz,
+      'Recurso de avaliações indisponível nesta instalação.'
+    );
+    if (!r.ok) return { ok: false, error: r.error };
+
+    // O servidor devolve a avaliação já reconciliada (ids definitivos das
+    // questões). Usar a resposta evita divergir do banco no primeiro clique.
+    const salvo = (r.data && typeof r.data === 'object' ? r.data : quiz) as Quiz;
+    setQuizzes((prev) => {
+      const jaExiste = prev.some((q) => q.id === salvo.id);
+
+      return jaExiste ? prev.map((q) => (q.id === salvo.id ? salvo : q)) : [...prev, salvo];
+    });
+
+    return { ok: true, quiz: salvo };
   };
 
-  const deleteQuiz = (quizId: string) => {
+  const addQuiz = (courseId: string, title: string, questions: QuizQuestion[]) =>
+    gravaQuiz({ id: `quiz-${Date.now()}`, courseId, title, questions });
+
+  const updateQuiz = (
+    quizId: string,
+    courseId: string,
+    title: string,
+    questions: QuizQuestion[]
+  ) => gravaQuiz({ id: quizId, courseId, title, questions });
+
+  /**
+   * Apagar avaliação apaga TAMBÉM as respostas já entregues (o servidor remove
+   * as QuizSubmission do quiz). Quem chama tem de confirmar com a pessoa antes;
+   * aqui só se garante que a tela não finja sucesso quando o servidor recusa.
+   */
+  const deleteQuiz = async (quizId: string): Promise<QuizWriteResult> => {
+    const r = await escreveApi(
+      `/api/quizzes/${quizId}`,
+      'DELETE',
+      undefined,
+      'Recurso de avaliações indisponível nesta instalação.'
+    );
+    if (!r.ok) return { ok: false, error: r.error };
+
     setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
     setQuizSubmissions((prev) => prev.filter((qs) => qs.quizId !== quizId));
-    authFetch(`/api/quizzes/${quizId}`, { method: 'DELETE' }).catch(err => console.error(err));
+
+    return { ok: true };
   };
 
   // Sempre ação do próprio aluno — identidade sai do token; o estado otimista usa activeUser.
@@ -2402,10 +2469,22 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
    * daqui voltava 404 e nada disso aparecia: exercício, entrega e nota viviam
    * apenas no localStorage de quem clicou.
    */
-  const escreveExercicio = async (
+  /**
+   * Escrita autenticada que DEVOLVE o desfecho em vez de engoli-lo.
+   *
+   * O padrão antigo (`authFetch(...).catch(console.error)`) não fecha o buraco:
+   * `.catch` só dispara em falha de rede, então 403/404/422 seguiam silenciosos
+   * enquanto o estado otimista já tinha mudado a tela. Quem chama aqui tem de
+   * decidir o que fazer com `ok: false`.
+   *
+   * `rotulo404` existe porque nas rotas atrás de feature flag um 404 quer dizer
+   * "recurso desligado nesta instalação", não "não existe".
+   */
+  const escreveApi = async (
     url: string,
     method: 'POST' | 'PUT' | 'DELETE',
-    body?: unknown
+    body?: unknown,
+    rotulo404 = 'Recurso indisponível nesta instalação.'
     // Forma única em vez de união discriminada: este tsconfig não liga
     // `strictNullChecks`, e sem ele o TypeScript não estreita `{ok:true}|{ok:false}`.
   ): Promise<{ ok: boolean; data?: unknown; error?: string }> => {
@@ -2419,18 +2498,21 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        // 404 aqui costuma ser FEATURE_DISABLED, não "não existe": vale dizer.
-        const padrao = res.status === 404
-          ? 'Recurso de exercícios práticos indisponível nesta instalação.'
-          : 'O servidor recusou a operação.';
+        const padrao = res.status === 404 ? rotulo404 : 'O servidor recusou a operação.';
         return { ok: false, error: data.message || padrao };
       }
       return { ok: true, data: await res.json().catch(() => null) };
     } catch (err) {
-      console.error('Erro em exercícios práticos:', err);
+      console.error(`Erro em ${method} ${url}:`, err);
       return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
     }
   };
+
+  const escreveExercicio = (
+    url: string,
+    method: 'POST' | 'PUT' | 'DELETE',
+    body?: unknown
+  ) => escreveApi(url, method, body, 'Recurso de exercícios práticos indisponível nesta instalação.');
 
   const addPracticalExercise = async (
     courseId: string,
@@ -2566,6 +2648,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLiveSessionStatus,
         sendDirectMessage,
         addQuiz,
+        updateQuiz,
         deleteQuiz,
         submitQuiz,
         addProfessor,
