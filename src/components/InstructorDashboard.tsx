@@ -13,7 +13,7 @@ import {
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { LessonVideoField } from './shared/LessonVideoField';
-import { Course, Lesson, LiveSession, isCourseExpired, QuizQuestion } from '../types';
+import { Course, Lesson, LiveSession, isCourseExpired } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
 import { toDatetimeLocalValue, formatScheduledAt } from '../utils/liveSchedule';
@@ -22,6 +22,7 @@ import { LessonContent } from './student/LessonContent';
 import { LessonContentEditor } from './instructor/LessonContentEditor';
 import { LessonManagePage } from './instructor/LessonManagePage';
 import { ExerciciosManagePanel } from './instructor/ExerciciosManagePanel';
+import { AvaliacoesManagePanel } from './instructor/AvaliacoesManagePanel';
 import { courseMinAttendance } from '../config/constants';
 import { BackButton } from './BackButton';
 import { safeHref } from '../utils/safeUrl';
@@ -46,6 +47,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     quizzes,
     quizSubmissions,
     addQuiz,
+    updateQuiz,
     deleteQuiz,
     studentsList,
     systemSettings,
@@ -130,8 +132,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       setIsCreatingCourse(false);
     } else if (isCreatingLesson) {
       setIsCreatingLesson(false);
-    } else if (isCreatingQuiz) {
-      setIsCreatingQuiz(false);
     } else if (isCreatingWebinar) {
       setIsCreatingWebinar(false);
     } else if (isCreatingLive) {
@@ -144,7 +144,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   };
 
   const getBackLabel = () => {
-    if (isEditingCourse || isCreatingCourse || isCreatingLesson || isCreatingQuiz || isCreatingWebinar || isCreatingLive) {
+    if (isEditingCourse || isCreatingCourse || isCreatingLesson || isCreatingWebinar || isCreatingLive) {
       return "Voltar p/ Gestão";
     }
     if (activeDashboardTab !== 'general') {
@@ -153,21 +153,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     return "Sair p/ Portal";
   };
 
-  // Quiz Builder State
   const [activeLiveSession, setActiveLiveSession] = useState<LiveSession | null>(null);
-  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
-  const [quizTitle, setQuizTitle] = useState('');
-  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
-  const [tempQuestionText, setTempQuestionText] = useState('');
-  const [tempOption0, setTempOption0] = useState('');
-  const [tempOption1, setTempOption1] = useState('');
-  const [tempOption2, setTempOption2] = useState('');
-  const [tempOption3, setTempOption3] = useState('');
-  const [tempCorrectIndex, setTempCorrectIndex] = useState(0);
-  const [tempExplanation, setTempExplanation] = useState('');
-  const [tempReviewMessage, setTempReviewMessage] = useState('');
-  const [tempRecommendedModule, setTempRecommendedModule] = useState('');
-  const [tempAllowRetry, setTempAllowRetry] = useState(true);
 
   // Create Course State
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
@@ -578,59 +564,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     showToast(!currentlyLive ? 'Transmissão marcada como ATIVA! Alunos podem entrar na sala.' : 'Transmissão encerrada.');
   };
 
-  const handleAddQuestionToQuiz = () => {
-    if (!tempQuestionText.trim()) {
-      showToast('Por favor, informe o texto da pergunta.');
-      return;
-    }
-    if (!tempOption0.trim() || !tempOption1.trim() || !tempOption2.trim() || !tempOption3.trim()) {
-      showToast('Por favor, preencha as 4 opções de resposta.');
-      return;
-    }
-    const newQuestion: QuizQuestion = {
-      id: `q-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      questionText: tempQuestionText.trim(),
-      options: [tempOption0.trim(), tempOption1.trim(), tempOption2.trim(), tempOption3.trim()],
-      correctOptionIndex: tempCorrectIndex,
-      explanation: tempExplanation.trim() || undefined,
-      reviewMessage: tempReviewMessage.trim() || undefined,
-      recommendedModule: tempRecommendedModule.trim() || undefined,
-      allowRetry: tempAllowRetry
-    };
-    setQuizQuestions((prev) => [...prev, newQuestion]);
-
-    // reset fields
-    setTempQuestionText('');
-    setTempOption0('');
-    setTempOption1('');
-    setTempOption2('');
-    setTempOption3('');
-    setTempCorrectIndex(0);
-    setTempExplanation('');
-    setTempReviewMessage('');
-    setTempRecommendedModule('');
-    setTempAllowRetry(true);
-    showToast('Questão adicionada ao rascunho do teste!');
-  };
-
-  const handlePublishQuiz = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!quizTitle.trim()) {
-      showToast('Por favor, informe o título do teste.');
-      return;
-    }
-    if (quizQuestions.length === 0) {
-      showToast('Adicione pelo menos 1 questão antes de publicar.');
-      return;
-    }
-
-    addQuiz(selectedCourseId, quizTitle.trim(), quizQuestions);
-
-    setQuizTitle('');
-    setQuizQuestions([]);
-    setIsCreatingQuiz(false);
-    showToast('Novo teste gerado com sucesso para os alunos!');
-  };
 
   /**
    * Lista de documentos vinculados + formulário de anexo. Vive aqui porque o
@@ -950,8 +883,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         </button>
       </div>
 
+      {/*
+        A barra inteira estava condicionada a `features.mensagensDiretas &&
+        systemSettings.allowDirectMessages`. Com mensagens diretas desligada — o
+        padrão hoje — nenhuma aba renderizava, e Grade Curricular e Gestão de
+        Alunos ficavam inalcançáveis mesmo com as próprias flags ligadas. Cada
+        aba passa a responder pela SUA flag; a barra aparece se sobrar alguma.
+      */}
       {/* Dynamic Tab Navigation System */}
-      {features.mensagensDiretas && systemSettings.allowDirectMessages && (
+      {(
         <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1.5 mb-10 overflow-x-auto scrollbar-hide md:justify-center w-full max-w-4xl mx-auto shadow-3xs border border-slate-200">
           <button
             onClick={() => setActiveDashboardTab('general')}
@@ -979,7 +919,21 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             </button>
           )}
 
-          {features.forum && (
+          {features.quizSimples && (
+            <button
+              onClick={() => setActiveDashboardTab('avaliacoes')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
+                activeDashboardTab === 'avaliacoes'
+                  ? 'bg-[#540D6E] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold'
+              }`}
+            >
+              <CheckSquare className="h-4 w-4" />
+              <span>Avaliações</span>
+            </button>
+          )}
+
+          {features.forum && features.mensagensDiretas && systemSettings.allowDirectMessages && (
             <button
               onClick={() => setActiveDashboardTab('messages')}
               className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer relative ${
@@ -1016,6 +970,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
       {((!features.modulosAulas && activeDashboardTab === 'curriculum') ||
         (!features.forum && activeDashboardTab === 'messages') ||
+        (!features.quizSimples && activeDashboardTab === 'avaliacoes') ||
         (!features.dadosGerenciais && activeDashboardTab === 'students')) && (
         <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-8 text-center max-w-xl mx-auto my-12 shadow-3xs space-y-3">
           <Lock className="h-10 w-10 text-amber-600 mx-auto" />
@@ -1173,15 +1128,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                     <span>Agendar Encontro</span>
                   </button>
                   <button
-                    onClick={() => {
-                      setQuizTitle('');
-                      setQuizQuestions([]);
-                      setIsCreatingQuiz(true);
-                    }}
+                    onClick={() => setActiveDashboardTab('avaliacoes')}
                     className="rounded-lg bg-amber-50 border border-amber-100 hover:bg-amber-100 px-2 sm:px-3 py-2 text-[11px] font-bold text-amber-700 transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <CheckSquare className="h-3.5 w-3.5" />
-                    <span>Criar Avaliação</span>
+                    <span>Avaliações</span>
                   </button>
                 </div>
               </div>
@@ -1297,31 +1248,23 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               </div>
 
-              {/* Course Quizzes Section */}
+              {/*
+                Resumo apenas: elaborar, editar e excluir avaliação mora na aba
+                "Avaliações". Aqui ficava um botão de lixeira que apagava a
+                avaliação — e as respostas dos alunos — num clique, sem confirmar.
+              */}
               <div className="border-t border-slate-100 pt-5">
-                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide mb-4 flex items-center gap-1.5">
+                <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wide mb-3 flex items-center gap-1.5">
                   <CheckSquare className="h-4 w-4 text-amber-500" />
                   <span>Avaliações Elaboradas ({quizzes.filter(q => q.courseId === activeCourse.id).length})</span>
                 </h4>
-
-                {quizzes.filter(q => q.courseId === activeCourse.id).length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {quizzes.filter(q => q.courseId === activeCourse.id).map(quiz => (
-                      <div key={quiz.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                        <div className="min-w-0">
-                          <span className="block font-bold text-slate-900 truncate text-[11px]">{quiz.title}</span>
-                          <span className="text-[9px] text-slate-500 uppercase font-bold">{quiz.questions.length} Questões</span>
-                        </div>
-                        <button
-                          onClick={() => deleteQuiz(quiz.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-md transition-colors"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveDashboardTab('avaliacoes')}
+                  className="cursor-pointer text-[11px] font-bold text-teal-700 hover:underline"
+                >
+                  Abrir a área de avaliações
+                </button>
               </div>
 
             </div>
@@ -1457,6 +1400,27 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             onUpdate={updatePracticalExercise}
             onDelete={deletePracticalExercise}
             onGrade={gradeSubmission}
+            confirmar={(pergunta) => window.confirm(pergunta)}
+            notify={showToast}
+          />
+        </div>
+      )}
+
+      {/*
+        AVALIAÇÕES — área própria. Antes: um `fixed inset-0` só de criação, sem
+        edição nenhuma, e a exclusão num clique dentro do resumo do curso.
+        A lista de cursos vai filtrada por instructorId, o mesmo escopo que o
+        backend impõe em /api/quizzes.
+      */}
+      {activeDashboardTab === 'avaliacoes' && features.quizSimples && (
+        <div className="animate-in fade-in duration-300">
+          <AvaliacoesManagePanel
+            courses={courses.filter((c) => c.instructorId === activeUser.id)}
+            quizzes={quizzes}
+            submissions={quizSubmissions}
+            onCreate={addQuiz}
+            onUpdate={updateQuiz}
+            onDelete={deleteQuiz}
             confirmar={(pergunta) => window.confirm(pergunta)}
             notify={showToast}
           />
@@ -2259,218 +2223,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {/* 4. Modal: Criar Avaliação / Gerar Teste */}
-      {isCreatingQuiz && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl relative text-left animate-in fade-in duration-200 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-              <h3 className="text-md font-black text-slate-900 flex items-center gap-2">
-                <CheckSquare className="h-5 w-5 text-amber-500" />
-                <span>Elaborar Nova Avaliação</span>
-              </h3>
-              <span className="rounded-full bg-slate-100 text-[10px] font-bold text-slate-500 px-2 py-0.5 uppercase">
-                {activeCourse.category}
-              </span>
-            </div>
-
-            <form onSubmit={handlePublishQuiz} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Título do Teste / Questionário</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Teste Prático de Fixação ou Quiz de Revisão"
-                  value={quizTitle}
-                  onChange={(e) => setQuizTitle(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 p-2 text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
-                />
-              </div>
-
-              {/* Added questions draft visual list */}
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Questões no Rascunho ({quizQuestions.length})</span>
-                {quizQuestions.length === 0 ? (
-                  <p className="text-[10px] text-slate-400 italic">Nenhuma questão adicionada. Preencha os campos abaixo e clique em "Salvar Questão" para acrescentar ao teste.</p>
-                ) : (
-                  <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                    {quizQuestions.map((q, idx) => (
-                      <div key={q.id} className="p-2 border border-slate-150 bg-white rounded-lg text-[10px]">
-                        <div className="flex items-start justify-between gap-1">
-                          <strong className="text-slate-900 text-xs block truncate leading-tight">Q{idx + 1}: {q.questionText}</strong>
-                          <button
-                            type="button"
-                            onClick={() => setQuizQuestions(prev => prev.filter(item => item.id !== q.id))}
-                            className="text-red-500 hover:text-red-700 font-bold"
-                          >
-                            Excluir
-                          </button>
-                        </div>
-                        <span className="text-[9px] text-emerald-600 font-semibold block mt-1">Resposta correta: Opção {q.correctOptionIndex + 1} ({q.options[q.correctOptionIndex]})</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Form to compose a question */}
-              <div className="border border-amber-100/60 bg-amber-50/10 p-4 rounded-xl space-y-3">
-                <span className="text-[10px] font-black text-amber-700 uppercase tracking-wide block border-b border-amber-100/50 pb-1">Preencher Nova Questão</span>
-                
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Enunciado / Pergunta</label>
-                  <input
-                    type="text"
-                    placeholder="Escreva a pergunta claramente..."
-                    value={tempQuestionText}
-                    onChange={(e) => setTempQuestionText(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 p-2 text-[11px] text-slate-800"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px]">
-                  <div>
-                    <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Opção 1</label>
-                    <input
-                      type="text"
-                      placeholder="Primeira alternativa..."
-                      value={tempOption0}
-                      onChange={(e) => setTempOption0(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Opção 2</label>
-                    <input
-                      type="text"
-                      placeholder="Segunda alternativa..."
-                      value={tempOption1}
-                      onChange={(e) => setTempOption1(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Opção 3</label>
-                    <input
-                      type="text"
-                      placeholder="Terceira alternativa..."
-                      value={tempOption2}
-                      onChange={(e) => setTempOption2(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-bold text-slate-400 uppercase mb-0.5">Opção 4</label>
-                    <input
-                      type="text"
-                      placeholder="Quarta alternativa..."
-                      value={tempOption3}
-                      onChange={(e) => setTempOption3(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px]"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2 border-t border-amber-100/40 pt-2 text-[10px]">
-                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide block">Feedback e Direcionamento (Opcionais)</span>
-                  
-                  <div>
-                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Explicação Curta (Explicar por que a resposta está certa)</label>
-                    <textarea
-                      placeholder="Ex: A economia criativa envolve atividades que geram valor a partir da cultura, da criatividade..."
-                      value={tempExplanation}
-                      onChange={(e) => setTempExplanation(e.target.value)}
-                      rows={2}
-                      className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px] text-slate-700"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Mensagem de Revisão (Mensagem se errar)</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: Revise o conteúdo indicado para consolidar este pilar."
-                        value={tempReviewMessage}
-                        onChange={(e) => setTempReviewMessage(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px] text-slate-700"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[9px] font-bold text-slate-500 uppercase mb-0.5">Recomendar Módulo ou Aula</label>
-                      <input
-                        type="text"
-                        placeholder="Ex: Módulo 1 — Introdução à Economia Criativa"
-                        value={tempRecommendedModule}
-                        onChange={(e) => setTempRecommendedModule(e.target.value)}
-                        className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px] text-slate-700"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 py-0.5">
-                    <input
-                      type="checkbox"
-                      id="tempAllowRetry"
-                      checked={tempAllowRetry}
-                      onChange={(e) => setTempAllowRetry(e.target.checked)}
-                      className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-3.5 w-3.5"
-                    />
-                    <label htmlFor="tempAllowRetry" className="text-[10px] text-slate-600 font-bold cursor-pointer select-none">
-                      Permitir tentar responder novamente esta questão
-                    </label>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Qual alternativa está correta?</label>
-                    <select
-                      value={tempCorrectIndex}
-                      onChange={(e) => setTempCorrectIndex(Number(e.target.value))}
-                      className="w-full rounded-lg border border-slate-200 p-1.5 text-[11px] font-semibold text-slate-700 bg-white"
-                    >
-                      <option value={0}>Opção 1 (A)</option>
-                      <option value={1}>Opção 2 (B)</option>
-                      <option value={2}>Opção 3 (C)</option>
-                      <option value={3}>Opção 4 (D)</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-end justify-end">
-                    <button
-                      type="button"
-                      onClick={handleAddQuestionToQuiz}
-                      className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold p-2 rounded-lg text-[10px] transition-colors cursor-pointer"
-                    >
-                      + Salvar Questão no Rascunho
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-2 pt-3 border-t border-slate-150">
-                <button
-                  type="button"
-                  onClick={() => setIsCreatingQuiz(false)}
-                  className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={quizQuestions.length === 0}
-                  className={`rounded-lg px-4 py-2 text-xs font-bold text-white shadow-xs ${
-                    quizQuestions.length === 0 ? 'bg-amber-300 cursor-not-allowed' : 'bg-amber-600 hover:bg-amber-500'
-                  }`}
-                >
-                  Publicar Teste Geral
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
 
