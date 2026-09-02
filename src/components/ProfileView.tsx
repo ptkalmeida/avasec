@@ -9,9 +9,10 @@ import {
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 import { features } from '../config/features';
-import { courseMinAttendance } from '../config/constants';
+import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS } from '../config/constants';
 import { demoProfiles } from '../dev/demoProfiles';
 import { CertificateTemplate } from './CertificateTemplate';
+import { EncerrarMatriculaPanel } from './student/EncerrarMatriculaPanel';
 import { downloadCertificatePdf } from '../utils/fileDownload';
 import type { Certificate } from '../types';
 
@@ -64,8 +65,25 @@ export function ProfileView({
     addSecurityLog,
     clearSecurityLogs,
     studentEnrollments,
-    calculateAttendancePercent
+    calculateAttendancePercent,
+    dropStudentFromCourse
   } = useLMS();
+
+  /**
+   * Matrículas ativas do aluno — principal mais as extras concedidas por
+   * canMultiEnroll. Mesma regra do painel de estudos; concluídos ficam de fora,
+   * porque curso concluído dá acesso vitalício de revisão e não se "encerra".
+   */
+  const matriculasAtivas = React.useMemo(() => {
+    const registro = studentEnrollments[activeUser.id];
+    if (!registro) return [];
+    const ids = [registro.enrolledCourseId, ...(registro.extraCourseIds || [])]
+      .filter((id): id is string => !!id);
+
+    return ids
+      .map((id) => courses.find((c) => c.id === id))
+      .filter((c): c is NonNullable<typeof c> => c !== undefined);
+  }, [studentEnrollments, activeUser.id, courses]);
 
   // Local state for profile configurations
   const [editableName, setEditableName] = useState(activeUser.name);
@@ -1533,6 +1551,22 @@ export function ProfileView({
               </div>
             </div>
           </div>
+
+          {/*
+            Encerramento de matrícula. Veio da página do curso, onde era um bloco
+            vermelho fixo ao lado do conteúdo de estudo — destaque de
+            call-to-action para a ação mais destrutiva do aluno, no lugar onde ele
+            entra para estudar. Aqui fica com o resto da gestão da conta.
+            Só para aluno: instrutor e admin não têm matrícula para encerrar.
+          */}
+          {activeUser.role === 'student' && (
+            <EncerrarMatriculaPanel
+              matriculas={matriculasAtivas}
+              diasSemPenalidade={features.penalidadesCancelamento ? DROPOUT_PENALTY_FREE_DAYS : null}
+              onDrop={(courseId) => dropStudentFromCourse(activeUser.id, courseId)}
+              notify={speakText}
+            />
+          )}
 
           {/* Bento-block 2.5: Interactive Profile Security & Logout Section */}
           <div className="bg-white border border-rose-200 rounded-2xl shadow-3xs p-6 text-left relative overflow-hidden animate-in fade-in transition-all">

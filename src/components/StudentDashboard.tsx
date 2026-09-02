@@ -15,7 +15,7 @@ import {
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
-import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS, QUIZ_PASS_THRESHOLD } from '../config/constants';
+import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
 import { Course, Lesson, LiveSession, isCourseExpired, Quiz, QuizQuestion } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { CourseForum } from './CourseForum';
@@ -1665,43 +1665,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 </div>
                 )}
 
-              {/* Encerramento de Matrícula — só na página inicial do curso (visão geral),
-                  não dentro da aula: mesmo estilo visual do card de Exercícios de Fixação */}
-              {!activeLesson && !activeQuizTaking && (
-              <div className="mt-8 border border-rose-100 bg-rose-50/10 rounded-2xl p-5 text-left space-y-3 shadow-2xs max-w-xs w-full mr-auto">
-                <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
-                  <ArrowLeft className="h-3.5 w-3.5 text-rose-600" />
-                  <span>Encerramento de Matrícula</span>
-                </h5>
-                {features.penalidadesCancelamento && (
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                    Cancelamentos após {DROPOUT_PENALTY_FREE_DAYS} dias de matrícula geram restrição temporária.
-                  </p>
-                )}
-                <button
-                  onClick={async () => {
-                    // A decisão de penalidade é do SERVIDOR (dias reais desde a matrícula + flag).
-                    const result = await dropStudentFromCourse(activeUser.id, selectedCourse.id);
-                    if (!result.ok) {
-                      showAlert(result.error || 'Não foi possível cancelar a matrícula.');
-                      return;
-                    }
-                    if (result.penaltyApplied) {
-                      speakText("Matrícula cancelada. Você desistiu deste curso após o limite de 5 dias letivos. Seu acesso agora está sob regime de restrição temporária de nova matrícula.");
-                    } else {
-                      speakText("Matrícula desfeita com sucesso.");
-                    }
-                    setSelectedCourse(null);
-                    setActiveLesson(null);
-                    setSelectedModulePageName(null);
-                  }}
-                  className="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs whitespace-nowrap"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Solicitar Saída do Curso</span>
-                </button>
-              </div>
-              )}
 
             </div>
           )
