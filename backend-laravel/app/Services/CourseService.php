@@ -9,6 +9,7 @@ use App\Models\Course;
 use App\Models\Lesson;
 use App\Models\LessonDocument;
 use App\Models\LiveSession;
+use App\Models\StudentProgress;
 use App\Models\User;
 use App\Support\CourseAccess;
 use App\Support\Payload;
@@ -197,6 +198,9 @@ final class CourseService
             if ($liveSessions !== null) {
                 $this->syncLiveSessions($courseId, $liveSessions);
             }
+            if ($lessons !== null || $liveSessions !== null) {
+                $this->limparProgressoOrfao($courseId);
+            }
         });
 
         return $this->getCourseById($courseId);
@@ -226,6 +230,52 @@ final class CourseService
             return;
         }
         throw ApiException::forbidden('Você só pode gerenciar cursos vinculados ao seu próprio perfil de instrutor.');
+    }
+
+    /**
+     * Remove do progresso dos alunos os ids de aula/encontro que acabaram de
+     * deixar de existir.
+     *
+     * A escrita de progresso já filtrava ids invalidos (EnrollmentService::
+     * sanitizeProgressIds), mas nada limpava o que ja estava gravado quando uma
+     * aula era APAGADA depois. O residuo era contado como aula concluida: um
+     * curso com 1 aula e 2 ids orfaos dava 200% de progresso, e o Perfil chegou
+     * a exibir "113% de progresso medio". Pior, a frequencia inflada e o gatilho
+     * da emissao automatica de certificado.
+     */
+    private function limparProgressoOrfao(string $courseId): void
+    {
+        $aulasValidas = $this->somenteStrings(Lesson::query()->where('courseId', $courseId)->pluck('id')->all());
+        $encontrosValidos = $this->somenteStrings(LiveSession::query()->where('courseId', $courseId)->pluck('id')->all());
+
+        foreach (StudentProgress::query()->where('courseId', $courseId)->get() as $registro) {
+            $aulas = $this->somenteStrings(is_array($registro->completedLessons) ? $registro->completedLessons : []);
+            $encontros = $this->somenteStrings(is_array($registro->attendedLiveSessions) ? $registro->attendedLiveSessions : []);
+
+            $aulasLimpas = array_values(array_intersect($aulas, $aulasValidas));
+            $encontrosLimpos = array_values(array_intersect($encontros, $encontrosValidos));
+
+            if ($aulasLimpas === $aulas && $encontrosLimpos === $encontros) {
+                continue;
+            }
+
+            $registro->completedLessons = $aulasLimpas;
+            $registro->attendedLiveSessions = $encontrosLimpos;
+            $registro->save();
+        }
+    }
+
+    /**
+     * Descarta o que não é string. Id é sempre string aqui; a checagem existe
+     * porque o valor vem de coluna JSON, onde qualquer coisa pode ter sido
+     * gravada por uma versão antiga.
+     *
+     * @param  array<mixed>  $valores
+     * @return list<string>
+     */
+    private function somenteStrings(array $valores): array
+    {
+        return array_values(array_filter($valores, static fn ($v): bool => is_string($v)));
     }
 
     /** @param list<array<string, mixed>> $lessons */

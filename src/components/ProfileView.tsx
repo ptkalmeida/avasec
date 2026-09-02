@@ -13,6 +13,7 @@ import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS } from '../config/consta
 import { demoProfiles } from '../dev/demoProfiles';
 import { CertificateTemplate } from './CertificateTemplate';
 import { EncerrarMatriculaPanel } from './student/EncerrarMatriculaPanel';
+import { aulasConcluidas, mediaProgresso, progressoPercent, registroDoAluno } from '../utils/courseProgress';
 import { downloadCertificatePdf } from '../utils/fileDownload';
 import type { Certificate } from '../types';
 
@@ -382,22 +383,31 @@ export function ProfileView({
 
   const selectedAvatar = AVATAR_PRESETS.find(a => a.id === selectedAvatarId) || AVATAR_PRESETS[0];
 
-  // Calculations for Student metrics
-  const totalCourses = courses.length;
   const studentCerts = certificates.filter(c => c.userId === activeUser.id);
-  
-  // Calculate average progress
-  const studentProgressRecords = progress.filter(p => p.userId === activeUser.id);
-  const averageProgressPercent = studentProgressRecords.length > 0
-    ? Math.round(studentProgressRecords.reduce((acc, current) => {
-        const course = courses.find(c => c.id === current.courseId);
-        if (!course) return acc;
-        const totalLessons = course.lessons.length;
-        const completedLessons = current.completedLessons.length;
-        const percent = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : 0;
-        return acc + percent;
-      }, 0) / studentProgressRecords.length)
-    : 0;
+
+  /**
+   * Cursos que ESTE aluno cursa ou cursou — a base de todas as métricas daqui.
+   *
+   * O card de matrícula mostrava `courses.length`, o tamanho do catálogo, com o
+   * selo "Matriculado": lia-se "você está matriculado em 4 cursos" quando o
+   * aluno tinha 1. E a média de progresso era calculada sobre os REGISTROS de
+   * progresso, entrando curso que já saiu do catálogo.
+   */
+  const meusCursos = React.useMemo(() => {
+    const matricula = studentEnrollments[activeUser.id];
+    const ids = new Set<string>();
+    if (matricula) {
+      if (matricula.enrolledCourseId) ids.add(matricula.enrolledCourseId);
+      (matricula.extraCourseIds || []).forEach((id) => ids.add(id));
+      (matricula.completedCourseIds || []).forEach((id) => ids.add(id));
+    }
+
+    return courses.filter((c) => ids.has(c.id));
+  }, [studentEnrollments, activeUser.id, courses]);
+
+  // Progresso médio nos cursos do aluno. A conta ignora id de aula apagada:
+  // era o que produzia "113%" (um curso de 1 aula com 2 ids orfaos = 200%).
+  const averageProgressPercent = mediaProgresso(meusCursos, progress, activeUser.id);
 
   if (currentTab === 'password') {
     const strength = getPasswordStrength(newPassword);
@@ -1641,11 +1651,17 @@ export function ProfileView({
                   <div className="bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 border border-indigo-100 p-4 rounded-xl flex flex-col justify-between">
                     <div className="flex items-center justify-between text-indigo-650 mb-4">
                       <BookOpen className="h-5 w-5" />
-                      <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-indigo-200/60 font-bold">Matriculado</span>
+                      <span className="text-[9.5px] font-mono bg-white px-2 py-0.5 rounded border border-indigo-200/60 font-bold">
+                        {meusCursos.length === 1 ? 'Matriculado' : 'Matrículas'}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-2xl font-black text-slate-900 leading-none block">{totalCourses}</span>
-                      <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">Cursos de Catálogo</span>
+                      {/* Cursos DESTE aluno. Antes era `courses.length` — o
+                          tamanho do catálogo — sob o selo "Matriculado". */}
+                      <span className="text-2xl font-black text-slate-900 leading-none block">{meusCursos.length}</span>
+                      <span className="text-[10px] text-slate-450 uppercase font-black uppercase tracking-wide block mt-1">
+                        {meusCursos.length === 1 ? 'Curso meu' : 'Cursos meus'}
+                      </span>
                     </div>
                   </div>
 
@@ -1788,11 +1804,14 @@ export function ProfileView({
       </div>
 
       {isDossierOpen && (() => {
-        const studentDossierRecords = courses.map(course => {
-          const record = progress.find(p => p.userId === activeUser.id && p.courseId === course.id);
+        // Dossiê: os cursos DO ALUNO, não o catálogo inteiro — o histórico
+        // escolar listava disciplina em que a pessoa nunca se matriculou.
+        const studentDossierRecords = meusCursos.map(course => {
+          const record = registroDoAluno(progress, course.id, activeUser.id);
           const totalLessons = course.lessons.length;
-          const completedCount = record ? record.completedLessons.length : 0;
-          const percent = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+          // Mesma regra do resto da tela: id de aula apagada não é progresso.
+          const completedCount = aulasConcluidas(course, record);
+          const percent = progressoPercent(course, record);
           const cert = studentCerts.find(c => c.courseId === course.id);
           
           return {
