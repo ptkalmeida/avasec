@@ -133,6 +133,36 @@ final class ProgressoOrfaoTest extends TestCase
         $this->assertSame(['id-que-nao-existe'], $registro->completedLessons);
     }
 
+    public function test_certificado_nao_e_emitido_com_base_em_residuo(): void
+    {
+        $curso = $this->cursoComAulas();
+        $aluno = $this->makeStudent('Aluno Sem Merito');
+
+        // Nenhuma aula real concluída, só ids que não existem: com a contagem
+        // antiga isto batia o mínimo de frequência e EMITIA certificado.
+        StudentProgress::query()->create([
+            'id' => 'prog-'.uniqid(),
+            'userId' => $aluno['id'],
+            'studentName' => $aluno['name'],
+            'courseId' => $curso->id,
+            'completedLessons' => array_map(
+                static fn (int $i): string => "aula-que-nao-existe-{$i}",
+                range(1, $curso->lessons->count() + 2)
+            ),
+            'attendedLiveSessions' => [],
+        ]);
+
+        // 403 com a frequência real: "0% de 70% exigidos". Antes, os ids órfãos
+        // batiam o mínimo e o certificado saía.
+        $this->postJson('/api/certificates', ['courseId' => $curso->id], $this->auth($aluno['token']))
+            ->assertStatus(403)
+            ->assertJsonPath('message', fn (string $m): bool => str_contains($m, '0% de'));
+        $this->assertDatabaseMissing('Certificate', [
+            'userId' => $aluno['id'],
+            'courseId' => $curso->id,
+        ]);
+    }
+
     public function test_progresso_gravado_pela_api_ja_descarta_id_invalido(): void
     {
         $curso = $this->cursoComAulas();
