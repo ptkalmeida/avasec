@@ -20,6 +20,7 @@ import { Course, Lesson, LiveSession, isCourseExpired, Quiz, QuizQuestion } from
 import { LiveClassroom } from './LiveClassroom';
 import { CourseForum } from './CourseForum';
 import { StudentLibraryPanel } from './student/StudentLibraryPanel';
+import { ExerciciosPraticosPage } from './student/ExerciciosPraticosPage';
 import { StudentEventsPanel } from './student/StudentEventsPanel';
 import { features } from '../config/features';
 import { parseLessonContent } from '../utils/lessonContent';
@@ -154,8 +155,33 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   // Presença do gestor responsável pelo curso ativo — a chave de presença é por userId (ADR 10).
   const enrolledCourseInstructorId = courses.find(c => c.id === enrollmentRecord.enrolledCourseId)?.instructorId ?? '';
 
+  /**
+   * Upload do anexo da entrega. Fica aqui, e não na página, porque a rota e a
+   * visibilidade do arquivo (private) são decisão desta aplicação, não do
+   * componente de tela.
+   */
+  const enviarAnexoDeEntrega = async (
+    file: File
+  ): Promise<{ name: string; url: string } | { error: string }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch('/api/upload?visibility=private', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { error: err.message || 'Falha ao enviar o arquivo. Verifique o formato e o tamanho.' };
+      }
+      const data = await res.json();
+      return { name: data.fileName, url: data.url };
+    } catch {
+      return { error: 'Servidor indisponível para envio de arquivos.' };
+    }
+  };
+
   const handleBack = () => {
-    if (activeLesson) {
+    if (showExercicios) {
+      setShowExercicios(false);
+    } else if (activeLesson) {
       setActiveLesson(null);
     } else if (activeQuizTaking) {
       setActiveQuizTaking(null);
@@ -169,6 +195,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   };
 
   const getBackLabel = () => {
+    if (showExercicios) return "Voltar ao Curso";
     if (activeLesson) return "Voltar ao Curso";
     if (activeQuizTaking) return "Voltar ao Curso";
     if (selectedCourse) return "Voltar p/ Meus Cursos";
@@ -182,6 +209,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const [activeLiveSession, setActiveLiveSession] = useState<LiveSession | null>(null);
 
   // Interactive Quiz Taking States
+  /**
+   * Página de exercícios práticos do curso. É modo de página cheia, como o
+   * quiz: exercício pertence ao curso, e antes era uma aba dentro da aula 1.
+   */
+  const [showExercicios, setShowExercicios] = useState(false);
+
   const [activeQuizTaking, setActiveQuizTaking] = useState<Quiz | null>(null);
   const [currentQuestionIdx, setCurrentQuestionIdx] = useState<number>(0);
   const [answeredQuestions, setAnsweredQuestions] = useState<{[key: string]: boolean}>({});
@@ -282,21 +315,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   };
 
   // Student private notebook states
-  const [activeTab, setActiveTab] = useState<'teoria' | 'anotacao' | 'suporte' | 'forum' | 'exercicios'>('teoria');
+  const [activeTab, setActiveTab] = useState<'teoria' | 'anotacao' | 'suporte' | 'forum'>('teoria');
   
   // Auto-switch away from disabled tabs
   useEffect(() => {
     if (activeTab === 'forum' && !features.forum) {
       setActiveTab('teoria');
     }
-    if (activeTab === 'exercicios' && !features.atividadesPraticasAvancadas) {
-      setActiveTab('teoria');
-    }
   }, [activeTab]);
 
-  const [typedAnswers, setTypedAnswers] = useState<{[exerciseId: string]: string}>({});
-  const [typedFiles, setTypedFiles] = useState<{[exerciseId: string]: { name: string, url: string } | null}>({});
-  const [simulatedUploading, setSimulatedUploading] = useState<{[exerciseId: string]: boolean}>({});
   
   const [savedNotes, setSavedNotes] = useState<{[key: string]: string}>(() => {
     try {
@@ -731,8 +758,23 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 );
               })()}
 
-              {/* Full Page Module View (hides the Grid) */}
-              {selectedModulePageName && !activeLesson && !activeQuizTaking ? (
+              {/* Página cheia de exercícios práticos do curso (esconde o grid). */}
+              {showExercicios && !activeLesson && !activeQuizTaking ? (
+                <ExerciciosPraticosPage
+                  courseTitle={selectedCourse.title}
+                  courseId={selectedCourse.id}
+                  exercises={practicalExercises}
+                  submissions={exerciseSubmissions}
+                  userId={activeUser.id}
+                  onBack={() => setShowExercicios(false)}
+                  onSubmit={submitExercise}
+                  onUpload={enviarAnexoDeEntrega}
+                  onDownload={downloadSubmissionFile}
+                  notify={showAlert}
+                  permiteAnexo={features.uploadArquivos}
+                />
+              ) : /* Full Page Module View (hides the Grid) */
+              selectedModulePageName && !activeLesson && !activeQuizTaking ? (
                 (() => {
                   const module = getCourseModules(selectedCourse).find(m => m.name === selectedModulePageName);
                   if (!module) return null;
@@ -999,20 +1041,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             </button>
                           )}
 
-                          {features.atividadesPraticasAvancadas && (
-                            <button
-                              onClick={() => setActiveTab('exercicios')}
-                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                                activeTab === 'exercicios' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
-                              }`}
-                            >
-                              <FileCheck className="h-4 w-4 text-teal-650 shrink-0" />
-                              <span className="flex items-center gap-1">
-                                Exercícios Práticos
-                                <span className="bg-teal-100 text-teal-800 text-[8px] font-bold px-2 py-0.5 rounded-full shrink-0">Novo</span>
-                              </span>
-                            </button>
-                          )}
                         </div>
 
                         {/* Tab panel display content */}
@@ -1251,246 +1279,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             </div>
                           )}
 
-                          {activeTab === 'exercicios' && (
-                            <div className="space-y-6">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
-                                <div>
-                                  <h4 className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
-                                    <FileCheck className="h-4.5 w-4.5 text-teal-600" />
-                                    <span>Workspace de Exercícios Práticos</span>
-                                  </h4>
-                                  <p className="text-[11px] text-slate-500 mt-0.5">
-                                    Entregue seus trabalhos práticos para revisão personalizada do instrutor do curso.
-                                  </p>
-                                </div>
-                                <span className="bg-slate-100 text-slate-700 text-[10px] font-mono px-2 py-1 rounded border border-slate-200 uppercase self-start sm:self-auto font-bold">
-                                  {practicalExercises.filter(ex => ex.courseId === selectedCourse.id).length} tarefas
-                                </span>
-                              </div>
-
-                              <div className="space-y-5">
-                                {practicalExercises.filter(ex => ex.courseId === selectedCourse.id).length === 0 ? (
-                                  <div className="text-center p-8 bg-slate-50 border border-slate-250 rounded-xl">
-                                    <FileText className="h-10 w-10 text-slate-350 mx-auto stroke-1" />
-                                    <p className="text-[11px] text-slate-450 mt-2 font-medium">Nenhum exercício prático registrado para este curso até o momento.</p>
-                                  </div>
-                                ) : (
-                                  practicalExercises.filter(ex => ex.courseId === selectedCourse.id).map((ex, idx) => {
-                                    const sub = exerciseSubmissions.find(s => s.exerciseId === ex.id && s.userId === activeUser.id);
-                                    const isUploading = simulatedUploading[ex.id];
-                                    const currentTyped = typedAnswers[ex.id] || '';
-                                    const attachedFile = typedFiles[ex.id];
-
-                                    return (
-                                      <div key={`${ex.id}-${idx}`} className="border border-slate-200 rounded-xl bg-slate-50/25 p-4 leading-relaxed text-left space-y-4 shadow-2xs">
-                                        
-                                        {/* Exercise Details Card Header */}
-                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-100 pb-3">
-                                          <div>
-                                            <span className="inline-block bg-teal-50 text-teal-850 text-[9px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded border border-teal-200/50 mb-1">
-                                              Atividade Prática
-                                            </span>
-                                            <h5 className="font-bold text-slate-900 text-sm leading-tight">{ex.title}</h5>
-                                            <p className="text-[11px] text-slate-600 mt-1">{ex.description}</p>
-                                          </div>
-
-                                          <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-1 shrink-0 text-right">
-                                            <span className="bg-amber-50 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded border border-amber-200">
-                                              Máx: {ex.maxPoints} pts
-                                            </span>
-                                            {ex.dueDate && (
-                                              <span className="text-[10px] text-slate-450">Prazo: {ex.dueDate}</span>
-                                            )}
-                                          </div>
-                                        </div>
-
-                                        {/* Specific Instructions for Doing the Exercise */}
-                                        <div className="bg-teal-50/30 border border-teal-100/50 rounded-xl p-3 text-[11px] text-slate-700 space-y-1">
-                                          <strong className="text-teal-800 font-semibold block flex items-center gap-1">
-                                            <Info className="h-3.5 w-3.5" /> Instruções de Entrega:
-                                          </strong>
-                                          <p className="leading-normal">{ex.instructions}</p>
-                                        </div>
-
-                                        {/* Submission status banner */}
-                                        {sub && (
-                                          <div className={`rounded-xl p-3 border text-[11px] leading-relaxed ${
-                                            sub.status === 'approved' 
-                                              ? 'bg-emerald-50/55 border-emerald-200 text-emerald-950' 
-                                              : sub.status === 'rejected'
-                                              ? 'bg-rose-50/50 border-rose-200 text-rose-950'
-                                              : sub.status === 'revision'
-                                              ? 'bg-amber-50/50 border-amber-200 text-amber-950'
-                                              : 'bg-indigo-50/40 border-indigo-250 text-indigo-950'
-                                          }`}>
-                                            <div className="flex items-center justify-between font-bold mb-1 border-b pb-1.5 border-slate-200/40">
-                                              <span className="flex items-center gap-1.5 uppercase tracking-wide text-[10px]">
-                                                {sub.status === 'approved' && <CheckCircle className="h-4 w-4 text-emerald-600" />}
-                                                {sub.status === 'rejected' && <HelpCircle className="h-4 w-4 text-rose-600" />}
-                                                {sub.status === 'revision' && <HelpCircle className="h-4 w-4 text-amber-600" />}
-                                                {sub.status === 'pending' && <Clock className="h-4 w-4 text-indigo-600 animate-pulse" />}
-                                                Status: {
-                                                  sub.status === 'approved' ? 'Aprovado / Corrigido' :
-                                                  sub.status === 'rejected' ? 'Reprovado / Necessita Ajustes' :
-                                                  sub.status === 'revision' ? 'Revisão Solicitada' : 'Aguardando Correção'
-                                                }
-                                              </span>
-                                              
-                                              {sub.status === 'approved' && (
-                                                <span className="bg-emerald-600 text-white font-extrabold px-2 py-0.5 rounded font-mono text-[10px]">
-                                                  Nota: {sub.score} / {ex.maxPoints}
-                                                </span>
-                                              )}
-                                            </div>
-
-                                            {/* Submitted Text */}
-                                            <div className="space-y-1 mt-2">
-                                              <span className="text-[10px] font-bold text-slate-500">Seu texto enviado em {sub.submittedAt}:</span>
-                                              <p className="bg-white/80 p-2.5 rounded-lg border border-slate-200/50 whitespace-pre-wrap font-mono text-[10px] text-slate-700 leading-normal max-h-40 overflow-y-auto">
-                                                {sub.submissionText}
-                                              </p>
-                                            </div>
-
-                                            {/* Attached Document */}
-                                            {sub.fileName && (
-                                              <div className="flex items-center gap-1.5 mt-2 text-[10px] bg-white/40 p-1.5 rounded-md border border-dashed border-slate-200">
-                                                <FileText className="h-3.5 w-3.5 text-slate-500" />
-                                                <span>Documento anexado: <strong className="text-slate-800 font-bold">{sub.fileName}</strong></span>
-                                                <button
-                                                  onClick={async () => {
-                                                    const err = await downloadSubmissionFile(sub.fileUrl || '', sub.fileName);
-                                                    if (err) showAlert(err);
-                                                  }}
-                                                  className="text-teal-650 hover:underline flex items-center gap-0.5 ml-auto font-bold cursor-pointer"
-                                                >
-                                                  Baixar <ExternalLink className="h-2.5 w-2.5" />
-                                                </button>
-                                              </div>
-                                            )}
-
-                                            {/* Grader Feedback Interaction */}
-                                            {sub.feedback && (
-                                              <div className="mt-3 bg-white p-3 rounded-xl border border-slate-200 space-y-1 shadow-2xs">
-                                                <strong className="text-slate-900 font-bold block flex items-center gap-1 text-[11px]">
-                                                  <User className="h-3.5 w-3.5 text-teal-600" /> Feedback do Professor ({sub.gradedBy} em {sub.gradedAt}):
-                                                </strong>
-                                                <p className="text-slate-650 italic leading-relaxed text-[10.5px] whitespace-pre-line">{sub.feedback}</p>
-                                              </div>
-                                            )}
-                                          </div>
-                                        )}
-
-                                        {/* Input fields to submit response */}
-                                        {(!sub || sub.status === 'revision' || sub.status === 'rejected' || sub.status === 'pending') && (
-                                          <div className="space-y-3.5 pt-1 border-t border-slate-100">
-                                            <div className="space-y-1">
-                                              <label className="text-[10.5px] font-bold text-slate-700 block">
-                                                {sub ? 'Atualizar Texto da Resposta:' : 'Digite sua Resposta:'}
-                                              </label>
-                                              <textarea
-                                                value={currentTyped !== '' ? currentTyped : (sub ? sub.submissionText : '')}
-                                                onChange={(e) => setTypedAnswers(prev => ({ ...prev, [ex.id]: e.target.value }))}
-                                                placeholder="Insira sua justificativa, roteiro ou resposta detalhada para que o professor possa avaliar..."
-                                                rows={5}
-                                                className="w-full text-xs font-sans rounded-xl border border-slate-300 p-3 text-slate-800 focus:outline-hidden focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 bg-white"
-                                              />
-                                            </div>
-
-                                            {/* Upload REAL de anexo: enviado ao servidor como arquivo PRIVADO
-                                                (acessível somente ao próprio aluno, instrutores e coordenação). */}
-                                            {features.uploadArquivos && (
-                                            <div className="space-y-1.5">
-                                              <label className="text-[10.5px] font-bold text-slate-700 block">
-                                                Anexar Documento (.pdf, .docx, imagens):
-                                              </label>
-
-                                              {attachedFile || (sub && sub.fileName) ? (
-                                                <div className="flex items-center justify-between bg-slate-100 rounded-xl p-2.5 border border-slate-200 text-[10.5px]">
-                                                  <div className="flex items-center gap-1.5 text-slate-700">
-                                                    <FileText className="h-4 w-4 text-teal-600" />
-                                                    <span>Anexo carregado: <strong className="font-bold text-slate-900">{attachedFile ? attachedFile.name : sub?.fileName}</strong></span>
-                                                  </div>
-                                                  <button
-                                                    onClick={() => {
-                                                      setTypedFiles(prev => ({ ...prev, [ex.id]: null }));
-                                                      if (sub) sub.fileName = undefined;
-                                                    }}
-                                                    className="text-rose-600 hover:text-rose-700 font-extrabold uppercase text-[9px] cursor-pointer"
-                                                  >
-                                                    Remover anexo
-                                                  </button>
-                                                </div>
-                                              ) : (
-                                                <div className="flex gap-2 items-center">
-                                                  <label className={`bg-white hover:bg-slate-50 text-slate-700 font-semibold px-3 py-1.5 rounded-xl border border-slate-200 text-[10px] transition-colors flex items-center gap-1.5 cursor-pointer ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                                                    <Download className="h-3.5 w-3.5 text-slate-500 rotate-180" />
-                                                    <span>{isUploading ? 'Enviando arquivo...' : 'Selecionar arquivo (PDF / DOCX)'}</span>
-                                                    <input
-                                                      type="file"
-                                                      accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.gif"
-                                                      className="hidden"
-                                                      disabled={isUploading}
-                                                      onChange={async (e) => {
-                                                        const file = e.target.files?.[0];
-                                                        e.target.value = '';
-                                                        if (!file) return;
-                                                        setSimulatedUploading(prev => ({ ...prev, [ex.id]: true }));
-                                                        try {
-                                                          const formData = new FormData();
-                                                          formData.append('file', file);
-                                                          const res = await authFetch('/api/upload?visibility=private', { method: 'POST', body: formData });
-                                                          if (!res.ok) {
-                                                            const err = await res.json().catch(() => ({} as any));
-                                                            showAlert(err.message || 'Falha ao enviar o arquivo. Verifique o formato e o tamanho.');
-                                                            return;
-                                                          }
-                                                          const data = await res.json();
-                                                          setTypedFiles(prev => ({ ...prev, [ex.id]: { name: data.fileName, url: data.url } }));
-                                                        } catch {
-                                                          showAlert('Servidor indisponível para envio de arquivos.');
-                                                        } finally {
-                                                          setSimulatedUploading(prev => ({ ...prev, [ex.id]: false }));
-                                                        }
-                                                      }}
-                                                    />
-                                                  </label>
-                                                  <span className="text-[10px] text-slate-400 self-center">Opcional. O arquivo fica visível apenas para você e para os professores.</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                            )}
-
-                                            {/* Submit trigger button */}
-                                            <button
-                                              onClick={() => {
-                                                const textToSubmit = currentTyped !== '' ? currentTyped : (sub ? sub.submissionText : '');
-                                                if (!textToSubmit.trim()) {
-                                                  showAlert('Por favor, digite o texto de sua resposta antes de enviar.');
-                                                  return;
-                                                }
-                                                const finalFileName = attachedFile ? attachedFile.name : (sub ? sub.fileName : undefined);
-                                                const finalFileUrl = attachedFile ? attachedFile.url : (sub ? sub.fileUrl : undefined);
-                                                submitExercise(ex.id, textToSubmit.trim(), finalFileUrl, finalFileName);
-                                                
-                                                // Clear local draft state
-                                                setTypedAnswers(prev => ({ ...prev, [ex.id]: '' }));
-                                                setTypedFiles(prev => ({ ...prev, [ex.id]: null }));
-                                                showAlert('Exercício enviado com sucesso para a avaliação dos professores!');
-                                              }}
-                                              className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition-colors flex items-center gap-1.5 cursor-pointer ml-auto shadow-sm"
-                                            >
-                                              <Send className="h-3.5 w-3.5" />
-                                              <span>{sub ? 'Reenviar Resposta Atualizada' : 'Enviar Atividade para Correção'}</span>
-                                            </button>
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
 
@@ -1853,15 +1641,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             );
                           })}
 
+                          {/*
+                            Abre a página de exercícios do CURSO. Antes isto
+                            pulava para a primeira aula e trocava de aba — e com
+                            a flag desligada a aba nem existia, então o botão
+                            simplesmente não fazia nada.
+                          */}
                           <button
-                            onClick={() => {
-                              if (selectedCourse.lessons.length > 0) {
-                                setActiveLesson(selectedCourse.lessons[0]);
-                                setActiveTab('exercicios');
-                              } else {
-                                showAlert('Este curso ainda não possui aulas cadastradas.');
-                              }
-                            }}
+                            onClick={() => setShowExercicios(true)}
                             className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                           >
                             <FileCheck className="h-4 w-4" />

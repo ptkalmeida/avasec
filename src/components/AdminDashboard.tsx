@@ -28,6 +28,7 @@ import {
 } from 'recharts';
 import { features } from '../config/features';
 import { generateInitialPassword, passwordProblem, maskCpf, isValidCpf } from '../utils/cpf';
+import { parseDataBr } from '../utils/exerciseStatus';
 
 interface AdminDashboardProps {
   onBackToLanding?: () => void;
@@ -3211,25 +3212,33 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                   Cancelar
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!exCourseId || !exTitle.trim() || !exDescription.trim() || !exInstructions.trim()) {
-                      alert('Por favor, preencha todos os campos obrigatórios.');
+                      showToast('Preencha curso, título, descrição e instruções.');
                       return;
                     }
-                    if (editingExId) {
-                      updatePracticalExercise(editingExId, {
+                    // Prazo é texto livre no banco: sem esta checagem um "julho"
+                    // entrava e a página do aluno nunca mostrava vencimento.
+                    if (exDueDate.trim() !== '' && parseDataBr(exDueDate.trim()) === null) {
+                      showToast('O prazo deve estar no formato dd/mm/aaaa.');
+                      return;
+                    }
+                    const dueDate = exDueDate.trim() || undefined;
+                    const res = editingExId
+                      ? await updatePracticalExercise(editingExId, {
                         courseId: exCourseId,
                         title: exTitle.trim(),
                         description: exDescription.trim(),
                         instructions: exInstructions.trim(),
                         maxPoints: exMaxPoints,
-                        dueDate: exDueDate.trim() || undefined
-                      });
-                      alert('Exercício atualizado com sucesso!');
-                    } else {
-                      addPracticalExercise(exCourseId, exTitle.trim(), exDescription.trim(), exInstructions.trim(), exMaxPoints, exDueDate.trim() || undefined);
-                      alert('Novo exercício lançado com sucesso!');
+                        dueDate
+                      })
+                      : await addPracticalExercise(exCourseId, exTitle.trim(), exDescription.trim(), exInstructions.trim(), exMaxPoints, dueDate);
+                    if (!res.ok) {
+                      showToast(res.error ?? 'Não foi possível salvar o exercício.');
+                      return;
                     }
+                    showToast(editingExId ? 'Exercício atualizado.' : 'Exercício publicado para a turma.');
                     setShowExForm(false);
                     setEditingExId(null);
                   }}
@@ -3296,10 +3305,10 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                               Editar
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm('Tem certeza de que deseja remover este exercício? Todas as entregas de alunos associadas serão excluídas.')) {
-                                  deletePracticalExercise(ex.id);
-                                }
+                              onClick={async () => {
+                                if (!confirm('Tem certeza de que deseja remover este exercício? Todas as entregas de alunos associadas serão excluídas.')) return;
+                                const res = await deletePracticalExercise(ex.id);
+                                showToast(res.ok ? 'Exercício removido.' : (res.error ?? 'Não foi possível remover.'));
                               }}
                               className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded text-[10px] border border-red-200/50 transition-colors cursor-pointer font-bold"
                             >
@@ -3443,14 +3452,22 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                               </button>
 
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   if (!gradeFeedback.trim()) {
-                                    alert('Por favor, inclua considerações e comentários de feedback pedagógico para o aluno.');
+                                    showToast('Inclua o feedback pedagógico para o aluno.');
                                     return;
                                   }
-                                  gradeSubmission(sub.id, gradeScore, gradeFeedback.trim(), 'Gestor de Conteúdos', 'revision');
+                                  // O nome de quem corrigiu saiu do cliente: o servidor
+                                  // grava `gradedBy` a partir do token. O valor fixo que
+                                  // estava aqui era ignorado pela API e mentia quando
+                                  // outra pessoa da coordenação corrigia.
+                                  const res = await gradeSubmission(sub.id, gradeScore, gradeFeedback.trim(), 'revision');
+                                  if (!res.ok) {
+                                    showToast(res.error ?? 'Não foi possível lançar a correção.');
+                                    return;
+                                  }
                                   setGradingSubId(null);
-                                  alert('Foi solicitado ajustes e revisão de trabalho com sucesso!');
+                                  showToast('Ajustes solicitados. O aluno já vê o pedido e o feedback.');
                                 }}
                                 className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.2 rounded-md text-[10.5px] cursor-pointer"
                               >
@@ -3458,14 +3475,22 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                               </button>
 
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   if (!gradeFeedback.trim()) {
-                                    alert('Por favor, inclua considerações e comentários de feedback pedagógico para o aluno.');
+                                    showToast('Inclua o feedback pedagógico para o aluno.');
                                     return;
                                   }
-                                  gradeSubmission(sub.id, gradeScore, gradeFeedback.trim(), 'Gestor de Conteúdos', 'approved');
+                                  // O nome de quem corrigiu saiu do cliente: o servidor
+                                  // grava `gradedBy` a partir do token. O valor fixo que
+                                  // estava aqui era ignorado pela API e mentia quando
+                                  // outra pessoa da coordenação corrigia.
+                                  const res = await gradeSubmission(sub.id, gradeScore, gradeFeedback.trim(), 'approved');
+                                  if (!res.ok) {
+                                    showToast(res.error ?? 'Não foi possível lançar a correção.');
+                                    return;
+                                  }
                                   setGradingSubId(null);
-                                  alert('Trabalho avaliado, homologado e nota lançada com sucesso!');
+                                  showToast('Nota lançada. O aluno já vê a nota e o feedback.');
                                 }}
                                 className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.2 rounded-md text-[10.5px] cursor-pointer"
                               >

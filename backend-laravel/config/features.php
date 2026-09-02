@@ -12,7 +12,7 @@ declare(strict_types=1);
 return [
     // Desativadas por padrão no MVP
     'forum' => false,
-    'atividadesPraticasAvancadas' => false,
+    'atividadesPraticasAvancadas' => true,
     'uploadArquivos' => true,
     'graficosAvancados' => false,
     'acompanhamentoParticipacao' => false,
