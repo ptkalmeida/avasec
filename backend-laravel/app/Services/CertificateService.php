@@ -150,7 +150,18 @@ final class CertificateService
         if ($totalActivities === 0) {
             return 0;
         }
-        $done = count($progress->completedLessons ?? []) + count($progress->attendedLiveSessions ?? []);
+        // Conta apenas ids que AINDA existem no curso. Resíduo de aula apagada
+        // ficava em `completedLessons` e era contado como presença — e esta é a
+        // conta que decide a EMISSÃO do certificado, não um número de tela.
+        $aulas = is_array($progress?->completedLessons) ? $progress->completedLessons : [];
+        $encontros = is_array($progress?->attendedLiveSessions) ? $progress->attendedLiveSessions : [];
+        $done = count(array_intersect(
+            array_values(array_filter($aulas, static fn ($id): bool => is_string($id))),
+            array_values(array_filter($course->lessons->pluck('id')->all(), static fn ($id): bool => is_string($id))),
+        )) + count(array_intersect(
+            array_values(array_filter($encontros, static fn ($id): bool => is_string($id))),
+            array_values(array_filter($course->liveSessions->pluck('id')->all(), static fn ($id): bool => is_string($id))),
+        ));
 
         return min(100, (int) round(($done / $totalActivities) * 100));
     }
