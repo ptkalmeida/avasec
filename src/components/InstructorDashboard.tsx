@@ -21,6 +21,7 @@ import { parseLessonContent } from '../utils/lessonContent';
 import { LessonContent } from './student/LessonContent';
 import { LessonContentEditor } from './instructor/LessonContentEditor';
 import { LessonManagePage } from './instructor/LessonManagePage';
+import { ExerciciosManagePanel } from './instructor/ExerciciosManagePanel';
 import { courseMinAttendance } from '../config/constants';
 import { BackButton } from './BackButton';
 import { safeHref } from '../utils/safeUrl';
@@ -60,7 +61,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     removeLiveSession,
     calculateAttendancePercent,
     admissionRequests,
-    updateAdmissionStatus
+    updateAdmissionStatus,
+    practicalExercises,
+    exerciseSubmissions,
+    addPracticalExercise,
+    updatePracticalExercise,
+    deletePracticalExercise,
+    gradeSubmission
   } = useLMS();
 
   // Active form sections
@@ -1432,6 +1439,28 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           </div>
         </div>
       </div>
+      )}
+
+      {/*
+        EXERCÍCIOS PRÁTICOS — não existia nada disto no painel de quem dá aula: a
+        gestão morava só no painel do admin, e o professor não tinha como lançar
+        nem corrigir. A lista de cursos vem filtrada por instructorId, o mesmo
+        escopo que o backend impõe em /api/exercises.
+      */}
+      {activeDashboardTab === 'general' && features.atividadesPraticasAvancadas && (
+        <div className="mt-6 animate-in fade-in duration-300">
+          <ExerciciosManagePanel
+            courses={courses.filter((c) => c.instructorId === activeUser.id)}
+            exercises={practicalExercises}
+            submissions={exerciseSubmissions}
+            onCreate={addPracticalExercise}
+            onUpdate={updatePracticalExercise}
+            onDelete={deletePracticalExercise}
+            onGrade={gradeSubmission}
+            confirmar={(pergunta) => window.confirm(pergunta)}
+            notify={showToast}
+          />
+        </div>
       )}
 
       {/* NEW: Dedicated Curriculum Tab Content */}

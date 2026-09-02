@@ -9,7 +9,10 @@ export const features = {
   forum: false,
   
   // Exercícios práticos e envio de atividades para correção (Tarefas avançadas)
-  atividadesPraticasAvancadas: false,
+  // Ativado: o aluno tem página própria de exercícios do curso e o professor tem
+  // área de lançamento e correção. Com a flag em false a API responde 404 e a
+  // tela conversava só com o localStorage — nota lançada não saía do navegador.
+  atividadesPraticasAvancadas: true,
   
   // Upload de arquivos (como documentos, PDFs e comprovantes de matrícula)
   // Ativado: o backend agora salva os arquivos de verdade em /uploads (ver src/server/upload.ts).

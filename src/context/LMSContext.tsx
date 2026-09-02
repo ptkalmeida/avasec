@@ -25,6 +25,12 @@ export function authFetch(url: string, options: RequestInit = {}): Promise<Respo
 }
 
 
+/** Resultado de uma escrita de exercício: quem chama precisa poder avisar a pessoa. */
+export interface ExerciseResult {
+  ok: boolean;
+  error?: string;
+}
+
 interface LMSContextProps {
   courses: Course[];
   activeUser: { id: string; name: string; role: 'student' | 'instructor' | 'admin' };
@@ -127,11 +133,18 @@ interface LMSContextProps {
   deleteForumMessage: (messageId: string) => void;
   practicalExercises: PracticalExercise[];
   exerciseSubmissions: ExerciseSubmission[];
-  addPracticalExercise: (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => void;
-  updatePracticalExercise: (exerciseId: string, updates: Partial<PracticalExercise>) => void;
-  deletePracticalExercise: (exerciseId: string) => void;
-  submitExercise: (exerciseId: string, submissionText: string, fileUrl?: string, fileName?: string) => void;
-  gradeSubmission: (submissionId: string, score: number, feedback: string, graderName: string, status: 'approved' | 'rejected' | 'revision') => void;
+  /**
+   * Exercícios práticos. Todas devolvem o resultado REAL do servidor: a nota e a
+   * entrega são registro acadêmico, e uma falha silenciosa aqui deixava o dado
+   * só no localStorage de quem clicou — o aluno via "Aguardando" e o professor
+   * via a nota que ninguém mais no sistema tinha.
+   */
+  addPracticalExercise: (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => Promise<ExerciseResult>;
+  updatePracticalExercise: (exerciseId: string, updates: Partial<PracticalExercise>) => Promise<ExerciseResult>;
+  deletePracticalExercise: (exerciseId: string) => Promise<ExerciseResult>;
+  submitExercise: (exerciseId: string, submissionText: string, fileUrl?: string, fileName?: string) => Promise<ExerciseResult>;
+  /** `graderName` saiu: o servidor grava `gradedBy` a partir do token, não do cliente. */
+  gradeSubmission: (submissionId: string, score: number, feedback: string, status: 'approved' | 'rejected' | 'revision') => Promise<ExerciseResult>;
 }
 
 const LMSContext = createContext<LMSContextProps | undefined>(undefined);
@@ -2372,92 +2385,135 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch(`/api/forum/${messageId}`, { method: 'DELETE' }).catch(err => console.error(err));
   };
 
-  const addPracticalExercise = (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => {
-    const newEx: PracticalExercise = {
-      id: `exercise-${Date.now()}`,
-      courseId,
-      title,
-      description,
-      instructions,
-      maxPoints,
-      dueDate
-    };
-    setPracticalExercises(prev => [...prev, newEx]);
-    authFetch('/api/exercises', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newEx)
-    }).catch(err => console.error(err));
-  };
-
-  const updatePracticalExercise = (exerciseId: string, updates: Partial<PracticalExercise>) => {
-    setPracticalExercises(prev => prev.map(ex => {
-      if (ex.id !== exerciseId) return ex;
-      const updated = { ...ex, ...updates };
-      authFetch('/api/exercises', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      }).catch(err => console.error(err));
-      return updated;
-    }));
-  };
-
-  const deletePracticalExercise = (exerciseId: string) => {
-    setPracticalExercises(prev => prev.filter(ex => ex.id !== exerciseId));
-    setExerciseSubmissions(prev => prev.filter(sub => sub.exerciseId !== exerciseId));
-    authFetch(`/api/exercises/${exerciseId}`, { method: 'DELETE' }).catch(err => console.error(err));
-  };
-
-  // Sempre ação do próprio aluno — identidade sai do token; o estado otimista usa activeUser.
-  const submitExercise = (exerciseId: string, submissionText: string, fileUrl?: string, fileName?: string) => {
-    const existingIndex = exerciseSubmissions.findIndex(sub => sub.exerciseId === exerciseId && sub.userId === activeUser.id);
-
-    const newSub: ExerciseSubmission = {
-      id: existingIndex >= 0 ? exerciseSubmissions[existingIndex].id : `sub-${Date.now()}`,
-      exerciseId,
-      userId: activeUser.id,
-      studentName: activeUser.name,
-      submissionText,
-      fileUrl,
-      fileName,
-      submittedAt: new Date().toLocaleString('pt-BR'),
-      status: 'pending'
-    };
-
-    if (existingIndex >= 0) {
-      setExerciseSubmissions(prev => prev.map(sub => sub.id === newSub.id ? newSub : sub));
-    } else {
-      setExerciseSubmissions(prev => [...prev, newSub]);
-    }
-    const { userId: _userId, studentName: _studentName, ...body } = newSub;
-    authFetch('/api/exercise-submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    }).catch(err => console.error(err));
-  };
-
-  const gradeSubmission = (submissionId: string, score: number, feedback: string, graderName: string, status: 'approved' | 'rejected' | 'revision') => {
-    setExerciseSubmissions(prev => prev.map(sub => {
-      if (sub.id === submissionId) {
-        const updated = {
-          ...sub,
-          score,
-          feedback,
-          status,
-          gradedAt: new Date().toLocaleString('pt-BR'),
-          gradedBy: graderName
-        };
-        authFetch('/api/exercise-submissions', {
-          method: 'POST',
+  /**
+   * Fala com a API e só depois mexe no estado local.
+   *
+   * O padrão anterior era o inverso — estado otimista primeiro, `.catch()`
+   * depois — e `.catch()` não dispara em 4xx. Com a flag desligada TODA chamada
+   * daqui voltava 404 e nada disso aparecia: exercício, entrega e nota viviam
+   * apenas no localStorage de quem clicou.
+   */
+  const escreveExercicio = async (
+    url: string,
+    method: 'POST' | 'PUT' | 'DELETE',
+    body?: unknown
+    // Forma única em vez de união discriminada: este tsconfig não liga
+    // `strictNullChecks`, e sem ele o TypeScript não estreita `{ok:true}|{ok:false}`.
+  ): Promise<{ ok: boolean; data?: unknown; error?: string }> => {
+    try {
+      const res = await authFetch(url, {
+        method,
+        ...(body === undefined ? {} : {
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updated)
-        }).catch(err => console.error(err));
-        return updated;
+          body: JSON.stringify(body),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        // 404 aqui costuma ser FEATURE_DISABLED, não "não existe": vale dizer.
+        const padrao = res.status === 404
+          ? 'Recurso de exercícios práticos indisponível nesta instalação.'
+          : 'O servidor recusou a operação.';
+        return { ok: false, error: data.message || padrao };
       }
-      return sub;
-    }));
+      return { ok: true, data: await res.json().catch(() => null) };
+    } catch (err) {
+      console.error('Erro em exercícios práticos:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
+  const addPracticalExercise = async (
+    courseId: string,
+    title: string,
+    description: string,
+    instructions: string,
+    maxPoints: number,
+    dueDate?: string
+  ): Promise<ExerciseResult> => {
+    const novo: PracticalExercise = {
+      id: `exercise-${Date.now()}`, courseId, title, description, instructions, maxPoints, dueDate,
+    };
+    const res = await escreveExercicio('/api/exercises', 'POST', novo);
+    if (!res.ok) return { ok: false, error: res.error };
+
+    // O servidor é a autoridade sobre o registro gravado (id, normalizações).
+    const criado = (res.data as PracticalExercise | null) ?? novo;
+    setPracticalExercises((prev) => [...prev, criado]);
+    return { ok: true };
+  };
+
+  const updatePracticalExercise = async (
+    exerciseId: string,
+    updates: Partial<PracticalExercise>
+  ): Promise<ExerciseResult> => {
+    const atual = practicalExercises.find((ex) => ex.id === exerciseId);
+    if (!atual) return { ok: false, error: 'Exercício não encontrado.' };
+
+    // PUT /exercises/{id}. Antes ia um POST na rota de criação — com id repetido,
+    // o servidor tratava como criação e a edição não acontecia.
+    const res = await escreveExercicio(`/api/exercises/${exerciseId}`, 'PUT', { ...atual, ...updates });
+    if (!res.ok) return { ok: false, error: res.error };
+
+    const salvo = (res.data as PracticalExercise | null) ?? { ...atual, ...updates };
+    setPracticalExercises((prev) => prev.map((ex) => (ex.id === exerciseId ? salvo : ex)));
+    return { ok: true };
+  };
+
+  const deletePracticalExercise = async (exerciseId: string): Promise<ExerciseResult> => {
+    const res = await escreveExercicio(`/api/exercises/${exerciseId}`, 'DELETE');
+    if (!res.ok) return { ok: false, error: res.error };
+
+    setPracticalExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
+    setExerciseSubmissions((prev) => prev.filter((sub) => sub.exerciseId !== exerciseId));
+    return { ok: true };
+  };
+
+  /** Sempre ação do próprio aluno — a identidade sai do token, não do corpo. */
+  const submitExercise = async (
+    exerciseId: string,
+    submissionText: string,
+    fileUrl?: string,
+    fileName?: string
+  ): Promise<ExerciseResult> => {
+    const res = await escreveExercicio('/api/exercise-submissions', 'POST', {
+      exerciseId, submissionText, fileUrl, fileName,
+    });
+    if (!res.ok) return { ok: false, error: res.error };
+
+    // `submittedAt` e `status` vêm do servidor: data de entrega é registro
+    // acadêmico e não pode ser o relógio do navegador do aluno.
+    const salva = res.data as ExerciseSubmission | null;
+    if (salva) {
+      setExerciseSubmissions((prev) => {
+        const i = prev.findIndex((sub) => sub.id === salva.id
+          || (sub.exerciseId === salva.exerciseId && sub.userId === salva.userId));
+        if (i < 0) return [...prev, salva];
+        return prev.map((sub, idx) => (idx === i ? salva : sub));
+      });
+    }
+    return { ok: true };
+  };
+
+  const gradeSubmission = async (
+    submissionId: string,
+    score: number,
+    feedback: string,
+    status: 'approved' | 'rejected' | 'revision'
+  ): Promise<ExerciseResult> => {
+    // PUT /exercise-submissions/{id}/grade. Antes ia um POST em
+    // /exercise-submissions, que é a rota de ENTREGA e só aceita role:student —
+    // lançar nota respondia 403 e a nota nunca saía do navegador do professor.
+    const res = await escreveExercicio(`/api/exercise-submissions/${submissionId}/grade`, 'PUT', {
+      score, feedback, status,
+    });
+    if (!res.ok) return { ok: false, error: res.error };
+
+    const salva = res.data as ExerciseSubmission | null;
+    if (salva) {
+      setExerciseSubmissions((prev) => prev.map((sub) => (sub.id === submissionId ? salva : sub)));
+    }
+    return { ok: true };
   };
 
   return (

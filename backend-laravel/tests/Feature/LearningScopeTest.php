@@ -28,10 +28,10 @@ final class LearningScopeTest extends TestCase
         parent::setUp();
         $this->withoutMiddleware(ThrottleRequests::class);
 
-        // Fórum e exercícios estão com a flag DESLIGADA nesta versão (config/features.php),
-        // o que hoje limita a exploração a 404 — mas flag é chave de liga/desliga, não
-        // controle de acesso: ligar a funcionalidade não pode reabrir o vazamento. Por
-        // isso o teste liga as duas e cobra o escopo com elas ativas.
+        // Flag é chave de liga/desliga, não controle de acesso: o escopo tem de valer
+        // com a funcionalidade ATIVA. O teste liga as duas explicitamente para não
+        // depender do estado de config/features.php — que muda quando o produto decide
+        // liberar um recurso (exercícios já foram liberados; fórum, ainda não).
         config(['features.forum' => true, 'features.atividadesPraticasAvancadas' => true]);
     }
 

@@ -176,7 +176,12 @@ final class LearningController extends Controller
             'description' => [$req, 'string', 'min:1', 'max:5000'],
             'instructions' => [$req, 'string', 'min:1', 'max:5000'],
             'maxPoints' => [$req, 'integer', 'min:1', 'max:1000'],
-            'dueDate' => ['sometimes', 'nullable', 'string', 'max:30'],
+            // Prazo precisa ser parseavel: a pagina de exercicios do aluno calcula
+            // "vence em N dias" / "atrasado" a partir dele (src/utils/exerciseStatus.ts).
+            // Como texto livre, um "julho de 2026" entrava no banco e a tela nunca
+            // mostrava vencimento nenhum. dd/mm/aaaa e o formato que as linhas
+            // existentes ja usam.
+            'dueDate' => ['sometimes', 'nullable', 'string', 'max:30', 'date_format:d/m/Y'],
         ];
     }
 }
