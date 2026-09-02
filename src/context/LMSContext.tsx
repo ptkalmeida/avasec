@@ -12,6 +12,7 @@ import { courseMinAttendance } from '../config/constants';
 // A anterior (base-36 de bytes) podia sair só com dígitos ou só com letras, e nesse
 // caso a API rejeitava o cadastro sem a tela explicar por quê.
 import { generateInitialPassword } from '../utils/cpf';
+import { frequenciaPercent, registroDoAluno } from '../utils/courseProgress';
 
 // Wrapper de fetch autenticado. A sessão do navegador vive num cookie HttpOnly
 // (ava_session), enviado automaticamente em requisições same-origin — nenhum token fica
@@ -24,6 +25,17 @@ export function authFetch(url: string, options: RequestInit = {}): Promise<Respo
   return window.fetch(url, { ...options, headers, credentials: 'same-origin' });
 }
 
+
+/**
+ * Resultado de uma tentativa de avaliação. `scorePercent`/`passed` são os do
+ * SERVIDOR — o backend recalcula a nota e ignora a que o cliente enviou.
+ */
+export interface QuizResult {
+  ok: boolean;
+  error?: string;
+  scorePercent?: number;
+  passed?: boolean;
+}
 
 /** Resultado de uma escrita de exercício: quem chama precisa poder avisar a pessoa. */
 export interface ExerciseResult {
@@ -79,7 +91,7 @@ interface LMSContextProps {
   sendDirectMessage: (studentUserId: string, text: string) => void;
   addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => void;
   deleteQuiz: (quizId: string) => void;
-  submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean, answers: Record<string, number>) => QuizSubmission;
+  submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean, answers: Record<string, number>) => Promise<QuizResult>;
   addProfessor: (name: string, password?: string) => void;
   deleteProfessor: (name: string) => void;
   /**
@@ -1566,22 +1578,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const course = courses.find((c) => c.id === courseId);
     if (!course) return 0;
 
-    const totalLessonsCount = course.lessons.length;
-    const totalLiveCount = course.liveSessions.length;
-    const totalActivities = totalLessonsCount + totalLiveCount;
-
-    if (totalActivities === 0) return 0;
-
-    const userProgress = progress.find((p) => p.courseId === courseId && p.userId === activeUser.id);
-    if (!userProgress) return 0;
-
-    // A lesson completion acts as "attendance" of lessons, and attending live sessions accounts for meetings
-    const completedCount = userProgress.completedLessons.length;
-    const attendedLiveCount = userProgress.attendedLiveSessions.length;
-
-    const totalAttended = completedCount + attendedLiveCount;
-    const percent = Math.min(100, Math.round((totalAttended / totalActivities) * 100));
-    return percent;
+    // Aula concluída conta como presença de aula; encontro assistido conta como
+    // presença de encontro. A conta ignora id que não existe mais no curso: um
+    // resíduo de aula apagada inflava a frequência e podia disparar a emissão
+    // automática de certificado abaixo — ver src/utils/courseProgress.ts.
+    return frequenciaPercent(course, registroDoAluno(progress, courseId, activeUser.id));
   };
 
   // Automatic Certificate Issuance Logic when attendance hits the custom required or default 70% minimum!
@@ -1613,19 +1614,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setCertificates((prev) => (prev.some((c) => c.id === issued.id) ? prev : [...prev, issued]));
           })
           .catch((err) => console.error('Erro ao emitir certificado:', err));
-      } else {
-        // If they became un-qualified (unselected lesson and went below minAttendance), remove certificate
-        // to stay dynamically accurate in state simulation, unless they like it
-        setCertificates((prev) => {
-          const alreadyIssued = prev.some(
-            (cert) => cert.courseId === course.id && cert.userId === activeUser.id
-          );
-          if (alreadyIssued) {
-            return prev.filter((cert) => !(cert.courseId === course.id && cert.userId === activeUser.id));
-          }
-          return prev;
-        });
       }
+      // NÃO existe ramo "else" que remove o certificado da lista.
+      //
+      // Havia um: quando a frequência caía abaixo do mínimo, o certificado
+      // desaparecia do estado LOCAL — e continuava no banco, com o código de
+      // validação funcionando. Ou seja, a tela passava a discordar do registro
+      // oficial em silêncio. Certificado emitido é documento: se precisar
+      // deixar de valer, isso é revogação no servidor, com trilha de auditoria
+      // e decisão de gente — não um filtro no navegador de quem está olhando.
     });
   }, [progress, activeUser.id, courses, activeUser.role]);
 
@@ -1953,17 +1950,17 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Sempre ação do próprio aluno — identidade sai do token; o estado otimista usa activeUser.
-  const submitQuiz = (
+  const submitQuiz = async (
     courseId: string,
     quizId: string,
     scorePercent: number,
     passed: boolean,
     answers: Record<string, number>
-  ): QuizSubmission => {
-    // scorePercent/passed aqui são só otimistas para feedback imediato na UI.
+  ): Promise<QuizResult> => {
+    // scorePercent/passed aqui são só otimistas para o feedback imediato na tela.
     // A nota REAL é recalculada no servidor a partir de `answers` (o backend ignora
     // qualquer nota vinda do cliente) — ver LearningService::submitQuiz.
-    const newSubmission: QuizSubmission = {
+    const otimista: QuizSubmission = {
       id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: activeUser.id,
       studentName: activeUser.name,
@@ -1974,28 +1971,40 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submittedAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setQuizSubmissions((prev) => {
-      // replace previous submissions of the same student for the same quiz to allow retries
-      const cleaned = prev.filter((sub) => !(sub.userId === activeUser.id && sub.quizId === quizId));
-      return [...cleaned, newSubmission];
+      // Substitui tentativas anteriores do mesmo aluno no mesmo quiz (permite refazer).
+      const limpo = prev.filter((sub) => !(sub.userId === activeUser.id && sub.quizId === quizId));
+      return [...limpo, otimista];
     });
-    authFetch('/api/quiz-submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ quizId, answers })
-    })
-      .then(res => res.ok ? res.json() : null)
-      .then((saved) => {
-        // Reconcilia o estado local com a nota autoritativa do servidor.
-        if (saved && typeof saved.scorePercent === 'number') {
-          setQuizSubmissions((prev) => prev.map((sub) =>
-            sub.id === newSubmission.id
-              ? { ...sub, scorePercent: saved.scorePercent, passed: !!saved.passed, id: saved.id ?? sub.id }
-              : sub
-          ));
-        }
-      })
-      .catch(err => console.error(err));
-    return newSubmission;
+
+    try {
+      const res = await authFetch('/api/quiz-submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizId, answers })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        // A tentativa otimista sai da lista: deixá-la ali mostraria ao aluno uma
+        // nota que o servidor não registrou. Antes o erro era só console.error.
+        setQuizSubmissions((prev) => prev.filter((sub) => sub.id !== otimista.id));
+        return { ok: false, error: data.message || 'O servidor não registrou sua tentativa.' };
+      }
+      const salva = await res.json();
+      if (salva && typeof salva.scorePercent === 'number') {
+        // Reconcilia com a nota autoritativa do servidor.
+        setQuizSubmissions((prev) => prev.map((sub) =>
+          sub.id === otimista.id
+            ? { ...sub, scorePercent: salva.scorePercent, passed: !!salva.passed, id: salva.id ?? sub.id }
+            : sub
+        ));
+        return { ok: true, scorePercent: salva.scorePercent, passed: !!salva.passed };
+      }
+      return { ok: true, scorePercent, passed };
+    } catch (err) {
+      console.error('Erro ao enviar avaliação:', err);
+      setQuizSubmissions((prev) => prev.filter((sub) => sub.id !== otimista.id));
+      return { ok: false, error: 'Servidor indisponível. Sua tentativa não foi registrada.' };
+    }
   };
 
   const addProfessor = (name: string, password?: string) => {

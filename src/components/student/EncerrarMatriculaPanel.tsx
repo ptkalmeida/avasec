@@ -95,12 +95,16 @@ export const EncerrarMatriculaPanel: React.FC<EncerrarMatriculaPanelProps> = ({
                     <span className="block text-[10px] text-slate-450">{curso.category}</span>
                   </div>
 
+                  {/* Vermelho e visivel por decisao do produto: a saida precisa ser
+                      facil de achar. O peso visual vem daqui; o freio contra o
+                      clique acidental e a confirmacao logo abaixo. */}
                   {confirmando !== curso.id && (
                     <button
                       type="button"
                       onClick={() => { setConfirmando(curso.id); setErro(null); }}
-                      className="shrink-0 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-rose-600 hover:decoration-rose-300"
+                      className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white shadow-xs transition-colors hover:bg-rose-500"
                     >
+                      <LogOut className="h-3.5 w-3.5" />
                       Solicitar saída
                     </button>
                   )}

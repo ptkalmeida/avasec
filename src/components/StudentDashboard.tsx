@@ -16,11 +16,12 @@ import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
-import { Course, Lesson, LiveSession, isCourseExpired, Quiz, QuizQuestion } from '../types';
+import { Course, Lesson, LiveSession, isCourseExpired } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { CourseForum } from './CourseForum';
 import { StudentLibraryPanel } from './student/StudentLibraryPanel';
 import { ExerciciosPraticosPage } from './student/ExerciciosPraticosPage';
+import { AvaliacoesPage } from './student/AvaliacoesPage';
 import { StudentEventsPanel } from './student/StudentEventsPanel';
 import { features } from '../config/features';
 import { parseLessonContent } from '../utils/lessonContent';
@@ -178,13 +179,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     }
   };
 
+  /** Abre a página de avaliações, opcionalmente já dentro de uma prova. */
+  const abrirAvaliacoes = (quizId?: string) => {
+    setAvaliacaoInicial(quizId ?? null);
+    setShowAvaliacoes(true);
+  };
+
   const handleBack = () => {
     if (showExercicios) {
       setShowExercicios(false);
+    } else if (showAvaliacoes) {
+      setShowAvaliacoes(false);
     } else if (activeLesson) {
       setActiveLesson(null);
-    } else if (activeQuizTaking) {
-      setActiveQuizTaking(null);
     } else if (selectedCourse) {
       setSelectedCourse(null);
     } else if (activeDashboardTab !== 'general') {
@@ -196,8 +203,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   const getBackLabel = () => {
     if (showExercicios) return "Voltar ao Curso";
+    if (showAvaliacoes) return "Voltar ao Curso";
     if (activeLesson) return "Voltar ao Curso";
-    if (activeQuizTaking) return "Voltar ao Curso";
     if (selectedCourse) return "Voltar p/ Meus Cursos";
     if (activeDashboardTab !== 'general') return "Voltar ao Ambiente de Estudos";
     return "Sair p/ Portal";
@@ -208,19 +215,22 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
   const [activeLiveSession, setActiveLiveSession] = useState<LiveSession | null>(null);
 
-  // Interactive Quiz Taking States
   /**
    * Página de exercícios práticos do curso. É modo de página cheia, como o
    * quiz: exercício pertence ao curso, e antes era uma aba dentro da aula 1.
    */
   const [showExercicios, setShowExercicios] = useState(false);
 
-  const [activeQuizTaking, setActiveQuizTaking] = useState<Quiz | null>(null);
-  const [currentQuestionIdx, setCurrentQuestionIdx] = useState<number>(0);
-  const [answeredQuestions, setAnsweredQuestions] = useState<{[key: string]: boolean}>({});
-  const [currentAnswers, setCurrentAnswers] = useState<{[key: string]: number}>({});
-  const [quizResult, setQuizResult] = useState<{ scorePercent: number; passed: boolean } | null>(null);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  /**
+   * Página de testes e avaliações do curso. Modo de página cheia, como os
+   * exercícios: prova é a atividade mais longa que o aluno faz aqui e vivia num
+   * modal que fechava por clique no backdrop. O ANDAMENTO da prova (questão
+   * atual, respostas, resultado) mora dentro da página — não é assunto deste
+   * painel.
+   */
+  const [showAvaliacoes, setShowAvaliacoes] = useState(false);
+  /** Avaliação que o card do curso pediu para abrir direto. */
+  const [avaliacaoInicial, setAvaliacaoInicial] = useState<string | null>(null);
 
   // Custom non-blocking alert/confirm states
   const [alertState, setAlertState] = useState<{ message: string; show: boolean } | null>(null);
@@ -758,8 +768,22 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 );
               })()}
 
-              {/* Página cheia de exercícios práticos do curso (esconde o grid). */}
-              {showExercicios && !activeLesson && !activeQuizTaking ? (
+              {/* Página cheia de testes e avaliações do curso (esconde o grid). */}
+              {showAvaliacoes && !activeLesson ? (
+                <AvaliacoesPage
+                  courseTitle={selectedCourse.title}
+                  courseId={selectedCourse.id}
+                  quizzes={quizzes}
+                  submissions={quizSubmissions}
+                  userId={activeUser.id}
+                  quizInicial={avaliacaoInicial}
+                  onBack={() => setShowAvaliacoes(false)}
+                  onSubmit={(quizId, scorePercent, passed, answers) =>
+                    submitQuiz(selectedCourse.id, quizId, scorePercent, passed, answers)}
+                  notify={speakText}
+                />
+              ) : /* Página cheia de exercícios práticos do curso (esconde o grid). */
+              showExercicios && !activeLesson ? (
                 <ExerciciosPraticosPage
                   courseTitle={selectedCourse.title}
                   courseId={selectedCourse.id}
@@ -774,7 +798,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   permiteAnexo={features.uploadArquivos}
                 />
               ) : /* Full Page Module View (hides the Grid) */
-              selectedModulePageName && !activeLesson && !activeQuizTaking ? (
+              selectedModulePageName && !activeLesson && !showAvaliacoes ? (
                 (() => {
                   const module = getCourseModules(selectedCourse).find(m => m.name === selectedModulePageName);
                   if (!module) return null;
@@ -1380,7 +1404,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   )}
 
                   {/* Fórum de Discussão do Curso (controlado pela feature flag) */}
-                  {features.forum && !activeLesson && !activeQuizTaking && (
+                  {features.forum && !activeLesson && !showAvaliacoes && (
                     <div className="mt-6 animate-in fade-in duration-300">
                       <CourseForum selectedCourse={selectedCourse} />
                     </div>
@@ -1389,7 +1413,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                 </div>
 
                 {/* 2. Structured Syllabus Selector Sidebar Accordion Grid (lg:col-span-4) */}
-                {(!activeLesson && !activeQuizTaking) && (
+                {(!activeLesson && !showAvaliacoes) && (
                 <div className="lg:col-span-4 space-y-4">
                   
                   {/* Sidebar title */}
@@ -1562,14 +1586,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                     Último envio: {userSub.submittedAt}
                                   </div>
                                   <button
-                                    onClick={() => {
-                                      setCurrentAnswers({});
-                                      setAnsweredQuestions({});
-                                      setCurrentQuestionIdx(0);
-                                      setQuizResult(null);
-                                      setHasSubmitted(false);
-                                      setActiveQuizTaking(quiz);
-                                    }}
+                                    onClick={() => abrirAvaliacoes(quiz.id)}
                                     className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold py-2 px-4 rounded-lg text-xs transition-colors flex items-center justify-center cursor-pointer shadow-2xs"
                                   >
                                     Refazer Avaliação
@@ -1577,14 +1594,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 </div>
                               ) : (
                                 <button
-                                  onClick={() => {
-                                    setCurrentAnswers({});
-                                    setAnsweredQuestions({});
-                                    setCurrentQuestionIdx(0);
-                                    setQuizResult(null);
-                                    setHasSubmitted(false);
-                                    setActiveQuizTaking(quiz);
-                                  }}
+                                  onClick={() => abrirAvaliacoes(quiz.id)}
                                   className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer shadow-xs"
                                 >
                                   Começar
@@ -3526,409 +3536,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
       )}
 
       {/* Interactive Quiz / Test Modal Overlay */}
-      {activeQuizTaking && (
-        <>
-          {/* Backdrop with elegant blur */}
-          <div 
-            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[100] transition-opacity animate-in fade-in duration-300"
-            onClick={() => {
-              if (hasSubmitted) {
-                setActiveQuizTaking(null);
-              } else {
-                showConfirm('Deseja mesmo sair do teste? Suas respostas atuais não serão gravadas.', () => {
-                  setActiveQuizTaking(null);
-                });
-              }
-            }}
-          />
-          
-          {/* Modal Container */}
-          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 text-left">
-              {/* Header */}
-              <div className="p-5 md:p-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-amber-50 rounded-xl text-amber-700 border border-amber-100">
-                    <CheckSquare className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-black uppercase tracking-wider text-amber-800 bg-amber-100 px-2.5 py-1 rounded inline-block font-mono border border-amber-200/20">
-                      Avaliação e Fixação
-                    </span>
-                    <h3 className="text-sm md:text-base font-black text-slate-900 mt-1">{activeQuizTaking.title}</h3>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    if (hasSubmitted) {
-                      setActiveQuizTaking(null);
-                    } else {
-                      showConfirm('Deseja mesmo sair do teste? Suas respostas atuais não serão gravadas.', () => {
-                        setActiveQuizTaking(null);
-                      });
-                    }
-                  }}
-                  className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {/* Scrollable Body */}
-              <div className="p-6 overflow-y-auto space-y-6 flex-1 no-scrollbar text-xs">
-                {!hasSubmitted ? (
-                  /* Single Question Flow */
-                  <div className="space-y-6">
-                    {/* Header info / progress bar */}
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
-                      <span>Questão {currentQuestionIdx + 1} de {activeQuizTaking.questions.length}</span>
-                      <span className="font-mono">{Math.round((currentQuestionIdx / activeQuizTaking.questions.length) * 100)}% concluído</span>
-                    </div>
-                    {/* Visual progress bar */}
-                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-teal-500 transition-all duration-300"
-                        style={{ width: `${(currentQuestionIdx / activeQuizTaking.questions.length) * 100}%` }}
-                      />
-                    </div>
-
-                    {/* Question Card */}
-                    {activeQuizTaking.questions[currentQuestionIdx] && (() => {
-                      const q = activeQuizTaking.questions[currentQuestionIdx];
-                      const selectedOpt = currentAnswers[q.id];
-                      const isAnswered = answeredQuestions[q.id] === true;
-                      const isCorrect = selectedOpt === q.correctOptionIndex;
-
-                      return (
-                        <div className="space-y-5">
-                          {/* Question Text */}
-                          <div className="p-5 rounded-xl border border-slate-150 bg-slate-50/50 space-y-3 shadow-3xs">
-                            <span className="text-[10px] font-black uppercase text-teal-600 tracking-wider">Enunciado</span>
-                            <h4 className="font-bold text-slate-800 text-sm leading-relaxed">
-                              {q.questionText}
-                            </h4>
-                          </div>
-
-                          {/* Options */}
-                          <div className="space-y-2.5">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block mb-1">Alternativas</span>
-                            <div className="grid grid-cols-1 gap-2.5">
-                              {q.options.map((opt, optIdx) => {
-                                const isSelected = selectedOpt === optIdx;
-                                
-                                // Dynamic classes for answers
-                                let optionClasses = "border-slate-200 hover:border-teal-500 hover:bg-slate-50/50 text-slate-700 bg-white";
-                                let circleClasses = "border-slate-300 text-slate-400 bg-white";
-                                
-                                if (isSelected && !isAnswered) {
-                                  optionClasses = "border-teal-500 bg-teal-50/10 text-teal-950 font-bold shadow-2xs";
-                                  circleClasses = "bg-teal-600 border-teal-600 text-white";
-                                } else if (isAnswered) {
-                                  // Question answered state coloring
-                                  const isOptionCorrect = q.correctOptionIndex === optIdx;
-                                  if (isOptionCorrect) {
-                                    // Highlighting the correct one in soft green
-                                    optionClasses = "border-emerald-500 bg-emerald-50/60 text-emerald-950 font-bold";
-                                    circleClasses = "bg-emerald-600 border-emerald-600 text-white";
-                                  } else if (isSelected) {
-                                    // Selected but incorrect - highlight in soft amber/orange (not heavy red as requested)
-                                    optionClasses = "border-amber-400 bg-amber-50/30 text-slate-700 font-bold";
-                                    circleClasses = "bg-amber-500 border-amber-500 text-white";
-                                  } else {
-                                    optionClasses = "border-slate-100 text-slate-400 bg-slate-50/30 cursor-not-allowed";
-                                    circleClasses = "border-slate-200 text-slate-300 bg-slate-50";
-                                  }
-                                }
-
-                                return (
-                                  <button
-                                    type="button"
-                                    key={`${q.id}-opt-${optIdx}`}
-                                    disabled={isAnswered}
-                                    onClick={() => {
-                                      setCurrentAnswers(prev => ({
-                                        ...prev,
-                                        [q.id]: optIdx
-                                      }));
-                                    }}
-                                    className={`w-full text-left p-3.5 rounded-xl text-xs transition-all border flex items-center gap-3 cursor-pointer ${optionClasses}`}
-                                  >
-                                    <span className={`w-5 h-5 rounded-full border text-[10px] font-bold flex items-center justify-center shrink-0 ${circleClasses}`}>
-                                      {String.fromCharCode(65 + optIdx)}
-                                    </span>
-                                    <span className="flex-1 leading-snug">{opt}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* Action Buttons & Feedback Block */}
-                          {!isAnswered ? (
-                            <div className="pt-2">
-                              <button
-                                type="button"
-                                disabled={selectedOpt === undefined}
-                                onClick={() => {
-                                  setAnsweredQuestions(prev => ({
-                                    ...prev,
-                                    [q.id]: true
-                                  }));
-                                }}
-                                className={`w-full py-3 px-5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                                  selectedOpt === undefined
-                                    ? "bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed"
-                                    : "bg-teal-600 hover:bg-teal-500 text-white shadow-xs"
-                                }`}
-                              >
-                                <span>Responder</span>
-                                <ArrowRight className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            /* Feedback Block after answering */
-                            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                              <div className={`p-5 rounded-xl border leading-relaxed space-y-3 ${
-                                isCorrect
-                                  ? "bg-emerald-50 border-emerald-200 text-emerald-950"
-                                  : "bg-amber-50/50 border-amber-200 text-amber-950"
-                              }`}>
-                                <div className="flex items-center gap-2">
-                                  {isCorrect
-                                    ? <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
-                                    : <Lightbulb className="h-5 w-5 text-amber-600 shrink-0" />}
-                                  <strong className="font-extrabold text-xs">
-                                    {isCorrect ? "Resposta correta" : "Ainda não foi desta vez"}
-                                  </strong>
-                                </div>
-                                
-                                <p className="font-medium text-[11px] leading-relaxed">
-                                  {isCorrect 
-                                    ? "Muito bem! Você compreendeu este conceito."
-                                    : "Resposta incorreta, revise o conteúdo indicado."
-                                  }
-                                </p>
-
-                                {/* Additional diagnostic properties */}
-                                <div className="border-t border-slate-200/30 pt-3 mt-1 space-y-2 text-[11px]">
-                                  <div>
-                                    <span className="font-bold block text-slate-500 uppercase text-[9px] tracking-wider">Gabarito da Questão</span>
-                                    <p className="font-semibold text-slate-800 mt-0.5">
-                                      A alternativa correta é <span className="font-extrabold text-teal-700">{String.fromCharCode(65 + q.correctOptionIndex)}</span>. {q.explanation || 'Nenhuma explicação adicional fornecida.'}
-                                    </p>
-                                  </div>
-
-                                  {(q.reviewMessage || q.recommendedModule) && (
-                                    <div className="bg-white/40 p-2.5 rounded-lg border border-slate-200/10 mt-2">
-                                      <span className="font-bold block text-slate-500 uppercase text-[9px] tracking-wider font-mono">Indicação de Estudo</span>
-                                      {q.reviewMessage && (
-                                        <p className="text-slate-700 italic mt-0.5">{q.reviewMessage}</p>
-                                      )}
-                                      {q.recommendedModule && (
-                                        <p className="font-bold text-amber-700 mt-1">
-                                          Revise: <span className="underline">{q.recommendedModule}</span>
-                                        </p>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Navigation / Retry actions */}
-                              <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                                {!isCorrect && q.allowRetry !== false && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      // Allow the user to retry this specific question
-                                      setAnsweredQuestions(prev => ({
-                                        ...prev,
-                                        [q.id]: false
-                                      }));
-                                      setCurrentAnswers(prev => {
-                                        const copy = { ...prev };
-                                        delete copy[q.id];
-                                        return copy;
-                                      });
-                                    }}
-                                    className="flex-1 py-3 px-4 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                                  >
-                                    Tentar novamente
-                                  </button>
-                                )}
-                                
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (currentQuestionIdx < activeQuizTaking.questions.length - 1) {
-                                      setCurrentQuestionIdx(prev => prev + 1);
-                                    } else {
-                                      // End of quiz, submit now!
-                                      let correctCount = 0;
-                                      activeQuizTaking.questions.forEach((quest) => {
-                                        if (currentAnswers[quest.id] === quest.correctOptionIndex) {
-                                          correctCount++;
-                                        }
-                                      });
-                                      const scorePercent = Math.round((correctCount / activeQuizTaking.questions.length) * 100);
-                                      const passed = scorePercent >= QUIZ_PASS_THRESHOLD;
-
-                                      submitQuiz(selectedCourse.id, activeQuizTaking.id, scorePercent, passed, currentAnswers);
-                                      setQuizResult({ scorePercent, passed });
-                                      setHasSubmitted(true);
-                                    }
-                                  }}
-                                  className="flex-1 py-3 px-5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-2xs"
-                                >
-                                  <span>
-                                    {currentQuestionIdx < activeQuizTaking.questions.length - 1 ? "Próxima pergunta" : "Ver Resultado Final"}
-                                  </span>
-                                  <ArrowRight className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                ) : (
-                  /* Summary / Conclusion Display */
-                  <div className="space-y-6 animate-in fade-in duration-300">
-                    {(() => {
-                      let correctCount = 0;
-                      activeQuizTaking.questions.forEach((quest) => {
-                        if (currentAnswers[quest.id] === quest.correctOptionIndex) {
-                          correctCount++;
-                        }
-                      });
-                      const totalQuestions = activeQuizTaking.questions.length;
-                      const scorePercent = quizResult?.scorePercent ?? Math.round((correctCount / totalQuestions) * 100);
-                      const passed = quizResult?.passed ?? (scorePercent >= 70);
-
-                      // Filter incorrect questions with revision info to offer customized recommendations
-                      const incorrectQuestions = activeQuizTaking.questions.filter(
-                        quest => currentAnswers[quest.id] !== quest.correctOptionIndex
-                      );
-
-                      return (
-                        <div className="space-y-6">
-                          {/* Result status block */}
-                          <div className={`p-6 rounded-xl border text-center space-y-3 relative overflow-hidden ${
-                            passed
-                              ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
-                              : 'bg-amber-50/50 border-amber-200 text-amber-950'
-                          }`}>
-                            <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-current/15 bg-white/70">
-                              {passed
-                                ? <PartyPopper className="h-7 w-7 text-emerald-600" />
-                                : <BookOpen className="h-7 w-7 text-amber-600" />}
-                            </span>
-                            <h4 className="font-extrabold text-sm uppercase tracking-wide">
-                              {passed ? 'Aprovado com Sucesso!' : 'Atividade Concluída — Revisão Recomendada'}
-                            </h4>
-                            
-                            {/* Score info badge */}
-                            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/60 rounded-full border border-slate-200/20 text-xs font-black">
-                              <span>Acertos: <span className="text-teal-600 font-bold">{correctCount}</span> de {totalQuestions}</span>
-                              <span className="text-slate-350">•</span>
-                              <span>Rendimento: <span className="text-teal-600 font-bold">{scorePercent}%</span></span>
-                            </div>
-
-                            <p className="text-[11px] leading-relaxed max-w-md mx-auto font-medium text-slate-700">
-                              {passed 
-                                ? `Parabéns! Você compreendeu plenamente a matéria e obteve excelente rendimento de ${scorePercent}% de aproveitamento. Continue assim!` 
-                                : `Você obteve ${scorePercent}% de aproveitamento neste teste. A média recomendada para consolidação do conteúdo é de no mínimo 70%. Veja abaixo os módulos recomendados para revisão.`}
-                            </p>
-                          </div>
-
-                          {/* Suggested revision topics list */}
-                          {incorrectQuestions.length > 0 && (
-                            <div className="p-4 rounded-xl border border-amber-200/50 bg-amber-50/10 space-y-3">
-                              <h5 className="font-bold text-amber-800 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
-                                <Info className="h-4 w-4" />
-                                <span>Tópicos recomendados para revisão:</span>
-                              </h5>
-                              <div className="space-y-2.5">
-                                {incorrectQuestions.map((quest, idx) => (
-                                  <div key={quest.id} className="p-3 bg-white rounded-lg border border-slate-200 text-[11px] space-y-1 text-left">
-                                    <span className="font-bold text-slate-800 block">
-                                      Questão {activeQuizTaking.questions.indexOf(quest) + 1}: {quest.questionText}
-                                    </span>
-                                    {quest.recommendedModule && (
-                                      <div className="flex items-center gap-1.5 mt-1.5 text-xs">
-                                        <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold text-[9px] uppercase tracking-wider font-mono">
-                                          Módulo Recomendado
-                                        </span>
-                                        <strong className="text-amber-750 font-semibold">{quest.recommendedModule}</strong>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Message of successful completion */}
-                          {passed && incorrectQuestions.length === 0 && (
-                            <div className="p-4 rounded-xl border border-emerald-100 bg-emerald-50/20 text-center text-[11px] text-slate-650">
-                              <Sparkles className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-amber-500" />Você acertou todas as questões! Excelente desempenho teórico.
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-
-              {/* Sticky Footer */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5 shrink-0">
-                {!hasSubmitted ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        showConfirm('Deseja mesmo sair do teste? Suas respostas atuais não serão salvas.', () => {
-                          setActiveQuizTaking(null);
-                        });
-                      }}
-                      className="px-6 py-3 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer"
-                    >
-                      Sair do Teste
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    {!quizResult?.passed && (
-                      <button
-                        onClick={() => {
-                          setCurrentAnswers({});
-                          setAnsweredQuestions({});
-                          setCurrentQuestionIdx(0);
-                          setQuizResult(null);
-                          setHasSubmitted(false);
-                        }}
-                        className="px-6 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all bg-amber-600 hover:bg-amber-500 text-white shadow-md cursor-pointer"
-                      >
-                        Tentar Novamente
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setActiveQuizTaking(null);
-                      }}
-                      className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
-                    >
-                      Concluir e Fechar
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
 
       {/* Custom Alert Modal */}
       <AnimatePresence>
