@@ -30,7 +30,7 @@ import { LessonContent } from './student/LessonContent';
 import { LessonIndex } from './student/LessonIndex';
 import { safeHref } from '../utils/safeUrl';
 import { sanitizeNoteHtml, escapeHtml } from '../utils/noteHtml';
-import { formatScheduledAt, dataCurta, horaCurta } from '../utils/liveSchedule';
+import { formatScheduledAt, dataCurta, horaCurta, transmissoesDoDia } from '../utils/liveSchedule';
 
 interface ModuleGroup {
   name: string;
@@ -440,6 +440,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const currentCourseProgress = selectedCourse
     ? progress.find((p) => p.courseId === selectedCourse.id && p.userId === activeUser.id)
     : null;
+
+  /*
+   * Transmissões que acontecem hoje. `new Date()` fica aqui, num único ponto, e o
+   * recorte por dia mora em liveSchedule — testável sem depender do relógio.
+   */
+  const transmissoesDeHoje = React.useMemo(
+    () => transmissoesDoDia(selectedCourse?.liveSessions, new Date()),
+    [selectedCourse]
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
@@ -1485,15 +1494,22 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     })}
                   </div>
 
-                  {/* 3. Live Mentoring Sessions styled as another module item */}
+                  {/*
+                    3. Transmissões ao vivo — SÓ as de hoje.
+                    Listava `liveSessions` inteiro: encontro de dias atrás ficava
+                    na tela com "Entrar na Sala" ativo e o convite a "aguardar o
+                    professor". Sem nenhuma hoje o bloco não aparece, em vez de
+                    virar uma caixa vazia com título.
+                  */}
+                  {transmissoesDeHoje.length > 0 && (
                   <div className="border border-teal-100 bg-teal-50/15 rounded-xl p-3 text-left space-y-2.5">
                     <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
                       <Video className="h-3.5 w-3.5 text-teal-600" />
-                      <span>Transmissões ao Vivo</span>
+                      <span>Transmissões de hoje</span>
                     </h5>
 
                     <div className="space-y-2">
-                      {selectedCourse.liveSessions.map((session, idx) => {
+                      {transmissoesDeHoje.map((session, idx) => {
                         const isAttended = currentCourseProgress?.attendedLiveSessions.includes(session.id) || false;
                         return (
                           <div key={`${session.id}-${idx}`} className="bg-white rounded-lg border border-teal-100/40 p-2.5 leading-relaxed text-left text-[11px]">
@@ -1548,6 +1564,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       })}
                     </div>
                   </div>
+                  )}
 
                   {/* 4. Interactive Quizzes / Tests Block */}
                   <div className="border border-amber-100 bg-amber-50/10 rounded-xl p-3.5 text-left space-y-3 shadow-2xs">

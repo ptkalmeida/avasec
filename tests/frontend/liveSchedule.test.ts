@@ -8,8 +8,10 @@ import {
   formatMes,
   formatHora,
   distanciaEmDias,
+  mesmoDia,
+  transmissoesDoDia,
 } from '../../src/utils/liveSchedule';
-import { Course, WebinarEvent } from '../../src/types';
+import { Course, LiveSession, WebinarEvent } from '../../src/types';
 
 /** 10/09/2026 às 12:00, horário local — o "agora" de todos os testes. */
 const AGORA = new Date(2026, 8, 10, 12, 0);
@@ -180,5 +182,97 @@ describe('distanciaEmDias', () => {
 
   it('atravessa a virada de mês sem se perder', () => {
     expect(distanciaEmDias(new Date(2026, 9, 1, 10, 0), new Date(2026, 8, 30, 10, 0))).toBe('amanhã');
+  });
+});
+
+describe('mesmoDia', () => {
+  it('compara dia de calendário, ignorando a hora', () => {
+    expect(mesmoDia(new Date(2026, 8, 10, 0, 1), new Date(2026, 8, 10, 23, 59))).toBe(true);
+    expect(mesmoDia(new Date(2026, 8, 10, 23, 59), new Date(2026, 8, 11, 0, 1))).toBe(false);
+  });
+
+  it('mesmo dia e mês de anos diferentes não é o mesmo dia', () => {
+    expect(mesmoDia(new Date(2026, 8, 10, 12, 0), new Date(2025, 8, 10, 12, 0))).toBe(false);
+  });
+});
+
+describe('transmissoesDoDia', () => {
+  const sessao = (id: string, scheduledAt: string, over: Partial<LiveSession> = {}): LiveSession => ({
+    id,
+    courseId: 'course-1',
+    title: `Encontro ${id}`,
+    scheduledAt,
+    durationMinutes: 60,
+    meetingLink: 'https://meet.example/x',
+    isLive: false,
+    ...over,
+  });
+
+  // 10/09/2026, 14:00 — a referência de "hoje" para este bloco.
+  const HOJE = new Date(2026, 8, 10, 14, 0);
+
+  it('deixa de fora o encontro de dias atrás', () => {
+    // O defeito relatado: encontros de 01/09 e 02/09 continuavam na tela em 03/09
+    // com o botão "Entrar na Sala" ativo, convidando a esperar numa sala vazia.
+    const passadas = [
+      sessao('s1', '2026-09-01T19:30'),
+      sessao('s2', '2026-09-02T18:00'),
+    ];
+    expect(transmissoesDoDia(passadas, new Date(2026, 8, 3, 10, 0))).toEqual([]);
+  });
+
+  it('mostra a de hoje mesmo já tendo começado', () => {
+    // Encontro das 08:00 visto às 14:00 ainda é o encontro de hoje.
+    const r = transmissoesDoDia([sessao('manha', '2026-09-10T08:00')], HOJE);
+    expect(r.map((s) => s.id)).toEqual(['manha']);
+  });
+
+  it('não antecipa a de amanhã', () => {
+    expect(transmissoesDoDia([sessao('amanha', '2026-09-11T19:30')], HOJE)).toEqual([]);
+  });
+
+  it('a de amanhã aparece só quando amanhã chega', () => {
+    const s = [sessao('amanha', '2026-09-11T19:30')];
+    // Faltando 30 minutos, ainda é outro dia: não aparece.
+    expect(transmissoesDoDia(s, new Date(2026, 8, 10, 23, 59))).toEqual([]);
+    // Um minuto depois, virou hoje.
+    expect(transmissoesDoDia(s, new Date(2026, 8, 11, 0, 1)).map((x) => x.id)).toEqual(['amanha']);
+  });
+
+  it('ordena as de hoje pelo horário', () => {
+    const r = transmissoesDoDia([
+      sessao('noite', '2026-09-10T20:00'),
+      sessao('manha', '2026-09-10T08:00'),
+      sessao('tarde', '2026-09-10T15:30'),
+    ], HOJE);
+    expect(r.map((s) => s.id)).toEqual(['manha', 'tarde', 'noite']);
+  });
+
+  it('separa as de hoje das de outros dias na mesma lista', () => {
+    const r = transmissoesDoDia([
+      sessao('ontem', '2026-09-09T19:30'),
+      sessao('hoje', '2026-09-10T19:30'),
+      sessao('amanha', '2026-09-11T19:30'),
+    ], HOJE);
+    expect(r.map((s) => s.id)).toEqual(['hoje']);
+  });
+
+  it('descarta data em formato antigo de texto livre', () => {
+    // Sem data legível não há como afirmar que é hoje — e afirmar era o defeito.
+    const r = transmissoesDoDia([
+      sessao('legado', 'Próxima Segunda, às 20:00'),
+      sessao('hoje', '2026-09-10T19:30'),
+    ], HOJE);
+    expect(r.map((s) => s.id)).toEqual(['hoje']);
+  });
+
+  it('descarta data inexistente em vez de deslizar para o mês seguinte', () => {
+    expect(transmissoesDoDia([sessao('ruim', '2026-02-31T19:30')], HOJE)).toEqual([]);
+  });
+
+  it('lista ausente ou vazia devolve vazio, não quebra', () => {
+    expect(transmissoesDoDia(undefined, HOJE)).toEqual([]);
+    expect(transmissoesDoDia(null, HOJE)).toEqual([]);
+    expect(transmissoesDoDia([], HOJE)).toEqual([]);
   });
 });
