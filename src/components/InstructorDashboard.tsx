@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import {
   BookOpen, Calendar, CheckCircle, Award, Video, Plus, Trash2, Edit3, Users,
-  Globe, Clock, Grid, ChevronRight, TrendingUp, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
+  Globe, Clock, Grid, ChevronRight, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
   ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock, Pencil
 } from 'lucide-react';
@@ -1388,21 +1388,17 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             )}
           </section>
 
-          <div className="rounded-2xl border border-slate-200 bg-slate-900 text-slate-100 p-5 shadow-sm space-y-4">
-            <h4 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2 text-teal-400">
-              <TrendingUp className="h-4 w-4" />
-              <span>Métricas AVA</span>
-            </h4>
-            <div className="grid grid-cols-1 gap-3">
-              <div className="bg-slate-800/60 p-3 rounded-xl border border-slate-850">
-                <span className="text-[9px] text-slate-400 uppercase font-black block mb-1">Engajamento de Grade</span>
-                <div className="flex items-end gap-2">
-                  <strong className="text-xl font-bold font-mono text-emerald-400 leading-none">82%</strong>
-                  <span className="text-[9px] text-slate-500">Média de Fixação</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/*
+            REMOVIDO: painel "Métricas AVA" com "Engajamento de Grade — 82% Média
+            de Fixação". O 82% era literal no JSX, não vinha de conta nenhuma:
+            aparecia igual em qualquer disciplina, com qualquer turma, em qualquer
+            dia. Número inventado com aparência de indicador é pior que nenhum
+            número — alguém decide olhando para ele.
+
+            Se um indicador de fixação for pedido, os dados existem
+            (`quizSubmissions` e `exerciseSubmissions` por curso) e a conta tem
+            de sair deles.
+          */}
         </div>
       </div>
       )}
