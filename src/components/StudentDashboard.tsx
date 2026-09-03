@@ -31,6 +31,7 @@ import { LessonIndex } from './student/LessonIndex';
 import { safeHref } from '../utils/safeUrl';
 import { sanitizeNoteHtml, escapeHtml } from '../utils/noteHtml';
 import { formatScheduledAt, dataCurta, horaCurta, transmissoesDoDia, situacaoTransmissao, encerradaPorTempo } from '../utils/liveSchedule';
+import { exerciciosDoCurso } from '../utils/exerciseStatus';
 
 interface ModuleGroup {
   name: string;
@@ -445,6 +446,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
    * Transmissões que acontecem hoje. `new Date()` fica aqui, num único ponto, e o
    * recorte por dia mora em liveSchedule — testável sem depender do relógio.
    */
+  /*
+   * Exercícios de fixação do curso aberto. Vem daqui em vez de filtrar inline
+   * porque o bloco INTEIRO só existe quando há algum: disciplina sem exercício
+   * exibia uma caixa com título e a frase "Nenhum exercício prático lançado
+   * neste curso" — ocupando a coluna para dizer que não há nada a fazer.
+   *
+   * `practicalExercises` já chega sem os inativados: a API os exclui (ADR 12).
+   */
+  const exerciciosDoCursoAberto = React.useMemo(
+    () => (selectedCourse ? exerciciosDoCurso(practicalExercises, selectedCourse.id) : []),
+    [practicalExercises, selectedCourse]
+  );
+
   const agoraTransmissao = new Date();
   const transmissoesDeHoje = React.useMemo(
     () => transmissoesDoDia(selectedCourse?.liveSessions, new Date()),
@@ -1625,7 +1639,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     </div>
                   </div>
 
-                  {/* 5. Practical Exercises Sidebar Block */}
+                  {/* 5. Exercícios de fixação — só quando a disciplina tem algum. */}
+                  {exerciciosDoCursoAberto.length > 0 && (
                   <div className="border border-teal-100 bg-teal-50/10 rounded-xl p-3.5 text-left space-y-3 shadow-2xs">
                     <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
                       <FileCheck className="h-3.5 w-3.5 text-teal-600" />
@@ -1633,13 +1648,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     </h5>
 
                     <div className="space-y-2.5">
-                      {practicalExercises.filter(ex => ex.courseId === selectedCourse.id).length === 0 ? (
-                        <div className="bg-white rounded-lg border border-slate-200 p-4.5 text-center text-xs text-slate-400">
-                          Nenhum exercício prático lançado neste curso.
-                        </div>
-                      ) : (
                         <div className="space-y-2.5">
-                          {practicalExercises.filter(ex => ex.courseId === selectedCourse.id).map((ex, idx) => {
+                          {exerciciosDoCursoAberto.map((ex, idx) => {
                             const studentSub = exerciseSubmissions.find(s => s.exerciseId === ex.id && s.userId === activeUser.id);
                             return (
                               <div key={`${ex.id}-${idx}`} className="bg-white rounded-xl border border-slate-200 p-3.5 leading-relaxed text-left text-xs space-y-3 shadow-xs">
@@ -1683,9 +1693,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             <span>Abrir Atividades Práticas</span>
                           </button>
                         </div>
-                      )}
                     </div>
                   </div>
+                  )}
 
                 </div>
                 )}
