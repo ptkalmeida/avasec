@@ -268,9 +268,32 @@ final class AuthService
         return $this->toPublicUser($user);
     }
 
-    public function deleteUser(string $userId): void
+    /**
+     * Inativa a conta preservando o histórico acadêmico inteiro (ADR 12).
+     *
+     * Isto era `User::query()->where('id', $userId)->delete()`, e as chaves
+     * estrangeiras estão em ON DELETE CASCADE: apagar UMA pessoa destruía as
+     * notas de avaliação (`QuizSubmission`), os trabalhos entregues e corrigidos
+     * (`ExerciseSubmission`), o progresso e as presenças (`StudentProgress`), a
+     * matrícula, os requerimentos e o histórico de atendimento — e o certificado
+     * sobrevivia apontando para ninguém (`Certificate.userId` é SET NULL).
+     *
+     * A pessoa sai do ar; o que ela cursou continua reconstituível.
+     *
+     * @param  array{sub:string,name:string,role:string}|null  $requester
+     */
+    public function deleteUser(string $userId, ?array $requester = null, ?string $motivo = null): void
     {
-        User::query()->where('id', $userId)->delete();
+        $user = User::query()->find($userId);
+        if ($user === null) {
+            return;
+        }
+
+        // Bloquear a conta junto: `inativadoEm` tira das listagens, e o `status`
+        // é o que o middleware de autenticação consulta para recusar o login.
+        $user->status = 'blocked';
+        $user->saveQuietly();
+        $user->inativar($requester['sub'] ?? null, $motivo);
     }
 
     /**

@@ -63,9 +63,11 @@ final class CatalogService
      * evento — antes só havia criar e listar, então um webinar agendado por engano
      * ficava na agenda pública para sempre.
      */
-    public function deleteWebinar(string $id): void
+    public function deleteWebinar(string $id, ?string $porUserId = null, ?string $motivo = null): void
     {
-        WebinarEvent::query()->where('id', $id)->delete();
+        // Inativa em vez de apagar (ADR 12): o evento sai da agenda pública, mas
+        // fica registrado que existiu, quem desmarcou e por quê.
+        WebinarEvent::query()->find($id)?->inativar($porUserId, $motivo);
     }
 
     /**

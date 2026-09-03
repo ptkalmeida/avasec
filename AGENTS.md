@@ -29,6 +29,47 @@ Se o pedido do usuário não tiver planejamento prévio (nem um parágrafo em `0
 
 Não implemente até esse plano ser confirmado pelo humano. Isto é o `.ai/skills/obrigatorias/05-protocolo-operacao-ia.md` — leia-o antes de qualquer tarefa não trivial.
 
+## Regra inegociável nº 2: nada é apagado (ADR 12)
+
+Nenhum registro de **pessoa, disciplina, conteúdo, avaliação, nota ou entrega** é
+apagado do banco. Conteúdo que sai do ar é **inativado**; a linha permanece
+íntegra, com quem tirou, quando e por quê. Isto existe porque nota, frequência,
+entrega corrigida, matrícula e certificado são **registro acadêmico** de uma
+escola pública, e há obrigação de poder reconstruir depois o que aconteceu.
+
+Ver [docs/adr/012-nada-e-apagado.md](docs/adr/012-nada-e-apagado.md) para o
+levantamento que motivou a regra — incluindo o `ON DELETE CASCADE` que fazia a
+exclusão de **um** usuário destruir todas as notas, entregas, progresso e
+matrícula dele, deixando o certificado apontando para ninguém.
+
+**Proibido em tabela de domínio:**
+
+- `->forceDelete()`, `->truncate()`, `DELETE FROM`, `TRUNCATE`
+- migration que faça `dropColumn` de dado histórico
+- substituir registro em vez de acrescentar (ex.: nova tentativa de avaliação
+  sobrescrevendo a anterior)
+
+**Como fazer:** o model usa o trait `App\Models\Concerns\Inativavel`
+(`SoftDeletes` com a coluna `inativadoEm`), e o código de domínio chama
+`inativar($porUserId, $motivo)`, `reativar()` e `estaInativo()`. `->delete()`
+funciona (o trait o converte em inativação) mas **não registra quem nem por
+quê** — use `inativar()`.
+
+**Duas armadilhas que já custaram bug aqui:**
+
+1. Em qualquer **upsert**, procure com `withTrashed()`. `find()` não encontra o
+   registro inativo, e o `create()` seguinte estoura a chave primária ao
+   readicionar um id que já existiu.
+2. Middleware e consulta de autenticação precisam de `withTrashed()` para
+   distinguir "conta inativada" de "conta inexistente" — sem isso o cliente
+   recebe "token inválido" e tenta renovar a sessão para sempre.
+
+Visibilidade é **outro eixo**, em `App\Support\Visibilidade`: `status` 1
+publicado (aluno vê), 2 restrito (gestor e admin), 3 rascunho (só admin). Todo
+valor acrescentado a essa escada tem de ter um consumidor — `Course.statusCurso`
+existe com `'Ativo'`/`NULL` e nenhuma consulta o lê; é decoração, e serve de
+aviso.
+
 ## Nunca mude sem sinalizar e obter validação humana explícita
 
 - Escopo definido em `.ai/planejamento/01-visao-geral.md`

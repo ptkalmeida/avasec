@@ -53,8 +53,13 @@ final class CourseController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->courses->deleteCourse($id, $this->requester($request));
-        $this->audit->log($request, 'Exclusão de Curso', "Curso {$id} excluído.", 'WARNING');
+        $motivo = $request->input('motivo');
+        $this->courses->deleteCourse(
+            $id,
+            $this->requester($request),
+            is_string($motivo) && trim($motivo) !== '' ? trim($motivo) : null
+        );
+        $this->audit->log($request, 'Inativação de Curso', "Curso {$id} inativado (registro preservado).", 'WARNING');
 
         return response()->json(['success' => true]);
     }

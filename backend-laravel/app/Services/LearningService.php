@@ -62,7 +62,7 @@ final class LearningService
         $this->assertInstructorOwnsCourse($courseId, $requester);
 
         $id = is_string($input['id'] ?? null) ? $input['id'] : ('quiz-'.$this->nowMs());
-        $quiz = Quiz::query()->find($id);
+        $quiz = Quiz::query()->withTrashed()->find($id);
         // Um quiz existente não pode ser sequestrado para outro curso alheio.
         if ($quiz !== null && is_string($quiz->courseId)) {
             $this->assertInstructorOwnsCourse($quiz->courseId, $requester);
@@ -75,6 +75,8 @@ final class LearningService
 
         $questions = Payload::assocList($input['questions'] ?? []);
         $keptIds = array_values(array_filter(array_map(fn ($q) => $q['id'] ?? null, $questions)));
+        // Questão que saiu da edição é INATIVADA, não apagada (ADR 12): a
+        // resposta que o aluno já deu continua apontando para um item existente.
         QuizQuestion::query()->where('quizId', $id)
             ->when(count($keptIds) > 0, fn ($q) => $q->whereNotIn('id', $keptIds))
             ->delete();
@@ -91,8 +93,13 @@ final class LearningService
                 'recommendedModule' => $q['recommendedModule'] ?? null,
                 'allowRetry' => $q['allowRetry'] ?? null,
             ];
-            $existing = QuizQuestion::query()->find($qId);
+            // withTrashed: questão retirada e depois readicionada com o mesmo id
+            // não seria encontrada por find(), e o create() estouraria a chave.
+            $existing = QuizQuestion::query()->withTrashed()->find($qId);
             if ($existing !== null) {
+                if ($existing->estaInativo()) {
+                    $existing->reativar();
+                }
                 $existing->fill($data)->save();
             } else {
                 $data['id'] = $qId;
@@ -103,16 +110,24 @@ final class LearningService
         return Quiz::query()->with('questions')->find($id)?->toArray() ?? [];
     }
 
-    /** @param array{sub:string,name:string,role:string} $requester */
-    public function deleteQuiz(string $id, array $requester): void
+    /**
+     * Inativa a avaliação (ADR 12). As respostas dos alunos NÃO são tocadas.
+     *
+     * Isto apagava `QuizSubmission` do quiz junto — as notas que os alunos já
+     * tinham tirado desapareciam do banco porque quem deu aula excluiu a
+     * avaliação. Nota lançada é registro acadêmico e sobrevive à retirada do
+     * instrumento que a gerou.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function deleteQuiz(string $id, array $requester, ?string $motivo = null): void
     {
         $quiz = Quiz::query()->find($id);
         if ($quiz === null) {
             return;
         }
         $this->assertInstructorOwnsCourse(is_string($quiz->courseId) ? $quiz->courseId : null, $requester);
-        QuizSubmission::query()->where('quizId', $id)->delete();
-        Quiz::query()->where('id', $id)->delete();
+        $quiz->inativar($requester['sub'] ?? null, $motivo);
     }
 
     /**
@@ -169,6 +184,16 @@ final class LearningService
         $scorePercent = $total === 0 ? 0 : (int) round(($correct / $total) * 100);
         $passed = $scorePercent >= BusinessRules::quizPassThreshold();
 
+        /*
+         * A tentativa anterior é INATIVADA, não apagada (ADR 12): com o trait
+         * Inativavel no model, este ->delete() grava `inativadoEm` e a nota
+         * antiga continua no banco.
+         *
+         * PENDENTE (fase 2): exibir todas as tentativas. Falta uma coluna de
+         * data ORDENÁVEL — `submittedAt` é string de exibição
+         * ('03/09/2026 às 16:23'), que ordena errado (01/12 antes de 03/09), e
+         * sem ordenação confiável não há como dizer qual tentativa é a vigente.
+         */
         QuizSubmission::query()->where('userId', $requester['sub'])->where('quizId', $input['quizId'])->delete();
 
         return QuizSubmission::query()->create([
@@ -263,7 +288,9 @@ final class LearningService
         if ($requester['role'] !== 'admin' && ! $owns) {
             throw ApiException::forbidden('Você só pode remover as próprias mensagens.');
         }
-        $msg->delete();
+        // Sai do fórum, fica no registro (ADR 12): moderação precisa poder
+        // responder depois o que foi dito e por quem.
+        $msg->inativar($requester['sub'] ?? null);
     }
 
     // ---------- EXERCÍCIOS PRÁTICOS ----------
@@ -320,14 +347,17 @@ final class LearningService
     }
 
     /** @param array{sub:string,name:string,role:string} $requester */
-    public function deleteExercise(string $id, array $requester): void
+    public function deleteExercise(string $id, array $requester, ?string $motivo = null): void
     {
         $exercise = PracticalExercise::query()->find($id);
         if ($exercise === null) {
             return;
         }
         $this->assertInstructorOwnsCourse(is_string($exercise->courseId) ? $exercise->courseId : null, $requester);
-        $exercise->delete();
+        // As entregas dos alunos NÃO são tocadas: com a exclusão física, o
+        // ON DELETE CASCADE de ExerciseSubmission.exerciseId levava embora todo
+        // trabalho entregue e corrigido daquele exercício.
+        $exercise->inativar($requester['sub'] ?? null, $motivo);
     }
 
     /**

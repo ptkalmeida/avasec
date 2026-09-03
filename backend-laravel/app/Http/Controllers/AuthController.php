@@ -249,8 +249,14 @@ final class AuthController extends Controller
         if ($id === $sub) {
             throw new ApiException(400, 'BAD_REQUEST', 'Você não pode remover a própria conta administrativa.');
         }
-        $this->auth->deleteUser($id);
-        $this->audit->log($request, 'Exclusão de Usuário', "Usuário {$id} removido.");
+        // Motivo opcional no corpo: a auditoria pergunta por quê, não só quem.
+        $motivo = $request->input('motivo');
+        $this->auth->deleteUser(
+            $id,
+            $this->requester($request),
+            is_string($motivo) && trim($motivo) !== '' ? trim($motivo) : null
+        );
+        $this->audit->log($request, 'Inativação de Usuário', "Usuário {$id} inativado (registro preservado).");
 
         return response()->json(['success' => true]);
     }

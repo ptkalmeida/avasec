@@ -130,7 +130,10 @@ final class QuizEdicaoTest extends TestCase
         $this->assertContains($idQueFica, $ids);
         $this->assertNotContains($idQueSai, $ids);
         $this->assertCount(2, $ids);
-        $this->assertDatabaseMissing('QuizQuestion', ['id' => $idQueSai]);
+        // ADR 12: a questão retirada é inativada, não apagada — a resposta que
+        // o aluno já deu continua apontando para um item que existe.
+        $this->assertDatabaseHas('QuizQuestion', ['id' => $idQueSai]);
+        $this->assertNotNull(DB::table('QuizQuestion')->where('id', $idQueSai)->value('inativadoEm'));
     }
 
     public function test_instrutor_nao_edita_avaliacao_de_curso_alheio(): void

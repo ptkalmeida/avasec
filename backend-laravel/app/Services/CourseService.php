@@ -15,6 +15,7 @@ use App\Support\BusinessRules;
 use App\Support\CourseAccess;
 use App\Support\Payload;
 use App\Support\VideoSource;
+use App\Support\Visibilidade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -48,8 +49,20 @@ final class CourseService
             ? []
             : CourseAccess::accessibleCourseIds($requester);
 
+        /*
+         * Escada de audiência da ADR 12: `status` 1 publicado (aluno vê),
+         * 2 restrito (gestor e admin), 3 rascunho (só admin). Sem este filtro a
+         * coluna seria decoração — foi o que aconteceu com `statusCurso`, que
+         * existe com 'Ativo'/NULL e nenhuma consulta lê.
+         *
+         * Curso INATIVADO não precisa de filtro aqui: o SoftDeletes o exclui de
+         * toda consulta automaticamente, e é essa a razão de tê-lo escolhido.
+         */
+        $consulta = Course::query()->with($this->courseInclude());
+        Visibilidade::aplicar($consulta, $requester['role'] ?? null);
+
         $catalogo = [];
-        foreach (Course::query()->with($this->courseInclude())->get() as $course) {
+        foreach ($consulta->get() as $course) {
             $curso = $course->toArray();
             $catalogo[] = ($irrestrito || in_array($course->id, $liberados, true))
                 ? $curso
@@ -208,11 +221,19 @@ final class CourseService
     }
 
     /** @param array{sub:string,name:string,role:string} $requester */
-    public function deleteCourse(string $courseId, array $requester): void
+    public function deleteCourse(string $courseId, array $requester, ?string $motivo = null): void
     {
         $this->assertCourseOwnership($courseId, $requester);
-        // FK onDelete: Cascade no banco remove aulas/documentos/sessões atomicamente.
-        Course::query()->where('id', $courseId)->delete();
+        /*
+         * Inativa a disciplina (ADR 12). Antes era exclusão física, e o
+         * ON DELETE CASCADE do banco levava aulas, documentos e encontros junto
+         * — junto com o histórico de quem cursou.
+         *
+         * Aulas e encontros continuam ativos por baixo, de propósito: ficam
+         * inalcançáveis porque a disciplina está fora do ar, e reativar a
+         * disciplina devolve o conteúdo inteiro sem precisar recompor nada.
+         */
+        Course::query()->find($courseId)?->inativar($requester['sub'] ?? null, $motivo);
     }
 
     /** @param array{sub:string,name:string,role:string} $requester */
@@ -283,6 +304,9 @@ final class CourseService
     private function syncLessons(string $courseId, array $lessons): void
     {
         $keptIds = array_values(array_filter(array_map(fn ($l) => $l['id'] ?? null, $lessons)));
+        // Aula que saiu da edição é INATIVADA, não apagada (ADR 12): com o trait
+        // Inativavel no model, este ->delete() do builder grava `inativadoEm`.
+        // Readicionar a mesma aula depois a reativa (ver withTrashed abaixo).
         Lesson::query()->where('courseId', $courseId)
             ->when(count($keptIds) > 0, fn ($q) => $q->whereNotIn('id', $keptIds))
             ->delete();
@@ -292,8 +316,14 @@ final class CourseService
                 ? $lesson['id']
                 : ('lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = $this->lessonScalar($lesson, $courseId);
-            $existing = Lesson::query()->find($lessonId);
+            // withTrashed é OBRIGATÓRIO aqui: com a inativação da ADR 12, uma
+            // aula retirada e depois readicionada com o mesmo id não seria
+            // encontrada por find(), e o create() estouraria a chave primária.
+            $existing = Lesson::query()->withTrashed()->find($lessonId);
             if ($existing !== null) {
+                if ($existing->estaInativo()) {
+                    $existing->reativar();
+                }
                 $existing->fill($data)->save();
             } else {
                 $data['id'] = $lessonId;
@@ -310,8 +340,11 @@ final class CourseService
                     ? $doc['id']
                     : ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
                 $docData = $this->documentScalar($doc, $lessonId);
-                $existingDoc = LessonDocument::query()->find($docId);
+                $existingDoc = LessonDocument::query()->withTrashed()->find($docId);
                 if ($existingDoc !== null) {
+                    if ($existingDoc->estaInativo()) {
+                        $existingDoc->reativar();
+                    }
                     $existingDoc->fill($docData)->save();
                 } else {
                     $docData['id'] = $docId;
@@ -335,9 +368,12 @@ final class CourseService
                 : ('live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = $this->liveSessionData($session, $courseId);
             $data['id'] = $sessionId;
-            $existing = LiveSession::query()->find($sessionId);
+            $existing = LiveSession::query()->withTrashed()->find($sessionId);
             if ($existing !== null) {
                 unset($data['id']);
+                if ($existing->estaInativo()) {
+                    $existing->reativar();
+                }
                 $existing->fill($data)->save();
             } else {
                 LiveSession::query()->create($data);

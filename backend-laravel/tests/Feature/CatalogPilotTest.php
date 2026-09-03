@@ -179,7 +179,13 @@ final class CatalogPilotTest extends TestCase
         // Exclusão existe para a área de gestão poder desmarcar: antes só havia criar
         // e listar, e um webinar agendado por engano ficava na agenda para sempre.
         $this->deleteJson("/api/webinars/{$id}", [], $this->auth($token))->assertOk();
-        $this->assertDatabaseMissing('WebinarEvent', ['id' => $id]);
+        // ADR 12: o webinar desmarcado NÃO sai do banco — sai do ar. A
+        // asserção antiga (`assertDatabaseMissing`) exigia o contrário.
+        $this->assertDatabaseHas('WebinarEvent', ['id' => $id]);
+        $this->assertNotNull(
+            DB::table('WebinarEvent')->where('id', $id)->value('inativadoEm'),
+            'Webinar removido tem de ficar registrado como inativado.'
+        );
     }
 
     public function test_webinar_rejects_javascript_link(): void
