@@ -215,3 +215,30 @@ describe('exercícios do curso', () => {
     expect(original.map((e) => e.id)).toEqual(['e1', 'e2']);
   });
 });
+
+describe('bloco de exercícios: mostrar só quando existe', () => {
+  const ex = (id: string, courseId: string): PracticalExercise => ({
+    id,
+    courseId,
+    title: `Exercício ${id}`,
+    description: 'd',
+    instructions: 'i',
+    maxPoints: 100,
+  } as PracticalExercise);
+
+  it('disciplina sem exercício devolve lista vazia — o bloco não deve aparecer', () => {
+    // A regra é do produto: caixa com título e "Nenhum exercício prático
+    // lançado neste curso" ocupava a coluna para dizer que não há nada a fazer.
+    expect(exerciciosDoCurso([], 'curso-sem')).toEqual([]);
+    expect(exerciciosDoCurso([ex('e1', 'outro-curso')], 'curso-sem')).toEqual([]);
+  });
+
+  it('exercício de outra disciplina não faz o bloco aparecer', () => {
+    const lista = exerciciosDoCurso([ex('e1', 'curso-a'), ex('e2', 'curso-b')], 'curso-b');
+    expect(lista.map((e) => e.id)).toEqual(['e2']);
+  });
+
+  it('com exercício da própria disciplina, a lista não é vazia', () => {
+    expect(exerciciosDoCurso([ex('e1', 'curso-a')], 'curso-a')).toHaveLength(1);
+  });
+});
