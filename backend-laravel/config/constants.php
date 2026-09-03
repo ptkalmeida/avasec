@@ -13,4 +13,6 @@ return [
     'dropout_penalty_free_days' => 5,
     // Duração (em dias) da restrição de nova matrícula após cancelamento tardio.
     'dropout_penalty_days' => 30,
+    // Horas após o horário agendado em que a transmissão ao vivo vale como encerrada.
+    'live_session_auto_end_hours' => 24,
 ];

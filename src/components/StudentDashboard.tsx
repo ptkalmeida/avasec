@@ -30,7 +30,7 @@ import { LessonContent } from './student/LessonContent';
 import { LessonIndex } from './student/LessonIndex';
 import { safeHref } from '../utils/safeUrl';
 import { sanitizeNoteHtml, escapeHtml } from '../utils/noteHtml';
-import { formatScheduledAt, dataCurta, horaCurta, transmissoesDoDia } from '../utils/liveSchedule';
+import { formatScheduledAt, dataCurta, horaCurta, transmissoesDoDia, situacaoTransmissao, encerradaPorTempo } from '../utils/liveSchedule';
 
 interface ModuleGroup {
   name: string;
@@ -445,6 +445,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
    * Transmissões que acontecem hoje. `new Date()` fica aqui, num único ponto, e o
    * recorte por dia mora em liveSchedule — testável sem depender do relógio.
    */
+  const agoraTransmissao = new Date();
   const transmissoesDeHoje = React.useMemo(
     () => transmissoesDoDia(selectedCourse?.liveSessions, new Date()),
     [selectedCourse]
@@ -1534,13 +1535,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                 <button
                                   onClick={() => setActiveLiveSession(session)}
                                   className={`flex-1 font-bold py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
-                                    session.isLive
+                                    situacaoTransmissao(session, agoraTransmissao) === 'ao-vivo'
                                       ? 'bg-red-600 hover:bg-red-500 text-white animate-pulse'
                                       : 'bg-teal-600 hover:bg-teal-500 text-white'
                                   }`}
                                 >
                                   <Video className="h-4 w-4 fill-white shrink-0" />
-                                  <span>{session.isLive ? 'Entrar ao Vivo' : 'Entrar na Sala'}</span>
+                                  <span>{situacaoTransmissao(session, agoraTransmissao) === 'ao-vivo' ? 'Entrar ao Vivo' : 'Entrar na Sala'}</span>
                                 </button>
                                 
                                 <a
@@ -1553,7 +1554,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                   <span>Google Meet</span>
                                 </a>
                               </div>
-                              {!session.isLive && (
+                              {situacaoTransmissao(session, agoraTransmissao) === 'agendada' && (
                                 <span className="text-[9px] text-slate-400 block text-center mt-1">
                                   Encontro agendado. Você pode entrar na sala virtual e aguardar o professor.
                                 </span>
@@ -1711,7 +1712,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                       <button onClick={() => setShowUpcomingCalendar(false)} className="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg text-[10px] uppercase font-bold">Fechar</button>
                     </div>
                     <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
-                      {courses.flatMap(c => c.liveSessions).filter(s => !s.isLive).map((session, idx) => (
+                      {courses
+                        .flatMap(c => c.liveSessions)
+                        /*
+                          Este bloco se chama "Próximas Sessões" e listava tudo
+                          que não estava ao vivo — inclusive encontro de dias
+                          atrás, anunciado como próximo. Encerrado pela regra das
+                          24h sai da lista.
+                        */
+                        .filter(s => !encerradaPorTempo(s, agoraTransmissao))
+                        .filter(s => !s.isLive)
+                        .map((session, idx) => (
                         <div key={`${session.id}-${idx}`} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition-colors group">
                            <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center min-w-[70px] group-hover:border-teal-200 group-hover:bg-teal-50 transition-all">
                               <span className="block text-[10px] font-black text-slate-400 uppercase leading-none mb-1">DATA</span>
