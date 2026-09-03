@@ -13,6 +13,7 @@ import { courseMinAttendance } from '../config/constants';
 // caso a API rejeitava o cadastro sem a tela explicar por quê.
 import { generateInitialPassword } from '../utils/cpf';
 import { frequenciaPercent, registroDoAluno } from '../utils/courseProgress';
+import { momentoIso } from '../utils/quizAttempts';
 
 // Wrapper de fetch autenticado. A sessão do navegador vive num cookie HttpOnly
 // (ava_session), enviado automaticamente em requisições same-origin — nenhum token fica
@@ -2074,6 +2075,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // scorePercent/passed aqui são só otimistas para o feedback imediato na tela.
     // A nota REAL é recalculada no servidor a partir de `answers` (o backend ignora
     // qualquer nota vinda do cliente) — ver LearningService::submitQuiz.
+    const agora = new Date();
     const otimista: QuizSubmission = {
       id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: activeUser.id,
@@ -2082,13 +2084,15 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       quizId,
       scorePercent,
       passed,
-      submittedAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      submittedAt: agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      // Mesma forma que o servidor devolve (hora local, sem fuso), para que a
+      // ordenação valha já no estado otimista e não só depois da reconciliação.
+      enviadoEm: momentoIso(agora)
     };
-    setQuizSubmissions((prev) => {
-      // Substitui tentativas anteriores do mesmo aluno no mesmo quiz (permite refazer).
-      const limpo = prev.filter((sub) => !(sub.userId === activeUser.id && sub.quizId === quizId));
-      return [...limpo, otimista];
-    });
+    // ACRESCENTA. Antes as tentativas anteriores do mesmo aluno eram removidas do
+    // estado, o que espelhava o servidor da época — ele inativava a anterior. Agora
+    // o histórico fica no ar, e quem escolhe a vigente é `tentativaVigente`.
+    setQuizSubmissions((prev) => [otimista, ...prev]);
 
     try {
       const res = await authFetch('/api/quiz-submissions', {
@@ -2108,7 +2112,16 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Reconcilia com a nota autoritativa do servidor.
         setQuizSubmissions((prev) => prev.map((sub) =>
           sub.id === otimista.id
-            ? { ...sub, scorePercent: salva.scorePercent, passed: !!salva.passed, id: salva.id ?? sub.id }
+            ? {
+                ...sub,
+                scorePercent: salva.scorePercent,
+                passed: !!salva.passed,
+                id: salva.id ?? sub.id,
+                // Data do servidor quando ela vem: é o relógio que ordena as
+                // tentativas de todos, não o do navegador de quem respondeu.
+                submittedAt: typeof salva.submittedAt === 'string' ? salva.submittedAt : sub.submittedAt,
+                enviadoEm: typeof salva.enviadoEm === 'string' ? salva.enviadoEm : sub.enviadoEm
+              }
             : sub
         ));
         return { ok: true, scorePercent: salva.scorePercent, passed: !!salva.passed };

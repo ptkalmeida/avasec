@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models\Concerns;
 
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * Inativação em vez de exclusão (ADR 12).
@@ -22,6 +23,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * A palavra "delete" fica confinada ao framework. Código de domínio usa
  * `inativar()`, `reativar()` e `estaInativo()` — chamar `delete()` direto
  * funciona, mas não registra quem nem por quê, então não use.
+ *
+ * As três colunas são declaradas aqui porque a migration as cria em TODA tabela
+ * inativável: sem isto a análise estática não conhece o registro da inativação e
+ * quem quiser lê-lo é obrigado a passar por `getAttribute()`.
+ *
+ * @property Carbon|null $inativadoEm
+ * @property string|null $inativadoPor
+ * @property string|null $motivoInativacao
  */
 trait Inativavel
 {

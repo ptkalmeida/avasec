@@ -33,6 +33,7 @@ import {
   problemaNoNome, problemaNoEmail, problemaNoMunicipio, problemaNaUf, problemaNaArea,
 } from '../utils/camposMatricula';
 import { parseDataBr } from '../utils/exerciseStatus';
+import { mediaDasVigentes, mediaDoAlunoNoCurso } from '../utils/quizAttempts';
 
 interface AdminDashboardProps {
   onBackToLanding?: () => void;
@@ -762,11 +763,15 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
     return Math.round((attended / totals) * 100);
   };
 
-  const getGlobalAverageQuizScore = () => {
-    if (quizSubmissions.length === 0) return 0;
-    const total = quizSubmissions.reduce((sum, s) => sum + s.scorePercent, 0);
-    return Math.round(total / quizSubmissions.length);
-  };
+  /*
+   * Média só das tentativas VIGENTES — uma por aluno+avaliação.
+   *
+   * Somar a lista crua passou a significar "média entre tentativas" no dia em
+   * que o histórico ficou no ar: quem refaz três vezes pesa o triplo de quem fez
+   * uma, e a nota baixa corrigida na segunda tentativa arrastaria o indicador
+   * para baixo para sempre.
+   */
+  const getGlobalAverageQuizScore = () => mediaDasVigentes(quizSubmissions) ?? 0;
 
   // Itens de navegação do módulo administrativo (esqueleto sidebar+topbar do PC Design System).
   const adminNavItems = [
@@ -4298,8 +4303,14 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
                               // average quiz score (resolve o id do aluno exibido no documento — ADR 10)
                               const docStudentId = studentsList.find(s => s.name === activeDocViewer.studentName)?.id;
-                              const subs = quizSubmissions.filter(s => s.userId === docStudentId && s.courseId === course.id);
-                              const quizScore = subs.length > 0 ? `${subs[0].scorePercent}%` : 'Pendente';
+                              // Documento impresso: a nota vem da tentativa VIGENTE de
+                              // cada avaliação. Era `subs[0]`, que valia enquanto havia uma
+                              // tentativa por aluno+avaliação — com o histórico no ar,
+                              // passaria a imprimir uma tentativa qualquer numa declaração.
+                              const media = docStudentId === undefined
+                                ? null
+                                : mediaDoAlunoNoCurso(quizSubmissions, docStudentId, course.id);
+                              const quizScore = media === null ? 'Pendente' : `${media}%`;
 
                               return (
                                 <tr key={`${course.id}-${idx}`} className="border-b border-slate-100 hover:bg-slate-50/30">

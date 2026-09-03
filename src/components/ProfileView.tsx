@@ -5,7 +5,7 @@ import {
   Clock, Settings, Volume2, VolumeX, Eye, EyeOff, RefreshCw,
   Trash2, FileText, CheckCircle2, Copy, Check, Globe, Layout, Gauge,
   Lock, Key, Fingerprint, ShieldAlert, Camera, Upload, X, Printer, ShieldCheck, LogOut,
-  Download, Calendar, PlayCircle, CheckCircle, Info, ArrowRight
+  Download, Calendar, PlayCircle, CheckCircle, Info, ArrowRight, AlertTriangle
 } from 'lucide-react';
 import { useLMS } from '../context/LMSContext';
 import { features } from '../config/features';
@@ -118,6 +118,8 @@ export function ProfileView({
     courseTitle?: string;
     cargaHoraria?: number | null;
     issueDate?: string;
+    /** Encontrado, mas revogado: nem válido nem inexistente (ADR 12). */
+    revogado?: boolean;
   } | null>(null);
 
   // Validação usa a rota pública real (mesma do autenticador da landing) — certificados
@@ -130,9 +132,19 @@ export function ProfileView({
       const res = await fetch(`/api/certificates/verify?q=${encodeURIComponent(code)}`);
       const data = res.ok ? await res.json() : null;
       if (data && data.verificationHash) {
+        // Revogado NAO é "não encontrado": o documento existe, foi emitido e
+        // perdeu a validade. Dizer "confira a grafia" seria mentir para quem
+        // está com o papel na mão.
+        const revogado = data.revogado === true;
         setValidationResult({
-          valid: true,
-          message: 'Certificado válido',
+          valid: !revogado,
+          revogado,
+          message: revogado
+            ? `Certificado revogado${typeof data.revogadoEm === 'string' && data.revogadoEm !== '' ? ` em ${data.revogadoEm}` : ''}. `
+              + (typeof data.motivoRevogacao === 'string' && data.motivoRevogacao !== ''
+                ? `Motivo registrado: ${data.motivoRevogacao}`
+                : 'Este documento não comprova conclusão de curso.')
+            : 'Certificado válido',
           studentName: data.studentName,
           courseTitle: data.courseTitle,
           cargaHoraria: data.cargaHoraria,
@@ -1060,9 +1072,33 @@ export function ProfileView({
 
                 {validationResult && (
                   <div className={`mt-6 p-5 rounded-xl border animate-in slide-in-from-bottom-2 duration-300 ${
-                    validationResult.valid ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
+                    validationResult.valid
+                      ? 'bg-emerald-50 border-emerald-200'
+                      : validationResult.revogado === true
+                      ? 'bg-rose-50 border-rose-200'
+                      : 'bg-amber-50 border-amber-200'
                   }`}>
-                    {validationResult.valid ? (
+                    {validationResult.revogado === true ? (
+                      /*
+                       * Revogado tem caixa própria, e mostra os dados do documento:
+                       * quem está conferindo precisa saber que é ESTE papel que
+                       * perdeu a validade, não outro. Cair na caixa de "não
+                       * encontrado" mandaria a pessoa conferir a grafia de um
+                       * código que está correto.
+                       */
+                      <div className="space-y-3">
+                        <div className="mb-2 flex items-center gap-2 text-rose-700">
+                          <AlertTriangle className="h-5 w-5" />
+                          <strong className="text-sm uppercase tracking-wider">Certificado Revogado</strong>
+                        </div>
+                        <p className="text-xs font-bold leading-relaxed text-rose-800">{validationResult.message}</p>
+                        <div className="space-y-1.5 border-t border-rose-100 pt-3 text-xs text-slate-700">
+                          <p><strong className="text-slate-900 w-24 inline-block">Aluno:</strong> {validationResult.studentName}</p>
+                          <p><strong className="text-slate-900 w-24 inline-block">Curso:</strong> {validationResult.courseTitle}</p>
+                          <p><strong className="text-slate-900 w-24 inline-block">Emissão:</strong> {validationResult.issueDate}</p>
+                        </div>
+                      </div>
+                    ) : validationResult.valid ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-2 text-emerald-700 mb-2">
                           <CheckCircle className="h-5 w-5" />

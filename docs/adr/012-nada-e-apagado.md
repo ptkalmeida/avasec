@@ -81,10 +81,18 @@ framework; o código de domínio usa `inativar()`, `reativar()` e `estaInativo()
 3. Remoção de aula, questão ou encontro pela edição do curso (o "sync" que
    apagava o que o cliente não reenviou) **inativa** o que saiu.
 4. Nova tentativa de avaliação **não substitui** a anterior: toda tentativa fica
-   registrada, e a vigente é a mais recente.
+   registrada, e a vigente é a mais recente. Isto exigiu a coluna
+   `QuizSubmission.enviadoEm` — `submittedAt` é texto de exibição
+   ('03/09/2026 às 16:23') e ordena alfabeticamente, então '01/12' vinha antes
+   de '03/09' e não havia como afirmar qual tentativa vale. Sem esse eixo, guardar
+   o histórico significaria não saber a nota do aluno.
 5. `SecurityLog` não tem expurgo. A trilha de auditoria não se apaga a si mesma.
 6. Certificado não é apagado: perder validade é **revogação registrada**, com
-   quem revogou e por quê.
+   quem revogou e por quê. E a consulta pública de verificação **inclui o
+   revogado**, respondendo "foi revogado" com data e motivo. Omiti-lo faria a
+   rota dizer "não existe" sobre um papel que está impresso e pode estar anexado
+   a um processo — o oposto do que a revogação serve para comunicar. Baixar o PDF,
+   esse sim, deixa de ser possível.
 7. Toda listagem pública ou de aluno respeita `status` e `inativadoEm`.
 
 **Aceitas como custo:**

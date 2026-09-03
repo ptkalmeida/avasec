@@ -6,10 +6,11 @@
 import React from 'react';
 import {
   ArrowLeft, ArrowRight, CheckSquare, CheckCircle, Lightbulb, Info,
-  PartyPopper, BookOpen, Sparkles, AlertTriangle, Award,
+  PartyPopper, BookOpen, Sparkles, AlertTriangle, Award, History,
 } from 'lucide-react';
 import { Quiz, QuizQuestion, QuizSubmission } from '../../types';
 import { QUIZ_PASS_THRESHOLD } from '../../config/constants';
+import { tentativaVigente, tentativasAnteriores, textoDaTentativa } from '../../utils/quizAttempts';
 
 /**
  * Área própria dos testes e avaliações de um curso.
@@ -47,13 +48,14 @@ interface AvaliacoesPageProps {
   notify: (mensagem: string) => void;
 }
 
-/** Nota e situação da última tentativa do aluno naquela avaliação. */
-const tentativaDe = (
-  submissions: QuizSubmission[],
-  quizId: string,
-  userId: string
-): QuizSubmission | undefined =>
-  submissions.find((s) => s.quizId === quizId && s.userId === userId);
+/*
+ * A escolha da tentativa que vale saiu daqui para `utils/quizAttempts`.
+ *
+ * Era um `find()`, e funcionava porque o servidor guardava uma tentativa por
+ * aluno+avaliação — refazer inativava a anterior. Agora o histórico fica no ar,
+ * e `find()` devolveria a primeira que a API mandasse: qualquer tentativa, não
+ * a vigente.
+ */
 
 /** Acertos de um conjunto de respostas — usado só para o feedback imediato. */
 export const contarAcertos = (
@@ -426,7 +428,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
   );
 
   const quiz = doCurso.find((q) => q.id === emAndamento);
-  const aprovadas = doCurso.filter((q) => tentativaDe(submissions, q.id, userId)?.passed).length;
+  const aprovadas = doCurso.filter((q) => tentativaVigente(submissions, q.id, userId)?.passed).length;
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 text-left">
@@ -496,7 +498,8 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
       ) : (
         <ul className="space-y-3">
           {doCurso.map((q) => {
-            const tentativa = tentativaDe(submissions, q.id, userId);
+            const tentativa = tentativaVigente(submissions, q.id, userId);
+            const anteriores = tentativasAnteriores(submissions, q.id, userId);
 
             return (
               <li
@@ -507,8 +510,34 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
                   <strong className="block text-xs font-bold leading-snug text-slate-900">{q.title}</strong>
                   <span className="block text-[10px] text-slate-450">
                     {q.questions.length} {q.questions.length === 1 ? 'questão' : 'questões'}
-                    {tentativa && ` · última tentativa em ${tentativa.submittedAt}`}
+                    {tentativa && ` · ${anteriores.length === 0 ? 'respondida' : 'tentativa vigente'} em ${textoDaTentativa(tentativa)}`}
                   </span>
+
+                  {/*
+                    * Histórico. A tentativa anterior era INATIVADA a cada nova
+                    * resposta: o dado ficava no banco (ADR 12) mas saía das
+                    * listagens, e o aluno não tinha como ver o que já tinha feito.
+                    */}
+                  {anteriores.length > 0 && (
+                    <details className="group">
+                      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-450 hover:text-slate-700">
+                        <History className="h-3 w-3" />
+                        {anteriores.length === 1
+                          ? '1 tentativa anterior'
+                          : `${anteriores.length} tentativas anteriores`}
+                      </summary>
+                      <ul className="mt-1.5 space-y-1 border-l border-slate-200 pl-2.5">
+                        {anteriores.map((t) => (
+                          <li key={t.id} className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                            <span className="font-mono font-bold text-slate-600">{t.scorePercent}%</span>
+                            <span className="text-slate-350">·</span>
+                            <span>{textoDaTentativa(t)}</span>
+                            {t.passed && <span className="font-bold text-emerald-700">aprovado</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </div>
 
                 <div className="flex shrink-0 items-center gap-2">
