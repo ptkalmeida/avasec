@@ -28,6 +28,10 @@ import {
 } from 'recharts';
 import { features } from '../config/features';
 import { generateInitialPassword, passwordProblem, maskCpf, isValidCpf } from '../utils/cpf';
+import {
+  apenasLetras, apenasUf, apenasAreaInteresse,
+  problemaNoNome, problemaNoEmail, problemaNoMunicipio, problemaNaUf, problemaNaArea,
+} from '../utils/camposMatricula';
 import { parseDataBr } from '../utils/exerciseStatus';
 
 interface AdminDashboardProps {
@@ -603,8 +607,24 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
   const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStudentName.trim() || !newStudentEmail.trim()) {
-      showToast('Por favor, digite o nome e e-mail do aluno.');
+    /*
+     * Cada campo aceita só o que promete. Antes a checagem era um `if` genérico
+     * de "nome e e-mail preenchidos": um CPF digitado no campo de e-mail passava
+     * pela tela e morria no servidor, nome com dígito entrava no cadastro, e a
+     * UF aceitava dois caracteres quaisquer ("12", "XX") — ela só tinha
+     * `maxLength={2}` e `toUpperCase()`.
+     *
+     * A digitação já recusa o caractere errado; isto pega o que ela não julga:
+     * sobrenome faltando, e-mail malformado e UF inexistente.
+     */
+    const problemaDeCampo =
+      problemaNoNome(newStudentName)
+      ?? problemaNoEmail(newStudentEmail)
+      ?? problemaNoMunicipio(newStudentMunicipio)
+      ?? problemaNaUf(newStudentUf)
+      ?? problemaNaArea(newStudentAreaInteresse);
+    if (problemaDeCampo !== null) {
+      showToast(problemaDeCampo);
       return;
     }
 
@@ -1998,7 +2018,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                     required
                     placeholder="Ex: Clara Ribeiro"
                     value={newStudentName}
-                    onChange={(e) => setNewStudentName(e.target.value)}
+                    onChange={(e) => setNewStudentName(apenasLetras(e.target.value))}
                     className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
@@ -2094,7 +2114,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                       type="text"
                       placeholder="Ex: Recife"
                       value={newStudentMunicipio}
-                      onChange={(e) => setNewStudentMunicipio(e.target.value)}
+                      onChange={(e) => setNewStudentMunicipio(apenasLetras(e.target.value))}
                       className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                     />
                   </div>
@@ -2105,7 +2125,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                       maxLength={2}
                       placeholder="PE"
                       value={newStudentUf}
-                      onChange={(e) => setNewStudentUf(e.target.value.toUpperCase())}
+                      onChange={(e) => setNewStudentUf(apenasUf(e.target.value))}
                       className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 text-center uppercase focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
                     />
                   </div>
@@ -2117,7 +2137,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                     type="text"
                     placeholder="Ex: Economia Criativa & IA"
                     value={newStudentAreaInteresse}
-                    onChange={(e) => setNewStudentAreaInteresse(e.target.value)}
+                    onChange={(e) => setNewStudentAreaInteresse(apenasAreaInteresse(e.target.value))}
                     className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
