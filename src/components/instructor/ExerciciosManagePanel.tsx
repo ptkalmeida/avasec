@@ -303,7 +303,9 @@ export const ExerciciosManagePanel: React.FC<ExerciciosManagePanelProps> = ({
   const remover = async (ex: PracticalExercise) => {
     const entregas = submissions.filter((s) => s.exerciseId === ex.id).length;
     const aviso = entregas > 0
-      ? `Remover "${ex.title}"? ${entregas} entrega(s) de alunos serão apagadas junto.`
+      // Antes as entregas eram apagadas junto (CASCADE em
+      // ExerciseSubmission.exerciseId). Com a ADR 12 elas ficam.
+      ? `Remover "${ex.title}"? Ele sai do ar para a turma. As ${entregas} entrega(s) já feitas continuam registradas.`
       : `Remover "${ex.title}"?`;
     if (!confirmar(aviso)) return;
 

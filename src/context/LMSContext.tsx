@@ -1997,9 +1997,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ) => gravaQuiz({ id: quizId, courseId, title, questions });
 
   /**
-   * Apagar avaliação apaga TAMBÉM as respostas já entregues (o servidor remove
-   * as QuizSubmission do quiz). Quem chama tem de confirmar com a pessoa antes;
-   * aqui só se garante que a tela não finja sucesso quando o servidor recusa.
+   * Tira a avaliação do ar. Desde a ADR 12 o servidor INATIVA em vez de apagar,
+   * e as respostas já entregues pelos alunos permanecem — antes o backend
+   * removia as QuizSubmission do quiz junto.
+   *
+   * Quem chama ainda deve confirmar com a pessoa (a avaliação desaparece para a
+   * turma); aqui só se garante que a tela não finja sucesso se o servidor
+   * recusar.
    */
   const deleteQuiz = async (quizId: string): Promise<QuizWriteResult> => {
     const r = await escreveApi(

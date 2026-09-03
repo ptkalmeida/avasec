@@ -1754,7 +1754,9 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                           
                           <button
                             onClick={() => {
-                              if (window.confirm(`Tem certeza que deseja excluir permanentemente o curso "${course.title}"?`)) {
+                              // "Permanentemente" deixou de ser verdade com a ADR 12: a disciplina
+                              // sai do ar e o registro fica, para auditoria.
+                              if (window.confirm(`Excluir a disciplina "${course.title}"? Ela sai do ar para os alunos; o registro e o histórico de quem a cursou ficam preservados.`)) {
                                 deleteCourse(course.id);
                                 showToast(`Curso "${course.title}" foi excluído com sucesso!`);
                               }

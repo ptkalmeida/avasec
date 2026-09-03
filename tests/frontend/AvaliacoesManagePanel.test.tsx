@@ -259,12 +259,17 @@ describe('AvaliacoesManagePanel', () => {
     expect(questoes[0].options[questoes[0].correctOptionIndex]).toBe('Certa');
   });
 
-  it('excluir avisa quantas respostas de aluno vão junto', async () => {
+  it('a confirmação diz que as respostas dos alunos ficam registradas', async () => {
     const { props } = renderPanel({ quizzes: [quiz('q1')], submissions: [envio('q1')] });
 
     await userEvent.click(screen.getByRole('button', { name: /excluir/i }));
 
-    expect(props.confirmar).toHaveBeenCalledWith(expect.stringMatching(/1 respostas já entregues/));
+    // O aviso antigo dizia que as respostas eram apagadas junto — era verdade
+    // até a ADR 12 (nada é apagado). Manter aquele texto assustaria com uma
+    // perda que não acontece, e assustar com dado errado é pior que não avisar.
+    const pergunta = (props.confirmar as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(pergunta).toMatch(/1 respostas já entregues continuam registradas/);
+    expect(pergunta).not.toMatch(/apaga/i);
     expect(props.onDelete).toHaveBeenCalledWith('q1');
   });
 
