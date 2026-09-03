@@ -32,6 +32,7 @@ import { safeHref } from '../utils/safeUrl';
 import { sanitizeNoteHtml, escapeHtml } from '../utils/noteHtml';
 import { formatScheduledAt, dataCurta, horaCurta, transmissoesDoDia, situacaoTransmissao, encerradaPorTempo } from '../utils/liveSchedule';
 import { exerciciosDoCurso } from '../utils/exerciseStatus';
+import { tentativaVigente, textoDaTentativa } from '../utils/quizAttempts';
 
 interface ModuleGroup {
   name: string;
@@ -457,6 +458,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const exerciciosDoCursoAberto = React.useMemo(
     () => (selectedCourse ? exerciciosDoCurso(practicalExercises, selectedCourse.id) : []),
     [practicalExercises, selectedCourse]
+  );
+
+  /*
+   * Avaliações do curso aberto. Mesmo motivo do bloco de exercícios: sem
+   * avaliação nenhuma, a caixa dizia "Nenhum teste elaborado para este curso no
+   * momento" e ocupava a coluna do aluno para anunciar que não há o que fazer.
+   *
+   * `quizzes` chega sem os inativados (a API os exclui, ADR 12), então avaliação
+   * retirada do ar também faz o bloco desaparecer.
+   */
+  const avaliacoesDoCursoAberto = React.useMemo(
+    () => (selectedCourse ? quizzes.filter((q) => q.courseId === selectedCourse.id) : []),
+    [quizzes, selectedCourse]
   );
 
   const agoraTransmissao = new Date();
@@ -1581,7 +1595,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   </div>
                   )}
 
-                  {/* 4. Interactive Quizzes / Tests Block */}
+                  {/* 4. Testes e avaliações — só quando a disciplina tem alguma. */}
+                  {avaliacoesDoCursoAberto.length > 0 && (
                   <div className="border border-amber-100 bg-amber-50/10 rounded-xl p-3.5 text-left space-y-3 shadow-2xs">
                     <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
                       <CheckSquare className="h-3.5 w-3.5 text-amber-600" />
@@ -1589,13 +1604,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     </h5>
 
                     <div className="space-y-2.5">
-                      {quizzes.filter(q => q.courseId === selectedCourse.id).length === 0 ? (
-                        <div className="bg-white rounded-lg border border-slate-200 p-4.5 text-center text-xs text-slate-400">
-                          Nenhum teste elaborado para este curso no momento.
-                        </div>
-                      ) : (
-                        quizzes.filter(q => q.courseId === selectedCourse.id).map((quiz) => {
-                          const userSub = quizSubmissions.find(s => s.quizId === quiz.id && s.userId === activeUser.id);
+                      {avaliacoesDoCursoAberto.map((quiz) => {
+                          // A tentativa VIGENTE, não a primeira que a lista trouxer:
+                          // o histórico de tentativas ficou no ar e `find()` passou a
+                          // devolver qualquer uma delas.
+                          const userSub = tentativaVigente(quizSubmissions, quiz.id, activeUser.id);
                           return (
                             <div key={quiz.id} className="bg-white rounded-xl border border-slate-200 p-3.5 leading-relaxed text-left text-xs space-y-3 shadow-xs">
                               <div className="flex items-start justify-between gap-1.5">
@@ -1615,7 +1628,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                               {userSub ? (
                                 <div className="space-y-2">
                                   <div className="text-[10px] font-semibold text-slate-500 block">
-                                    Último envio: {userSub.submittedAt}
+                                    Último envio: {textoDaTentativa(userSub)}
                                   </div>
                                   <button
                                     onClick={() => abrirAvaliacoes(quiz.id)}
@@ -1634,10 +1647,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                               )}
                             </div>
                           );
-                        })
-                      )}
+                        })}
                     </div>
                   </div>
+                  )}
 
                   {/* 5. Exercícios de fixação — só quando a disciplina tem algum. */}
                   {exerciciosDoCursoAberto.length > 0 && (

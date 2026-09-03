@@ -143,7 +143,18 @@ final class LearningService
             $q->whereIn('courseId', InstructorScope::courseIds($requester));
         }
 
-        return $q->get()->map->toArray()->all();
+        /*
+         * Mais recente primeiro. Isto é contrato, não conveniência: a lista antes
+         * tinha uma linha por aluno+quiz, e há consumidor que ainda lê a primeira
+         * e a chama de nota do aluno — inclusive a declaração impressa. Com o
+         * histórico no ar, "a primeira" tem de ser a vigente.
+         *
+         * `id` como desempate porque carrega o timestamp em milissegundos: duas
+         * tentativas no mesmo segundo ainda saem na ordem em que aconteceram.
+         * Linha sem `enviadoEm` (string antiga não reconhecível) cai para o fim,
+         * que é onde a mais antiga pertence.
+         */
+        return $q->orderByDesc('enviadoEm')->orderByDesc('id')->get()->map->toArray()->all();
     }
 
     /**
@@ -185,16 +196,16 @@ final class LearningService
         $passed = $scorePercent >= BusinessRules::quizPassThreshold();
 
         /*
-         * A tentativa anterior é INATIVADA, não apagada (ADR 12): com o trait
-         * Inativavel no model, este ->delete() grava `inativadoEm` e a nota
-         * antiga continua no banco.
+         * A tentativa nova é ACRESCENTADA. A anterior fica no ar, visível, como
+         * a tentativa que foi.
          *
-         * PENDENTE (fase 2): exibir todas as tentativas. Falta uma coluna de
-         * data ORDENÁVEL — `submittedAt` é string de exibição
-         * ('03/09/2026 às 16:23'), que ordena errado (01/12 antes de 03/09), e
-         * sem ordenação confiável não há como dizer qual tentativa é a vigente.
+         * Antes, responder de novo inativava a anterior — o dado ficava no banco
+         * (ADR 12) mas saía das listagens, e a tela só sabia dizer "última
+         * tentativa". Faltava a coluna `enviadoEm`, sem a qual não havia como
+         * afirmar QUAL é a vigente: `submittedAt` é texto de exibição e ordena
+         * alfabeticamente. Com o eixo de ordenação, o histórico inteiro aparece.
          */
-        QuizSubmission::query()->where('userId', $requester['sub'])->where('quizId', $input['quizId'])->delete();
+        $agora = CarbonImmutable::now();
 
         return QuizSubmission::query()->create([
             'id' => 'sub-'.$this->nowMs().'-'.random_int(0, 999),
@@ -204,7 +215,8 @@ final class LearningService
             'quizId' => $quiz->id,
             'scorePercent' => $scorePercent,
             'passed' => $passed,
-            'submittedAt' => CarbonImmutable::now()->format('d/m/Y').' às '.CarbonImmutable::now()->format('H:i'),
+            'submittedAt' => $agora->format('d/m/Y').' às '.$agora->format('H:i'),
+            'enviadoEm' => $agora,
         ])->toArray();
     }
 

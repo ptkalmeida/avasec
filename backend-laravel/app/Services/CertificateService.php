@@ -47,15 +47,25 @@ final class CertificateService
      * Consulta pública de verificação (id, hash ou nome). Resposta em whitelist:
      * rota sem autenticação nunca expõe identificadores internos (userId/enrollmentId).
      *
+     * Inclui os REVOGADOS, e é o ponto dessa rota existir.
+     *
+     * O certificado revogado é inativado (ADR 12), e `Certificate::query()` com
+     * SoftDeletes o omite. Sem `withTrashed()` aqui, revogar fazia a verificação
+     * pública responder "não existe" sobre um documento que existe no mundo —
+     * está impresso, tem hash e pode estar anexado a um processo. Quem confere um
+     * papel precisa da resposta "foi revogado", que é diferente de "nunca houve".
+     *
      * @return array<string, mixed>|null
      */
     public function verifyCertificatePublic(string $query): ?array
     {
         $trimmed = trim($query);
-        $cert = Certificate::query()
-            ->where('id', $trimmed)
-            ->orWhere('verificationHash', $trimmed)
-            ->orWhere('studentName', 'like', '%'.$trimmed.'%')
+        $cert = Certificate::withTrashed()
+            ->where(function ($q) use ($trimmed): void {
+                $q->where('id', $trimmed)
+                    ->orWhere('verificationHash', $trimmed)
+                    ->orWhere('studentName', 'like', '%'.$trimmed.'%');
+            })
             ->first();
         if ($cert === null) {
             return null;
@@ -73,6 +83,13 @@ final class CertificateService
             'attendancePercent' => $cert->attendancePercent,
             'verificationHash' => $cert->verificationHash,
             'cargaHoraria' => is_numeric($cargaHoraria) ? (int) $cargaHoraria : null,
+            // Estado do documento. `revogado` é o que decide o que a tela diz;
+            // a data e o motivo existem para a pessoa que está com o papel na
+            // mão entender por quê. Quem revogou NÃO sai daqui: rota pública não
+            // expõe identificador interno de servidor.
+            'revogado' => $cert->estaInativo(),
+            'revogadoEm' => $cert->inativadoEm?->format('d/m/Y'),
+            'motivoRevogacao' => $cert->estaInativo() ? $cert->motivoInativacao : null,
         ];
     }
 
@@ -99,13 +116,38 @@ final class CertificateService
             throw ApiException::forbidden('Você só pode emitir certificados dos seus cursos.');
         }
 
-        // Idempotência: se já existe certificado para aluno+curso, apenas retorna.
-        $existing = Certificate::query()
+        /*
+         * Idempotência: se já existe certificado para aluno+curso, apenas retorna.
+         *
+         * `withTrashed()` é obrigatório aqui (armadilha 1 da ADR 12). Sem ele o
+         * certificado REVOGADO não é encontrado, o `create()` abaixo segue em
+         * frente e bate na UNIQUE (studentName, courseId) — erro de servidor. Ou
+         * seja: revogar um certificado tornava aquele aluno impossível de
+         * certificar naquele curso para sempre.
+         */
+        $existing = Certificate::withTrashed()
             ->where('userId', $userId)
             ->where('courseId', $input['courseId'])
             ->first();
-        if ($existing !== null) {
+        if ($existing !== null && ! $existing->estaInativo()) {
             return $existing->toArray();
+        }
+        if ($existing !== null) {
+            /*
+             * Revogado NÃO é reemitido por chamada de rotina.
+             *
+             * A UNIQUE (studentName, courseId) obriga a reemissão a reaproveitar
+             * a MESMA linha, e `reativar()` limpa `inativadoPor` e
+             * `motivoInativacao` — reemitir aqui apagaria o registro de que houve
+             * revogação, que é justamente o que a ADR 12 manda preservar. Devolver
+             * a validade a um documento revogado é decisão administrativa, e
+             * precisa de fluxo próprio que registre a reabilitação.
+             */
+            $quando = $existing->inativadoEm?->format('d/m/Y') ?? 'data não registrada';
+            throw ApiException::forbidden(
+                "Este certificado foi revogado em {$quando} e não é reemitido automaticamente. "
+                .'A reabilitação é ato da administração e tem de ficar registrada.'
+            );
         }
 
         $progress = StudentProgress::query()

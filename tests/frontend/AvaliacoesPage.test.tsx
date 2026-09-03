@@ -225,3 +225,61 @@ describe('AvaliacoesPage', () => {
     expect(screen.getByText('1 de 2')).toBeInTheDocument();
   });
 });
+
+describe('histórico de tentativas', () => {
+  const tresTentativas = [
+    envio('q1', { id: 'primeira', scorePercent: 20, passed: false, submittedAt: '01/09/2026 às 09:00', enviadoEm: '2026-09-01T09:00:00' }),
+    envio('q1', { id: 'segunda', scorePercent: 90, passed: true, submittedAt: '02/09/2026 às 14:30', enviadoEm: '2026-09-02T14:30:00' }),
+    envio('q1', { id: 'terceira', scorePercent: 60, passed: false, submittedAt: '03/09/2026 às 16:23', enviadoEm: '2026-09-03T16:23:00' }),
+  ];
+
+  it('a nota exibida é da tentativa vigente, não da primeira da lista', () => {
+    // A lista chega em qualquer ordem; antes um `find()` pegava a primeira.
+    renderPage({ submissions: [tresTentativas[1], tresTentativas[0], tresTentativas[2]] });
+
+    expect(screen.getByText('60%')).toBeInTheDocument();
+    expect(screen.getByText(/tentativa vigente em 03\/09\/2026 às 16:23/i)).toBeInTheDocument();
+  });
+
+  it('anuncia quantas tentativas anteriores existem e lista cada uma', async () => {
+    // A tentativa anterior era inativada a cada nova resposta: ficava no banco
+    // (ADR 12) mas o aluno não tinha como ver o que já havia feito.
+    renderPage({ submissions: tresTentativas });
+
+    await userEvent.click(screen.getByText(/2 tentativas anteriores/i));
+
+    expect(screen.getByText('90%')).toBeInTheDocument();
+    expect(screen.getByText('20%')).toBeInTheDocument();
+    expect(screen.getByText('02/09/2026 às 14:30')).toBeInTheDocument();
+    // A vigente não se repete na lista de anteriores.
+    expect(screen.getAllByText(/03\/09\/2026 às 16:23/)).toHaveLength(1);
+  });
+
+  it('tentativa única não anuncia histórico', () => {
+    renderPage({ submissions: [tresTentativas[2]] });
+
+    expect(screen.queryByText(/tentativa anterior/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/respondida em 03\/09\/2026 às 16:23/i)).toBeInTheDocument();
+  });
+
+  it('"Aprovadas" olha a vigente: reprovar depois de aprovar deixa de contar', () => {
+    // A regra do projeto é que refazer substitui o resultado — o botão sempre se
+    // chamou "Refazer Avaliação". Contar a melhor nota mudaria isso em silêncio.
+    renderPage({ submissions: [tresTentativas[1], tresTentativas[2]] });
+
+    expect(screen.getByText('0 de 1')).toBeInTheDocument();
+  });
+
+  it('tentativa de outro aluno não entra no histórico', () => {
+    renderPage({
+      submissions: [
+        tresTentativas[2],
+        envio('q1', { id: 'de-outro', userId: 'aluno-2', scorePercent: 10, submittedAt: '04/09/2026 às 08:00', enviadoEm: '2026-09-04T08:00:00' }),
+      ],
+    });
+
+    expect(screen.queryByText(/tentativa anterior/i)).not.toBeInTheDocument();
+    expect(screen.getByText('60%')).toBeInTheDocument();
+    expect(screen.queryByText('10%')).not.toBeInTheDocument();
+  });
+});

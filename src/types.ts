@@ -213,7 +213,16 @@ export interface QuizSubmission {
   quizId: string;
   scorePercent: number;
   passed: boolean;
+  /** Texto de exibição: '03/09/2026 às 16:23'. Nunca use para ordenar. */
   submittedAt: string;
+  /**
+   * Instante da tentativa, ordenável e COM fuso ('2026-09-03T20:00:00+00:00').
+   * O fuso importa: o servidor roda em UTC e o navegador do aluno não.
+   *
+   * Opcional porque tentativa gravada antes da coluna existir pode não ter data
+   * reconhecível — e nenhuma foi inventada no preenchimento.
+   */
+  enviadoEm?: string;
 }
 
 export interface AcademicRequest {

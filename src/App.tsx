@@ -551,7 +551,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
       if (found) {
         setCertLookupResult(found);
-        speakText(`Certificado encontrado para o aluno ${found.studentName}.`);
+        speakText(found.revogado === true
+          ? `Atenção: o certificado de ${found.studentName} foi revogado e não tem validade.`
+          : `Certificado encontrado para o aluno ${found.studentName}.`);
       } else {
         setCertLookupResult(null);
         speakText("Nenhum certificado correspondente a esta busca foi encontrado.");
@@ -1595,13 +1597,51 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     className="pt-4 border-t border-slate-100 font-sans"
                   >
                     {certLookupResult ? (
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4.5 space-y-3.5">
-                        <div className="flex items-center gap-2.5 text-emerald-800">
-                          <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
-                          <strong className="text-xs uppercase tracking-wide font-black">Certificado Válido e Homologado</strong>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-3 text-[11px] leading-relaxed border-t border-emerald-100 pt-3">
+                      /*
+                       * O documento revogado APARECE aqui, e essa é a razão de a
+                       * consulta pública existir. Some do banco significaria
+                       * responder "não existe" sobre um papel que está impresso e
+                       * pode estar anexado a um processo — quem confere precisa da
+                       * resposta "foi revogado", que é outra coisa (ADR 12).
+                       */
+                      <div className={`rounded-2xl border p-4.5 space-y-3.5 ${
+                        certLookupResult.revogado === true
+                          ? 'bg-rose-50 border-rose-200'
+                          : 'bg-emerald-50 border-emerald-200'
+                      }`}>
+                        {certLookupResult.revogado === true ? (
+                          <div className="flex items-center gap-2.5 text-rose-800">
+                            <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
+                            <strong className="text-xs uppercase tracking-wide font-black">Certificado Revogado — Sem Validade</strong>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2.5 text-emerald-800">
+                            <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
+                            <strong className="text-xs uppercase tracking-wide font-black">Certificado Válido e Homologado</strong>
+                          </div>
+                        )}
+
+                        {certLookupResult.revogado === true && (
+                          <div className="space-y-1 rounded-lg border border-rose-100 bg-white/60 p-2.5 text-[11px] leading-relaxed text-rose-900">
+                            <p className="font-bold">
+                              Este documento foi revogado pela instituição
+                              {typeof certLookupResult.revogadoEm === 'string' && certLookupResult.revogadoEm !== ''
+                                ? ` em ${certLookupResult.revogadoEm}`
+                                : ''}
+                              {' '}e não comprova conclusão de curso.
+                            </p>
+                            {typeof certLookupResult.motivoRevogacao === 'string' && certLookupResult.motivoRevogacao !== '' && (
+                              <p className="font-medium text-rose-700">Motivo registrado: {certLookupResult.motivoRevogacao}</p>
+                            )}
+                            <p className="font-light text-rose-700">
+                              Os dados abaixo são os do documento como foi emitido, para conferência com o papel em mãos.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className={`grid grid-cols-2 gap-3 text-[11px] leading-relaxed border-t pt-3 ${
+                          certLookupResult.revogado === true ? 'border-rose-100' : 'border-emerald-100'
+                        }`}>
                           <div>
                             <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Aluno</span>
                             <span className="text-slate-800 font-bold block">{certLookupResult.studentName}</span>
@@ -1621,9 +1661,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           </div>
                         </div>
                         
-                        <p className="text-[10px] text-emerald-700 leading-normal font-medium bg-white/50 p-2.5 rounded-lg border border-emerald-100/50">
-                          Certificado emitido em conformidade com as diretrizes do AVA da Escola de Cultura e Economia Criativa do Estado. Registro de presença homologado: {certLookupResult.attendancePercent}%.
-                        </p>
+                        {certLookupResult.revogado !== true && (
+                          <p className="text-[10px] text-emerald-700 leading-normal font-medium bg-white/50 p-2.5 rounded-lg border border-emerald-100/50">
+                            Certificado emitido em conformidade com as diretrizes do AVA da Escola de Cultura e Economia Criativa do Estado. Registro de presença homologado: {certLookupResult.attendancePercent}%.
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4.5 flex gap-3 items-start">
