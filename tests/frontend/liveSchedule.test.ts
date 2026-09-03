@@ -10,6 +10,9 @@ import {
   distanciaEmDias,
   mesmoDia,
   transmissoesDoDia,
+  encerradaPorTempo,
+  situacaoTransmissao,
+  HORAS_ATE_ENCERRAR_TRANSMISSAO,
 } from '../../src/utils/liveSchedule';
 import { Course, LiveSession, WebinarEvent } from '../../src/types';
 
@@ -274,5 +277,69 @@ describe('transmissoesDoDia', () => {
     expect(transmissoesDoDia(undefined, HOJE)).toEqual([]);
     expect(transmissoesDoDia(null, HOJE)).toEqual([]);
     expect(transmissoesDoDia([], HOJE)).toEqual([]);
+  });
+});
+
+describe('encerramento automático após 24h', () => {
+  const sessao = (scheduledAt: string, isLive = false): LiveSession => ({
+    id: 's1',
+    courseId: 'course-1',
+    title: 'Encontro',
+    scheduledAt,
+    durationMinutes: 60,
+    meetingLink: 'https://meet.example/x',
+    isLive,
+  });
+
+  it('a janela é de 24 horas contadas do horário agendado', () => {
+    expect(HORAS_ATE_ENCERRAR_TRANSMISSAO).toBe(24);
+  });
+
+  it('antes de 24h não está encerrada', () => {
+    const s = sessao('2026-09-10T19:30');
+    // 23h59 depois: ainda dentro da janela.
+    expect(encerradaPorTempo(s, new Date(2026, 8, 11, 19, 29))).toBe(false);
+  });
+
+  it('exatamente em 24h já conta como encerrada', () => {
+    const s = sessao('2026-09-10T19:30');
+    expect(encerradaPorTempo(s, new Date(2026, 8, 11, 19, 30))).toBe(true);
+  });
+
+  it('depois de 24h está encerrada mesmo marcada ao vivo', () => {
+    // O caso real: dois encontros de 01/09 seguiam com isLive=1 em 03/09.
+    const s = sessao('2026-09-01T19:30', true);
+    expect(encerradaPorTempo(s, new Date(2026, 8, 3, 10, 0))).toBe(true);
+    expect(situacaoTransmissao(s, new Date(2026, 8, 3, 10, 0))).toBe('encerrada');
+  });
+
+  it('encontro futuro não está encerrado', () => {
+    const s = sessao('2026-09-20T19:30');
+    expect(encerradaPorTempo(s, new Date(2026, 8, 10, 10, 0))).toBe(false);
+  });
+
+  it('sem data legível não encerra por tempo', () => {
+    // Não há de onde contar; encerrar seria chutar sobre encontro que talvez
+    // ainda vá acontecer.
+    expect(encerradaPorTempo(sessao('Próxima Segunda, às 20:00', true), new Date(2026, 8, 10))).toBe(false);
+  });
+
+  it('situação: ao vivo, agendada e encerrada', () => {
+    const AGORA_T = new Date(2026, 8, 10, 20, 0);
+    expect(situacaoTransmissao(sessao('2026-09-10T19:30', true), AGORA_T)).toBe('ao-vivo');
+    expect(situacaoTransmissao(sessao('2026-09-10T19:30', false), AGORA_T)).toBe('agendada');
+    expect(situacaoTransmissao(sessao('2026-09-10T21:00', false), AGORA_T)).toBe('agendada');
+    expect(situacaoTransmissao(sessao('2026-09-08T19:30', true), AGORA_T)).toBe('encerrada');
+  });
+
+  it('encerrada vence isLive — a ordem é o ponto da regra', () => {
+    const velha = sessao('2026-09-01T10:00', true);
+    expect(situacaoTransmissao(velha, new Date(2026, 8, 5, 10, 0))).toBe('encerrada');
+  });
+
+  it('transmissão encerrada não entra na lista do dia', () => {
+    // Defesa em profundidade: hoje o recorte por dia já a excluiria.
+    const velha = sessao('2026-09-01T10:00', true);
+    expect(transmissoesDoDia([velha], new Date(2026, 8, 2, 11, 0))).toEqual([]);
   });
 });

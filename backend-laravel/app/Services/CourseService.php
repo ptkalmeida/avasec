@@ -11,6 +11,7 @@ use App\Models\LessonDocument;
 use App\Models\LiveSession;
 use App\Models\StudentProgress;
 use App\Models\User;
+use App\Support\BusinessRules;
 use App\Support\CourseAccess;
 use App\Support\Payload;
 use App\Support\VideoSource;
@@ -409,7 +410,13 @@ final class CourseService
             'scheduledAt' => $session['scheduledAt'],
             'durationMinutes' => is_numeric($session['durationMinutes'] ?? null) ? (int) $session['durationMinutes'] : 0,
             'meetingLink' => $session['meetingLink'],
-            'isLive' => (bool) ($session['isLive'] ?? false),
+            // Encontro que a regra das 24h já encerrou não pode voltar a ser
+            // marcado como ao vivo: o painel não oferece mais o botão, mas o
+            // servidor é quem tem de garantir — um PUT direto reabriria a sala.
+            'isLive' => (bool) ($session['isLive'] ?? false)
+                && ! BusinessRules::liveSessionExpired(
+                    is_string($session['scheduledAt'] ?? null) ? $session['scheduledAt'] : null
+                ),
         ];
     }
 

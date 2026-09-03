@@ -18,6 +18,7 @@
  */
 
 import { Course, LiveSession, WebinarEvent } from '../types';
+import { LIVE_SESSION_AUTO_END_HOURS } from '../config/constants';
 
 export type AgendaKind = 'aula' | 'webinar';
 
@@ -99,6 +100,54 @@ export function toDatetimeLocalValue(d: Date): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/**
+ * Horas após o horário agendado em que a transmissão passa a valer como
+ * encerrada, mesmo que ninguém tenha clicado em "Finalizar".
+ *
+ * `isLive` é um interruptor MANUAL: quem dá aula clica "Iniciar" e precisa
+ * clicar "Finalizar" depois. Quando esquece, a sessão fica "ao vivo" para
+ * sempre — foi o que aconteceu com dois encontros de 01/09, que seguiam
+ * marcados como ao vivo dois dias depois, com sala aberta e ninguém dentro.
+ *
+ * A contagem parte do horário AGENDADO, não do clique em "Iniciar": não há
+ * registro de quando a transmissão começou de fato. A consequência assumida é
+ * que uma aula iniciada muito depois do previsto encerra antes de completar 24h
+ * de transmissão real.
+ */
+export const HORAS_ATE_ENCERRAR_TRANSMISSAO = LIVE_SESSION_AUTO_END_HOURS;
+
+const MS_POR_HORA = 60 * 60 * 1000;
+
+/**
+ * A transmissão já passou da janela de 24h contada do horário agendado.
+ *
+ * Sessão sem data legível NÃO é encerrada por tempo: não há de onde contar, e
+ * chutar encerraria um encontro que talvez ainda vá acontecer.
+ */
+export function encerradaPorTempo(
+  session: Pick<LiveSession, 'scheduledAt'>,
+  agora: Date
+): boolean {
+  const quando = parseScheduledAt(session.scheduledAt);
+  if (quando === null) return false;
+
+  return agora.getTime() - quando.getTime() >= HORAS_ATE_ENCERRAR_TRANSMISSAO * MS_POR_HORA;
+}
+
+export type SituacaoTransmissao = 'ao-vivo' | 'agendada' | 'encerrada';
+
+/**
+ * Situação de uma transmissão — a fonte única para as telas.
+ *
+ * A ordem importa: `encerrada` vence `isLive`. Uma sessão marcada ao vivo há
+ * três dias está encerrada, e era justamente ela que aparecia com sala aberta.
+ */
+export function situacaoTransmissao(session: LiveSession, agora: Date): SituacaoTransmissao {
+  if (encerradaPorTempo(session, agora)) return 'encerrada';
+
+  return session.isLive ? 'ao-vivo' : 'agendada';
+}
+
 /** Duas datas caem no mesmo dia do calendário local. */
 export function mesmoDia(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear()
@@ -133,7 +182,10 @@ export function transmissoesDoDia(
 
   return sessions
     .map((s) => ({ s, quando: parseScheduledAt(s.scheduledAt) }))
+    // O recorte por dia já exclui o que passou de 24h, mas a condição fica
+    // explícita: se um dia a janela do dia mudar, a regra não vaza.
     .filter((x) => x.quando !== null && mesmoDia(x.quando, agora))
+    .filter((x) => !encerradaPorTempo(x.s, agora))
     .sort((a, b) => (a.quando as Date).getTime() - (b.quando as Date).getTime())
     .map((x) => x.s);
 }

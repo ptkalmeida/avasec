@@ -12,6 +12,7 @@ import {
 import { useLMS } from '../context/LMSContext';
 import { Course, LiveSession } from '../types';
 import { safeHref } from '../utils/safeUrl';
+import { situacaoTransmissao } from '../utils/liveSchedule';
 
 interface LiveClassroomProps {
   course: Course;
@@ -24,7 +25,11 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
 
   const currentCourse = courses.find((c) => c.id === course.id);
   const reactiveSession = currentCourse?.liveSessions.find((s) => s.id === session.id) || session;
-  const isSessionLive = reactiveSession.isLive;
+  /*
+   * A sala considera a regra das 24h, não o interruptor cru: sessão marcada ao
+   * vivo há dias abria a sala como se a aula estivesse acontecendo.
+   */
+  const isSessionLive = situacaoTransmissao(reactiveSession, new Date()) === 'ao-vivo';
 
   const [inputText, setInputText] = useState('');
   const [cameraOn, setCameraOn] = useState(true);

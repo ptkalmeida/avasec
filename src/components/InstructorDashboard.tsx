@@ -16,7 +16,7 @@ import { LessonVideoField } from './shared/LessonVideoField';
 import { Course, Lesson, LiveSession, isCourseExpired } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
-import { toDatetimeLocalValue, formatScheduledAt } from '../utils/liveSchedule';
+import { toDatetimeLocalValue, formatScheduledAt, situacaoTransmissao } from '../utils/liveSchedule';
 import { parseLessonContent } from '../utils/lessonContent';
 import { LessonContent } from './student/LessonContent';
 import { LessonContentEditor } from './instructor/LessonContentEditor';
@@ -827,6 +827,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
   const activeCourse = courses.find((c) => c.id === selectedCourseId) || courses[0];
 
+  /*
+   * Referência de "agora" para a regra das 24h. Um valor só por render, em vez de
+   * `new Date()` espalhado: com várias chamadas, dois selos da mesma tela podem
+   * discordar se o render atravessar a virada do minuto.
+   */
+  const agoraTransmissao = new Date();
+
   // A aula em gestão vem sempre do estado atual do curso, não de uma cópia: assim a
   // página reflete o que foi salvo sem precisar sincronizar nada à mão.
   const managedLesson = managingLessonId === null
@@ -1193,7 +1200,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
-                              {session.isLive ? (
+                              {situacaoTransmissao(session, agoraTransmissao) === 'encerrada' ? (
+                                <span className="bg-slate-700 text-white text-[8px] font-bold px-1.5 py-0.5 rounded">
+                                  Encerrada
+                                </span>
+                              ) : situacaoTransmissao(session, agoraTransmissao) === 'ao-vivo' ? (
                                 <span className="bg-red-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded animate-pulse">
                                   Ativa ao Vivo
                                 </span>
@@ -1217,6 +1228,17 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                               <span className="truncate">{session.meetingLink}</span>
                             </a>
                             
+                            {/*
+                              Encontro encerrado pela regra das 24h continua
+                              listado — o histórico é matéria de trabalho de quem
+                              dá aula — mas não é mais oferecido como sala aberta
+                              nem como transmissão a iniciar.
+                            */}
+                            {situacaoTransmissao(session, agoraTransmissao) === 'encerrada' ? (
+                              <span className="text-[9px] font-semibold text-slate-400">
+                                Encerrada automaticamente 24h após o horário agendado.
+                              </span>
+                            ) : (
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => setActiveLiveSession(session)}
@@ -1239,6 +1261,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                                 <span>{session.isLive ? 'Finalizar' : 'Iniciar'}</span>
                               </button>
                             </div>
+                            )}
                           </div>
                         </div>
                       ))

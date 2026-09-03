@@ -20,3 +20,12 @@ export const DROPOUT_PENALTY_FREE_DAYS = 5;
 
 /** Duração (em dias) da restrição de nova matrícula após um cancelamento tardio. */
 export const DROPOUT_PENALTY_DAYS = 30;
+
+/**
+ * Horas após o horário AGENDADO em que uma transmissão ao vivo passa a valer como
+ * encerrada, mesmo sem ninguém clicar em "Finalizar".
+ *
+ * `LiveSession.isLive` é interruptor manual, e esquecer de finalizar deixava a
+ * sessão ao vivo indefinidamente — com sala aberta e ninguém dentro.
+ */
+export const LIVE_SESSION_AUTO_END_HOURS = 24;
