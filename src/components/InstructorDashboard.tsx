@@ -23,6 +23,7 @@ import { LessonContentEditor } from './instructor/LessonContentEditor';
 import { LessonManagePage } from './instructor/LessonManagePage';
 import { ExerciciosManagePanel } from './instructor/ExerciciosManagePanel';
 import { AvaliacoesManagePanel } from './instructor/AvaliacoesManagePanel';
+import { DocumentosDisciplinaPage } from './instructor/DocumentosDisciplinaPage';
 import { courseMinAttendance } from '../config/constants';
 import { BackButton } from './BackButton';
 import { safeHref } from '../utils/safeUrl';
@@ -53,12 +54,12 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     systemSettings,
     activeDashboardTab,
     setActiveDashboardTab,
-    addLibraryItem,
     addWebinarEvent,
     deleteWebinarEvent,
     webinarEvents,
     updateCourseProps,
     updateLesson,
+    uploadArquivo,
     deleteLesson,
     removeLiveSession,
     calculateAttendancePercent,
@@ -77,7 +78,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   
   // Advanced Tools States
   const [isEditingCourse, setIsEditingCourse] = useState(false);
-  const [isCreatingLibraryItem, setIsCreatingLibraryItem] = useState(false);
+  /*
+   * Página de documentos da disciplina. Substitui o botão "Biblioteca Digital",
+   * que abria um modal só de cadastro, para o acervo GERAL da escola
+   * (`LibraryItem` não tem courseId) e atrás de uma flag desligada — então o que
+   * ele salvava ficava no localStorage.
+   */
+  const [showDocumentos, setShowDocumentos] = useState(false);
   const [isCreatingWebinar, setIsCreatingWebinar] = useState(false);
 
   // Edit Course Meta
@@ -86,14 +93,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [editCategory, setEditCategory] = useState('');
   const [editExpiration, setEditExpiration] = useState('');
 
-  // Library Item Meta
-  const [libTitle, setLibTitle] = useState('');
-  const [libCategory, setLibCategory] = useState('Documentação');
-  const [libType, setLibType] = useState<'pdf' | 'link' | 'video' | 'zip'>('pdf');
-  const [libUrl, setLibUrl] = useState('');
-  const [libFile, setLibFile] = useState<File | null>(null);
-  const [libDragging, setLibDragging] = useState(false);
-  const [libUploadMethod, setLibUploadMethod] = useState<'upload' | 'url'>('upload');
 
   // Webinar Meta
   const [webTitle, setWebTitle] = useState('');
@@ -126,7 +125,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     .map(s => s.id);
 
   const handleBack = () => {
-    if (isEditingCourse) {
+    if (showDocumentos) {
+      // A página de documentos é um modo de tela cheia: o Voltar do topo tem de
+      // fechá-la antes de sair da gestão, senão o clique pula dois níveis.
+      setShowDocumentos(false);
+    } else if (isEditingCourse) {
       setIsEditingCourse(false);
     } else if (isCreatingCourse) {
       setIsCreatingCourse(false);
@@ -144,7 +147,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   };
 
   const getBackLabel = () => {
-    if (isEditingCourse || isCreatingCourse || isCreatingLesson || isCreatingWebinar || isCreatingLive) {
+    if (showDocumentos || isEditingCourse || isCreatingCourse || isCreatingLesson || isCreatingWebinar || isCreatingLive) {
       return "Voltar p/ Gestão";
     }
     if (activeDashboardTab !== 'general') {
@@ -443,64 +446,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     });
     setIsEditingCourse(false);
     showToast('Dados do curso atualizados com sucesso!');
-  };
-
-  const handleAddLibraryItem = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    let finalUrl = libUrl;
-    let finalType: 'pdf' | 'video' | 'link' = 'link';
-    if (libType === 'pdf') finalType = 'pdf';
-    else if (libType === 'video') finalType = 'video';
-
-    if (libUploadMethod === 'upload') {
-      if (!libFile) {
-        showToast('Por favor, faça o upload de um documento ou insira um link.');
-        return;
-      }
-      // Envia o arquivo de verdade para o servidor (disco) em vez de um blob local temporário.
-      try {
-        const formData = new FormData();
-        formData.append('file', libFile);
-        const res = await authFetch('/api/upload?visibility=public', { method: 'POST', body: formData });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          showToast(err.error || 'Falha ao enviar o arquivo para o servidor.');
-          return;
-        }
-        const data = await res.json();
-        finalUrl = data.url;
-      } catch (err) {
-        console.error('Erro ao enviar arquivo:', err);
-        showToast('Servidor indisponível para envio de arquivos.');
-        return;
-      }
-      if (libFile.name.toLowerCase().endsWith('.pdf')) {
-        finalType = 'pdf';
-      } else {
-        finalType = 'link'; // standard doc file representation
-      }
-    } else {
-      if (!libUrl.trim()) {
-        showToast('Por favor, preencha o link/URL do recurso!');
-        return;
-      }
-    }
-
-    addLibraryItem({
-      title: libTitle.trim() || (libFile ? libFile.name : 'Recurso'),
-      category: libCategory.trim() || 'Documentação',
-      type: finalType,
-      url: finalUrl,
-      courseId: selectedCourseId,
-      date: new Date().toLocaleDateString('pt-BR')
-    } as any);
-
-    setLibTitle('');
-    setLibUrl('');
-    setLibFile(null);
-    setIsCreatingLibraryItem(false);
-    showToast('Recurso adicionado à biblioteca digital!');
   };
 
   const handleAddWebinar = async (e: React.FormEvent) => {
@@ -1304,16 +1249,18 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             </h4>
             
             <div className="grid grid-cols-1 gap-3">
-              <button 
-                onClick={() => setIsCreatingLibraryItem(true)}
+              <button
+                onClick={() => setShowDocumentos(true)}
                 className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:border-teal-300 hover:shadow-sm transition-all text-left flex items-center gap-4 group cursor-pointer"
               >
                 <div className="p-3 rounded-xl bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
-                  <Archive className="h-5 w-5" />
+                  <FileText className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <span className="block font-bold text-slate-900 text-xs">Biblioteca Digital</span>
-                  <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Gestão de arquivos.</p>
+                  <span className="block font-bold text-slate-900 text-xs">Documentos da Disciplina</span>
+                  <p className="text-[10px] text-slate-500 leading-tight mt-0.5">
+                    Material de todas as aulas em um lugar.
+                  </p>
                 </div>
               </button>
               <button 
@@ -1421,6 +1368,21 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             onGrade={gradeSubmission}
             confirmar={(pergunta) => window.confirm(pergunta)}
             notify={showToast}
+          />
+        </div>
+      )}
+
+      {/* DOCUMENTOS DA DISCIPLINA — página, não modal. */}
+      {activeDashboardTab === 'general' && showDocumentos && activeCourse && (
+        <div className="animate-in fade-in duration-300">
+          <DocumentosDisciplinaPage
+            courseTitle={activeCourse.title}
+            lessons={activeCourse.lessons}
+            onSave={(lessonId, documents) => updateLesson(activeCourse.id, lessonId, { documents })}
+            onUpload={uploadArquivo}
+            confirmar={(pergunta) => window.confirm(pergunta)}
+            notify={showToast}
+            onBack={() => setShowDocumentos(false)}
           />
         </div>
       )}
@@ -2381,185 +2343,14 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         </div>
       )}
 
-      {/* 5. Modal: Adicionar Item na Biblioteca */}
-      {isCreatingLibraryItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form
-            onSubmit={handleAddLibraryItem}
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl relative text-left animate-in fade-in duration-200"
-          >
-            <h3 className="text-lg font-bold text-slate-900 mb-1">Adicionar Recurso à Biblioteca</h3>
-            <p className="text-[10px] text-slate-400 mb-4 leading-tight">Cadastre arquivos didáticos ou links úteis para a biblioteca geral da escola.</p>
-            
-            {/* Método de Anexo (Tabs) */}
-            <div className="flex border-b border-slate-100 mb-4 text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setLibUploadMethod('upload')}
-                className={`flex-1 pb-2 text-center transition-all cursor-pointer ${
-                  libUploadMethod === 'upload'
-                    ? 'text-teal-600 border-b-2 border-teal-600 font-extrabold'
-                    : 'text-slate-400 hover:text-slate-700'
-                }`}
-              >
-                Subir Arquivo (PDF, DOC)
-              </button>
-              <button
-                type="button"
-                onClick={() => setLibUploadMethod('url')}
-                className={`flex-1 pb-2 text-center transition-all cursor-pointer ${
-                  libUploadMethod === 'url'
-                    ? 'text-teal-600 border-b-2 border-teal-600 font-extrabold'
-                    : 'text-slate-400 hover:text-slate-700'
-                }`}
-              >
-                Link Externo (URL)
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Título do Recurso</label>
-                <input
-                  type="text"
-                  required
-                  value={libTitle}
-                  onChange={(e) => setLibTitle(e.target.value)}
-                  placeholder="Ex: Guia de Boas Práticas..."
-                  className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tipo</label>
-                  <select
-                    value={libType}
-                    disabled={libUploadMethod === 'upload'}
-                    onChange={(e) => setLibType(e.target.value as any)}
-                    className="w-full rounded-lg border border-slate-200 p-2.5 text-xs font-semibold disabled:opacity-50"
-                  >
-                    <option value="pdf">Arquivo PDF</option>
-                    <option value="link">Link Externo</option>
-                    <option value="video">Vídeo Aula</option>
-                    <option value="zip">Pacote ZIP</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoria</label>
-                  <input
-                    type="text"
-                    required
-                    value={libCategory}
-                    onChange={(e) => setLibCategory(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
-                  />
-                </div>
-              </div>
-
-              {libUploadMethod === 'upload' ? (
-                <div className="space-y-3">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Upload do Arquivo</label>
-                  
-                  {/* Drag-and-drop zone */}
-                  {!libFile ? (
-                    <div
-                      onDragOver={(e) => { e.preventDefault(); setLibDragging(true); }}
-                      onDragLeave={() => setLibDragging(false)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setLibDragging(false);
-                        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                          const file = e.dataTransfer.files[0];
-                          setLibFile(file);
-                          if (!libTitle) setLibTitle(file.name.replace(/\.[^/.]+$/, ""));
-                        }
-                      }}
-                      onClick={() => document.getElementById('lib-file-uploader')?.click()}
-                      className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
-                        libDragging
-                          ? 'border-teal-500 bg-teal-50/40'
-                          : 'border-slate-200 bg-slate-50 hover:bg-slate-100/50 hover:border-slate-350'
-                      }`}
-                    >
-                      <input
-                        type="file"
-                        id="lib-file-uploader"
-                        accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,.gif"
-                        className="hidden"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            setLibFile(file);
-                            if (!libTitle) setLibTitle(file.name.replace(/\.[^/.]+$/, ""));
-                          }
-                        }}
-                      />
-                      <File className="h-7 w-7 text-teal-500 mx-auto mb-1 animate-pulse" />
-                      <p className="text-xs font-bold text-slate-700">Arraste seu arquivo aqui ou clique para selecionar</p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Formatos suportados: PDF, DOCX ou imagem — PNG, JPG, WEBP, GIF (Máx. 15MB)</p>
-                    </div>
-                  ) : (
-                    <div className="bg-teal-50/50 border border-teal-200/50 rounded-xl p-3 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-2 rounded-lg bg-teal-100 text-teal-800 shrink-0">
-                          <FileText className="h-4.5 w-4.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-extrabold text-slate-800 truncate">{libFile.name}</p>
-                          <p className="text-[10px] font-mono text-slate-400 mt-0.5">{(libFile.size / (1024 * 1024)).toFixed(2)} MB</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setLibFile(null);
-                          setLibTitle('');
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                        title="Remover arquivo"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">URL / Caminho</label>
-                  <input
-                    type="text"
-                    required={libUploadMethod === 'url'}
-                    value={libUrl}
-                    onChange={(e) => setLibUrl(e.target.value)}
-                    placeholder="https://exemplo.com/recurso"
-                    className="w-full rounded-lg border border-slate-200 p-2.5 text-sm"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setLibFile(null);
-                  setIsCreatingLibraryItem(false);
-                }}
-                className="rounded-lg bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-650 cursor-pointer hover:bg-slate-200 transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg bg-teal-600 hover:bg-teal-500 px-4 py-2 text-xs font-bold text-white shadow-xs cursor-pointer transition-colors"
-              >
-                Publicar Recurso
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {/*
+        REMOVIDO: modal "Adicionar Recurso à Biblioteca". Era o que o botão
+        "Biblioteca Digital" abria, e cadastrava no acervo GERAL da escola
+        (`LibraryItem` não tem courseId) atrás da flag `bibliotecaDigital`, que
+        está desligada — logo `/api/library` responde 404 e o recurso "publicado"
+        ficava só no localStorage. O acervo geral é gerido pelo painel do admin;
+        aqui o botão passou a abrir os documentos da disciplina.
+      */}
 
       {/* 6. Modal: Agendar Webinar Global */}
       {isCreatingWebinar && (

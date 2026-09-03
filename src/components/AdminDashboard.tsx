@@ -87,7 +87,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   // Área de gerenciamento de templates de documentos (certificado, histórico)
   const [templateDocType, setTemplateDocType] = useState<DocumentTemplate['type']>('certificado');
   const [templateDraft, setTemplateDraft] = useState<DocumentTemplate | null>(null);
-  const [templateMode, setTemplateMode] = useState<'estruturado' | 'livre'>('estruturado');
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -104,7 +103,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       setTemplateLoading(false);
       if (res.ok && res.template) {
         setTemplateDraft(res.template);
-        setTemplateMode(res.template.customHtml ? 'livre' : 'estruturado');
       } else {
         setTemplateError(res.error || 'Não foi possível carregar o template.');
       }
@@ -118,14 +116,15 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
     setTemplateSaving(true);
     setTemplateError(null);
     setTemplateSaved(false);
-    const payload = templateMode === 'livre'
-      ? { customHtml: templateDraft.customHtml || '' }
-      : {
-          institutionName: templateDraft.institutionName,
-          signatories: templateDraft.signatories,
-          footerText: templateDraft.footerText,
-          customHtml: null
-        };
+    // `customHtml: null` limpa o HTML livre de um template que já o tenha
+    // gravado: sem isto, o backend seguiria usando a versão em HTML e a edição
+    // estruturada não teria efeito nenhum no PDF.
+    const payload = {
+      institutionName: templateDraft.institutionName,
+      signatories: templateDraft.signatories,
+      footerText: templateDraft.footerText,
+      customHtml: null,
+    };
     const res = await updateDocumentTemplate(templateDocType, payload);
     setTemplateSaving(false);
     if (res.ok && res.template) {
@@ -3732,31 +3731,15 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
             </div>
           ) : (
             <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5 shadow-xs">
-              <div className="flex gap-2 border-b border-slate-100 pb-4">
-                <button
-                  onClick={() => setTemplateMode('estruturado')}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${
-                    templateMode === 'estruturado'
-                      ? 'bg-teal-600 text-white border-teal-600'
-                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  Dados Estruturados
-                </button>
-                <button
-                  onClick={() => setTemplateMode('livre')}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border ${
-                    templateMode === 'livre'
-                      ? 'bg-teal-600 text-white border-teal-600'
-                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
-                  }`}
-                >
-                  Layout Livre (HTML)
-                </button>
-              </div>
-
-              {templateMode === 'estruturado' ? (
-                <div className="space-y-4">
+              {/*
+                REMOVIDO: aba "Layout Livre (HTML)". Ela aceitava o HTML cru do
+                documento num textarea, e sobrando uma opção só a barra de abas
+                não tem função. Mesma decisão do bloco de código no editor de
+                aula (bd5e842): campo que aceita marcação arbitrária num
+                documento gerado pela escola é superfície de injeção, e o
+                template estruturado cobre o uso real.
+              */}
+              <div className="space-y-4">
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nome da Instituição</label>
                     <input
@@ -3824,30 +3807,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                     </button>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-[11px] text-slate-500 leading-relaxed bg-slate-50 border border-slate-150 rounded-lg p-3">
-                    Escreva o HTML completo do documento. Placeholders disponíveis (substituídos como texto puro,
-                    sem executar código): <code className="font-mono">{'{{studentName}}'}</code>,{' '}
-                    <code className="font-mono">{'{{courseTitle}}'}</code>,{' '}
-                    <code className="font-mono">{'{{cargaHoraria}}'}</code>,{' '}
-                    <code className="font-mono">{'{{attendancePercent}}'}</code>,{' '}
-                    <code className="font-mono">{'{{issueDate}}'}</code>,{' '}
-                    <code className="font-mono">{'{{verificationHash}}'}</code>,{' '}
-                    <code className="font-mono">{'{{verificationUrl}}'}</code>,{' '}
-                    <code className="font-mono">{'{{institutionName}}'}</code>,{' '}
-                    <code className="font-mono">{'{{footerText}}'}</code> e{' '}
-                    <code className="font-mono">{'{{qrImg}}'}</code> (imagem do QR code).
-                  </p>
-                  <textarea
-                    value={templateDraft.customHtml || ''}
-                    onChange={(e) => setTemplateDraft({ ...templateDraft, customHtml: e.target.value })}
-                    rows={16}
-                    placeholder="<html>...</html>"
-                    className="w-full bg-slate-950 text-teal-300 border border-slate-800 p-3 text-xs font-mono rounded-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500/40"
-                  />
-                </div>
-              )}
 
               {templateError && (
                 <p className="text-xs text-rose-600 font-semibold">{templateError}</p>

@@ -102,7 +102,10 @@ interface LMSContextProps {
   updateCourseInstructor: (courseId: string, instructorId: string) => void;
   updateCourseProps: (courseId: string, updates: Partial<Course>) => void;
   addLessonToCourse: (courseId: string, lessonTitle: string, duration: string, content: string, videoUrl?: string) => void;
-  updateLesson: (courseId: string, lessonId: string, updates: Partial<Lesson>) => void;
+  updateLesson: (
+    courseId: string, lessonId: string, updates: Partial<Lesson>
+  ) => Promise<{ ok: boolean; error?: string }>;
+  uploadArquivo: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
   deleteLesson: (courseId: string, lessonId: string) => void;
   addLiveSessionToCourse: (courseId: string, title: string, scheduledAt: string, durationMinutes: number, meetingLink: string, isLive: boolean) => void;
   removeLiveSession: (courseId: string, sessionId: string) => void;
@@ -1797,24 +1800,64 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
   
-  const updateLesson = (courseId: string, lessonId: string, updates: Partial<Lesson>) => {
-    setCourses((prev) =>
-      prev.map((course) => {
-        if (course.id === courseId) {
-          const updatedLessons = course.lessons.map((l) => (l.id === lessonId ? { ...l, ...updates } : l));
-          authFetch(`/api/courses/${courseId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lessons: updatedLessons })
-          }).catch(err => console.error(err));
-          return {
-            ...course,
-            lessons: updatedLessons
-          };
-        }
-        return course;
-      })
+  /**
+   * Atualiza uma aula e DEVOLVE o desfecho.
+   *
+   * Era otimista com `.catch(console.error)`: a aula (e os documentos dela)
+   * mudava na tela e a recusa do servidor — 403 por não lecionar a disciplina,
+   * 422 por payload inválido — passava em silêncio, porque `.catch` só dispara
+   * em falha de rede. A página de documentos da disciplina depende de saber se
+   * gravou, então o retorno virou explícito.
+   *
+   * O estado local só muda quando o servidor aceita: gravar primeiro e depois
+   * descobrir a recusa deixaria a tela divergindo do banco até o recarregamento.
+   */
+  const updateLesson = async (
+    courseId: string,
+    lessonId: string,
+    updates: Partial<Lesson>
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const curso = courses.find((c) => c.id === courseId);
+    if (curso === undefined) {
+      return { ok: false, error: 'Disciplina não encontrada.' };
+    }
+
+    const updatedLessons = curso.lessons.map((l) => (l.id === lessonId ? { ...l, ...updates } : l));
+    const r = await escreveApi(
+      `/api/courses/${courseId}`,
+      'PUT',
+      { lessons: updatedLessons },
+      'Recurso de aulas indisponível nesta instalação.'
     );
+    if (!r.ok) return { ok: false, error: r.error };
+
+    setCourses((prev) =>
+      prev.map((course) => (course.id === courseId ? { ...course, lessons: updatedLessons } : course))
+    );
+
+    return { ok: true };
+  };
+
+  /** Envia um arquivo e devolve a URL pública que o servidor gravou. */
+  const uploadArquivo = async (
+    file: File
+  ): Promise<{ ok: boolean; url?: string; error?: string }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch('/api/upload?visibility=public', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { ok: false, error: err.error || err.message || 'Falha ao enviar o arquivo.' };
+      }
+      const data = await res.json();
+
+      return { ok: true, url: data.url };
+    } catch (err) {
+      console.error('Erro ao enviar arquivo:', err);
+
+      return { ok: false, error: 'Servidor indisponível para envio de arquivos.' };
+    }
   };
 
   const deleteLesson = (courseId: string, lessonId: string) => {
@@ -2645,6 +2688,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCourseProps,
         addLessonToCourse,
         updateLesson,
+        uploadArquivo,
         deleteLesson,
         addLiveSessionToCourse,
         removeLiveSession,
