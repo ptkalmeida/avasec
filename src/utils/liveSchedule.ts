@@ -17,7 +17,7 @@
  * ficam fora da agenda em vez de derrubar a página.
  */
 
-import { Course, WebinarEvent } from '../types';
+import { Course, LiveSession, WebinarEvent } from '../types';
 
 export type AgendaKind = 'aula' | 'webinar';
 
@@ -97,6 +97,45 @@ export function toDatetimeLocalValue(d: Date): string {
   const p = (n: number) => String(n).padStart(2, '0');
 
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** Duas datas caem no mesmo dia do calendário local. */
+export function mesmoDia(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+/**
+ * Transmissões que acontecem HOJE, na ordem do horário.
+ *
+ * O painel do aluno listava `course.liveSessions` inteiro, sem filtro de data:
+ * encontro de dias atrás continuava na tela com o botão "Entrar na Sala" ativo e
+ * o texto "Você pode entrar na sala virtual e aguardar o professor". O aluno
+ * entrava numa sala vazia para esperar um professor que não vinha.
+ *
+ * Recorte por DIA do calendário, não por "faltam menos de 24h": um encontro das
+ * 19:30 de amanhã não é assunto de hoje, e um das 08:00 de hoje continua sendo
+ * o encontro de hoje mesmo já tendo começado.
+ *
+ * `agora` é parâmetro, não `new Date()` interno — o mesmo motivo de buildAgenda:
+ * filtro que depende do relógio da máquina passa hoje e falha amanhã.
+ *
+ * Sessão com `scheduledAt` que não é ISO local (texto livre do formato antigo,
+ * "Próxima Segunda, às 20:00") fica de fora, como já acontece na agenda: sem data
+ * legível não há como afirmar que é hoje, e afirmar seria o defeito de novo.
+ */
+export function transmissoesDoDia(
+  sessions: LiveSession[] | null | undefined,
+  agora: Date
+): LiveSession[] {
+  if (!Array.isArray(sessions)) return [];
+
+  return sessions
+    .map((s) => ({ s, quando: parseScheduledAt(s.scheduledAt) }))
+    .filter((x) => x.quando !== null && mesmoDia(x.quando, agora))
+    .sort((a, b) => (a.quando as Date).getTime() - (b.quando as Date).getTime())
+    .map((x) => x.s);
 }
 
 /**
