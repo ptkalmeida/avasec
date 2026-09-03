@@ -139,9 +139,18 @@ final class CertificateService
         return $certificate->toArray();
     }
 
-    public function deleteCertificate(string $id): void
+    /**
+     * Revoga um certificado (ADR 12). Não apaga.
+     *
+     * Certificado é documento: já foi emitido, tem hash de verificação pública e
+     * pode estar impresso ou anexado num processo. Some do banco significa que a
+     * consulta pública passa a dizer "não existe" sobre um papel que existe no
+     * mundo. Revogar registra quem revogou, quando e por quê — e é isso que a
+     * verificação pública precisa poder responder.
+     */
+    public function deleteCertificate(string $id, ?string $porUserId = null, ?string $motivo = null): void
     {
-        Certificate::query()->where('id', $id)->delete();
+        Certificate::query()->find($id)?->inativar($porUserId, $motivo);
     }
 
     private function computeAttendancePercent(Course $course, ?StudentProgress $progress): int

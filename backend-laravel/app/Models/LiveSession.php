@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\Inativavel;
 use App\Support\BusinessRules;
 use Illuminate\Database\Eloquent\Model;
 
 final class LiveSession extends Model
 {
+    use Inativavel;
+
     protected $table = 'LiveSession';
 
     protected $keyType = 'string';

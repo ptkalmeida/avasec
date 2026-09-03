@@ -85,7 +85,11 @@ final class PracticalExerciseTest extends TestCase
             ->assertJsonPath('maxPoints', 90);
 
         $this->deleteJson("/api/exercises/{$id}", [], $this->auth($token))->assertOk();
-        $this->assertDatabaseMissing('PracticalExercise', ['id' => $id]);
+        // ADR 12: o exercício é inativado, não apagado — com a exclusão física
+        // o CASCADE de ExerciseSubmission.exerciseId levava embora todo trabalho
+        // entregue e corrigido.
+        $this->assertDatabaseHas('PracticalExercise', ['id' => $id]);
+        $this->assertNotNull(DB::table('PracticalExercise')->where('id', $id)->value('inativadoEm'));
     }
 
     public function test_prazo_em_texto_livre_e_recusado(): void
