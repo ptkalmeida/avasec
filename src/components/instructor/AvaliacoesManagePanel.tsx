@@ -11,7 +11,8 @@
  * concretos que a mudança resolve:
  *
  * 1. Não havia como editar. Publicada a avaliação, corrigir um erro no enunciado
- *    exigia apagá-la — e apagar avaliação apaga as respostas já entregues.
+ *    exigia apagá-la — e, na época, apagar avaliação apagava as respostas já
+ *    entregues pelos alunos (hoje a ADR 12 preserva o registro).
  * 2. O rascunho vivia em estados soltos do dashboard; sair do balão perdia tudo
  *    sem aviso.
  * 3. Excluir era um clique só, sem confirmação, ao lado do título.
@@ -606,14 +607,16 @@ export const AvaliacoesManagePanel: React.FC<AvaliacoesManagePanelProps> = ({
                     type="button"
                     onClick={async () => {
                       /*
-                       * Apagar avaliação apaga as respostas dos alunos junto (o
-                       * servidor remove as QuizSubmission do quiz). O botão antigo
-                       * fazia isso num clique, sem perguntar nada.
+                       * O aviso mudou junto com a ADR 12. Antes ele dizia a
+                       * verdade — o servidor apagava as QuizSubmission do quiz —
+                       * e depois da regra de auditoria as notas ficam. Manter o
+                       * texto antigo assustaria com uma perda que não acontece,
+                       * e assustar com dado errado é pior que não avisar.
                        */
                       const aviso =
                         respostas.length > 0
-                          ? `Excluir "${quiz.title}" apaga também as ${respostas.length} respostas já entregues pelos alunos. Confirmar?`
-                          : `Excluir a avaliação "${quiz.title}"?`;
+                          ? `Excluir "${quiz.title}"? Ela sai do ar para a turma. As ${respostas.length} respostas já entregues continuam registradas.`
+                          : `Excluir a avaliação "${quiz.title}"? Ela sai do ar para a turma.`;
                       if (!confirmar(aviso)) return;
 
                       const r = await onDelete(quiz.id);
