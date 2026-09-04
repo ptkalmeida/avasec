@@ -4,6 +4,32 @@ import { CalendarioPage } from '../../src/components/pages/CalendarioPage';
 import { Course, WebinarEvent } from '../../src/types';
 import { toDatetimeLocalValue } from '../../src/utils/liveSchedule';
 
+/*
+ * A flag `eventosWebinars` está DESLIGADA no produto (decisão de 04/09/2026), e
+ * a página monta a agenda sem webinar nenhum quando ela está assim.
+ *
+ * Estes testes cobrem o comportamento da funcionalidade, não o estado da flag —
+ * inclusive as regras de segurança do link (`javascript:` não virar link, anônimo
+ * não ver o endereço). Deixá-los seguir a flag do produto seria apagá-los sem
+ * apagar o arquivo, e eles voltariam a ser necessários no dia em que webinar
+ * voltar ao ar. Por isso a flag é controlada aqui, teste a teste, e há um caso
+ * dedicado ao estado desligado.
+ */
+const flagWebinar = vi.hoisted(() => ({ ativo: true }));
+
+vi.mock('../../src/config/features', async (importOriginal) => {
+  const original = await importOriginal<{ features: Record<string, boolean> }>();
+
+  return {
+    features: {
+      ...original.features,
+      get eventosWebinars() {
+        return flagWebinar.ativo;
+      },
+    },
+  };
+});
+
 /**
  * A agenda é relativa a "hoje", então o relógio é congelado: sem isso o teste passa
  * hoje e falha quando as datas fixas vencerem.
@@ -55,6 +81,7 @@ const webinar = (over: Partial<WebinarEvent> = {}): WebinarEvent => ({
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(HOJE);
+  flagWebinar.ativo = true;
 });
 
 afterEach(() => {
@@ -184,6 +211,43 @@ describe('CalendarioPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /participar/i }));
     expect(p.onRequireLogin).toHaveBeenCalled();
+  });
+
+  it('com eventosWebinars DESLIGADA, webinar não entra na agenda pública', () => {
+    /*
+     * Estado atual do produto. A página recebe os webinars por prop de qualquer
+     * jeito (o estado do contexto nasce do mock local), então a guarda tem de
+     * estar aqui: sem ela, desligar a flag deixaria o evento no calendário
+     * público com a API respondendo 404 no link.
+     */
+    flagWebinar.ativo = false;
+    render(
+      <CalendarioPage
+        {...props(
+          [curso('c1', 'UX', [['s1', 'Aula de Wireframes', emDias(2, 19, 30)]])],
+          [webinar({ title: 'IA no Design', date: '15/09/2026', time: '19:00' })],
+          true
+        )}
+      />
+    );
+
+    // A aula ao vivo continua; só o webinar sai.
+    expect(screen.getByText('Aula de Wireframes')).toBeInTheDocument();
+    expect(screen.queryByText('IA no Design')).not.toBeInTheDocument();
+    expect(screen.queryByText(/webinar aberto/i)).not.toBeInTheDocument();
+  });
+
+  it('com a flag desligada e SÓ webinars, a agenda diz que não há nada', () => {
+    // Nada de agenda vazia com o texto de "webinar aberto" pendurado.
+    flagWebinar.ativo = false;
+    render(
+      <CalendarioPage
+        {...props([], [webinar({ title: 'IA no Design' })], true)}
+      />
+    );
+
+    expect(screen.queryByText('IA no Design')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /acessar sala/i })).not.toBeInTheDocument();
   });
 
   it('mostra a distância em dias de cada encontro', () => {

@@ -1263,6 +1263,10 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   </p>
                 </div>
               </button>
+              {/* Agendar webinar depende da flag: sem ela as rotas /api/webinars
+                  respondem 404 e o professor preencheria o formulário para
+                  receber erro. Era o único ponto de webinar sem porteiro. */}
+              {features.eventosWebinars && (
               <button 
                 onClick={() => setIsCreatingWebinar(true)}
                 className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all text-left flex items-center gap-4 group cursor-pointer"
@@ -1275,11 +1279,16 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Workshops globais.</p>
                 </div>
               </button>
+              )}
             </div>
           </section>
 
           {/* GESTÃO DE WEBINARS — antes só existia o botão de agendar: um webinar
-              marcado por engano ficava na agenda pública sem forma de editar ou tirar. */}
+              marcado por engano ficava na agenda pública sem forma de editar ou tirar.
+              Some junto com a flag: `webinarEvents` nasce do estado local
+              (INITIAL_WEBINARS), então sem esta guarda o bloco listaria eventos
+              que a API nem entrega mais. */}
+          {features.eventosWebinars && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
             <h4 className="font-bold text-sm uppercase tracking-wider flex items-center gap-2 text-slate-800">
               <Calendar className="h-3.5 w-3.5" />
@@ -1334,6 +1343,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               </ul>
             )}
           </section>
+          )}
 
           {/*
             REMOVIDO: painel "Métricas AVA" com "Engajamento de Grade — 82% Média
@@ -2353,7 +2363,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       */}
 
       {/* 6. Modal: Agendar Webinar Global */}
-      {isCreatingWebinar && (
+      {features.eventosWebinars && isCreatingWebinar && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <form
             onSubmit={handleAddWebinar}
