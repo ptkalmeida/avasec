@@ -4,6 +4,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { PortalView, pathFromView, viewFromPath, caminhoConhecido } from './router/portalRoutes';
 import { LMSProvider, useLMS } from './context/LMSContext';
 import { StudentDashboard } from './components/StudentDashboard';
 import { InstructorDashboard } from './components/InstructorDashboard';
@@ -65,18 +67,11 @@ function AvasecLogo() {
  * Views do portal. O projeto não usa router: a navegação do site público é
  * feita por este estado (o mesmo padrão já adotado pela página `cursos`).
  */
-type PortalView =
-  | 'landing'
-  | 'active_app'
-  | 'perfil'
-  | 'cursos'
-  | 'o-ava'
-  | 'certificados'
-  | 'o-projeto'
-  | 'noticias'
-  | 'duvidas'
-  | 'calendario'
-  | 'orientacoes';
+/*
+ * `PortalView` mudou de casa para src/router/portalRoutes.ts, onde vive junto do
+ * caminho de cada tela. Duas listas — uma de telas, outra de endereços — sairiam
+ * de sincronia no primeiro acréscimo.
+ */
 
 function DashboardSwitcher() {
   const {
@@ -119,7 +114,32 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     .map(s => s.name);
   
   // Navigation & UI States
-  const [currentView, setCurrentView] = useState<PortalView>('landing');
+  /*
+   * A URL e a fonte da verdade da navegacao.
+   *
+   * `currentView` era `useState('landing')`: a URL ficava sempre em `/`, então
+   * recarregar jogava a pessoa na landing, não havia link para mandar a alguém e
+   * o Voltar do navegador saía do sistema inteiro.
+   *
+   * A ASSINATURA continua idêntica de propósito. Os 12 pontos que chamam
+   * `setCurrentView` seguem como estão — o que mudou é que agora aquilo empurra
+   * uma entrada no histórico em vez de trocar um estado invisível.
+   */
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentView: PortalView = viewFromPath(location.pathname) ?? 'landing';
+  const setCurrentView = (view: PortalView): void => {
+    navigate(pathFromView(view));
+  };
+
+  // Endereço que não é de nenhuma tela vai para a raiz, sem deixar entrada no
+  // histórico: senão o Voltar devolveria a pessoa ao endereço quebrado.
+  useEffect(() => {
+    if (!caminhoConhecido(location.pathname)) {
+      navigate(pathFromView('landing'), { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
   const [previousView, setPreviousView] = useState<Exclude<PortalView, 'perfil'>>('landing');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   
@@ -578,7 +598,16 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     if (!hash) return;
     setCertQuery(hash);
     runCertLookup(hash);
-    setCurrentView('certificados');
+    /*
+     * O `?verify=` VIAJA junto para /certificados, e isto não é detalhe: há
+     * certificado impresso em circulação com o QR apontando para `/?verify=...`.
+     * Levar só o caminho deixaria a URL sem o código, e recarregar a página
+     * (ou mandar o endereço adiante) perderia a consulta que a pessoa veio fazer.
+     *
+     * `replace` para o Voltar não devolver ao endereço antigo e disparar a busca
+     * de novo.
+     */
+    navigate(`${pathFromView('certificados')}?verify=${encodeURIComponent(hash)}`, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
