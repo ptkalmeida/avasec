@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BookOpen, Calendar, CheckCircle, Award, Video, Plus, Trash2, Edit3, Users,
   Globe, Clock, Grid, ChevronRight, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
-  ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock, Pencil
+  ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock, Pencil, FileCheck
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
@@ -22,6 +22,11 @@ import { LessonContent } from './student/LessonContent';
 import { LessonContentEditor } from './instructor/LessonContentEditor';
 import { LessonManagePage } from './instructor/LessonManagePage';
 import { ExerciciosManagePanel } from './instructor/ExerciciosManagePanel';
+import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  RAIZ_INSTRUTOR, SecaoInstrutor, SubAbaAvaliacoes,
+  abaDaSecao, secaoDaAba, caminhoInstrutor, parseInstrutor,
+} from '../router/instructorRoutes';
 import { AvaliacoesManagePanel } from './instructor/AvaliacoesManagePanel';
 import { DocumentosDisciplinaPage } from './instructor/DocumentosDisciplinaPage';
 import { courseMinAttendance } from '../config/constants';
@@ -52,8 +57,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     deleteQuiz,
     studentsList,
     systemSettings,
-    activeDashboardTab,
-    setActiveDashboardTab,
     addWebinarEvent,
     deleteWebinarEvent,
     webinarEvents,
@@ -73,18 +76,121 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     gradeSubmission
   } = useLMS();
 
-  // Active form sections
-  const [selectedCourseId, setSelectedCourseId] = useState<string>(courses[0]?.id || '');
+  /*
+   * A URL manda: curso, secao e janela aberta saem do endereco.
+   *
+   * `selectedCourseId` era `useState(courses[0]?.id)` — quem abria o painel ja
+   * estava dentro de um curso que nao escolheu, e as abas operavam sobre ele. E
+   * `activeDashboardTab` vinha do contexto, um estado global invisivel.
+   *
+   * As assinaturas de `setSelectedCourseId` e `setActiveDashboardTab` continuam
+   * identicas de proposito: os 15 pontos que trocam de aba e os que trocam de
+   * curso seguem como estavam, so passam a empurrar historico.
+   */
+  const navigate = useNavigate();
+  const location = useLocation();
+  const destino = parseInstrutor(location.pathname, location.search);
+
+  /*
+   * Cursos que ESTE instrutor gerencia — fonte unica do seletor e da rota.
+   *
+   * O seletor fazia `courses.map(...)`, sem filtro: qualquer instrutor podia
+   * escolher curso de colega e operar sobre ele. O vazamento ja existia antes de
+   * haver URL; com endereco digitavel ficaria trivial de alcancar. O backend ja
+   * barra a escrita (InstructorScope), mas a tela nao pode oferecer.
+   */
+  const cursosQueGerencio = React.useMemo(
+    () => (activeUser.role === 'admin' ? courses : courses.filter((c) => c.instructorId === activeUser.id)),
+    [courses, activeUser.id, activeUser.role]
+  );
+
+  const cursoDoEndereco = destino.courseId === null
+    ? null
+    : cursosQueGerencio.find((c) => c.id === destino.courseId) ?? null;
+
+  const selectedCourseId = cursoDoEndereco?.id ?? '';
+  const setSelectedCourseId = (courseId: string): void => {
+    // Trocar de curso volta para a Gestao do Curso: a secao aberta pertencia ao
+    // curso anterior, e manter "Grade Curricular" mostraria a grade de outro.
+    navigate(caminhoInstrutor({ courseId }));
+  };
+
+  const activeDashboardTab = abaDaSecao(destino.secao);
+  const setActiveDashboardTab = (aba: string): void => {
+    navigate(caminhoInstrutor({ courseId: selectedCourseId, secao: secaoDaAba(aba as never) }));
+  };
+
+  const subAbaAvaliacoes: SubAbaAvaliacoes = destino.subAba;
+  const irParaSubAba = (subAba: SubAbaAvaliacoes): void => {
+    navigate(caminhoInstrutor({ courseId: selectedCourseId, secao: 'avaliacoes', subAba }));
+  };
+
+  /*
+   * Janelas (modais) vivem na URL, para o Voltar do navegador FECHAR o modal em
+   * vez de trocar de pagina.
+   *
+   * Isto traduz a escada que o painel ja tinha a mao: `handleBack` desfazia
+   * modal, depois aba, depois portal, e `getBackLabel` chegava a nomear o proximo
+   * passo ("Voltar p/ Gestao"). A semantica existia; faltava estar ligada ao
+   * botao do navegador.
+   *
+   * Abrir empurra historico; FECHAR substitui. Sem isso, abrir e fechar o mesmo
+   * modal cinco vezes deixaria dez entradas e o Voltar percorreria todas elas
+   * antes de sair da pagina.
+   */
+  const abrirJanela = (janela: string | null): void => {
+    navigate(
+      caminhoInstrutor({
+        courseId: selectedCourseId,
+        secao: destino.secao,
+        subAba: destino.subAba,
+        janela,
+      }),
+      { replace: janela === null }
+    );
+  };
+
+  /**
+   * Par `[aberta, definir]` de uma janela, com a MESMA assinatura de um
+   * `useState<boolean>`.
+   *
+   * E o que permite os 24 pontos que abrem e fecham modal seguirem intocados:
+   * quem escreve `setIsCreatingLesson(true)` nao precisa saber que aquilo agora
+   * mexe no endereco.
+   */
+  const usarJanela = (nome: string): [boolean, (aberta: boolean) => void] => [
+    destino.janela === nome,
+    (aberta: boolean) => abrirJanela(aberta ? nome : null),
+  ];
+
+  /*
+   * Endereco que nao serve vai para a escolha de curso, sem entrada no
+   * historico. Cobre tres casos: o caminho provisorio /app de quem acabou de
+   * entrar, secao sem curso, e id de curso que nao e deste instrutor (digitado
+   * na barra ou link herdado de outra conta).
+   */
+  useEffect(() => {
+    const precisaVoltarParaEscolha = destino.courseId !== null && cursoDoEndereco === null;
+    // `startsWith(RAIZ_INSTRUTOR)` sozinho casaria com `/institucional`. A
+    // comparação exata mais a barra é o que separa a raiz do painel de um
+    // caminho que só começa com as mesmas letras.
+    const foraDoPainel = location.pathname !== RAIZ_INSTRUTOR
+      && !location.pathname.startsWith(`${RAIZ_INSTRUTOR}/`);
+    if (precisaVoltarParaEscolha || foraDoPainel) {
+      navigate(RAIZ_INSTRUTOR, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, cursoDoEndereco, destino.courseId]);
   
   // Advanced Tools States
-  const [isEditingCourse, setIsEditingCourse] = useState(false);
+  const [isEditingCourse, setIsEditingCourse] = usarJanela('editar-curso');
   /*
    * Página de documentos da disciplina. Substitui o botão "Biblioteca Digital",
    * que abria um modal só de cadastro, para o acervo GERAL da escola
    * (`LibraryItem` não tem courseId) e atrás de uma flag desligada — então o que
    * ele salvava ficava no localStorage.
    */
-  const [showDocumentos, setShowDocumentos] = useState(false);
+  const [showDocumentos, setShowDocumentos] = usarJanela('documentos');
   const [isCreatingWebinar, setIsCreatingWebinar] = useState(false);
 
   // Edit Course Meta
@@ -159,7 +265,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [activeLiveSession, setActiveLiveSession] = useState<LiveSession | null>(null);
 
   // Create Course State
-  const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [isCreatingCourse, setIsCreatingCourse] = usarJanela('novo-curso');
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseDesc, setNewCourseDesc] = useState('');
   const [newCourseCategory, setNewCourseCategory] = useState('Programação');
@@ -167,7 +273,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [newCourseExpiration, setNewCourseExpiration] = useState('');
 
   // Create Lesson State
-  const [isCreatingLesson, setIsCreatingLesson] = useState(false);
+  const [isCreatingLesson, setIsCreatingLesson] = usarJanela('nova-aula');
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonDuration, setLessonDuration] = useState('15 min');
   const [lessonContent, setLessonContent] = useState('');
@@ -192,7 +298,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [isDragging, setIsDragging] = useState(false);
 
   // Create Live Session State
-  const [isCreatingLive, setIsCreatingLive] = useState(false);
+  const [isCreatingLive, setIsCreatingLive] = usarJanela('agendar-encontro');
   const [liveTitle, setLiveTitle] = useState('');
   // Sugestao inicial: hoje as 20:00, no formato que o datetime-local espera.
   const [liveDate, setLiveDate] = useState(() => {
@@ -770,7 +876,14 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     setTimeout(() => setToastMsg(''), 4000);
   };
 
-  const activeCourse = courses.find((c) => c.id === selectedCourseId) || courses[0];
+  /*
+   * O curso do endereço, e NADA quando não há escolha.
+   *
+   * Era `courses.find(...) || courses[0]`: sem curso escolhido o painel exibia o
+   * primeiro da lista — de qualquer instrutor — como se fosse o curso em gestão.
+   * O `|| courses[0]` é exatamente o que a regra de curso-primeiro proíbe.
+   */
+  const activeCourse = cursoDoEndereco;
 
   /*
    * Referência de "agora" para a regra das 24h. Um valor só por render, em vez de
@@ -842,8 +955,14 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         Alunos ficavam inalcançáveis mesmo com as próprias flags ligadas. Cada
         aba passa a responder pela SUA flag; a barra aparece se sobrar alguma.
       */}
+      {/*
+        CURSO PRIMEIRO: sem curso escolhido nao ha submenu.
+        Grade Curricular, Avaliacoes e Gestao de Alunos sao sempre de UM curso;
+        oferece-las antes da escolha era oferecer a grade de um curso que a pessoa
+        nao selecionou (o painel caia em `courses[0]` sozinho).
+      */}
       {/* Dynamic Tab Navigation System */}
-      {(
+      {selectedCourseId !== '' && (
         <div className="flex bg-slate-100 p-1.5 rounded-2xl gap-1.5 mb-10 overflow-x-auto scrollbar-hide md:justify-center w-full max-w-4xl mx-auto shadow-3xs border border-slate-200">
           <button
             onClick={() => setActiveDashboardTab('general')}
@@ -940,18 +1059,42 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           
           {/* Active Course Selector block */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Selecione o Curso a Gerenciar</label>
-            <select
-              value={selectedCourseId}
-              onChange={(e) => setSelectedCourseId(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-teal-500 transition-colors"
-            >
-              {courses.map((c, idx) => (
-                <option key={`${c.id}-${idx}`} value={c.id}>
-                  {isCourseExpired(c.contractExpirationDate) ? '[VIGÊNCIA ENCERRADA] ' : ''}{c.category} • {c.title}
-                </option>
-              ))}
-            </select>
+            <label htmlFor="curso-a-gerenciar" className="block text-xs font-bold text-slate-500 uppercase mb-2">
+              Selecione o Curso a Gerenciar
+            </label>
+            {cursosQueGerencio.length === 0 ? (
+              /*
+               * A lista passou a ser só dos cursos deste instrutor, então ela pode
+               * estar vazia — antes isso era impossível porque o seletor mostrava
+               * os cursos de todo mundo. Dizer o que fazer é melhor que um seletor
+               * vazio que não explica nada.
+               */
+              <p className="rounded-xl border border-dashed border-slate-250 bg-slate-50/60 p-4 text-center text-[11px] leading-relaxed text-slate-500">
+                Você ainda não tem curso sob sua responsabilidade. Use
+                <strong className="font-bold text-slate-700"> Cadastrar Novo Curso</strong> acima, ou
+                peça à coordenação para lhe atribuir um curso existente.
+              </p>
+            ) : (
+              <select
+                id="curso-a-gerenciar"
+                value={selectedCourseId}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-teal-500 transition-colors"
+              >
+                {/*
+                  Opção vazia enquanto não houve escolha: sem ela o navegador exibe
+                  o primeiro curso da lista enquanto o valor é '', e a pessoa lê
+                  como se aquele curso estivesse aberto — exatamente a confusão que
+                  a regra de curso-primeiro existe para acabar.
+                */}
+                {selectedCourseId === '' && <option value="">— Escolha um curso para gerenciar —</option>}
+                {cursosQueGerencio.map((c, idx) => (
+                  <option key={`${c.id}-${idx}`} value={c.id}>
+                    {isCourseExpired(c.contractExpirationDate) ? '[VIGÊNCIA ENCERRADA] ' : ''}{c.category} • {c.title}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {activeCourse && (
@@ -1241,7 +1384,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
         {/* Right column: Advanced Toolbox */}
         <div className="space-y-6 text-left">
-          {/* Reuse the Metrics/Tools sections from original general tab */}
+          {/*
+            Reuse the Metrics/Tools sections from original general tab.
+
+            A seção inteira depende do curso: tudo que sobrou aqui é ferramenta de
+            UMA disciplina, e sem curso escolhido ficava um título sozinho sobre
+            nada. Se voltar a existir ferramenta global (Agendar Webinar era uma),
+            ela sai desta guarda.
+          */}
+          {activeCourse && (
           <section className="space-y-4">
             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2 px-1">
               <Grid className="h-3.5 w-3.5" />
@@ -1249,6 +1400,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             </h4>
             
             <div className="grid grid-cols-1 gap-3">
+              {/*
+                "Documentos da Disciplina" e de UM curso: abre o material das
+                aulas de `activeCourse`. Sem curso escolhido o botao levava a uma
+                pagina sem disciplina nenhuma — mesma regra de curso-primeiro que
+                vale para os submenus.
+              */}
+              {activeCourse && (
               <button
                 onClick={() => setShowDocumentos(true)}
                 className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:border-teal-300 hover:shadow-sm transition-all text-left flex items-center gap-4 group cursor-pointer"
@@ -1263,6 +1421,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   </p>
                 </div>
               </button>
+              )}
               {/* Agendar webinar depende da flag: sem ela as rotas /api/webinars
                   respondem 404 e o professor preencheria o formulário para
                   receber erro. Era o único ponto de webinar sem porteiro. */}
@@ -1282,6 +1441,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               )}
             </div>
           </section>
+          )}
 
           {/* GESTÃO DE WEBINARS — antes só existia o botão de agendar: um webinar
               marcado por engano ficava na agenda pública sem forma de editar ou tirar.
@@ -1360,28 +1520,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       </div>
       )}
 
-      {/*
-        EXERCÍCIOS PRÁTICOS — não existia nada disto no painel de quem dá aula: a
-        gestão morava só no painel do admin, e o professor não tinha como lançar
-        nem corrigir. A lista de cursos vem filtrada por instructorId, o mesmo
-        escopo que o backend impõe em /api/exercises.
-      */}
-      {activeDashboardTab === 'general' && features.atividadesPraticasAvancadas && (
-        <div className="mt-6 animate-in fade-in duration-300">
-          <ExerciciosManagePanel
-            courses={courses.filter((c) => c.instructorId === activeUser.id)}
-            exercises={practicalExercises}
-            submissions={exerciseSubmissions}
-            onCreate={addPracticalExercise}
-            onUpdate={updatePracticalExercise}
-            onDelete={deletePracticalExercise}
-            onGrade={gradeSubmission}
-            confirmar={(pergunta) => window.confirm(pergunta)}
-            notify={showToast}
-          />
-        </div>
-      )}
-
       {/* DOCUMENTOS DA DISCIPLINA — página, não modal. */}
       {activeDashboardTab === 'general' && showDocumentos && activeCourse && (
         <div className="animate-in fade-in duration-300">
@@ -1402,26 +1540,84 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         edição nenhuma, e a exclusão num clique dentro do resumo do curso.
         A lista de cursos vai filtrada por instructorId, o mesmo escopo que o
         backend impõe em /api/quizzes.
+
+        EXERCÍCIOS PRÁTICOS moraram na aba "Gestão do Curso" e passaram para cá,
+        como sub-aba: as duas coisas são o que o aluno faz para ser avaliado, e
+        quem vai corrigir procura as duas no mesmo lugar. São sub-abas, e não uma
+        página empilhada, porque cada uma é uma tela cheia — prova tem gabarito e
+        nota automática, exercício tem entrega e correção à mão — e cada uma tem
+        endereço próprio.
       */}
-      {activeDashboardTab === 'avaliacoes' && features.quizSimples && (
-        <div className="animate-in fade-in duration-300">
-          <AvaliacoesManagePanel
-            courses={courses.filter((c) => c.instructorId === activeUser.id)}
-            quizzes={quizzes}
-            submissions={quizSubmissions}
-            onCreate={addQuiz}
-            onUpdate={updateQuiz}
-            onDelete={deleteQuiz}
-            confirmar={(pergunta) => window.confirm(pergunta)}
-            notify={showToast}
-          />
+      {activeDashboardTab === 'avaliacoes' && activeCourse && (
+        <div className="animate-in fade-in duration-300 space-y-5">
+          {/* Sub-abas. Só aparecem se houver as duas: uma aba sozinha não é escolha. */}
+          {features.quizSimples && features.atividadesPraticasAvancadas && (
+            <div className="mx-auto flex w-full max-w-md gap-1.5 rounded-2xl border border-slate-200 bg-slate-100 p-1.5 shadow-3xs">
+              {([
+                { id: 'provas', rotulo: 'Provas', Icone: CheckSquare },
+                { id: 'exercicios', rotulo: 'Exercícios', Icone: FileCheck },
+              ] as const).map(({ id, rotulo, Icone }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => irParaSubAba(id)}
+                  className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all ${
+                    subAbaAvaliacoes === id
+                      ? 'bg-[#540D6E] text-white shadow-sm'
+                      : 'font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                  }`}
+                >
+                  <Icone className="h-4 w-4" />
+                  <span>{rotulo}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {subAbaAvaliacoes === 'provas' && features.quizSimples && (
+            <AvaliacoesManagePanel
+              /*
+               * SO o curso do endereco.
+               *
+               * Recebia todos os cursos do instrutor, e isso passou a contradizer
+               * a moldura: dentro de /inst/curso/course-1/avaliacoes a lista
+               * mostrava tambem a avaliacao de course-2, e o seletor de
+               * disciplina do proprio painel (que cai em `courses[0]`) concorria
+               * com o curso que a URL nomeia. Com um curso so, os dois nao podem
+               * discordar.
+               */
+              courses={[activeCourse]}
+              quizzes={quizzes}
+              submissions={quizSubmissions}
+              onCreate={addQuiz}
+              onUpdate={updateQuiz}
+              onDelete={deleteQuiz}
+              confirmar={(pergunta) => window.confirm(pergunta)}
+              notify={showToast}
+            />
+          )}
+
+          {subAbaAvaliacoes === 'exercicios' && features.atividadesPraticasAvancadas && (
+            <ExerciciosManagePanel
+              /* Mesma razao das provas: o curso e o do endereco. */
+              courses={[activeCourse]}
+              exercises={practicalExercises}
+              submissions={exerciseSubmissions}
+              onCreate={addPracticalExercise}
+              onUpdate={updatePracticalExercise}
+              onDelete={deletePracticalExercise}
+              onGrade={gradeSubmission}
+              confirmar={(pergunta) => window.confirm(pergunta)}
+              notify={showToast}
+            />
+          )}
         </div>
       )}
 
       {/* NEW: Dedicated Curriculum Tab Content */}
       {/* Página de gestão de uma aula: abre em cima do currículo, no lugar da lista,
           espelhando os blocos na ordem em que o aluno os recebe. */}
-      {activeDashboardTab === 'curriculum' && managedLesson && (
+      {activeDashboardTab === 'curriculum' && managedLesson && activeCourse && (
         <div className="animate-in slide-in-from-bottom-2 duration-300 space-y-6">
           <LessonManagePage
             lesson={managedLesson}
@@ -1460,7 +1656,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         </div>
       )}
 
-      {activeDashboardTab === 'curriculum' && !managedLesson && (
+      {activeDashboardTab === 'curriculum' && !managedLesson && activeCourse && (
         <div className="animate-in slide-in-from-bottom-2 duration-300 space-y-6">
           <div className="text-left">
             <BackButton onClick={() => setActiveDashboardTab('general')} text="Voltar ao Painel do Instrutor" />
@@ -1824,7 +2020,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         </div>
       )}
 
-      {activeDashboardTab === 'students' && (
+      {activeDashboardTab === 'students' && activeCourse && (
         <div className="space-y-6 text-left animate-in fade-in duration-300">
           <div>
             <BackButton onClick={() => setActiveDashboardTab('general')} text="Voltar ao Painel do Instrutor" />
