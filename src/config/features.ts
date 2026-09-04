@@ -42,8 +42,19 @@ export const features = {
   // Biblioteca Digital de arquivos adicionais globais
   bibliotecaDigital: false,
 
-  // Eventos, Webinars e palestras integradas ao vivo
-  eventosWebinars: true,
+  // Eventos, Webinars e palestras integradas ao vivo.
+  //
+  // Desligada por decisao de produto em 04/09/2026: webinar nao entra nesta
+  // fase. Nada foi removido — o modelo, as rotas, a área de gestão do professor,
+  // a aba do aluno e a entrada no calendário público continuam no código e nos
+  // testes. Voltar ao ar é trocar este false por true (e o espelho em
+  // backend-laravel/config/features.php, que o FeatureFlagParityTest confere).
+  //
+  // Com ela desligada: as três rotas /api/webinars respondem 404
+  // FEATURE_DISABLED, o front não busca os dados na hidratação, a aba
+  // "Eventos & Webinars" do aluno não existe, o painel do professor não oferece
+  // agendar nem gerenciar, e o calendário público monta só com aulas ao vivo.
+  eventosWebinars: false,
 
   // Sala de Transmissão ao Vivo (LiveClassroom) e aulas síncronas integradas
   liveClassroom: false,

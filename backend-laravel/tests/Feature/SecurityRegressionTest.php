@@ -258,6 +258,11 @@ final class SecurityRegressionTest extends TestCase
 
     public function test_webinar_requires_parseable_date_and_time(): void
     {
+        // A flag está desligada no produto (decisão de 04/09/2026) e a rota
+        // responde 404. O que este teste cobre é a VALIDAÇÃO da data, que precisa
+        // continuar de pé para o dia em que webinar voltar ao ar — mesmo idioma
+        // que CatalogPilotTest já usa.
+        config(['features.eventosWebinars' => true]);
         $token = $this->staffToken('instructor');
         $base = [
             'title' => 'Webinar Agenda Teste',
