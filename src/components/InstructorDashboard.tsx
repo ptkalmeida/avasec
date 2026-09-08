@@ -280,12 +280,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [lessonVideoUrl, setLessonVideoUrl] = useState('');
 
   // Lesson Management (Edit)
-  const [isEditingLesson, setIsEditingLesson] = useState(false);
-  const [editingLessonId, setEditingLessonId] = useState('');
-  const [editLessonTitle, setEditLessonTitle] = useState('');
-  const [editLessonDuration, setEditLessonDuration] = useState('');
-  const [editLessonContent, setEditLessonContent] = useState('');
-  const [editLessonVideoUrl, setEditLessonVideoUrl] = useState('');
 
   // Expanded & Documents state inside curriculum
   // Aula aberta na página de gestão (substituiu o painel que expandia na lista).
@@ -372,24 +366,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     showToast('Nova aula de fixação adicionada ao curso!');
   };
   
-  const handleUpdateLesson = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editLessonTitle.trim() || !editLessonContent.trim()) {
-      showToast('Informe o título e o texto de estudo da aula.');
-
-      return;
-    }
-
-    updateLesson(selectedCourseId, editingLessonId, {
-      title: editLessonTitle.trim(),
-      duration: editLessonDuration.trim(),
-      content: editLessonContent.trim(),
-      videoUrl: editLessonVideoUrl.trim()
-    });
-    setIsEditingLesson(false);
-    showToast('Aula atualizada com sucesso!');
-  };
-
   const handleDeleteLesson = (lessonId: string, title: string) => {
     if (confirm(`Deseja realmente excluir a aula "${title}"?`)) {
       deleteLesson(selectedCourseId, lessonId);
@@ -1774,20 +1750,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         </button>
 
                         <button
-                          onClick={() => {
-                            setEditingLessonId(lesson.id);
-                            setEditLessonTitle(lesson.title);
-                            setEditLessonDuration(lesson.duration);
-                            setEditLessonContent(lesson.content || '');
-                            setEditLessonVideoUrl(lesson.videoUrl || '');
-                            setIsEditingLesson(true);
-                          }}
-                          className="p-2 bg-slate-50 hover:bg-slate-900 hover:text-white rounded-xl text-slate-600 border border-slate-150 transition-all cursor-pointer"
-                          title="Editar Conteúdo"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                        <button
                           onClick={() => handleDeleteLesson(lesson.id, lesson.title)}
                           className="p-2 bg-slate-50 hover:bg-rose-600 hover:text-white rounded-xl text-slate-600 border border-slate-150 transition-all cursor-pointer"
                           title="Remover Aula"
@@ -2492,62 +2454,14 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         </div>
       )}
 
-      {/* 4.5. Modal: Editar Aula */}
-      {isEditingLesson && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form
-            onSubmit={handleUpdateLesson}
-            className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl relative text-left animate-in fade-in duration-200"
-          >
-            <h3 className="text-lg font-bold text-slate-900 mb-4">Editar Aula de Fixação</h3>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Título da Aula</label>
-                  <input
-                    type="text"
-                    required
-                    value={editLessonTitle}
-                    onChange={(e) => setEditLessonTitle(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider">Carga (Minutos)</label>
-                  <input
-                    type="text"
-                    required
-                    value={editLessonDuration}
-                    onChange={(e) => setEditLessonDuration(e.target.value)}
-                    className="w-full rounded-lg border border-slate-200 p-2.5 text-sm font-mono"
-                  />
-                </div>
-              </div>
-
-              <LessonVideoField value={editLessonVideoUrl} onChange={setEditLessonVideoUrl} />
-
-              <LessonContentEditor value={editLessonContent} onChange={setEditLessonContent} />
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsEditingLesson(false)}
-                className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg bg-[#540D6E] hover:bg-[#430a58] px-5 py-2 text-xs font-black text-white shadow-md transition-all cursor-pointer"
-              >
-                Atualizar Aula
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+      {/*
+        O modal "Editar Aula" saiu junto com o lápis que o abria.
+        Ele editava título, duração, vídeo e conteúdo — os MESMOS quatro campos que
+        "Gerenciar Aula" (`LessonManagePage`) já edita, cada um na sua seção. Eram
+        dois caminhos para a mesma escrita, e dois lugares para a validação
+        divergir. Remover só o botão deixaria o modal inalcançável no arquivo, que
+        é como código morto sobrevive a revisão.
+      */}
 
       {/*
         REMOVIDO: modal "Adicionar Recurso à Biblioteca". Era o que o botão
