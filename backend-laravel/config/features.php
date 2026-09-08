@@ -26,7 +26,7 @@ return [
     'liveClassroom' => false,
     'dossieAcademico' => false,
     'penalidadesCancelamento' => false,
-    'mensagensDiretas' => false,
+    'mensagensDiretas' => true,
     'matriculasMultiplas' => true,
 
     // Ativadas por padrão no MVP

@@ -15,6 +15,7 @@ import {
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardTab, useLMS, authFetch } from '../context/LMSContext';
 import { RAIZ_ALUNO, caminhoAluno, parseAluno } from '../router/studentRoutes';
+import { assuntoDaMensagem, comAssuntoDaAula } from '../utils/assuntoMensagem';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -690,7 +691,7 @@ ${html}
     const text = lessonSupportMessage.trim();
     if (!text || !activeLesson) return;
 
-    const r = await sendDirectMessage(activeUser.id, `[Aula: ${activeLesson.title}] ${text}`);
+    const r = await sendDirectMessage(activeUser.id, comAssuntoDaAula(activeLesson.title, text));
     if (!r.ok) {
       showAlert(r.error ?? 'Não foi possível enviar a mensagem.');
 
@@ -1726,13 +1727,32 @@ ${html}
 
                               <button
                                 onClick={() => {
-                                  if (next) {
-                                    setActiveLesson(next);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                  if (!next) return;
+
+                                  /*
+                                   * Avançar CONCLUI a aula atual. Decisão do
+                                   * usuário em 08/09/2026: vários alunos leram
+                                   * "Concluir esta aula" como status que mudou, e
+                                   * avançar sem concluir deixava a grade cheia de
+                                   * aulas lidas e não marcadas.
+                                   *
+                                   * A checagem antes é obrigatória, não zelo:
+                                   * `toggleLessonCompletion` ALTERNA, então numa
+                                   * aula já concluída avançar a DESMARCARIA — e a
+                                   * frequência cairia por navegar para frente.
+                                   */
+                                  const jaConcluida = currentCourseProgress?.completedLessons.includes(activeLesson.id) ?? false;
+                                  if (!jaConcluida) {
+                                    toggleLessonCompletion(selectedCourse.id, activeLesson.id);
                                   }
+
+                                  setActiveLesson(next);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
                                 }}
                                 disabled={!next}
-                                title={next ? next.title : 'Esta é a última aula'}
+                                title={next
+                                  ? `Conclui esta aula e abre: ${next.title}`
+                                  : 'Esta é a última aula — conclua-a pelo botão acima'}
                                 className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all min-w-0 ${
                                   next
                                     ? 'bg-[#540D6E] hover:bg-purple-950 text-white cursor-pointer shadow-xs'
@@ -1746,6 +1766,12 @@ ${html}
                           );
                         })()}
                       </nav>
+
+                      {/* O efeito colateral fica ESCRITO. Botão que muda registro
+                          acadêmico em silêncio é a origem da próxima reclamação. */}
+                      <p className="w-full max-w-3xl mx-auto text-[10px] text-slate-400 text-right leading-normal">
+                        Avançar marca esta aula como concluída e conta para a sua frequência.
+                      </p>
                     </div>
                   ) : (
                     /* Initial Welcome course billboard if no active lesson selected */
@@ -3323,6 +3349,7 @@ ${html}
                     .filter(m => m.studentUserId === activeUser.id)
                     .map((msg, idx) => {
                       const isStudent = msg.senderRole === 'student';
+                      const { aula, corpo } = assuntoDaMensagem(msg.text);
                       return (
                         <div key={`${msg.id}-${idx}`} className={`flex flex-col ${isStudent ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
                           <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-normal ${
@@ -3334,7 +3361,15 @@ ${html}
                               <span className="font-extrabold text-[9px] uppercase tracking-wide">{msg.senderName}</span>
                               <span className="text-[8px] font-mono">• {msg.senderRole === 'student' ? 'Estudante' : 'Professor'}</span>
                             </div>
-                            <p className="whitespace-pre-line text-[11.5px] font-sans leading-relaxed break-words">{msg.text}</p>
+                            {aula !== null && (
+                              <span className={`mb-1.5 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                                isStudent ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                              }`}>
+                                <BookOpen className="h-3 w-3 shrink-0" />
+                                <span className="truncate">Aula: {aula}</span>
+                              </span>
+                            )}
+                            <p className="whitespace-pre-line text-[11.5px] font-sans leading-relaxed break-words">{corpo}</p>
                           </div>
                           <span className="text-[8px] text-slate-400 mt-1 px-1 font-mono">
                             {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -3345,45 +3380,36 @@ ${html}
                 )}
               </div>
 
-              {/* Message Typing and send Form */}
-              <form onSubmit={(e) => {
+              {/*
+                A RESPOSTA AUTOMÁTICA SIMULADA SAIU DAQUI.
+
+                Havia um `setTimeout` que, 1,8 s depois do envio, escrevia no
+                `localStorage` uma resposta sorteada de três frases prontas,
+                assinada "Gestor de Conteúdos" e com papel `instructor` — sem
+                passar pela API, então o professor nunca via a conversa que o
+                aluno via. Uma das frases chamava a pessoa de "João", fosse quem
+                fosse.
+
+                Era tolerável enquanto o canal estava desligado e nada saía da
+                máquina. Com `mensagensDiretas` LIGADA passa a ser dano: o aluno
+                pergunta sobre uma aula, lê "vou abordar isso no encerramento da
+                transmissão de hoje" e espera por uma resposta que ninguém deu.
+              */}
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 const input = (e.currentTarget.elements.namedItem('messageText') as HTMLInputElement);
                 const text = input.value.trim();
-                if (text) {
-                  sendDirectMessage(activeUser.id, text);
-                  input.value = '';
-                  
-                  // Smart auto reply simulation representing prompt responses from instructor
-                  setTimeout(() => {
-                    const matchPhrases = [
-                      "Excelente dúvida, João! Analisei seu progresso de presença e recomendo atentar para as próximas aulas ao vivo para consolidarmos isso juntos.",
-                      "Olá! Registrei sua colocação acadêmica aqui. Vou abordar exatamente este tópico no encerramento da nossa transmissão de hoje! Conto com você lá.",
-                      "Perfeito! Recebi sua mensagem. Já estou revisando e logo te envio um feedback detalhado com indicações extras de leitura técnica."
-                    ];
-                    const randomPhrase = matchPhrases[Math.floor(Math.random() * matchPhrases.length)];
-                    const saved = localStorage.getItem('ava_direct_messages');
-                    const currentDMs = saved ? JSON.parse(saved) : [];
-                    const tutorResponse = {
-                      id: `dm-bot-${Date.now()}`,
-                      studentUserId: activeUser.id,
-                      studentName: activeUser.name,
-                      senderName: 'Gestor de Conteúdos',
-                      senderRole: 'instructor',
-                      text: randomPhrase,
-                      timestamp: new Date().toISOString()
-                    };
-                    localStorage.setItem('ava_direct_messages', JSON.stringify([...currentDMs, tutorResponse]));
-                    let storageEvent;
-                    try {
-                      storageEvent = new Event('storage');
-                    } catch (e) {
-                      storageEvent = document.createEvent('Event');
-                      storageEvent.initEvent('storage', true, true);
-                    }
-                    window.dispatchEvent(storageEvent);
-                  }, 1800);
+                if (!text) return;
+
+                // Só limpa o campo depois do aceite: recusa com campo vazio faria
+                // a pessoa reescrever a mensagem inteira.
+                const r = await sendDirectMessage(activeUser.id, text);
+                if (!r.ok) {
+                  showAlert(r.error ?? 'Não foi possível enviar a mensagem.');
+
+                  return;
                 }
+                input.value = '';
               }} className="flex gap-2">
                 <input
                   name="messageText"

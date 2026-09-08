@@ -66,7 +66,7 @@ export const features = {
   penalidadesCancelamento: false,
 
   // Sistema de mensagens diretas e chats de suporte internos
-  mensagensDiretas: false,
+  mensagensDiretas: true,
 
   // Permite que o Admin Superior conceda a alunos específicos a possibilidade
   // de cursar mais de uma disciplina simultaneamente (por padrão, 1 por vez)
