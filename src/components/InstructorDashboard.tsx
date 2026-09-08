@@ -9,11 +9,13 @@ import {
   Globe, Clock, Grid, ChevronRight, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
   ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock, Pencil, FileCheck
+, AlertTriangle
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { LessonVideoField } from './shared/LessonVideoField';
 import { Course, Lesson, LiveSession, isCourseExpired } from '../types';
+import { textoDoTempoDaGrade } from '../utils/courseDuration';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
 import { toDatetimeLocalValue, formatScheduledAt, situacaoTransmissao } from '../utils/liveSchedule';
@@ -1765,23 +1767,56 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             )}
           </div>
 
-          {/* Quick Stats for Curriculum */}
+          {/*
+            Os três indicadores da grade. Dois eram inventados:
+
+            - "Tempo Total Estimado" trazia `~12.4 horas` ESCRITO no JSX. Curso
+              recém-criado, sem uma aula, anunciava 12,4 horas; acrescentar aula
+              não mudava nada. Agora é a soma das durações cadastradas, e grade
+              vazia mostra "—" em vez de "0 horas" — zero também afirma algo.
+            - "Status de Publicação" dizia "Publicado" fixo, com o ícone verde,
+              para qualquer curso. O frontend não recebe o campo de visibilidade;
+              `Course.statusCurso` existe e ninguém lê (o AGENTS.md o cita como
+              aviso). O que EXISTE e é verificável é a vigência de exibição, então
+              é ela que o card mostra.
+
+            Só o do meio media algo — e chamava aula de "Módulo".
+          */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4">
              <div className="bg-slate-900 rounded-2xl p-6 text-left border border-slate-800">
-                <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest block mb-1">Tempo Total Estimado</span>
-                <div className="text-2xl font-black text-white">~12.4 horas</div>
+                <span className="text-[10px] font-black text-teal-400 uppercase tracking-widest block mb-1">Tempo Total da Grade</span>
+                <div className="text-2xl font-black text-white">{textoDoTempoDaGrade(activeCourse.lessons)}</div>
+                <span className="text-[10px] text-slate-400 block mt-1 leading-normal">Soma das durações cadastradas nas aulas.</span>
              </div>
              <div className="bg-white rounded-2xl p-6 text-left border border-slate-200">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Aulas Dinâmicas</span>
-                <div className="text-2xl font-black text-slate-900">{activeCourse.lessons.length} Módulos</div>
-             </div>
-             <div className="bg-white rounded-2xl p-6 text-left border border-slate-200">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Status de Publicação</span>
-                <div className="text-2xl font-black text-emerald-600 flex items-center gap-2">
-                  <CheckCircle className="h-6 w-6" />
-                  <span>Publicado</span>
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Aulas na Grade</span>
+                <div className="text-2xl font-black text-slate-900">
+                  {activeCourse.lessons.length} {activeCourse.lessons.length === 1 ? 'aula' : 'aulas'}
                 </div>
              </div>
+             {(() => {
+               const vencido = isCourseExpired(activeCourse.contractExpirationDate);
+               const temVigencia = (activeCourse.contractExpirationDate ?? '') !== '';
+
+               return (
+                 <div className="bg-white rounded-2xl p-6 text-left border border-slate-200">
+                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Vigência de Exibição</span>
+                   {!temVigencia ? (
+                     <div className="text-2xl font-black text-slate-450">Sem prazo</div>
+                   ) : (
+                     <div className={`text-2xl font-black flex items-center gap-2 ${vencido ? 'text-rose-600' : 'text-emerald-600'}`}>
+                       {vencido ? <AlertTriangle className="h-6 w-6" /> : <CheckCircle className="h-6 w-6" />}
+                       <span>{vencido ? 'Encerrada' : 'Vigente'}</span>
+                     </div>
+                   )}
+                   {temVigencia && (
+                     <span className="text-[10px] text-slate-400 block mt-1 leading-normal font-mono">
+                       até {activeCourse.contractExpirationDate}
+                     </span>
+                   )}
+                 </div>
+               );
+             })()}
           </div>
         </div>
       )}

@@ -504,6 +504,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     if (activeTab === 'forum' && !features.forum) {
       setActiveTab('teoria');
     }
+    // Suporte depende do canal de mensagens; sem ele a aba não existe.
+    if (activeTab === 'suporte' && !features.mensagensDiretas) {
+      setActiveTab('teoria');
+    }
   }, [activeTab]);
 
   
@@ -522,16 +526,33 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const noteEditorRef = React.useRef<HTMLDivElement>(null);
   const [noteSaved, setNoteSaved] = useState(false);
 
-  // Sync do editor sempre que a aula ativa muda (HTML salvo vira o conteúdo do editor).
+  /*
+   * Carrega a anotação salva no editor.
+   *
+   * O DEFEITO: este efeito dependia só de `activeLesson?.id`. A aba "Anotações
+   * Privadas" é renderizada condicionalmente (`activeTab === 'anotacao'`), então
+   * no instante em que a aula muda o editor NÃO está montado — `noteEditorRef`
+   * é null e a atribuição era descartada em silêncio. Depois, ao abrir a aba, o
+   * editor montava vazio e nada mais o preenchia.
+   *
+   * O resultado, do lado de quem usa: a anotação era gravada corretamente (a
+   * chave sempre foi `savedNotes[activeLesson.id]`, por aula), mas nunca voltava
+   * — e parecia que "Salvar" tinha apagado tudo. Também explica por que "Baixar"
+   * só trazia o que estava digitado na hora: ele lê o editor, e o editor estava
+   * vazio.
+   *
+   * `activeTab` na dependência é a correção: quando a aba abre, o editor existe.
+   */
   React.useEffect(() => {
-    if (activeLesson && noteEditorRef.current) {
-      // Sanitiza na ENTRADA: a anotação pode ter sido gravada antes desta regra,
-      // ou colada de outra página trazendo a marcação da origem.
-      noteEditorRef.current.innerHTML = sanitizeNoteHtml(savedNotes[activeLesson.id] || '');
-    }
+    if (activeTab !== 'anotacao') return;
+    if (!activeLesson || !noteEditorRef.current) return;
+
+    // Sanitiza na ENTRADA: a anotação pode ter sido gravada antes desta regra,
+    // ou colada de outra página trazendo a marcação da origem.
+    noteEditorRef.current.innerHTML = sanitizeNoteHtml(savedNotes[activeLesson.id] || '');
     setNoteSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLesson?.id]);
+  }, [activeLesson?.id, activeTab]);
 
   const applyNoteFormat = (command: string, value?: string) => {
     noteEditorRef.current?.focus();
@@ -560,34 +581,122 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     }
   };
 
-  const handleDownloadNoteText = () => {
+  /**
+   * Gera o PDF da anotação pelo NAVEGADOR.
+   *
+   * Antes baixava um `.html`, que quase ninguém quer receber. E o PDF não pode
+   * ser gerado no servidor: esta tela promete, com essas palavras, que a
+   * anotação é "gravada e persistida localmente no seu navegador". Mandá-la para
+   * o servidor só para virar PDF quebraria a promessa por conveniência de
+   * implementação — e anotação de aluno carrega o que ele quiser escrever.
+   *
+   * Então: um iframe oculto recebe a anotação e o `print()` do navegador a
+   * transforma em PDF. Iframe, e não `window.open`, porque janela nova é
+   * bloqueada por bloqueador de pop-up e o botão simplesmente não faria nada.
+   *
+   * O que isto exige de quem usa: escolher "Salvar como PDF" no diálogo de
+   * impressão. É o preço de não ter dependência nova nem mandar o texto embora.
+   */
+  const baixarAnotacaoEmPdf = () => {
     if (!activeLesson || !noteEditorRef.current) return;
+
     const html = sanitizeNoteHtml(noteEditorRef.current.innerHTML);
-    if (!html.trim()) return;
-    // O título vem do servidor (quem gerencia o curso), então precisa de escape:
-    // sem ele, `</title><script>` num título executaria no arquivo baixado pelo aluno.
-    const tituloSeguro = escapeHtml(activeLesson.title);
-    const htmlDoc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Anotações — ${tituloSeguro}</title>
-<style>body{font-family:Arial,Helvetica,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;color:#1e293b;line-height:1.6;} h1{font-size:18px;border-bottom:2px solid #0d9488;padding-bottom:8px;} </style>
-</head><body><h1>Anotações — ${tituloSeguro}</h1>${html}</body></html>`;
-    const blob = new Blob([htmlDoc], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `anotacoes-${activeLesson.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    if (!html.trim()) {
+      showAlert('Escreva algo na anotação antes de gerar o PDF.');
+
+      return;
+    }
+
+    // Título e curso vêm do SERVIDOR (quem gerencia o curso), então precisam de
+    // escape: sem ele, `</title><script>` num título executaria no documento
+    // gerado na máquina do aluno.
+    const tituloAula = escapeHtml(activeLesson.title);
+    const tituloCurso = escapeHtml(selectedCourse?.title ?? '');
+    const aluno = escapeHtml(activeUser.name);
+    const quando = new Date().toLocaleString('pt-BR');
+
+    const documento = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8">
+<title>Anotacoes - ${tituloAula}</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; line-height: 1.6; font-size: 12pt; margin: 0; }
+  header { border-bottom: 2px solid #0d9488; padding-bottom: 10px; margin-bottom: 18px; }
+  h1 { font-size: 15pt; margin: 0 0 4px; }
+  .meta { font-size: 9pt; color: #64748b; }
+  ul { list-style: disc; padding-left: 22px; }
+  ol { list-style: decimal; padding-left: 22px; }
+  img { max-width: 100%; }
+</style></head><body>
+<header>
+  <h1>Anotações — ${tituloAula}</h1>
+  <div class="meta">${tituloCurso}</div>
+  <div class="meta">${aluno} • gerado em ${quando}</div>
+</header>
+${html}
+</body></html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.position = 'fixed';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    const janela = iframe.contentWindow;
+    if (!janela) {
+      document.body.removeChild(iframe);
+      showAlert('Não foi possível preparar o PDF neste navegador.');
+
+      return;
+    }
+
+    janela.document.open();
+    janela.document.write(documento);
+    janela.document.close();
+
+    // Espera a janela do iframe carregar antes de imprimir: chamar `print()` num
+    // documento ainda em branco produz uma folha vazia.
+    const imprimir = () => {
+      janela.focus();
+      janela.print();
+      // Remove depois do diálogo. `print()` é bloqueante na maioria dos
+      // navegadores, mas o timeout cobre os que retornam antes.
+      setTimeout(() => {
+        if (iframe.parentNode) document.body.removeChild(iframe);
+      }, 1000);
+    };
+
+    if (janela.document.readyState === 'complete') {
+      imprimir();
+    } else {
+      janela.addEventListener('load', imprimir, { once: true });
+    }
   };
 
   const [lessonSupportMessage, setLessonSupportMessage] = useState('');
   const [lessonSupportMessageSent, setLessonSupportMessageSent] = useState(false);
 
-  const handleSendLessonSupportMessage = () => {
+  /*
+   * Só anuncia envio depois de o servidor aceitar.
+   *
+   * Antes chamava `sendDirectMessage` e acendia "Mensagem enviada!" na linha
+   * seguinte, sem olhar o resultado. Com `features.mensagensDiretas` desligada a
+   * rota responde 404 FEATURE_DISABLED — então o aluno relatava um problema, lia
+   * a confirmação, e a mensagem não existia em lugar nenhum.
+   */
+  const handleSendLessonSupportMessage = async () => {
     const text = lessonSupportMessage.trim();
     if (!text || !activeLesson) return;
-    sendDirectMessage(activeUser.id, `[Aula: ${activeLesson.title}] ${text}`);
+
+    const r = await sendDirectMessage(activeUser.id, `[Aula: ${activeLesson.title}] ${text}`);
+    if (!r.ok) {
+      showAlert(r.error ?? 'Não foi possível enviar a mensagem.');
+
+      return;
+    }
+
     setLessonSupportMessage('');
     setLessonSupportMessageSent(true);
     setTimeout(() => setLessonSupportMessageSent(false), 4000);
@@ -902,21 +1011,52 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg border border-slate-250">
-                  <div className="text-right">
-                    <span className="block text-[9px] uppercase font-semibold text-slate-400 leading-none">Frequência Total</span>
-                    <strong className="text-sm font-black text-teal-700 font-mono mt-0.5 block">
-                      {calculateAttendancePercent(selectedCourse.id)}% <span className="text-[10px] text-slate-400">/ 70%</span>
-                    </strong>
-                  </div>
-                  <div className="h-8 w-8 rounded-full border-2 border-slate-200 border-t-teal-600/80 animate-spin-slow flex items-center justify-center text-[8px] font-bold text-teal-600">
-                    70%
-                  </div>
-                </div>
+                {/*
+                  Lia-se como divisão. "Frequência Total 100% / 70%" faz a pessoa
+                  perguntar "100% de 70% dá quanto?", quando os dois números são
+                  coisas diferentes: o primeiro é a frequência dela, o segundo é o
+                  mínimo do curso. Agora cada um tem seu rótulo.
+
+                  E o 70 estava FIXO em três lugares aqui, inclusive na condição do
+                  banner de certificado logo abaixo — um curso com `minAttendance`
+                  diferente anunciaria qualificação no limite errado. O mínimo passa
+                  a vir de `courseMinAttendance`, que é a fonte única.
+                */}
+                {(() => {
+                  const frequencia = calculateAttendancePercent(selectedCourse.id);
+                  const minimo = courseMinAttendance(selectedCourse);
+                  const qualificado = frequencia >= minimo;
+
+                  return (
+                    <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg border border-slate-250">
+                      <div className="text-right">
+                        <span className="block text-[9px] uppercase font-semibold text-slate-400 leading-none">Sua frequência</span>
+                        <strong className={`text-sm font-black font-mono mt-0.5 block ${qualificado ? 'text-emerald-700' : 'text-teal-700'}`}>
+                          {frequencia}%
+                        </strong>
+                        <span className="block text-[9px] text-slate-400 leading-tight mt-0.5">
+                          mínimo de {minimo}% para o certificado
+                        </span>
+                      </div>
+                      <div
+                        className={`h-9 w-9 shrink-0 rounded-full border-2 flex items-center justify-center text-[8px] font-bold leading-none text-center ${
+                          qualificado
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-slate-200 bg-slate-50 text-slate-500'
+                        }`}
+                        title={qualificado
+                          ? `Frequência suficiente: ${frequencia}% de um mínimo de ${minimo}%.`
+                          : `Faltam ${minimo - frequencia} pontos percentuais para o mínimo de ${minimo}%.`}
+                      >
+                        {qualificado ? <Check className="h-4 w-4" /> : <span>faltam<br />{minimo - frequencia}%</span>}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Banner de sucesso — só quando a frequência qualifica para certificação */}
-              {calculateAttendancePercent(selectedCourse.id) >= 70 && (() => {
+              {calculateAttendancePercent(selectedCourse.id) >= courseMinAttendance(selectedCourse) && (() => {
                 // Curso já concluído não pode ser concluído de novo: a matrícula
                 // deixou de ser ativa, então o botão só daria erro.
                 const jaConcluido = enrollmentRecord.completedCourseIds?.includes(selectedCourse.id) ?? false;
@@ -1201,22 +1341,47 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           Aula {activeLesson.order} de {selectedCourse.lessons.length}
                         </span>
 
-                        {/* Complete checking in the classroom */}
-                        <button
-                          onClick={() => toggleLessonCompletion(selectedCourse.id, activeLesson.id)}
-                          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                            currentCourseProgress?.completedLessons.includes(activeLesson.id)
-                              ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                              : 'bg-teal-600 hover:bg-teal-500 text-white shadow-xs'
-                          }`}
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          <span>
-                            {currentCourseProgress?.completedLessons.includes(activeLesson.id)
-                              ? 'Marcar como Pendente'
-                              : 'Concluir esta Aula de Fixação'}
-                          </span>
-                        </button>
+                        {/*
+                          ESTADO primeiro, ação depois.
+                          Antes havia só um botão, e ele mostrava sempre a AÇÃO
+                          disponível — nunca a situação da aula. O efeito: ao clicar
+                          em "Próxima aula" e chegar numa aula ainda não concluída,
+                          aparecia "Concluir esta Aula de Fixação", e isso se lê como
+                          "a aula acabou de virar pendente". Nada era alterado —
+                          `toggleLessonCompletion` só é chamado por clique explícito —
+                          mas a tela não dava como saber disso.
+                        */}
+                        {(() => {
+                          const concluida = currentCourseProgress?.completedLessons.includes(activeLesson.id) ?? false;
+
+                          if (concluida) {
+                            return (
+                              <div className="flex items-center gap-2.5">
+                                <span className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+                                  <CheckCircle className="h-4 w-4" />
+                                  Aula concluída
+                                </span>
+                                <button
+                                  onClick={() => toggleLessonCompletion(selectedCourse.id, activeLesson.id)}
+                                  title="Voltar esta aula para pendente"
+                                  className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-450 underline decoration-slate-300 hover:text-slate-700"
+                                >
+                                  Desfazer
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <button
+                              onClick={() => toggleLessonCompletion(selectedCourse.id, activeLesson.id)}
+                              className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-teal-500"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              <span>Marcar esta aula como concluída</span>
+                            </button>
+                          );
+                        })()}
                       </div>
 
                       {/* Modular Details Hub: Tabs system under Lesson */}
@@ -1247,15 +1412,25 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             )}
                           </button>
 
-                          <button
-                            onClick={() => setActiveTab('suporte')}
-                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                              activeTab === 'suporte' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
-                            }`}
-                          >
-                            <HelpCircle className="h-4 w-4 shrink-0" />
-                            <span>Suporte Pedagógico</span>
-                          </button>
+                          {/*
+                            A aba depende do canal de mensagens. `mensagensDiretas`
+                            desligada faz `POST /api/dms` responder 404
+                            FEATURE_DISABLED, e a aba oferecia um envio que nunca
+                            chegava — com confirmação na tela. Mesma escada que o
+                            Fórum, a Biblioteca e o Perfil já usam: recurso
+                            desligado desaparece, em vez de prometer.
+                          */}
+                          {features.mensagensDiretas && (
+                            <button
+                              onClick={() => setActiveTab('suporte')}
+                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                                activeTab === 'suporte' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
+                              }`}
+                            >
+                              <HelpCircle className="h-4 w-4 shrink-0" />
+                              <span>Suporte Pedagógico</span>
+                            </button>
+                          )}
 
                           {features.forum && (
                             <button
@@ -1352,7 +1527,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                   <Notebook className="h-4 w-4 text-teal-500" />
                                   <span>Suas Anotações Digitais Privadas</span>
                                 </h4>
-                                <p className="text-[10px] text-slate-400 leading-none mt-1">Eles são gravados e persistidos localmente no seu navegador para consultas futuras.</p>
+                                <p className="text-[10px] text-slate-400 leading-normal mt-1">
+                                  Gravadas localmente no seu navegador, separadas por aula. O PDF também
+                                  é gerado aqui — a anotação não é enviada para o servidor.
+                                </p>
                               </div>
 
                               <div className="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:ring-1 focus-within:ring-teal-500">
@@ -1418,11 +1596,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                                   </span>
                                 )}
                                 <button
-                                  onClick={handleDownloadNoteText}
+                                  onClick={baixarAnotacaoEmPdf}
+                                  title="Abre o diálogo de impressão; escolha “Salvar como PDF”."
                                   className="rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs px-4 py-1.8 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                                 >
                                   <Download className="h-3.5 w-3.5" />
-                                  Baixar Anotações
+                                  Baixar em PDF
                                 </button>
                                 <button
                                   onClick={handleSaveNoteText}
@@ -1434,7 +1613,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                             </div>
                           )}
 
-                          {activeTab === 'suporte' && (
+                          {features.mensagensDiretas && activeTab === 'suporte' && (
                             <div className="space-y-4">
                               <h4 className="font-bold text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
                                 <HelpCircle className="h-4 w-4 text-teal-500" />

@@ -112,7 +112,17 @@ interface LMSContextProps {
   removeLiveSession: (courseId: string, sessionId: string) => void;
   sendLiveChatMessage: (sessionId: string, text: string) => void;
   setLiveSessionStatus: (courseId: string, sessionId: string, isLive: boolean) => void;
-  sendDirectMessage: (studentUserId: string, text: string) => void;
+  /**
+   * Envia mensagem direta e DEVOLVE o desfecho.
+   *
+   * Era `=> void` e engolia falha: a mensagem entrava no estado local, o POST
+   * saía, e o `.catch` só imprimia no console — que nem dispara em resposta 404,
+   * porque `fetch` resolve com `ok: false` em vez de rejeitar. Com
+   * `features.mensagensDiretas` desligada a rota responde 404 FEATURE_DISABLED,
+   * então TODA mensagem de suporte do aluno era descartada enquanto a tela
+   * anunciava "Mensagem enviada!".
+   */
+  sendDirectMessage: (studentUserId: string, text: string) => Promise<{ ok: boolean; error?: string }>;
   addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => Promise<QuizWriteResult>;
   updateQuiz: (
     quizId: string, courseId: string, title: string, questions: QuizQuestion[]
@@ -1973,7 +1983,10 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error(err));
   };
 
-  const sendDirectMessage = (studentUserId: string, text: string) => {
+  const sendDirectMessage = async (
+    studentUserId: string,
+    text: string
+  ): Promise<{ ok: boolean; error?: string }> => {
     const threadOwnerName = studentUserId === activeUser.id
       ? activeUser.name
       : studentsList.find((s) => s.id === studentUserId)?.name ?? '';
@@ -1987,12 +2000,41 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       text,
       timestamp: new Date().toISOString()
     };
+
+    // Insere otimista para a conversa não travar à espera da rede — mas DESFAZ se
+    // o servidor recusar. Antes só inseria: a mensagem ficava na tela para sempre
+    // sem nunca ter saído da máquina.
     setDirectMessages((prev) => [...prev, newDM]);
-    authFetch('/api/dms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentUserId, text })
-    }).catch(err => console.error(err));
+
+    const desfazer = () => setDirectMessages((prev) => prev.filter((m) => m.id !== newDM.id));
+
+    try {
+      const res = await authFetch('/api/dms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentUserId, text })
+      });
+
+      if (!res.ok) {
+        desfazer();
+        // `fetch` NÃO rejeita em 404: sem esta checagem a falha era invisível.
+        const dados = await res.json().catch(() => ({}));
+
+        return {
+          ok: false,
+          error: dados.code === 'FEATURE_DISABLED'
+            ? 'O canal de mensagens está desativado nesta versão da plataforma. Sua mensagem não foi enviada.'
+            : (dados.message || 'Não foi possível enviar a mensagem.')
+        };
+      }
+
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao enviar mensagem:', err);
+      desfazer();
+
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
   };
 
   /**
