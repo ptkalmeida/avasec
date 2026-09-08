@@ -1206,7 +1206,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                     className="rounded-lg bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 px-2 sm:px-3 py-2 text-[11px] font-bold text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <Edit3 className="h-3.5 w-3.5" />
-                    <span>Editar Props</span>
+                    <span>Editar Propriedades</span>
                   </button>
                   <button
                     onClick={() => setActiveDashboardTab('curriculum')}

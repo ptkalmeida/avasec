@@ -31,7 +31,7 @@ import {
   Search, Menu, Star, Play, FileText,
   Mail, ExternalLink, X, Sparkles, Calendar, Info,
   Printer, Download, Monitor, CheckCircle, Instagram, Youtube, Facebook, Twitter, Home, Bell, MessageSquare,
-  Fingerprint, AlertTriangle, Check
+  Fingerprint, AlertTriangle, Check, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { features } from './config/features';
@@ -209,18 +209,33 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
   // PIN Verification Flow Security States
   const [pendingLogin, setPendingLogin] = useState<{ name: string; role: 'student' | 'instructor' | 'admin' } | null>(null);
-  const [pinInput, setPinInput] = useState<string>('');
-  const [pinError, setPinError] = useState<string | null>(null);
-  const [isPinSuccess, setIsPinSuccess] = useState<boolean>(false);
-  const loginPinInputRef = useRef<HTMLInputElement>(null);
+  /*
+   * SENHA, não PIN. Era um teclado de 10 dígitos com `replace(/\D/g,'')` e
+   * `maxLength={8}`: dois limites independentes que tornavam senha alfanumérica
+   * impossível de digitar. A política real (ADR 11) sempre exigiu letra e
+   * dígito com no mínimo 8 caracteres, então a tela contradizia a regra do
+   * backend — e no dia em que as senhas de demonstração foram rotacionadas o
+   * gestor e o admin ficaram sem forma de entrar.
+   *
+   * Os nomes foram trocados junto com o campo: `pinInput` guardando uma senha
+   * é o tipo de nome que faz a próxima pessoa reintroduzir o limite numérico.
+   */
+  const [senhaInput, setSenhaInput] = useState<string>('');
+  const [senhaErro, setSenhaErro] = useState<string | null>(null);
+  const [senhaOk, setSenhaOk] = useState<boolean>(false);
+  const [senhaVisivel, setSenhaVisivel] = useState<boolean>(false);
+  const senhaInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (pendingLogin) {
-      setPinInput('');
-      setPinError(null);
-      setIsPinSuccess(false);
+      setSenhaInput('');
+      setSenhaErro(null);
+      setSenhaOk(false);
+      // A senha volta oculta a cada abertura: "mostrar" é para conferir o que
+      // se digitou agora, não uma preferência que persiste na próxima entrada.
+      setSenhaVisivel(false);
       const timer = setTimeout(() => {
-        loginPinInputRef.current?.focus();
+        senhaInputRef.current?.focus();
       }, 350);
       return () => clearTimeout(timer);
     }
@@ -478,9 +493,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   const handleProfileLogin = (name: string, role: 'student' | 'instructor' | 'admin') => {
     // Intercept with security PIN prompt
     setPendingLogin({ name, role });
-    setPinInput('');
-    setPinError(null);
-    setIsPinSuccess(false);
+    setSenhaInput('');
+    setSenhaErro(null);
+    setSenhaOk(false);
+    setSenhaVisivel(false);
     speakText(`Verificação de segurança requerida para o perfil de ${name}. Digite o PIN de acesso.`);
   };
 
@@ -545,34 +561,36 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     speakText("Você desconectou do sistema com sucesso.");
   };
 
-  const handlePinKeyClick = (val: string) => {
-    if (pinInput.length < 8) {
-      setPinInput(p => p + val);
-      setPinError(null);
-    }
-  };
-
-  const verifyPinAndLogin = async () => {
-    if (!pendingLogin || isPinVerifying) return;
+  const verificarSenhaEEntrar = async () => {
+    if (!pendingLogin || isPinVerifying || senhaInput === '') return;
     setIsPinVerifying(true);
 
     // Autentica de verdade contra o backend (bcrypt + JWT) — sem PINs fixos de fallback.
-    const result = await loginWithPassword(pendingLogin.name, pinInput);
+    const result = await loginWithPassword(pendingLogin.name, senhaInput);
     setIsPinVerifying(false);
 
     if (result.ok && result.user) {
-      setIsPinSuccess(true);
+      setSenhaOk(true);
       // Usa o papel retornado pelo servidor (autoritativo), não o do cartão clicado.
       const confirmedRole = result.user.role;
       setTimeout(() => {
         executeProfileLogin(pendingLogin.name, confirmedRole);
       }, 700);
-    } else {
-      setPinError(result.error === 'Usuário ou senha inválidos.' ? 'PIN ou Senha de segurança inválida!' : (result.error || 'PIN ou Senha de segurança inválida!'));
-      setPinInput('');
-      speakText(`Falha de verificação. PIN incorreto para o perfil ${pendingLogin.name}.`);
-      addSecurityLog('Tentativa Fracassada', `Código PIN incorreto inserido para o perfil: ${pendingLogin.name}.`, 'FAILED');
+
+      return;
     }
+
+    /*
+     * A mensagem do servidor é genérica de propósito (não revela se a conta
+     * existe) e é ela que aparece. O texto antigo dizia "PIN ou Senha de
+     * segurança inválida!", o que descrevia um campo que já não existe — e
+     * mensagem que fala de PIN manda a pessoa procurar um teclado numérico.
+     */
+    setSenhaErro(result.error ?? 'Usuário ou senha inválidos.');
+    setSenhaInput('');
+    senhaInputRef.current?.focus();
+    speakText(`Falha de verificação. Senha incorreta para o perfil ${pendingLogin.name}.`);
+    addSecurityLog('Tentativa Fracassada', `Senha incorreta inserida para o perfil: ${pendingLogin.name}.`, 'FAILED');
   };
 
   const handleSubmitSuggestion = (e: React.FormEvent) => {
@@ -2930,106 +2948,77 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </div>
               </div>
 
-              {/* Password dot-display indicators */}
-              <div className="my-5 p-2 rounded-xl transition-all border border-transparent focus-within:border-indigo-150 focus-within:bg-slate-50/50 space-y-2 text-center cursor-pointer relative">
-                {/* Hidden input to receive keyboard and mobile numeric keypad focus */}
-                <input
-                  ref={loginPinInputRef}
-                  type="password"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={8}
-                  value={pinInput}
-                  onChange={(e) => {
-                    const val = e.target.value.replace(/\D/g, '');
-                    setPinInput(val);
-                    setPinError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && pinInput.length > 0 && !isPinSuccess) {
-                      verifyPinAndLogin();
-                    }
-                  }}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                  disabled={isPinSuccess}
-                  id="inp-login-pin-hidden"
-                />
+              {/* Campo de senha. Era um teclado de 10 dígitos com o valor
+                  filtrado por `replace(/\D/g,'')` e limitado a 8 caracteres —
+                  senha alfanumérica não passava por nenhum dos dois limites. */}
+              <div className="my-5 space-y-2 text-left">
+                <label
+                  htmlFor="inp-login-senha"
+                  className="block text-[10px] font-bold uppercase tracking-wider text-slate-450"
+                >
+                  Senha de acesso
+                </label>
 
-                <div className="flex justify-center gap-3.5 h-6 items-center">
-                  {[...Array(Math.max(4, pinInput.length))].map((_, idx) => (
-                    <motion.div 
-                      key={idx}
-                      animate={idx < pinInput.length ? { scale: [1, 1.2, 1], backgroundColor: '#4f46e5' } : { scale: 1, backgroundColor: '#cbd5e1' }}
-                      transition={{ duration: 0.15 }}
-                      className="h-3 w-3 rounded-full shadow-3xs"
-                    />
-                  ))}
-                </div>
-                
-                {pinError && (
-                  <span className="text-[10px] text-rose-600 font-bold bg-rose-50 border border-rose-200/60 rounded px-2 py-0.5 inline-block animate-bounce text-center">
-                    {pinError}
-                  </span>
-                )}
-                
-                {isPinSuccess && (
-                  <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-250 rounded px-2 py-0.5 inline-block text-center">
-                    <Check className="h-3 w-3 inline-block mr-1 -mt-px" />Credencial Homologada!
-                  </span>
-                )}
+                <div className="relative">
+                  <input
+                    ref={senhaInputRef}
+                    id="inp-login-senha"
+                    name="senha"
+                    type={senhaVisivel ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    maxLength={128}
+                    value={senhaInput}
+                    onChange={(e) => {
+                      setSenhaInput(e.target.value);
+                      setSenhaErro(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && senhaInput !== '' && !senhaOk) {
+                        verificarSenhaEEntrar();
+                      }
+                    }}
+                    disabled={senhaOk}
+                    placeholder="Digite a sua senha"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 pl-3 pr-10 text-sm text-slate-800 placeholder:text-slate-350 focus:border-indigo-300 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-300 disabled:opacity-60"
+                  />
 
-                <p className="text-[8px] font-mono text-slate-450 tracking-wider">
-                  Clique na área acima para digitar com seu teclado
-                </p>
-              </div>
-
-              {/* Tactical 10-key PIN numerical keyboard Pad */}
-              <div className="grid grid-cols-3 gap-2.5 max-w-[240px] mx-auto text-center justify-items-center">
-                {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((num) => (
                   <button
-                    key={num}
-                    onClick={() => handlePinKeyClick(num)}
-                    disabled={isPinSuccess}
-                    className="h-11 w-11 rounded-full font-mono font-bold text-slate-800 hover:text-indigo-650 bg-slate-50 hover:bg-slate-100 border border-slate-150 flex items-center justify-center cursor-pointer text-sm shadow-3xs active:scale-95 transition-all duration-100"
+                    type="button"
+                    onClick={() => setSenhaVisivel((v) => !v)}
+                    disabled={senhaOk}
+                    title={senhaVisivel ? 'Ocultar senha' : 'Mostrar senha'}
+                    aria-label={senhaVisivel ? 'Ocultar senha' : 'Mostrar senha'}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
                   >
-                    {num}
+                    {senhaVisivel ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
-                ))}
-                
-                {/* Clear (backspace equivalent) */}
-                <button
-                  onClick={() => {
-                    setPinInput('');
-                    setPinError(null);
-                  }}
-                  disabled={isPinSuccess}
-                  className="h-11 w-full min-w-[44px] rounded-xl font-sans font-bold text-slate-400 hover:text-rose-600 bg-slate-50 hover:bg-slate-100 border border-slate-150 flex items-center justify-center cursor-pointer text-[9px] uppercase shadow-3xs transition-all active:scale-95 px-1"
-                >
-                  Limpar
-                </button>
+                </div>
 
-                {/* Number 0 */}
-                <button
-                  onClick={() => handlePinKeyClick('0')}
-                  disabled={isPinSuccess}
-                  className="h-11 w-11 rounded-full font-mono font-bold text-slate-800 hover:text-[#540D6E] bg-slate-50 hover:bg-slate-100 border border-slate-150 flex items-center justify-center cursor-pointer text-sm shadow-3xs hover:border-[#540D6E]/40 active:scale-95 transition-all"
-                >
-                  0
-                </button>
+                {senhaErro && (
+                  <span className="inline-block rounded border border-rose-200/60 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">
+                    {senhaErro}
+                  </span>
+                )}
 
-                {/* Confirm key */}
-                <button
-                  onClick={verifyPinAndLogin}
-                  disabled={isPinSuccess || pinInput.length === 0}
-                  className={`h-11 w-full min-w-[44px] rounded-xl font-sans font-black flex items-center justify-center cursor-pointer text-[9.5px] uppercase shadow-3xs transition-all active:scale-95 ${
-                    pinInput.length > 0 
-                      ? 'bg-[#540D6E] hover:bg-[#6e118f] text-white' 
-                      : 'bg-slate-100 border border-slate-200 text-slate-300 pointer-events-none'
-                  }`}
-                >
-                  Entrar
-                </button>
+                {senhaOk && (
+                  <span className="inline-block rounded border border-emerald-250 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                    <Check className="mr-1 -mt-px inline-block h-3 w-3" />Credencial Homologada!
+                  </span>
+                )}
               </div>
+
+              <button
+                type="button"
+                onClick={verificarSenhaEEntrar}
+                disabled={senhaOk || senhaInput === '' || isPinVerifying}
+                className={`w-full rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest shadow-3xs transition-all active:scale-[0.99] ${
+                  senhaInput !== '' && !senhaOk && !isPinVerifying
+                    ? 'cursor-pointer bg-[#540D6E] text-white hover:bg-[#6e118f]'
+                    : 'pointer-events-none border border-slate-200 bg-slate-100 text-slate-350'
+                }`}
+              >
+                {isPinVerifying ? 'Verificando...' : 'Entrar'}
+              </button>
 
               {/* Dica de PINs — SOMENTE desenvolvimento. Os valores NÃO ficam escritos
                   aqui: vêm de VITE_DEMO_PINS (ver src/dev/demoProfiles.ts), porque texto
@@ -3054,7 +3043,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div className="text-center mt-3.5">
                 <button
                   onClick={() => setPendingLogin(null)}
-                  disabled={isPinSuccess}
+                  disabled={senhaOk}
                   className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest ease-in-out transition-colors cursor-pointer bg-transparent border-none py-1"
                 >
                   Voltar ao Portal
