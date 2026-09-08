@@ -4,7 +4,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useLMS } from '../context/LMSContext';
+import { AbaAdmin, SubAbaRelatorio, caminhoAdmin, parseAdmin } from '../router/adminRoutes';
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
 import { downloadSubmissionFile, previewDocumentTemplatePdf } from '../utils/fileDownload';
 import { courseMinAttendance } from '../config/constants';
@@ -85,8 +87,33 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   // List of registered student accounts for master academic academic progress tracking
   const mockStudents = studentsList;
 
-  // Selected Section State: 'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi'
-  const [activeTab, setActiveTab] = useState<'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi' | 'templates' | 'site_content'>('analytics');
+  /*
+   * NAVEGAÇÃO — derivada do ENDEREÇO, não guardada em `useState`.
+   *
+   * Dez seções na barra lateral, cinco sub-abas de relatório e a ficha de um
+   * aluno, tudo sob a mesma URL `/app`: quem precisava dizer "olha a ficha deste
+   * aluno" mandava um print da tela.
+   *
+   * As assinaturas de `setActiveTab`, `setActiveReportSubTab` e
+   * `setActiveStudentProfile` continuam idênticas — a árvore de render não sabe
+   * que agora aquilo empurra uma entrada no histórico.
+   */
+  const navigate = useNavigate();
+  const location = useLocation();
+  const destino = React.useMemo(
+    () => parseAdmin(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
+
+  const irPara = (mudanca: Parameters<typeof caminhoAdmin>[0]): void => {
+    navigate(caminhoAdmin({ ...destino, ...mudanca }));
+  };
+
+  const activeTab: AbaAdmin = destino.aba;
+  const setActiveTab = (aba: AbaAdmin): void => {
+    // Trocar de seção limpa a ficha aberta: ela pertence à seção Alunos.
+    irPara({ aba, alunoId: null });
+  };
   const [selectedBiBase, setSelectedBiBase] = useState<'alunos' | 'cursos' | 'matriculas' | 'progresso' | 'certificados'>('alunos');
 
   // Área de gerenciamento de templates de documentos (certificado, histórico)
@@ -165,8 +192,10 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   const [gradeScore, setGradeScore] = useState(100);
   const [gradeFeedback, setGradeFeedback] = useState('');
 
-  // New report active sub-filters: 'consolidado' | 'alunos' | 'professores' | 'cursos' | 'inscricoes'
-  const [activeReportSubTab, setActiveReportSubTab] = useState<'consolidado' | 'alunos' | 'professores' | 'cursos' | 'inscricoes'>('consolidado');
+  const activeReportSubTab: SubAbaRelatorio = destino.subAba;
+  const setActiveReportSubTab = (sub: SubAbaRelatorio): void => {
+    irPara({ aba: 'analytics', subAba: sub });
+  };
 
   // Document generation helper state
   const [activeDocViewer, setActiveDocViewer] = useState<{
@@ -242,7 +271,25 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
     horasTotais?: number;
   }>>({});
 
-  const [activeStudentProfile, setActiveStudentProfile] = useState<string | null>(null);
+  /*
+   * Ficha do aluno, endereçada por `id` — e o `?? name` é fallback, não escolha.
+   *
+   * A ficha era localizada por NOME (`find(s => s.name === ...)`). Isso já era
+   * frágil dentro da tela e vira defeito num endereço: homônimo existe de
+   * verdade aqui — há conta "Homonimo Teste" no próprio banco de testes, criada
+   * exatamente para esse caso —, e dois alunos de mesmo nome dividiriam a mesma
+   * URL, abrindo a ficha de quem viesse primeiro na lista.
+   *
+   * `studentsList` declara `id?: string`, então o nome permanece como último
+   * recurso para entrada sem id; toda conta vinda da API tem id.
+   */
+  const activeStudentProfile = destino.alunoId;
+  const setActiveStudentProfile = (chave: string | null): void => {
+    irPara({ aba: 'students', alunoId: chave });
+  };
+
+  /** Chave estável de um aluno para endereço e busca. */
+  const chaveDoAluno = (aluno: { id?: string; name: string }): string => aluno.id ?? aluno.name;
   
   // Filters for Students
   const [filterCourse, setFilterCourse] = useState('all');
@@ -2381,7 +2428,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                                 <div className="text-left">
                                   <span 
                                     className="font-extrabold text-slate-900 hover:text-blue-600 transition-colors block leading-tight text-sm cursor-pointer" 
-                                    onClick={() => setActiveStudentProfile(st.name)}
+                                    onClick={() => setActiveStudentProfile(chaveDoAluno(st))}
                                   >
                                     {st.name}
                                   </span>
@@ -2508,7 +2555,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                             <td className="p-4 align-middle text-right relative">
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
-                                  onClick={() => setActiveStudentProfile(st.name)}
+                                  onClick={() => setActiveStudentProfile(chaveDoAluno(st))}
                                   className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200/50 text-blue-900 font-black rounded-md text-[10px] uppercase transition-colors cursor-pointer flex items-center gap-1"
                                 >
                                   <SlidersHorizontal className="h-3 w-3 text-blue-600" />
@@ -2536,7 +2583,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                                         <button
                                           onClick={() => {
                                             setActiveStudentMenu(null);
-                                            setActiveStudentProfile(st.name);
+                                            setActiveStudentProfile(chaveDoAluno(st));
                                           }}
                                           className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-bold"
                                         >
@@ -2654,7 +2701,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                             </div>
                             <div>
                               <strong 
-                                onClick={() => setActiveStudentProfile(st.name)}
+                                onClick={() => setActiveStudentProfile(chaveDoAluno(st))}
                                 className="text-slate-900 block font-extrabold leading-tight cursor-pointer hover:underline"
                               >
                                 {st.name}
@@ -2665,7 +2712,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                           
                           <div className="flex items-center gap-1.5">
                             <button
-                              onClick={() => setActiveStudentProfile(st.name)}
+                              onClick={() => setActiveStudentProfile(chaveDoAluno(st))}
                               className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-[10px] transition-all cursor-pointer"
                               title="Gerenciar Aluno"
                             >
@@ -4424,7 +4471,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
       {/* DETAILED STUDENT PROFILE / EDIT PARAMETERS MODAL */}
       {activeStudentProfile && (() => {
-        const rawStudent = mockStudents.find(s => s.name === activeStudentProfile);
+        const rawStudent = mockStudents.find(s => chaveDoAluno(s) === activeStudentProfile);
         if (!rawStudent) return null;
         const st = getEnrichedStudent(rawStudent);
         const initials = st.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();

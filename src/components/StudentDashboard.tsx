@@ -12,7 +12,9 @@ import {
   Bell, Shield, Smartphone, X, Bold, Italic, Underline, List, ListOrdered,
   AlertTriangle, Lightbulb, Tag, LayoutGrid, Star, PartyPopper
 } from 'lucide-react';
-import { useLMS, authFetch } from '../context/LMSContext';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { DashboardTab, useLMS, authFetch } from '../context/LMSContext';
+import { RAIZ_ALUNO, caminhoAluno, parseAluno } from '../router/studentRoutes';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -122,8 +124,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     systemSettings,
     accessibilitySettings,
     updateAccessibilitySettings,
-    activeDashboardTab,
-    setActiveDashboardTab,
     currentLang,
     setCurrentLang,
     textSizeMultiplier,
@@ -140,6 +140,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     submitExercise,
   } = useLMS();
 
+  /*
+   * `undefined` aqui significa "ainda não chegou do servidor", e o padrão abaixo
+   * o transforma em "não tem matrícula" — indistinguíveis para quem lê depois.
+   * A guarda de endereço precisa da diferença: agir sobre "não tem matrícula"
+   * enquanto a resposta está em trânsito tira o aluno do curso dele.
+   */
+  const matriculaCarregada = studentEnrollments[activeUser.id] !== undefined;
   const enrollmentRecord = studentEnrollments[activeUser.id] || { enrolledCourseId: null, completedCourseIds: [], dropOutPenaltyUntil: null, canMultiEnroll: false, extraCourseIds: [] };
   const activeEnrolledCourseIds = [enrollmentRecord.enrolledCourseId, ...(enrollmentRecord.extraCourseIds || [])]
     .filter((id): id is string => !!id);
@@ -181,10 +188,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     }
   };
 
-  /** Abre a página de avaliações, opcionalmente já dentro de uma prova. */
+  /**
+   * Abre a página de avaliações, opcionalmente já dentro de uma prova.
+   *
+   * Uma navegação só. Eram dois setters em sequência, e com o endereço no
+   * comando isso deixaria duas entradas no histórico para um clique — a segunda
+   * ainda calculada a partir do destino do render, desfazendo a primeira.
+   */
   const abrirAvaliacoes = (quizId?: string) => {
-    setAvaliacaoInicial(quizId ?? null);
-    setShowAvaliacoes(true);
+    irPara({ tela: 'avaliacoes', quizId: quizId ?? null });
   };
 
   const handleBack = () => {
@@ -212,27 +224,155 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     return "Sair p/ Portal";
   };
 
-  // Active state selections
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
-  const [activeLiveSession, setActiveLiveSession] = useState<LiveSession | null>(null);
-
-  /**
-   * Página de exercícios práticos do curso. É modo de página cheia, como o
-   * quiz: exercício pertence ao curso, e antes era uma aba dentro da aula 1.
+  /*
+   * NAVEGAÇÃO — derivada do ENDEREÇO, não guardada em `useState`.
+   *
+   * Eram seis estados invisíveis (curso, aula, avaliações, prova, exercícios,
+   * sala ao vivo) e todos moravam sob a mesma URL, `/app`. A prova em andamento,
+   * a aula com vídeo e a lista de cursos tinham o mesmo endereço: nada linkável,
+   * e um F5 no meio da prova caía na lista de cursos.
+   *
+   * As ASSINATURAS dos setters continuam idênticas de propósito — `setSelectedCourse`
+   * recebe um `Course | null` como antes, `setActiveLesson` um `Lesson | null`.
+   * São dezenas de pontos de chamada na árvore de render, e nenhum precisou saber
+   * que agora aquilo empurra uma entrada no histórico.
+   *
+   * O que MUDOU e exigiu cuidado: dois setters no mesmo handler dão duas
+   * navegações, e a segunda calcula o caminho a partir do MESMO `destino` do
+   * render — então ela desfaz a primeira. Os handlers que trocavam dois estados
+   * de uma vez foram reunidos em uma navegação só (`voltarParaMeusCursos`,
+   * `abrirModulo`, `abrirAvaliacoes`).
    */
-  const [showExercicios, setShowExercicios] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const destino = React.useMemo(
+    () => parseAluno(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
 
-  /**
-   * Página de testes e avaliações do curso. Modo de página cheia, como os
-   * exercícios: prova é a atividade mais longa que o aluno faz aqui e vivia num
-   * modal que fechava por clique no backdrop. O ANDAMENTO da prova (questão
-   * atual, respostas, resultado) mora dentro da página — não é assunto deste
-   * painel.
+  /** Uma navegação: parte do destino atual e troca só o que o setter pediu. */
+  const irPara = (
+    mudanca: Parameters<typeof caminhoAluno>[0],
+    substituir = false
+  ): void => {
+    navigate(caminhoAluno({ ...destino, ...mudanca }), { replace: substituir });
+  };
+
+  /*
+   * Curso do endereço. Antes de existir URL, `selectedCourse` era um objeto
+   * guardado; agora é procurado pelo id a cada render. Id que não corresponde a
+   * curso nenhum devolve null — e a tela cai em "Meus Cursos", que é o que já
+   * acontecia quando nada estava selecionado.
+   *
+   * A busca é RESTRITA aos cursos que este aluno pode abrir: os que cursa mais
+   * os que concluiu (concluído é revisável, só não é rematriculável). Antes o
+   * curso só podia ser alcançado por clique num card que já era dele; com o
+   * endereço digitável, `/aluno/curso/<id>` de qualquer curso do catálogo
+   * abriria a casca da sala de aula de um curso alheio. O material em si nunca
+   * sairia — o servidor entrega conteúdo só para quem pertence ao curso —, mas a
+   * tela não pode oferecer o que a API vai negar.
    */
-  const [showAvaliacoes, setShowAvaliacoes] = useState(false);
-  /** Avaliação que o card do curso pediu para abrir direto. */
-  const [avaliacaoInicial, setAvaliacaoInicial] = useState<string | null>(null);
+  const idsQueMePertencem = [
+    ...activeEnrolledCourseIds,
+    ...(enrollmentRecord.completedCourseIds ?? []),
+  ];
+  // A chave é a lista serializada, não o array: `activeEnrolledCourseIds` é
+  // recriado a cada render, e o memo com ele na dependência nunca reaproveitaria.
+  const chaveDosMeusCursos = idsQueMePertencem.join('|');
+  const cursosQueMePertencem = React.useMemo(
+    () => new Set<string>(idsQueMePertencem),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chaveDosMeusCursos]
+  );
+
+  const selectedCourse: Course | null = destino.courseId === null || !cursosQueMePertencem.has(destino.courseId)
+    ? null
+    : courses.find((c) => c.id === destino.courseId) ?? null;
+
+  const activeLesson: Lesson | null = destino.lessonId === null || selectedCourse === null
+    ? null
+    : selectedCourse.lessons.find((l) => l.id === destino.lessonId) ?? null;
+
+  const activeLiveSession: LiveSession | null = destino.sessionId === null || selectedCourse === null
+    ? null
+    : (selectedCourse.liveSessions ?? []).find((s) => s.id === destino.sessionId) ?? null;
+
+  /*
+   * Avaliações e exercícios são página cheia, não modal. Prova é a atividade
+   * mais longa que o aluno faz aqui e vivia num modal que fechava por clique no
+   * backdrop; exercício pertence ao curso e era uma aba dentro da aula 1.
+   *
+   * O ANDAMENTO da prova (questão atual, respostas, resultado) segue morando
+   * dentro da página — não é assunto deste painel. O que o endereço carrega é
+   * QUAL prova está aberta, não o que já foi respondido: recarregar volta para a
+   * prova, com a tentativa começando de novo, e é por isso que o Voltar do
+   * navegador precisa cair na confirmação de descarte (ver `AvaliacoesPage`).
+   */
+  /*
+   * As duas dependem de HAVER curso. O redirecionamento abaixo roda depois do
+   * render, então sem esta condição um `/aluno/curso/<id-invalido>/avaliacoes`
+   * renderizaria a página de avaliações com curso nulo por um quadro — e o
+   * `tsconfig` deste projeto não tem `strictNullChecks`, então o compilador não
+   * avisaria.
+   */
+  const showAvaliacoes = destino.tela === 'avaliacoes' && selectedCourse !== null;
+  const showExercicios = destino.tela === 'exercicios' && selectedCourse !== null;
+  /** Avaliação que o endereço pede para abrir direto. */
+  const avaliacaoInicial = destino.quizId;
+
+  const viewingCatalogCourse: Course | null = destino.catalogoId === null
+    ? null
+    : courses.find((c) => c.id === destino.catalogoId) ?? null;
+
+  const selectedModulePageName = destino.modulo;
+  const activeDashboardTab: DashboardTab = destino.aba;
+
+  const setSelectedCourse = (curso: Course | null): void => {
+    irPara(curso === null
+      ? { tela: 'painel', aba: 'general', courseId: null, modulo: null }
+      : { tela: 'curso', courseId: curso.id, modulo: null });
+  };
+
+  const setActiveLesson = (aula: Lesson | null): void => {
+    irPara(aula === null ? { tela: 'curso' } : { tela: 'aula', lessonId: aula.id });
+  };
+
+  const setActiveLiveSession = (sessao: LiveSession | null): void => {
+    irPara(sessao === null ? { tela: 'curso' } : { tela: 'ao-vivo', sessionId: sessao.id });
+  };
+
+  const setShowAvaliacoes = (mostrar: boolean): void => {
+    irPara(mostrar ? { tela: 'avaliacoes' } : { tela: 'curso' });
+  };
+
+  const setShowExercicios = (mostrar: boolean): void => {
+    irPara(mostrar ? { tela: 'exercicios' } : { tela: 'curso' });
+  };
+
+  const setViewingCatalogCourse = (curso: Course | null): void => {
+    irPara(curso === null
+      ? { tela: 'painel', aba: 'general', catalogoId: null }
+      : { tela: 'catalogo', catalogoId: curso.id });
+  };
+
+  /*
+   * O módulo aberto SUBSTITUI a entrada no histórico em vez de empurrar outra.
+   * É um acordeão na lateral do curso: se cada abrir/fechar deixasse marca, o
+   * Voltar do navegador viraria "desfaz o último clique de acordeão" e a pessoa
+   * precisaria de dez toques para sair do curso.
+   */
+  const setSelectedModulePageName = (nome: string | null): void => {
+    irPara({ modulo: nome }, true);
+  };
+
+  const setActiveDashboardTab = (aba: DashboardTab): void => {
+    irPara({ tela: 'painel', aba, courseId: null, catalogoId: null, modulo: null });
+  };
+
+  /** Sai do curso inteiro numa navegação só. */
+  const voltarParaMeusCursos = (): void => {
+    irPara({ tela: 'painel', aba: 'general', courseId: null, catalogoId: null, modulo: null });
+  };
 
   // Custom non-blocking alert/confirm states
   const [alertState, setAlertState] = useState<{ message: string; show: boolean } | null>(null);
@@ -251,7 +391,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const [searchQuery, setSearchQuery] = useState('');
   const [sortType, setSortType] = useState<'alphabetical-asc' | 'alphabetical-desc' | 'recent'>('recent');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [viewingCatalogCourse, setViewingCatalogCourse] = useState<Course | null>(null);
   const [expandedLessons, setExpandedLessons] = useState<{[key: string]: boolean}>({ '0': true });
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isEnrollRulesChecked, setIsEnrollRulesChecked] = useState(false);
@@ -281,45 +420,76 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     'Módulo 2: Aprofundamento Prático': false
   });
 
-  const [selectedModulePageName, setSelectedModulePageName] = useState<string | null>(null);
 
-  // Parse deep links on mount
+  /*
+   * Endereço que aponta para curso que não é deste aluno volta para a raiz do
+   * painel, SEM deixar entrada no histórico — senão o Voltar devolveria a pessoa
+   * ao endereço recusado, num laço.
+   *
+   * Espera `courses` E a MATRÍCULA carregarem. Esperar só o catálogo não basta,
+   * e isto foi observado no navegador, não previsto: as duas cargas são
+   * independentes, e quando a lista de cursos chega primeiro existe um instante
+   * em que o aluno não parece pertencer a curso nenhum. Redirecionar nesse
+   * instante expulsa a pessoa do próprio curso ao dar F5 — de forma
+   * intermitente, que é o pior modo de falhar.
+   */
   useEffect(() => {
-    if (courses.length > 0) {
-      const params = new URLSearchParams(window.location.search);
-      const courseIdParam = params.get('courseId');
-      const moduleParam = params.get('module');
-      const lessonParam = params.get('lesson');
+    if (destino.courseId === null || courses.length === 0 || !matriculaCarregada) return;
+    if (selectedCourse !== null) return;
 
-      if (courseIdParam) {
-        const course = courses.find(c => c.id === courseIdParam);
-        if (course) {
-          setSelectedCourse(course);
-          if (moduleParam) setSelectedModulePageName(moduleParam);
-          if (lessonParam) {
-            const lesson = course.lessons.find(l => l.id === lessonParam);
-            if (lesson) setActiveLesson(lesson);
-          }
-        }
-      }
-    }
-  }, [courses]);
+    navigate(RAIZ_ALUNO, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destino.courseId, selectedCourse, courses.length, matriculaCarregada]);
 
-  // Listen to the global dashboard reset event to return home immediately
+  /*
+   * Link no formato ANTIGO (`?courseId=&module=&lesson=`) vira o endereço novo.
+   *
+   * Aquele formato era lido só na montagem e não sobrevivia a nada — mas pode
+   * ter sido enviado a alguém, então em vez de simplesmente sumir ele é
+   * traduzido. `replace`: o endereço velho não fica no histórico, senão o Voltar
+   * devolveria a pessoa a um formato que já não é lido.
+   */
   useEffect(() => {
-    const handleResetDashboard = () => {
-      setSelectedCourse(null);
-      setActiveLesson(null);
-      setSelectedModulePageName(null);
-      setActiveDashboardTab('general');
-    };
+    const params = new URLSearchParams(location.search);
+    const courseIdParam = params.get('courseId');
+    if (courseIdParam === null || courses.length === 0) return;
+
+    const course = courses.find((c) => c.id === courseIdParam);
+    if (!course) return;
+
+    const lessonParam = params.get('lesson');
+    const lesson = lessonParam === null
+      ? undefined
+      : course.lessons.find((l) => l.id === lessonParam);
+
+    navigate(
+      caminhoAluno({
+        tela: lesson ? 'aula' : 'curso',
+        courseId: course.id,
+        lessonId: lesson?.id ?? null,
+        modulo: params.get('module'),
+      }),
+      { replace: true }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [courses, location.search]);
+
+  /*
+   * Volta para a raiz do painel num salto só. Eram quatro setters em sequência,
+   * o que agora seriam quatro entradas no histórico para um evento — e as três
+   * últimas, calculadas a partir do destino do render, desfariam a primeira.
+   */
+  useEffect(() => {
+    const handleResetDashboard = () => navigate(RAIZ_ALUNO);
     window.addEventListener('reset-dashboard', handleResetDashboard);
     return () => window.removeEventListener('reset-dashboard', handleResetDashboard);
-  }, [setActiveDashboardTab]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toggleModuleExpand = (moduleName: string) => {
-    setActiveLesson(null); // Deselect current lesson when switching modules or opening a new module detail view
-    setSelectedModulePageName(moduleName);
+    // Fecha a aula e abre o módulo numa navegação só: eram dois setters, e a
+    // segunda navegação partiria do mesmo destino, reabrindo a aula.
+    irPara({ tela: 'curso', modulo: moduleName }, true);
     setExpandedModules(prev => ({
       ...prev,
       [moduleName]: true
@@ -683,7 +853,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   </div>
 
                   <button
-                    onClick={() => { setSelectedCourse(null); setActiveLesson(null); setSelectedModulePageName(null); }}
+                    onClick={voltarParaMeusCursos}
                     className="mt-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-xl transition-all cursor-pointer"
                   >
                     Voltar para Meus Cursos
@@ -697,7 +867,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
               {/* Back breadcrumb and global course indicators */}
               <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <button
-                  onClick={() => { setSelectedCourse(null); setActiveLesson(null); setSelectedModulePageName(null); }}
+                  onClick={voltarParaMeusCursos}
                   className="flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-500 transition-colors cursor-pointer"
                 >
                   <span>← Sair do Curso</span>
@@ -775,9 +945,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                           return;
                         }
                         speakText("Parabéns pela conclusão da disciplina! Agora você pode escolher um novo curso para iniciar seus estudos.");
-                        setSelectedCourse(null);
-                        setActiveLesson(null);
-                        setSelectedModulePageName(null);
+                        voltarParaMeusCursos();
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       title="Marca o curso como concluído e volta para o catálogo"
@@ -815,6 +983,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                   submissions={quizSubmissions}
                   userId={activeUser.id}
                   quizInicial={avaliacaoInicial}
+                  onQuizChange={(quizId) => irPara({ tela: 'avaliacoes', quizId })}
                   onBack={() => setShowAvaliacoes(false)}
                   onSubmit={(quizId, scorePercent, passed, answers) =>
                     submitQuiz(selectedCourse.id, quizId, scorePercent, passed, answers)}
@@ -1432,7 +1601,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                         </button>
                         
                         <button
-                          onClick={() => { setSelectedCourse(null); setSelectedModulePageName(null); }}
+                          onClick={voltarParaMeusCursos}
                           className="rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs px-5 py-2.5 transition-colors cursor-pointer"
                         >
                           Trocar de Curso
@@ -3566,9 +3735,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
                     </div>
                     <button
                       onClick={() => {
-                        const freshCourse = courses.find(c => c.id === viewingCatalogCourse!.id);
-                        setSelectedCourse(freshCourse || viewingCatalogCourse);
-                        setViewingCatalogCourse(null);
+                        // Sai da vitrine e entra no curso numa navegação só: o
+                        // `setViewingCatalogCourse(null)` seguinte partiria do
+                        // mesmo destino e voltaria para o painel.
+                        irPara({
+                          tela: 'curso',
+                          courseId: viewingCatalogCourse!.id,
+                          catalogoId: null,
+                          modulo: null,
+                        });
                         setIsEnrollModalOpen(false);
                         setEnrollSuccessMessage(null);
                         setIsEnrollRulesChecked(false);

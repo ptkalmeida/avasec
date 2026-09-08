@@ -5,7 +5,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PortalView, pathFromView, viewFromPath, caminhoConhecido } from './router/portalRoutes';
+import {
+  PortalView, pathFromView, viewFromPath, caminhoConhecido,
+  ehCaminhoAutenticado, caminhoBateComPapel, raizDoPapel,
+} from './router/portalRoutes';
 import { LMSProvider, useLMS } from './context/LMSContext';
 import { StudentDashboard } from './components/StudentDashboard';
 import { InstructorDashboard } from './components/InstructorDashboard';
@@ -129,6 +132,16 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   const location = useLocation();
   const currentView: PortalView = viewFromPath(location.pathname) ?? 'landing';
   const setCurrentView = (view: PortalView): void => {
+    /*
+     * `active_app` vai direto para a raiz do papel. O efeito abaixo também
+     * corrigiria `/app`, mas por redirect — e aí seriam duas navegações para um
+     * clique, com um piscar da tela errada no meio.
+     */
+    if (view === 'active_app' && isUserLoggedIn) {
+      navigate(raizDoPapel(activeUser.role));
+
+      return;
+    }
     navigate(pathFromView(view));
   };
 
@@ -140,6 +153,23 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
+
+  /*
+   * A área autenticada tem uma raiz por papel, e `/app` era provisório.
+   *
+   * Isto não é só arrumação de endereço: quem renderiza o painel é o PAPEL, não
+   * o caminho. Sem esta correção, um aluno que digitasse `/admin` veria o painel
+   * do aluno sob um endereço dizendo "admin" — nada vazava, mas o endereço
+   * mentia, e endereço que mente é o que a pessoa manda para outra.
+   */
+  useEffect(() => {
+    if (!isUserLoggedIn || !ehCaminhoAutenticado(location.pathname)) return;
+
+    if (!caminhoBateComPapel(location.pathname, activeUser.role)) {
+      navigate(raizDoPapel(activeUser.role), { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, isUserLoggedIn, activeUser.role]);
   const [previousView, setPreviousView] = useState<Exclude<PortalView, 'perfil'>>('landing');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   
