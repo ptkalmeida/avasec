@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use Carbon\CarbonImmutable;
+use App\Support\Fuso;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -27,7 +27,8 @@ final class AuditLogger
         ?array $actorOverride = null,
     ): void {
         $actor = $actorOverride ?? $this->actorFromRequest($request);
-        $now = CarbonImmutable::now();
+        // Fuso de exibição: o log é lido por pessoa, e em UTC marcava 3h adiante.
+        $now = Fuso::agora();
 
         try {
             DB::table('SecurityLog')->insert([

@@ -95,10 +95,12 @@ acento é mutilado no caminho Git Bash → curl → PHP, o JSON deixa de ser vá
 Laravel recebe corpo vazio. Não é bug da aplicação; já custou uma investigação.
 
 ```bash
-printf '%s' '{"email":"joao.silva@lms.edu","password":"1234"}' > /tmp/body.json
+printf '%s' '{"email":"CONTA","password":"SENHA"}' > /tmp/body.json
 curl -s -c /tmp/ck.txt -X POST http://localhost:5173/api/auth/login \
   -H "Content-Type: application/json" --data-binary "@/tmp/body.json"
 ```
+
+**Não há senha fixa para colar aqui** — ver "Contas para teste manual" abaixo.
 
 O cookie de sessão é HttpOnly (`ava_session`); guarde-o com `-c` e reenvie com `-b`.
 
@@ -108,12 +110,14 @@ O cookie de sessão é HttpOnly (`ava_session`); guarde-o com `-c` e reenvie com
 (ISO-01). Confira a diferença — se o anônimo trouxer material, houve regressão:
 
 ```bash
-curl -s http://localhost:5173/api/courses -o /tmp/anon.json                  # ~6,4 KB
-curl -s -b /tmp/ck.txt http://localhost:5173/api/courses -o /tmp/auth.json   # ~10,7 KB
+curl -s http://localhost:5173/api/courses -o /tmp/anon.json                  # 9507 B em 08/09/2026
+curl -s -b /tmp/ck.txt http://localhost:5173/api/courses -o /tmp/auth.json   # maior: traz o material
 ```
 
-Com João Silva (aluno), o esperado é material em `course-1` e
-`course-1787928131660`, e vitrine seca em `course-2` e `course-3`.
+O número ABSOLUTO muda a cada curso acrescentado: eram ~6,4 KB com 4 cursos em
+31/08, e 9507 B com 6 cursos em 08/09. Crescer não é regressão — o que importa é a
+DIFERENÇA entre anônimo e autenticado. Confira o conteúdo, não só o tamanho: se o
+anônimo trouxer `content` ou `videoUrl` de aula, houve regressão.
 
 ## 5. Screenshot da interface
 
@@ -151,7 +155,38 @@ Encerre ao terminar. Deixar de pé é como nascem os órfãos do passo 0.
 
 ## Contas para teste manual
 
-As senhas de demonstração (`1234` aluno, `5678` gestor, `9999` admin) **ainda valem** —
-a rotação está pendente (`docs/security-audit/STATUS-CORRECOES.md`). Quando forem
-rotacionadas, este trecho e os exemplos de login acima ficam desatualizados: use
-`php artisan avasec:rotate-demo-passwords --dry-run` para ver quais contas restam.
+**As senhas de demonstração (`1234`, `5678`, `9999`) NÃO valem mais.** Foram
+rotacionadas em 08/09/2026, e este arquivo afirmava o contrário — a nota velha
+custou uma investigação, incluindo tentativas às cegas que **bloquearam uma conta**
+por excesso de falhas (5 erros → 15 minutos). Não tente adivinhar.
+
+As senhas atuais **não estão no repositório e não devem estar**. Para saber se
+resta alguma senha de demonstração, sem revelar nenhuma:
+
+```bash
+cd backend-laravel && php artisan avasec:rotate-demo-passwords --dry-run
+```
+
+Se responder "Nenhuma conta usa senha de demonstração", a rotação está completa e a
+senha tem de vir do humano.
+
+### Sessão para verificação automatizada, sem saber senha
+
+Para conferir tela autenticada por CDP, emita o token e injete o cookie. Não altera
+nada no banco e dispensa a senha:
+
+```bash
+cd backend-laravel && php artisan tinker --execute='
+$u = \App\Models\User::where("email","...")->first();
+echo \App\Support\Jwt::issue($u->id, $u->name, $u->role);'
+```
+
+No navegador: `Network.setCookie` com `name: 'ava_session'`, `domain: 'localhost'`,
+`httpOnly: true`. O token vale **12 h** — token de ontem já expirou.
+
+Se uma conta bloquear (`ACCOUNT_LOCKED`, HTTP 429), o destravamento é explícito:
+
+```bash
+php artisan tinker --execute='\App\Models\User::withTrashed()
+  ->where("email","...")->update(["lockedUntil" => null, "failedLoginAttempts" => 0]);'
+```

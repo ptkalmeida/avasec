@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\Certificate;
 use App\Models\Course;
+use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -87,7 +88,8 @@ final class CertificatePdfService
             'courseTitle' => 'Curso Modelo de Demonstração',
             'cargaHoraria' => 40,
             'attendancePercent' => 100,
-            'issueDate' => now()->format('d/m/Y'),
+            // Data local: emitir às 22h BRT datava o certificado do dia seguinte.
+            'issueDate' => Fuso::agora()->format('d/m/Y'),
             'verificationHash' => 'PREVIEW-'.strtoupper(substr(md5((string) microtime()), 0, 8)),
             'verificationUrl' => $verificationUrl,
             'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),

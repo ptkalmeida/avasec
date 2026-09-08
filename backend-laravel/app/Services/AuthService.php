@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Models\User;
 use App\Support\Cep;
 use App\Support\Cpf;
+use App\Support\Fuso;
 use App\Support\InstructorScope;
 use App\Support\Jwt;
 use Carbon\CarbonImmutable;
@@ -75,7 +76,8 @@ final class AuthService
         $user->municipio = $input['municipio'] ?? null;
         $user->uf = $input['uf'] ?? null;
         $user->areaInteresse = $input['areaInteresse'] ?? null;
-        $user->dataCadastro = $input['dataCadastro'] ?? CarbonImmutable::now()->format('Y-m-d');
+        // Data local: cadastro às 22h BRT registrava o dia seguinte em UTC.
+        $user->dataCadastro = $input['dataCadastro'] ?? Fuso::agora()->format('Y-m-d');
         $user->celular = $input['celular'] ?? null;
         $user->cep = isset($input['cep']) && $input['cep'] !== ''
             ? Cep::normalize($input['cep'])

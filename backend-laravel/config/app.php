@@ -73,6 +73,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Fuso de exibição
+    |--------------------------------------------------------------------------
+    |
+    | `timezone` acima é o relógio de ARMAZENAMENTO e continua em UTC: é o que
+    | está gravado em todo DATETIME/TIMESTAMP do banco, e o MySQL deste ambiente
+    | também roda em UTC. Trocá-lo não moveria byte nenhum — passaria a
+    | interpretar o histórico já gravado 3 horas depois do que aconteceu.
+    |
+    | Este é o fuso em que data e hora são MOSTRADAS a pessoas, aplicado na borda
+    | por `App\Support\Fuso`. Ver a classe para a armadilha das colunas DATE.
+    |
+    */
+
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'America/Sao_Paulo'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

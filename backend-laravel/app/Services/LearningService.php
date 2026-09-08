@@ -13,6 +13,7 @@ use App\Models\QuizQuestion;
 use App\Models\QuizSubmission;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;
+use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
 use App\Support\Payload;
@@ -205,7 +206,15 @@ final class LearningService
          * afirmar QUAL é a vigente: `submittedAt` é texto de exibição e ordena
          * alfabeticamente. Com o eixo de ordenação, o histórico inteiro aparece.
          */
+        /*
+         * DOIS papéis, de propósito em duas variáveis. `enviadoEm` é o instante
+         * gravado e fica em UTC, que é o relógio de armazenamento do sistema;
+         * `submittedAt` é texto para uma pessoa ler e vai no fuso de exibição.
+         * Uma variável só para os dois gravaria BRT na coluna e quebraria o
+         * invariante — e o erro não apareceria até alguém comparar duas datas.
+         */
         $agora = CarbonImmutable::now();
+        $agoraLocal = Fuso::de($agora);
 
         return QuizSubmission::query()->create([
             'id' => 'sub-'.$this->nowMs().'-'.random_int(0, 999),
@@ -215,7 +224,7 @@ final class LearningService
             'quizId' => $quiz->id,
             'scorePercent' => $scorePercent,
             'passed' => $passed,
-            'submittedAt' => $agora->format('d/m/Y').' às '.$agora->format('H:i'),
+            'submittedAt' => $agoraLocal->format('d/m/Y').' às '.$agoraLocal->format('H:i'),
             'enviadoEm' => $agora,
         ])->toArray();
     }
@@ -260,7 +269,7 @@ final class LearningService
             'senderUserId' => $requester['sub'],
             'senderRole' => $requester['role'],
             'text' => $input['text'],
-            'timestamp' => CarbonImmutable::now()->format('d/m/Y H:i'),
+            'timestamp' => Fuso::agora()->format('d/m/Y H:i'),
             'likes' => 0,
             'likedBy' => [],
         ])->toArray();
@@ -409,7 +418,7 @@ final class LearningService
             'submissionText' => $input['submissionText'],
             'fileUrl' => $input['fileUrl'] ?? null,
             'fileName' => $input['fileName'] ?? null,
-            'submittedAt' => CarbonImmutable::now()->format('d/m/Y H:i:s'),
+            'submittedAt' => Fuso::agora()->format('d/m/Y H:i:s'),
             'status' => 'pending',
         ];
         $existing = ExerciseSubmission::query()
@@ -445,7 +454,7 @@ final class LearningService
             'score' => is_numeric($input['score'] ?? null) ? (int) $input['score'] : 0,
             'feedback' => $input['feedback'],
             'status' => $input['status'],
-            'gradedAt' => CarbonImmutable::now()->format('d/m/Y H:i:s'),
+            'gradedAt' => Fuso::agora()->format('d/m/Y H:i:s'),
             'gradedBy' => $requester['name'],
         ])->save();
 

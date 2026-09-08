@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Support\Jwt;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
@@ -34,11 +35,45 @@ final class AuthTest extends TestCase
         return $prefix.'-'.uniqid().'@example.com';
     }
 
+    /**
+     * Cria uma conta ativa com senha conhecida, só para este teste.
+     *
+     * Antes estes casos faziam login com `'Admin Superior' / '9999'` — a senha de
+     * demonstração da conta REAL do banco de desenvolvimento. Dois problemas: o
+     * teste passava a depender do estado do ambiente (e caiu no dia em que a
+     * senha foi rotacionada, que é justamente o que a auditoria pedia), e
+     * corrigi-lo trocando pela senha nova gravaria uma credencial de verdade no
+     * repositório. A conta nasce aqui e a transação a desfaz no fim.
+     *
+     * @return array{email: string, password: string}
+     */
+    private function contaComSenhaConhecida(string $role = 'admin'): array
+    {
+        $email = $this->uniqueEmail('login-'.$role);
+        $senha = 'Teste'.uniqid().'9';
+
+        DB::table('User')->insert([
+            'id' => 'user-teste-'.uniqid(),
+            'name' => 'Conta de Teste '.uniqid(),
+            'email' => $email,
+            'passwordHash' => password_hash($senha, PASSWORD_BCRYPT, ['cost' => 10]),
+            'role' => $role,
+            'status' => 'active',
+            // Colunas de ARMAZENAMENTO: em UTC, o relógio do banco. Não passam
+            // por `Fuso`, que é só para o que uma pessoa lê.
+            'createdAt' => CarbonImmutable::now()->toDateTimeString(),
+            'updatedAt' => CarbonImmutable::now()->toDateTimeString(),
+        ]);
+
+        return ['email' => $email, 'password' => $senha];
+    }
+
     // ---------- Autenticação e status de conta ----------
 
     public function test_login_with_correct_password_returns_token_and_sets_cookie(): void
     {
-        $response = $this->postJson('/api/auth/login', ['name' => 'Admin Superior', 'password' => '9999']);
+        $conta = $this->contaComSenhaConhecida('admin');
+        $response = $this->postJson('/api/auth/login', $conta);
 
         $response->assertOk()->assertJsonPath('user.role', 'admin');
         $this->assertNotEmpty($response->json('token'));
@@ -47,7 +82,13 @@ final class AuthTest extends TestCase
 
     public function test_login_with_wrong_password_returns_generic_401(): void
     {
-        $response = $this->postJson('/api/auth/login', ['name' => 'Admin Superior', 'password' => 'senha-errada-unica']);
+        // Conta que EXISTE com senha errada. Contra uma conta inexistente o 401
+        // viria de graça, e o teste passaria sem exercitar a comparação de senha.
+        $conta = $this->contaComSenhaConhecida('admin');
+        $response = $this->postJson('/api/auth/login', [
+            'email' => $conta['email'],
+            'password' => 'senha-errada-unica',
+        ]);
 
         $response->assertStatus(401)->assertJsonPath('message', 'Usuário ou senha inválidos.');
     }
@@ -208,7 +249,7 @@ final class AuthTest extends TestCase
 
     public function test_me_returns_current_user_with_cookie_session(): void
     {
-        $login = $this->postJson('/api/auth/login', ['name' => 'Admin Superior', 'password' => '9999']);
+        $login = $this->postJson('/api/auth/login', $this->contaComSenhaConhecida('admin'));
         $token = $login->json('token');
 
         $this->withHeader('Authorization', "Bearer $token")->getJson('/api/auth/me')
