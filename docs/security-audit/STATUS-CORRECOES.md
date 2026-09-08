@@ -46,40 +46,54 @@ Não estavam entre os 15 do relatório:
 
 ## Aberto — depende de decisão ou execução humana
 
-### 1. Rotação das senhas de demonstração (SEC-02, metade operacional)
+### ~~1. Rotação das senhas de demonstração~~ — FECHADO em 08/09/2026
 
-Tirar os PINs do código **não os invalida**: `1234`, `5678` e `9999` continuam
-valendo nas contas e estão em 69 commits do histórico do git.
+`1234`, `5678` e `9999` **não valem mais em conta nenhuma**. O `--dry-run` de
+08/09/2026 responde "Nenhuma conta usa senha de demonstração".
 
-O comando existe e **não foi executado** — é operação sobre dado real:
+Como foi feito, e por que não pelo comando: o `avasec:rotate-demo-passwords` gera
+senha aleatória, e a coordenação precisava de senha escolhida. As de gestor e admin
+foram definidas pelo humano e gravadas com o mesmo hash da aplicação
+(`password_hash` nativo, `PASSWORD_BCRYPT` custo 10 — ADR 05), depois de passarem
+pela `StrongPasswordRule` (mínimo 8 caracteres, com letra e dígito). Verificado por
+login real: senha nova 200, senha antiga 401.
+
+**As senhas atuais não estão neste repositório e não devem estar.** Para saber se
+resta alguma senha de demonstração, sem revelar nenhuma:
 
 ```bash
-cd backend-laravel
-php artisan avasec:rotate-demo-passwords --dry-run   # lista, sem alterar
-php artisan avasec:rotate-demo-passwords             # pede confirmação e exibe as novas UMA vez
+cd backend-laravel && php artisan avasec:rotate-demo-passwords --dry-run
 ```
 
-O `--dry-run` de 31/08/2026 encontrou **8 contas**, não as 3 esperadas:
+Duas correções ao que este documento afirmava antes:
 
-- `Admin Superior` (admin) — admin@avasec.local
-- `Gestor de Conteúdos` (instructor) — professor@avasec.local
-- 6 contas de aluno (`joao.silva`, `beatriz.c`, `sofia.rocha`, `ana.souza`,
-  `lucas.santana`, `carol.mendes`)
+- O `--dry-run` de 31/08 listava **8 contas**, incluindo 6 de aluno (`joao.silva`,
+  `beatriz.c`, `sofia.rocha`, `ana.souza`, `lucas.santana`, `carol.mendes`). Em
+  08/09 o banco tem 6 usuários no total, e as contas de aluno já não usavam senha
+  de demonstração — a lista velha não descrevia mais o banco.
+- Os PINs seguem no histórico do git (69 commits). Rotacionar não os apaga de lá;
+  o que muda é que deixaram de abrir porta.
 
-As senhas novas aparecem uma única vez: o banco guarda só o hash.
+**Efeito colateral que a rotação revelou.** `AuthTest` fazia login com
+`'Admin Superior' / '9999'` — a senha viva de uma conta real do banco de
+desenvolvimento. Dois testes quebraram no dia da rotação, o que é o próprio
+acoplamento se denunciando. A correção **não** foi trocar pela senha nova (isso
+gravaria credencial de verdade no repositório): os testes passaram a criar a
+própria conta com senha conhecida, desfeita pela transação. Ainda pendente: as
+senhas de ALUNO seguem desconhecidas por aqui, à espera do humano.
 
-### 2. ISO-04 e IDOR-02 — solicitações acadêmicas (média)
+### ~~2. ISO-04 e IDOR-02 — solicitações acadêmicas~~ — DECIDIDO em 08/09/2026
 
-**Não corrigidos de propósito.** O `RequestService` declara no próprio código que
-"instrutor/admin acompanham todas (secretaria centralizada)" — é regra de negócio
-validada, e estreitá-la cai no `06-controle-de-mudancas.md`.
+**Decisão da coordenação: manter a secretaria centralizada.** O gestor administra
+todos os cursos, e o admin é irrestrito na plataforma. Nenhuma mudança de código.
 
-O que a auditoria observou: as justificativas carregam motivo de saúde e familiar, e
-hoje qualquer instrutor lê e defere as de toda a escola, não só as dos próprios alunos.
+O que a auditoria observou continua verdade e fica registrado, porque é o custo
+aceito da decisão, não um problema resolvido: as justificativas de solicitação
+carregam motivo de saúde e familiar, e qualquer instrutor lê e defere as de toda a
+escola — não só as dos alunos dos seus cursos.
 
-Decisão necessária: manter a secretaria centralizada, ou restringir o instrutor aos
-alunos dos seus cursos (mantendo admin irrestrito)? Enquanto não houver decisão, o
-comportamento segue como está.
+Se algum dia isso mudar, é mudança de regra de negócio validada e passa pelo
+`06-controle-de-mudancas.md`.
 
 ### 3. Contas de teste no banco de desenvolvimento
 

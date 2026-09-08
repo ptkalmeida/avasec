@@ -12,6 +12,7 @@ use App\Models\LiveSession;
 use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
+use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
@@ -392,7 +393,7 @@ final class EnrollmentService
             'userId' => $userId,
             'courseId' => $input['courseId'],
             'status' => 'pending',
-            'submittedAt' => CarbonImmutable::now()->format('d/m/Y'),
+            'submittedAt' => Fuso::agora()->format('d/m/Y'),
         ]);
 
         return $admission->toArray();

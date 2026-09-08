@@ -10,6 +10,7 @@ use App\Models\Course;
 use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
+use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
@@ -88,7 +89,7 @@ final class CertificateService
             // mão entender por quê. Quem revogou NÃO sai daqui: rota pública não
             // expõe identificador interno de servidor.
             'revogado' => $cert->estaInativo(),
-            'revogadoEm' => $cert->inativadoEm?->format('d/m/Y'),
+            'revogadoEm' => Fuso::local($cert->inativadoEm)?->format('d/m/Y'),
             'motivoRevogacao' => $cert->estaInativo() ? $cert->motivoInativacao : null,
         ];
     }
@@ -143,7 +144,7 @@ final class CertificateService
              * a validade a um documento revogado é decisão administrativa, e
              * precisa de fluxo próprio que registre a reabilitação.
              */
-            $quando = $existing->inativadoEm?->format('d/m/Y') ?? 'data não registrada';
+            $quando = Fuso::local($existing->inativadoEm)?->format('d/m/Y') ?? 'data não registrada';
             throw ApiException::forbidden(
                 "Este certificado foi revogado em {$quando} e não é reemitido automaticamente. "
                 .'A reabilitação é ato da administração e tem de ficar registrada.'
