@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useBlocker } from 'react-router-dom';
 import {
   ArrowLeft, ArrowRight, CheckSquare, CheckCircle, Lightbulb, Info,
   PartyPopper, BookOpen, Sparkles, AlertTriangle, Award, History,
@@ -45,6 +46,15 @@ interface AvaliacoesPageProps {
   ) => Promise<{ ok: boolean; error?: string; scorePercent?: number; passed?: boolean }>;
   /** Avaliação a abrir já ao entrar (o card do curso aponta para uma delas). */
   quizInicial?: string | null;
+  /**
+   * Avisa quem hospeda que a prova aberta mudou.
+   *
+   * Quando vem preenchido, `quizInicial` passa a ser a VERDADE a cada render (o
+   * painel a tira do endereço) em vez de só a semente inicial — é o que dá
+   * endereço próprio à prova e faz o F5 voltar para ela. Sem ele, o componente
+   * guarda a prova aberta sozinho, como antes.
+   */
+  onQuizChange?: (quizId: string | null) => void;
   notify: (mensagem: string) => void;
 }
 
@@ -80,6 +90,55 @@ const ProvaEmAndamento: React.FC<{
   const [enviando, setEnviando] = React.useState(false);
   const [erro, setErro] = React.useState<string | null>(null);
   const [confirmandoSaida, setConfirmandoSaida] = React.useState(false);
+
+  /*
+   * O VOLTAR DO NAVEGADOR durante a prova.
+   *
+   * Agora que a prova tem endereço próprio, o Voltar é uma saída de verdade — e
+   * sair descarta as respostas desta tentativa. Sem interceptar, o gesto mais
+   * banal do navegador apagaria em silêncio uma prova pela metade.
+   *
+   * Não inventamos um aviso novo: o Voltar cai na MESMA confirmação que o botão
+   * "Sair do teste" já usa. Quem confirma segue; quem desiste continua a prova.
+   *
+   * A trava só existe com resposta ainda não enviada. Terminada a prova
+   * (`resultado`), ou sem nada respondido, não há o que perder e o Voltar volta.
+   */
+  const saindoDePropósito = React.useRef(false);
+  const bloqueio = useBlocker(
+    React.useCallback(
+      () => !saindoDePropósito.current
+        && resultado === null
+        && Object.keys(respostas).length > 0,
+      [resultado, respostas]
+    )
+  );
+
+  React.useEffect(() => {
+    if (bloqueio.state === 'blocked') setConfirmandoSaida(true);
+  }, [bloqueio.state]);
+
+  /*
+   * Descartar e sair. O `saindoDePropósito` é o que impede o laço: `onSair`
+   * navega, e sem ele a própria trava barraria a saída que a pessoa acabou de
+   * confirmar. É ref, e não estado, porque a trava é consultada no instante da
+   * navegação — um re-render depois seria tarde.
+   */
+  const descartarESair = (): void => {
+    saindoDePropósito.current = true;
+    if (bloqueio.state === 'blocked') {
+      bloqueio.proceed();
+
+      return;
+    }
+    onSair();
+  };
+
+  /** Desistir de sair: fecha o aviso e libera a trava para barrar de novo. */
+  const continuarProva = (): void => {
+    setConfirmandoSaida(false);
+    if (bloqueio.state === 'blocked') bloqueio.reset();
+  };
 
   const total = quiz.questions.length;
   const questao = quiz.questions[idx];
@@ -387,14 +446,14 @@ const ProvaEmAndamento: React.FC<{
             </span>
             <button
               type="button"
-              onClick={onSair}
+              onClick={descartarESair}
               className="cursor-pointer rounded-lg bg-rose-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-rose-500"
             >
               Sair e descartar
             </button>
             <button
               type="button"
-              onClick={() => setConfirmandoSaida(false)}
+              onClick={continuarProva}
               className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-100"
             >
               Continuar prova
@@ -416,16 +475,36 @@ const ProvaEmAndamento: React.FC<{
 
 export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
   courseTitle, courseId, quizzes, submissions, userId, onBack, onSubmit, quizInicial, notify,
+  onQuizChange,
 }) => {
   const doCurso = React.useMemo(
     () => quizzes.filter((q) => q.courseId === courseId),
     [quizzes, courseId]
   );
 
-  const [emAndamento, setEmAndamento] = React.useState<string | null>(
-    quizInicial !== undefined && quizInicial !== null
-      && doCurso.some((q) => q.id === quizInicial) ? quizInicial : null
+  /** Só vale prova que exista NESTE curso — id de outro curso não abre nada. */
+  const desteCurso = (id: string | null | undefined): string | null =>
+    typeof id === 'string' && doCurso.some((q) => q.id === id) ? id : null;
+
+  /*
+   * Quem manda na prova aberta: o endereço, quando o painel oferece
+   * `onQuizChange`; este componente, quando não. As duas formas coexistem
+   * porque a página também é usada sem roteador em teste — e porque a prova
+   * aberta é a mesma informação nos dois casos, só muda quem a guarda.
+   */
+  const controlado = onQuizChange !== undefined;
+  const [emAndamentoLocal, setEmAndamentoLocal] = React.useState<string | null>(
+    () => desteCurso(quizInicial)
   );
+  const emAndamento = controlado ? desteCurso(quizInicial) : emAndamentoLocal;
+  const setEmAndamento = (id: string | null): void => {
+    if (onQuizChange !== undefined) {
+      onQuizChange(id);
+
+      return;
+    }
+    setEmAndamentoLocal(id);
+  };
 
   const quiz = doCurso.find((q) => q.id === emAndamento);
   const aprovadas = doCurso.filter((q) => tentativaVigente(submissions, q.id, userId)?.passed).length;

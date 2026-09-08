@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { AvaliacoesPage, contarAcertos, percentual } from '../../src/components/student/AvaliacoesPage';
@@ -40,7 +41,31 @@ const envio = (quizId: string, over: Partial<QuizSubmission> = {}): QuizSubmissi
   ...over,
 });
 
-const renderPage = (over: Partial<React.ComponentProps<typeof AvaliacoesPage>> = {}) => {
+/*
+ * A página passou a interceptar o Voltar do navegador durante a prova
+ * (`useBlocker`), e isso exige um data router. Em vez de afrouxar o teste, ele
+ * ganha o roteador que a tela tem em produção — e assim o próprio Voltar fica
+ * exercitável aqui, com `router.navigate`.
+ */
+const comRouter = (
+  elemento: React.ReactElement,
+  entradas: string[] = ['/aluno']
+) => {
+  // O histórico começa na ÚLTIMA entrada, senão `navigate(-1)` não tem destino e
+  // não navega — a trava nunca seria consultada e o teste passaria por acidente.
+  const router = createMemoryRouter(
+    [{ path: '*', element: elemento }],
+    { initialEntries: entradas, initialIndex: entradas.length - 1 }
+  );
+  render(<RouterProvider router={router} />);
+
+  return router;
+};
+
+const renderPage = (
+  over: Partial<React.ComponentProps<typeof AvaliacoesPage>> = {},
+  entradas?: string[]
+) => {
   const props = {
     courseTitle: 'UX/UI Design',
     courseId: 'course-1',
@@ -52,9 +77,9 @@ const renderPage = (over: Partial<React.ComponentProps<typeof AvaliacoesPage>> =
     notify: vi.fn(),
     ...over,
   } as React.ComponentProps<typeof AvaliacoesPage>;
-  render(<AvaliacoesPage {...props} />);
+  const router = comRouter(<AvaliacoesPage {...props} />, entradas);
 
-  return props;
+  return { ...props, router };
 };
 
 /** Responde a questão visível escolhendo a alternativa pela letra. */
@@ -101,7 +126,7 @@ describe('AvaliacoesPage', () => {
   });
 
   it('a prova acontece na página, sem modal nem backdrop', async () => {
-    const { container } = render(
+    comRouter(
       <AvaliacoesPage
         courseTitle="UX/UI Design"
         courseId="course-1"
@@ -119,7 +144,7 @@ describe('AvaliacoesPage', () => {
     expect(screen.getByText('Questão 1 de 2')).toBeInTheDocument();
     // O defeito que motivou a mudança: a prova abria num `fixed inset-0` que
     // fechava por clique no backdrop, descartando as respostas.
-    expect(container.querySelector('.fixed')).toBeNull();
+    expect(document.querySelector('.fixed')).toBeNull();
   });
 
   it('abre direto na avaliação pedida pelo card do curso', () => {
@@ -214,6 +239,130 @@ describe('AvaliacoesPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /sair do teste/i }));
     await userEvent.click(screen.getByRole('button', { name: /sair e descartar/i }));
     expect(screen.getByRole('button', { name: /começar/i })).toBeInTheDocument();
+  });
+
+  /*
+   * O VOLTAR DO NAVEGADOR durante a prova.
+   *
+   * Antes destes endereços a prova não tinha URL, então o Voltar saía do sistema
+   * e ninguém pensava nele. Agora ele é uma saída de verdade — e sair descarta a
+   * tentativa. Estes casos prendem a decisão: o Voltar cai na MESMA confirmação
+   * do botão "Sair do teste", em vez de um aviso novo ou de um descarte calado.
+   */
+  describe('o Voltar do navegador no meio da prova', () => {
+    const NA_PROVA = '/aluno/curso/course-1/avaliacoes/q1';
+    const NA_LISTA = '/aluno/curso/course-1/avaliacoes';
+
+    /** Abre a prova e responde a primeira questão, deixando resposta a perder. */
+    const provaPelaMetade = async () => {
+      const { router } = renderPage({ quizzes: [quiz('q1')] }, [NA_LISTA, NA_PROVA]);
+      await userEvent.click(screen.getByRole('button', { name: /começar/i }));
+      await responder('A');
+
+      return router;
+    };
+
+    it('cai na confirmação que já existe, e NÃO sai', async () => {
+      const router = await provaPelaMetade();
+
+      await router.navigate(-1);
+
+      /*
+       * `findBy`, não `getBy`: a trava impede a navegação de forma sincrona, mas
+       * o repintar do aviso chega depois. Com `getBy` este teste falharia mesmo
+       * funcionando — e, pior, o inverso: um `queryBy...toBeNull()` PASSARIA com
+       * a trava quebrada, porque a tela ainda não teria repintado.
+       */
+      expect(await screen.findByText(/descarta as respostas desta tentativa/i)).toBeInTheDocument();
+      // A afirmação que não depende de repintar: a pessoa continua na prova.
+      expect(router.state.location.pathname).toBe(NA_PROVA);
+    });
+
+    it('"Continuar prova" fica na prova e no ponto em que estava', async () => {
+      const router = await provaPelaMetade();
+      await router.navigate(-1);
+      await screen.findByText(/descarta as respostas desta tentativa/i);
+
+      await userEvent.click(screen.getByRole('button', { name: /continuar prova/i }));
+
+      expect(screen.queryByText(/descarta as respostas/i)).toBeNull();
+      // No ponto em que estava: questão 1 respondida, com o gabarito à vista e o
+      // botão de avançar — nada da tentativa se perdeu no caminho.
+      expect(screen.getByText('Questão 1 de 2')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /próxima pergunta/i })).toBeInTheDocument();
+      expect(router.state.location.pathname).toBe(NA_PROVA);
+    });
+
+    it('"Sair e descartar" sai de verdade — a trava não vira laço', async () => {
+      /*
+       * É o defeito que a trava cria se ninguém pensar nele: sair também é
+       * navegar, então a própria trava barraria a saída que a pessoa acabou de
+       * confirmar, e o botão não faria nada para sempre.
+       */
+      const router = await provaPelaMetade();
+      await router.navigate(-1);
+      await screen.findByText(/descarta as respostas desta tentativa/i);
+
+      await userEvent.click(screen.getByRole('button', { name: /sair e descartar/i }));
+
+      expect(router.state.location.pathname).toBe(NA_LISTA);
+    });
+
+    it('sem nada respondido, o Voltar volta sem perguntar', async () => {
+      // Não há tentativa a perder; travar aqui seria atrito sem motivo.
+      const { router } = renderPage({ quizzes: [quiz('q1')] }, [NA_LISTA, NA_PROVA]);
+      await userEvent.click(screen.getByRole('button', { name: /começar/i }));
+
+      await router.navigate(-1);
+
+      expect(router.state.location.pathname).toBe(NA_LISTA);
+    });
+
+    it('prova terminada, o Voltar volta sem perguntar', async () => {
+      // Com o resultado na tela as respostas já foram para o servidor: não há
+      // tentativa a perder, e travar a saída só prenderia a pessoa.
+      const { router } = renderPage(
+        {
+          quizzes: [quiz('q1')],
+          onSubmit: vi.fn(async () => ({ ok: true, scorePercent: 100, passed: true })),
+        },
+        [NA_LISTA, NA_PROVA]
+      );
+      await userEvent.click(screen.getByRole('button', { name: /começar/i }));
+      await responder('A');
+      await userEvent.click(screen.getByRole('button', { name: /próxima pergunta/i }));
+      await responder('B');
+      await userEvent.click(screen.getByRole('button', { name: /ver resultado final/i }));
+
+      await router.navigate(-1);
+
+      expect(router.state.location.pathname).toBe(NA_LISTA);
+    });
+  });
+
+  describe('quem manda na prova aberta', () => {
+    it('com onQuizChange, avisa quem hospeda em vez de guardar sozinho', async () => {
+      /*
+       * É o que dá endereço próprio à prova: o painel põe o id na URL e devolve
+       * por `quizInicial`. Sem isto a prova continuaria invisível ao navegador.
+       */
+      const onQuizChange = vi.fn();
+      renderPage({ quizzes: [quiz('q1')], onQuizChange });
+
+      await userEvent.click(screen.getByRole('button', { name: /começar/i }));
+
+      expect(onQuizChange).toHaveBeenCalledWith('q1');
+      // Não abriu por conta própria: quem decide é o endereço.
+      expect(screen.queryByText('Questão 1 de 2')).toBeNull();
+    });
+
+    it('sem onQuizChange, segue guardando a prova aberta como antes', async () => {
+      renderPage({ quizzes: [quiz('q1')] });
+
+      await userEvent.click(screen.getByRole('button', { name: /começar/i }));
+
+      expect(screen.getByText('Questão 1 de 2')).toBeInTheDocument();
+    });
   });
 
   it('conta quantas avaliações do curso já foram aprovadas', () => {

@@ -92,6 +92,46 @@ export function viewFromPath(pathname: string): PortalView | null {
 /** Raízes que pertencem à área autenticada, com o que vier abaixo delas. */
 const CAMINHOS_AUTENTICADOS: readonly string[] = ['/app', '/inst', '/aluno', '/admin'];
 
+/** O caminho está dentro da área autenticada? */
+export function ehCaminhoAutenticado(pathname: string): boolean {
+  const limpo = normalizarCaminho(pathname);
+
+  // Comparação por segmento, nunca por prefixo cru: `/institucional` começa com
+  // as letras de `/inst` e é página pública.
+  return CAMINHOS_AUTENTICADOS.some((raiz) => limpo === raiz || limpo.startsWith(`${raiz}/`));
+}
+
+/**
+ * Raiz da área autenticada de cada papel.
+ *
+ * Quem escolhe o painel é o papel, não o caminho — o `App` despacha
+ * `StudentDashboard`/`InstructorDashboard`/`AdminDashboard` por `activeUser.role`.
+ * Sem esta raiz canônica, um aluno em `/admin` veria o painel do aluno sob um
+ * endereço dizendo "admin": nada vazaria, mas o endereço mentiria, e endereço é
+ * exatamente o que a pessoa manda para outra.
+ */
+export function raizDoPapel(papel: 'student' | 'instructor' | 'admin'): string {
+  switch (papel) {
+    case 'instructor':
+      return '/inst';
+    case 'admin':
+      return '/admin';
+    default:
+      return '/aluno';
+  }
+}
+
+/** O caminho é a área autenticada CORRETA para este papel? */
+export function caminhoBateComPapel(
+  pathname: string,
+  papel: 'student' | 'instructor' | 'admin'
+): boolean {
+  const raiz = raizDoPapel(papel);
+  const limpo = normalizarCaminho(pathname);
+
+  return limpo === raiz || limpo.startsWith(`${raiz}/`);
+}
+
 /**
  * Normaliza para comparar: sem barra final e em minúsculas.
  *
