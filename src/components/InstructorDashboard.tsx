@@ -16,6 +16,7 @@ import { VideoPlayer } from './shared/VideoPlayer';
 import { LessonVideoField } from './shared/LessonVideoField';
 import { Course, Lesson, LiveSession, isCourseExpired } from '../types';
 import { textoDoTempoDaGrade } from '../utils/courseDuration';
+import { assuntoDaMensagem } from '../utils/assuntoMensagem';
 import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
 import { toDatetimeLocalValue, formatScheduledAt, situacaoTransmissao } from '../utils/liveSchedule';
@@ -1959,6 +1960,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       ) : (
                         studentDMs.map((msg, idx) => {
                           const isInstructor = msg.senderRole === 'instructor';
+                          // De qual aula é a dúvida. Vinha embutida no texto como
+                          // `[Aula: …]` e aparecia como ruído no meio da frase.
+                          const { aula, corpo } = assuntoDaMensagem(msg.text);
                           return (
                             <div key={`${msg.id}-${idx}`} className={`flex flex-col ${isInstructor ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
                               <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-normal ${
@@ -1970,7 +1974,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                                   <span className="font-extrabold text-[9px] uppercase tracking-wide">{msg.senderName}</span>
                                   <span className="text-[8px] font-mono">• {msg.senderRole === 'instructor' ? 'Gestor' : 'Estudante'}</span>
                                 </div>
-                                <p className="whitespace-pre-line text-[11.5px] font-sans leading-relaxed break-words">{msg.text}</p>
+                                {aula !== null && (
+                                  <span className={`mb-1.5 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                                    isInstructor ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  }`}>
+                                    <BookOpen className="h-3 w-3 shrink-0" />
+                                    <span className="truncate">Dúvida na aula: {aula}</span>
+                                  </span>
+                                )}
+                                <p className="whitespace-pre-line text-[11.5px] font-sans leading-relaxed break-words">{corpo}</p>
                               </div>
                               <span className="text-[8px] text-slate-400 mt-1 px-1 font-mono">
                                 {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
