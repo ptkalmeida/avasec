@@ -16,3 +16,10 @@ logs/
 # skill do projeto precisa ser versionada, senão cada pessoa redescobre o ambiente.
 /SKILL.md
 !.claude/skills/**/SKILL.md
+
+# Processo de IA (planejamento, skills, guidelines, ADRs de processo).
+# Fica NO repositorio por conveniencia de quem trabalha aqui, e NUNCA e
+# versionado: decisao explicita de 08/09/2026. Consequencia aceita: a
+# rastreabilidade que o AGENTS.md exige nao fica visivel para quem revisa o PR,
+# e um clone em outra maquina nao traz nada disto.
+.ai/
