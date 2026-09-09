@@ -16,6 +16,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardTab, useLMS, authFetch } from '../context/LMSContext';
 import { RAIZ_ALUNO, caminhoAluno, parseAluno } from '../router/studentRoutes';
 import { assuntoDaMensagem, comAssuntoDaAula } from '../utils/assuntoMensagem';
+import { cursoPorRef, refDoCurso, refEhCanonica } from '../utils/cursoRef';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -286,9 +287,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     [chaveDosMeusCursos]
   );
 
-  const selectedCourse: Course | null = destino.courseId === null || !cursosQueMePertencem.has(destino.courseId)
-    ? null
-    : courses.find((c) => c.id === destino.courseId) ?? null;
+  /*
+   * O endereço traz o SLUG do curso (ADR 13), e ainda aceita o id de link
+   * antigo. O pertencimento continua sendo checado pelo ID — a lista de cursos
+   * do aluno é de ids, e comparar slug com id daria sempre falso, tirando o
+   * aluno do próprio curso.
+   */
+  const cursoDoEndereco = cursoPorRef(courses, destino.cursoRef);
+  const selectedCourse: Course | null = cursoDoEndereco !== null && cursosQueMePertencem.has(cursoDoEndereco.id)
+    ? cursoDoEndereco
+    : null;
 
   const activeLesson: Lesson | null = destino.lessonId === null || selectedCourse === null
     ? null
@@ -323,15 +331,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   const viewingCatalogCourse: Course | null = destino.catalogoId === null
     ? null
-    : courses.find((c) => c.id === destino.catalogoId) ?? null;
+    : cursoPorRef(courses, destino.catalogoId);
 
   const selectedModulePageName = destino.modulo;
   const activeDashboardTab: DashboardTab = destino.aba;
 
   const setSelectedCourse = (curso: Course | null): void => {
     irPara(curso === null
-      ? { tela: 'painel', aba: 'general', courseId: null, modulo: null }
-      : { tela: 'curso', courseId: curso.id, modulo: null });
+      ? { tela: 'painel', aba: 'general', cursoRef: null, modulo: null }
+      : { tela: 'curso', cursoRef: refDoCurso(curso), modulo: null });
   };
 
   const setActiveLesson = (aula: Lesson | null): void => {
@@ -367,12 +375,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   };
 
   const setActiveDashboardTab = (aba: DashboardTab): void => {
-    irPara({ tela: 'painel', aba, courseId: null, catalogoId: null, modulo: null });
+    irPara({ tela: 'painel', aba, cursoRef: null, catalogoId: null, modulo: null });
   };
 
   /** Sai do curso inteiro numa navegação só. */
   const voltarParaMeusCursos = (): void => {
-    irPara({ tela: 'painel', aba: 'general', courseId: null, catalogoId: null, modulo: null });
+    irPara({ tela: 'painel', aba: 'general', cursoRef: null, catalogoId: null, modulo: null });
   };
 
   // Custom non-blocking alert/confirm states
@@ -423,6 +431,68 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
 
   /*
+   * Slug APOSENTADO: o curso foi renomeado depois de alguém salvar o link.
+   *
+   * O slug antigo não está na lista de cursos — ele vive no histórico, no banco
+   * — então sem isto o link salvo cairia na regra de "curso que não é deste
+   * aluno" e a pessoa seria devolvida à raiz do painel. Era exatamente o defeito
+   * que a ADR 13 pagou uma migration para não ter.
+   *
+   * `resolvendoSlug` segura o redirecionamento enquanto a pergunta está no ar.
+   * Sem essa trava as duas regras corriam juntas e a mais rápida ganhava — o
+   * tipo de falha que aparece em uma máquina e não na outra.
+   */
+  const [resolvendoSlug, setResolvendoSlug] = useState(false);
+
+  useEffect(() => {
+    const ref = destino.cursoRef;
+    if (ref === null || courses.length === 0) return;
+    // A referência já é um curso conhecido: nada a resolver.
+    if (cursoPorRef(courses, ref) !== null) return;
+
+    let cancelado = false;
+    setResolvendoSlug(true);
+
+    fetch(`/api/courses/resolve/${encodeURIComponent(ref)}`, { credentials: 'include' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((dados) => {
+        if (cancelado) return;
+        const canonico = typeof dados?.slug === 'string' && dados.slug !== '' ? dados.slug : null;
+        // Só troca se o servidor devolveu OUTRA referência. Devolver a mesma e
+        // navegar de novo seria um laço de navegação.
+        if (canonico !== null && canonico !== ref) {
+          navigate(caminhoAluno({ ...destino, cursoRef: canonico }), { replace: true });
+        }
+      })
+      .catch(() => {
+        // Curso desconhecido ou rede fora: a guarda seguinte cuida do destino.
+        // Falhar em silêncio aqui é correto — não há nada a dizer ao aluno sobre
+        // um endereço que ele não digitou.
+      })
+      .finally(() => {
+        if (!cancelado) setResolvendoSlug(false);
+      });
+
+    return () => { cancelado = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destino.cursoRef, courses.length]);
+
+  /*
+   * Endereço com a referência NÃO canônica (id antigo, ou slug aposentado que já
+   * foi resolvido) é trocado pelo endereço de hoje.
+   *
+   * Sem isto o `course-1` sobrevive à mudança que veio removê-lo: a pessoa abre
+   * por um link antigo, copia da barra e manda adiante a forma velha.
+   */
+  useEffect(() => {
+    if (selectedCourse === null) return;
+    if (refEhCanonica(selectedCourse, destino.cursoRef)) return;
+
+    navigate(caminhoAluno({ ...destino, cursoRef: refDoCurso(selectedCourse) }), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCourse, destino.cursoRef]);
+
+  /*
    * Endereço que aponta para curso que não é deste aluno volta para a raiz do
    * painel, SEM deixar entrada no histórico — senão o Voltar devolveria a pessoa
    * ao endereço recusado, num laço.
@@ -435,12 +505,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
    * intermitente, que é o pior modo de falhar.
    */
   useEffect(() => {
-    if (destino.courseId === null || courses.length === 0 || !matriculaCarregada) return;
+    if (destino.cursoRef === null || courses.length === 0 || !matriculaCarregada) return;
     if (selectedCourse !== null) return;
+    // Slug aposentado (curso renomeado) não está na lista: o servidor resolve, e
+    // enquanto isso não se redireciona. Ver o efeito de canonicalização abaixo.
+    if (resolvendoSlug) return;
 
     navigate(RAIZ_ALUNO, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destino.courseId, selectedCourse, courses.length, matriculaCarregada]);
+  }, [destino.cursoRef, selectedCourse, courses.length, matriculaCarregada, resolvendoSlug]);
 
   /*
    * Link no formato ANTIGO (`?courseId=&module=&lesson=`) vira o endereço novo.
@@ -466,7 +539,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     navigate(
       caminhoAluno({
         tela: lesson ? 'aula' : 'curso',
-        courseId: course.id,
+        cursoRef: refDoCurso(course),
         lessonId: lesson?.id ?? null,
         modulo: params.get('module'),
       }),
@@ -3945,7 +4018,7 @@ ${html}
                         // mesmo destino e voltaria para o painel.
                         irPara({
                           tela: 'curso',
-                          courseId: viewingCatalogCourse!.id,
+                          cursoRef: refDoCurso(viewingCatalogCourse),
                           catalogoId: null,
                           modulo: null,
                         });

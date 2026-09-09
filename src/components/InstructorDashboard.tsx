@@ -35,6 +35,7 @@ import { DocumentosDisciplinaPage } from './instructor/DocumentosDisciplinaPage'
 import { courseMinAttendance } from '../config/constants';
 import { BackButton } from './BackButton';
 import { safeHref } from '../utils/safeUrl';
+import { cursoPorRef, refDoCurso, refEhCanonica } from '../utils/cursoRef';
 
 interface InstructorDashboardProps {
   onBackToLanding?: () => void;
@@ -107,25 +108,29 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     [courses, activeUser.id, activeUser.role]
   );
 
-  const cursoDoEndereco = destino.courseId === null
-    ? null
-    : cursosQueGerencio.find((c) => c.id === destino.courseId) ?? null;
+  // O endereco traz o SLUG do curso (ADR 13), e aceita o id de link antigo.
+  const cursoDoEndereco = cursoPorRef(cursosQueGerencio, destino.cursoRef);
 
   const selectedCourseId = cursoDoEndereco?.id ?? '';
+  // A referencia de endereco do curso ATUAL: e ela que entra em todo caminho
+  // montado daqui para baixo. `selectedCourseId` continua sendo id, porque e o
+  // que os componentes de dado e a API esperam.
+  const refDoCursoAtual = refDoCurso(cursoDoEndereco);
   const setSelectedCourseId = (courseId: string): void => {
+    // Troca de curso vem da lista, que entrega ID; o endereco quer o slug.
     // Trocar de curso volta para a Gestao do Curso: a secao aberta pertencia ao
     // curso anterior, e manter "Grade Curricular" mostraria a grade de outro.
-    navigate(caminhoInstrutor({ courseId }));
+    navigate(caminhoInstrutor({ cursoRef: refDoCurso(cursoPorRef(cursosQueGerencio, courseId)) }));
   };
 
   const activeDashboardTab = abaDaSecao(destino.secao);
   const setActiveDashboardTab = (aba: string): void => {
-    navigate(caminhoInstrutor({ courseId: selectedCourseId, secao: secaoDaAba(aba as never) }));
+    navigate(caminhoInstrutor({ cursoRef: refDoCursoAtual, secao: secaoDaAba(aba as never) }));
   };
 
   const subAbaAvaliacoes: SubAbaAvaliacoes = destino.subAba;
   const irParaSubAba = (subAba: SubAbaAvaliacoes): void => {
-    navigate(caminhoInstrutor({ courseId: selectedCourseId, secao: 'avaliacoes', subAba }));
+    navigate(caminhoInstrutor({ cursoRef: refDoCursoAtual, secao: 'avaliacoes', subAba }));
   };
 
   /*
@@ -144,7 +149,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const abrirJanela = (janela: string | null): void => {
     navigate(
       caminhoInstrutor({
-        courseId: selectedCourseId,
+        cursoRef: refDoCursoAtual,
         secao: destino.secao,
         subAba: destino.subAba,
         janela,
@@ -173,7 +178,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
    * na barra ou link herdado de outra conta).
    */
   useEffect(() => {
-    const precisaVoltarParaEscolha = destino.courseId !== null && cursoDoEndereco === null;
+    const precisaVoltarParaEscolha = destino.cursoRef !== null && cursoDoEndereco === null;
     // `startsWith(RAIZ_INSTRUTOR)` sozinho casaria com `/institucional`. A
     // comparação exata mais a barra é o que separa a raiz do painel de um
     // caminho que só começa com as mesmas letras.
@@ -183,7 +188,24 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       navigate(RAIZ_INSTRUTOR, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, cursoDoEndereco, destino.courseId]);
+  }, [location.pathname, cursoDoEndereco, destino.cursoRef]);
+
+  /*
+   * Endereco com a referencia NAO canonica (id antigo) e trocado pelo de hoje,
+   * sem entrada no historico. Senao a forma `course-1` sobrevive a mudanca que
+   * veio removê-la, copiada da barra de endereços para o proximo link.
+   *
+   * Slug aposentado nao entra aqui: o painel do instrutor nao busca no servidor,
+   * porque quem gerencia o curso chega por lista, e nao por link herdado. Se
+   * isso mudar, o efeito equivalente do painel do aluno e o modelo.
+   */
+  useEffect(() => {
+    if (cursoDoEndereco === null) return;
+    if (refEhCanonica(cursoDoEndereco, destino.cursoRef)) return;
+
+    navigate(caminhoInstrutor({ ...destino, cursoRef: refDoCursoAtual }), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cursoDoEndereco, destino.cursoRef, refDoCursoAtual]);
   
   // Advanced Tools States
   const [isEditingCourse, setIsEditingCourse] = usarJanela('editar-curso');

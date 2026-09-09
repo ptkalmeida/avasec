@@ -42,6 +42,14 @@ export interface PersonRef {
 export interface Course {
   id: string;
   title: string;
+  /**
+   * Nome do curso na URL (`ux-ui-design-interfaces-de-alta-performance`).
+   *
+   * Persistido no banco e único (ADR 13); é o endereço, não decoração. Opcional
+   * no tipo porque curso vindo de `mockData` ou de uma resposta antiga não tem —
+   * e nesse caso o endereço cai no id, que continua resolvendo.
+   */
+  slug?: string;
   description: string;
   category: string;
   thumbnail: string;

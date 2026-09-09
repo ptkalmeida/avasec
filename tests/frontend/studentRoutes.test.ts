@@ -17,12 +17,12 @@ describe('as telas que o endereço perdia', () => {
      */
     const enderecos = [
       caminhoAluno({ tela: 'painel' }),
-      caminhoAluno({ tela: 'curso', courseId: 'course-1' }),
-      caminhoAluno({ tela: 'aula', courseId: 'course-1', lessonId: 'aula-1' }),
-      caminhoAluno({ tela: 'avaliacoes', courseId: 'course-1' }),
-      caminhoAluno({ tela: 'avaliacoes', courseId: 'course-1', quizId: 'quiz-1' }),
-      caminhoAluno({ tela: 'exercicios', courseId: 'course-1' }),
-      caminhoAluno({ tela: 'ao-vivo', courseId: 'course-1', sessionId: 's-1' }),
+      caminhoAluno({ tela: 'curso', cursoRef: 'course-1' }),
+      caminhoAluno({ tela: 'aula', cursoRef: 'course-1', lessonId: 'aula-1' }),
+      caminhoAluno({ tela: 'avaliacoes', cursoRef: 'course-1' }),
+      caminhoAluno({ tela: 'avaliacoes', cursoRef: 'course-1', quizId: 'quiz-1' }),
+      caminhoAluno({ tela: 'exercicios', cursoRef: 'course-1' }),
+      caminhoAluno({ tela: 'ao-vivo', cursoRef: 'course-1', sessionId: 's-1' }),
       caminhoAluno({ tela: 'catalogo', catalogoId: 'course-9' }),
     ];
 
@@ -40,17 +40,17 @@ describe('as telas que o endereço perdia', () => {
     ];
 
     for (const { tela, extra } of casos) {
-      const caminho = caminhoAluno({ tela, courseId: 'course-1', ...extra });
+      const caminho = caminhoAluno({ tela, cursoRef: 'course-1', ...extra });
       const [pathname, search] = caminho.split('?');
       expect(parseAluno(pathname, search ?? '')).toMatchObject({
-        tela, courseId: 'course-1', ...extra,
+        tela, cursoRef: 'course-1', ...extra,
       });
     }
   });
 
   it('a prova em andamento tem endereço próprio, separado da lista', () => {
     // É o que faz o F5 voltar para a prova, e o link "sua prova está aqui" existir.
-    expect(caminhoAluno({ tela: 'avaliacoes', courseId: 'course-1', quizId: 'quiz-1' }))
+    expect(caminhoAluno({ tela: 'avaliacoes', cursoRef: 'course-1', quizId: 'quiz-1' }))
       .toBe('/aluno/curso/course-1/avaliacoes/quiz-1');
     expect(parseAluno('/aluno/curso/course-1/avaliacoes/quiz-1').quizId).toBe('quiz-1');
     expect(parseAluno('/aluno/curso/course-1/avaliacoes').quizId).toBeNull();
@@ -62,18 +62,18 @@ describe('curso antes da tela', () => {
     // Mesma regra do painel do instrutor: não há como pedir "a aula" sem dizer
     // de qual curso.
     expect(caminhoAluno({ tela: 'aula', lessonId: 'aula-1' })).toBe(RAIZ_ALUNO);
-    expect(caminhoAluno({ tela: 'avaliacoes', courseId: null })).toBe(RAIZ_ALUNO);
-    expect(caminhoAluno({ tela: 'exercicios', courseId: '' })).toBe(RAIZ_ALUNO);
+    expect(caminhoAluno({ tela: 'avaliacoes', cursoRef: null })).toBe(RAIZ_ALUNO);
+    expect(caminhoAluno({ tela: 'exercicios', cursoRef: '' })).toBe(RAIZ_ALUNO);
 
     expect(parseAluno('/aluno/curso').tela).toBe('painel');
-    expect(parseAluno('/aluno/curso/').courseId).toBeNull();
+    expect(parseAluno('/aluno/curso/').cursoRef).toBeNull();
   });
 
   it('id incompleto cai no curso aberto, não em tela vazia', () => {
     expect(parseAluno('/aluno/curso/course-1/aula')).toMatchObject({ tela: 'curso', lessonId: null });
     expect(parseAluno('/aluno/curso/course-1/ao-vivo')).toMatchObject({ tela: 'curso', sessionId: null });
     expect(parseAluno('/aluno/curso/course-1/tela-que-nao-existe')).toMatchObject({
-      tela: 'curso', courseId: 'course-1',
+      tela: 'curso', cursoRef: 'course-1',
     });
   });
 });
@@ -118,7 +118,7 @@ describe('seções do painel', () => {
 
 describe('módulo e janela', () => {
   it('o módulo acompanha o curso no endereço', () => {
-    const caminho = caminhoAluno({ tela: 'curso', courseId: 'course-1', modulo: 'Módulo 2' });
+    const caminho = caminhoAluno({ tela: 'curso', cursoRef: 'course-1', modulo: 'Módulo 2' });
     expect(caminho).toBe('/aluno/curso/course-1?modulo=M%C3%B3dulo+2');
     const [p, s] = caminho.split('?');
     expect(parseAluno(p, s).modulo).toBe('Módulo 2');
@@ -135,7 +135,7 @@ describe('módulo e janela', () => {
     // É o que faz o Voltar do navegador FECHAR o modal em vez de trocar de tela.
     expect(caminhoAluno({ aba: 'certificates', janela: 'emitir' }))
       .toBe('/aluno/certificados?janela=emitir');
-    expect(caminhoAluno({ tela: 'curso', courseId: 'c1', modulo: 'M2', janela: 'ementa' }))
+    expect(caminhoAluno({ tela: 'curso', cursoRef: 'c1', modulo: 'M2', janela: 'ementa' }))
       .toBe('/aluno/curso/c1?modulo=M2&janela=ementa');
     expect(parseAluno('/aluno/curso/c1', '?modulo=M2&janela=ementa')).toMatchObject({
       modulo: 'M2', janela: 'ementa',
@@ -147,8 +147,8 @@ describe('módulo e janela', () => {
 
 describe('endereços que não são do painel do aluno', () => {
   it('não confunde prefixo parecido', () => {
-    expect(parseAluno('/alunos/curso/c1').courseId).toBeNull();
-    expect(parseAluno('/inst/curso/course-1').courseId).toBeNull();
+    expect(parseAluno('/alunos/curso/c1').cursoRef).toBeNull();
+    expect(parseAluno('/inst/curso/course-1').cursoRef).toBeNull();
     expect(parseAluno('/').tela).toBe('painel');
   });
 
@@ -156,8 +156,8 @@ describe('endereços que não são do painel do aluno', () => {
     // A barra sai como %2F, então não parte o endereço em dois segmentos nem é
     // lida como nome de tela.
     const id = 'curso com espaço/e-barra';
-    const caminho = caminhoAluno({ tela: 'aula', courseId: id, lessonId: 'a/1' });
+    const caminho = caminhoAluno({ tela: 'aula', cursoRef: id, lessonId: 'a/1' });
     expect(caminho).toContain('%2F');
-    expect(parseAluno(caminho)).toMatchObject({ courseId: id, lessonId: 'a/1', tela: 'aula' });
+    expect(parseAluno(caminho)).toMatchObject({ cursoRef: id, lessonId: 'a/1', tela: 'aula' });
   });
 });

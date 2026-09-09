@@ -85,6 +85,11 @@ Route::middleware('feature:catalogoCursos')->group(function (): void {
     // documentos e link do Meet — saía para qualquer visitante.
     Route::get('/courses', [CourseController::class, 'index'])
         ->middleware('jwt.optional');
+    // ANTES de qualquer rota com parâmetro: 'resolve' é segmento literal e não
+    // pode ser confundido com um slug de curso.
+    Route::get('/courses/resolve/{valor}', [CourseController::class, 'resolve'])
+        ->middleware('jwt.optional')
+        ->where('valor', '[A-Za-z0-9_-]+');
     Route::post('/courses', [CourseController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
     Route::put('/courses/{id}', [CourseController::class, 'update'])

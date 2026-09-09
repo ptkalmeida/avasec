@@ -6,18 +6,23 @@
 /**
  * Endereços do painel do instrutor.
  *
- * `/inst/curso/<courseId>/<seção>`, e a ordem é a regra: **o curso vem antes da
+ * `/inst/curso/<cursoRef>/<seção>`, e a ordem é a regra: **o curso vem antes da
  * seção**. Não é estética de URL — é a regra de uso que o painel não tinha.
  * Antes, `selectedCourseId` nascia em `courses[0]?.id`, então quem abria o painel
  * já estava dentro de um curso que não escolheu, e as abas Grade Curricular,
  * Avaliações e Gestão de Alunos operavam sobre ele. Com o curso no caminho, seção
  * sem curso é endereço que não existe.
  *
- * O identificador é o **id do curso**, não um slug do título. Duas razões:
- * categoria não serve (dois cursos dividem "Design Digital", então
- * `/inst/design-digital` não diria qual), e o título é editável — slug de título
- * quebraria todo link salvo no dia em que a coordenação corrigisse uma palavra.
- * O custo é a URL não dizer de que curso se trata.
+ * O identificador é o **slug do curso** (`/inst/curso/curso-de-fotografia`),
+ * desde a ADR 13. Antes era o id, e a razão registrada aqui era boa: título é
+ * editável, e slug derivado do título quebraria todo link salvo no dia em que a
+ * coordenação corrigisse uma palavra. O que mudou não foi a opinião — foi o
+ * slug deixar de ser derivado: agora é coluna única no banco, e o antigo fica
+ * no histórico resolvendo para o mesmo curso. A objeção continua verdadeira
+ * para slug calculado na hora; só não se aplica a slug persistido.
+ *
+ * O segmento ainda aceita um id, porque todo link que circula hoje tem essa
+ * forma. Ver `src/utils/cursoRef.ts`.
  *
  * Puro e sem React de propósito: é a parte que erra em silêncio. Caminho escrito
  * de duas formas em dois lugares dá tela em branco, e isto se testa.
@@ -69,7 +74,7 @@ export function secaoDaAba(aba: DashboardTab): SecaoInstrutor {
 /** O que um endereço do painel do instrutor diz. */
 export interface DestinoInstrutor {
   /** Curso escolhido, ou null quando ainda não houve escolha. */
-  courseId: string | null;
+  cursoRef: string | null;
   secao: SecaoInstrutor;
   /** Só em Avaliações; `provas` é o padrão. */
   subAba: SubAbaAvaliacoes;
@@ -86,48 +91,48 @@ export interface DestinoInstrutor {
 export function parseInstrutor(pathname: string, search = ''): DestinoInstrutor {
   const partes = pathname.replace(/\/+$/, '').split('/').filter((p) => p !== '');
   const janela = new URLSearchParams(search).get('janela');
-  const vazio: DestinoInstrutor = { courseId: null, secao: 'gestao', subAba: 'provas', janela };
+  const vazio: DestinoInstrutor = { cursoRef: null, secao: 'gestao', subAba: 'provas', janela };
 
   // ['inst'] | ['inst','curso',<id>] | ['inst','curso',<id>,<secao>] | (+ subaba)
   if (partes[0] !== 'inst' || partes[1] !== 'curso' || typeof partes[2] !== 'string' || partes[2] === '') {
     return vazio;
   }
 
-  const courseId = decodeURIComponent(partes[2]);
+  const cursoRef = decodeURIComponent(partes[2]);
   const nomeSecao = partes[3];
   if (nomeSecao === undefined) {
-    return { ...vazio, courseId };
+    return { ...vazio, cursoRef };
   }
   if (!SECOES_NO_CAMINHO.includes(nomeSecao as SecaoInstrutor)) {
     // Seção desconhecida vira a entrada do curso, e não a tela de escolha: o
     // curso do endereço é informação boa mesmo com o resto errado.
-    return { ...vazio, courseId };
+    return { ...vazio, cursoRef };
   }
 
   const secao = nomeSecao as SecaoInstrutor;
   const subAba: SubAbaAvaliacoes = secao === 'avaliacoes' && partes[4] === 'exercicios' ? 'exercicios' : 'provas';
 
-  return { courseId, secao, subAba, janela };
+  return { cursoRef, secao, subAba, janela };
 }
 
 /** Monta o endereço de um destino. */
 export function caminhoInstrutor(destino: {
-  courseId?: string | null;
+  cursoRef?: string | null;
   secao?: SecaoInstrutor;
   subAba?: SubAbaAvaliacoes;
   janela?: string | null;
 }): string {
-  const { courseId, secao = 'gestao', subAba = 'provas', janela = null } = destino;
+  const { cursoRef, secao = 'gestao', subAba = 'provas', janela = null } = destino;
   const comJanela = (base: string): string =>
     janela !== null && janela !== '' ? `${base}?janela=${encodeURIComponent(janela)}` : base;
 
-  if (courseId === null || courseId === undefined || courseId === '') {
+  if (cursoRef === null || cursoRef === undefined || cursoRef === '') {
     // A janela sobrevive à ausência de curso: "Cadastrar Novo Curso" abre na
     // tela de escolha, quando ainda não há curso nenhum para escolher.
     return comJanela(RAIZ_INSTRUTOR);
   }
 
-  let caminho = `${RAIZ_INSTRUTOR}/curso/${encodeURIComponent(courseId)}`;
+  let caminho = `${RAIZ_INSTRUTOR}/curso/${encodeURIComponent(cursoRef)}`;
   if (secao !== 'gestao') caminho += `/${secao}`;
   // A sub-aba padrão fica FORA do endereço: `/avaliacoes` e
   // `/avaliacoes/provas` seriam a mesma tela com dois endereços.
