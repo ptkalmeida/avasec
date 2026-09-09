@@ -1263,7 +1263,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                           <th className="p-2.5">Nome</th>
                           <th className="p-2.5">Perfil</th>
                           <th className="p-2.5 text-center">Cursos vinculados</th>
-                          <th className="p-2.5 text-center">Aulas/Módulos</th>
+                          <th className="p-2.5 text-center">Aulas</th>
                           <th className="p-2.5 text-center">Status</th>
                           <th className="p-2.5 text-right">Ações</th>
                         </tr>
@@ -1311,7 +1311,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                         <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
                           <th className="p-2.5">Curso</th>
                           <th className="p-2.5">Categoria/Eixo</th>
-                          <th className="p-2.5 text-center">Módulos</th>
+                          <th className="p-2.5 text-center">Aulas</th>
                           <th className="p-2.5 text-center">Alunos matriculados</th>
                           <th className="p-2.5 text-center">Concluintes</th>
                           <th className="p-2.5 text-center">Progresso médio</th>
@@ -3946,7 +3946,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
               { id: 'alunos', label: '1. Base de Alunos' },
               { id: 'cursos', label: '2. Base de Cursos' },
               { id: 'matriculas', label: '3. Base de Matrículas' },
-              { id: 'progresso', label: '4. Progresso por Módulo' },
+              { id: 'progresso', label: '4. Progresso por Aula' },
               { id: 'certificados', label: '5. Base de Certificados' }
             ].map((base) => {
               const isSel = selectedBiBase === base.id;
@@ -4123,7 +4123,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
             } else if (selectedBiBase === 'progresso') {
               currentData = ProgressoData;
               currentFilename = 'base_progresso_modulo.csv';
-              currentTitle = 'Progresso por Módulo';
+              currentTitle = 'Progresso por Aula';
               currentDesc = 'Granularidade fina de progresso módulo por módulo (ou aula por aula). Ideal para analisar em que parte do curso o aluno está demorando mais tempo.';
             } else {
               currentData = CertificadosData;

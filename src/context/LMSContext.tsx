@@ -8,6 +8,7 @@ import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz,
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS, MOCK_IDS } from '../data/mockData';
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
+import { avaliacoesPendentes } from '../utils/certificadoElegivel';
 // Uma única geradora de senha inicial, ao lado da política que ela precisa cumprir.
 // A anterior (base-36 de bytes) podia sair só com dígitos ou só com letras, e nesse
 // caso a API rejeitava o cadastro sem a tela explicar por quê.
@@ -1630,8 +1631,14 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const attendance = calculateAttendancePercent(course.id);
       const minAttendance = courseMinAttendance(course);
       
-      // If student has at least required minimum attendance and doesn't have a certificate for this course yet, issue it automatically!
-      if (attendance >= minAttendance) {
+      /*
+       * Frequencia deixou de bastar quando o curso avalia (decisao de
+       * 09/09/2026). A autoridade e o servidor — ele recalcula e recusa — mas
+       * insistir no POST a cada render renderia um 403 por render, entao a tela
+       * tambem para de pedir.
+       */
+      const pendentes = avaliacoesPendentes(quizzes, quizSubmissions, course.id, activeUser.id);
+      if (attendance >= minAttendance && pendentes.length === 0) {
         const alreadyIssued = certificates.some(
           (cert) => cert.courseId === course.id && cert.userId === activeUser.id
         );
@@ -1661,7 +1668,10 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // deixar de valer, isso é revogação no servidor, com trilha de auditoria
       // e decisão de gente — não um filtro no navegador de quem está olhando.
     });
-  }, [progress, activeUser.id, courses, activeUser.role]);
+    // `quizzes`/`quizSubmissions` entram nas dependencias porque ser aprovado
+    // numa prova passou a LIBERAR o certificado: sem eles, o aluno teria de
+    // recarregar a pagina para o certificado aparecer.
+  }, [progress, activeUser.id, courses, activeUser.role, quizzes, quizSubmissions]);
 
   // POST /api/progress sem identidade no corpo — o token decide de quem é o progresso.
   const postProgressUpdate = (updated: StudentProgress) => {

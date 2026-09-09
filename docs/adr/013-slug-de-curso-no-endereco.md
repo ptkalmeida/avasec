@@ -79,13 +79,14 @@ jeito de um visitante confirmar que um curso não publicado existe.
   com exatamente o defeito que a decisão anterior previu — rename mata link
   salvo, e título repetido colide.
 
-## Pendência conhecida
+## Pendência conhecida — RESOLVIDA em 09/09/2026
 
-O parâmetro `?modulo=` do painel do aluno carrega o **nome do módulo**, e módulo
-**não existe no banco**: `Lesson` não tem coluna de módulo, não há tabela
-`Module`, e os módulos são construídos em `getCourseModules`
-(`src/components/StudentDashboard.tsx`) a partir de `course.id === 'course-1'`,
-dividindo as aulas **por posição**. Ou seja, esse trecho do endereço está
-ancorado em texto que ninguém cadastrou. Fica registrado aqui porque é a mesma
-família de problema — identificador de endereço sem dado por trás — e ainda não
-tem decisão.
+O parâmetro `?modulo=` carregava o **nome do módulo**, e módulo não existia no
+banco: `Lesson` não tinha coluna de módulo, não havia tabela `Module`, e os
+módulos eram construídos em `getCourseModules` a partir de
+`course.id === 'course-1'`, dividindo as aulas **por posição**. Esse trecho do
+endereço estava ancorado em texto que ninguém cadastrou.
+
+A coordenação decidiu que módulo **não precisa existir** — a lista de aulas
+basta. `?modulo=` saiu do tipo e da URL. Ver
+[ADR 14](014-certificado-exige-avaliacao.md).

@@ -116,30 +116,24 @@ describe('seções do painel', () => {
   });
 });
 
-describe('módulo e janela', () => {
-  it('o módulo acompanha o curso no endereço', () => {
-    const caminho = caminhoAluno({ tela: 'curso', cursoRef: 'course-1', modulo: 'Módulo 2' });
-    expect(caminho).toBe('/aluno/curso/course-1?modulo=M%C3%B3dulo+2');
-    const [p, s] = caminho.split('?');
-    expect(parseAluno(p, s).modulo).toBe('Módulo 2');
+describe('janela', () => {
+  it('o endereço de um curso NÃO carrega mais módulo', () => {
+    /*
+     * `?modulo=` saiu (09/09/2026). Ele guardava o NOME do módulo, e módulo não
+     * existe no banco: era um trecho de endereço ancorado em texto escrito no
+     * componente. Este teste prende a remoção — se `modulo` voltar a entrar na
+     * query, o endereço volta a apontar para um conceito inexistente.
+     */
+    expect(caminhoAluno({ tela: 'curso', cursoRef: 'course-1' })).toBe('/aluno/curso/course-1');
+    expect(caminhoAluno({ tela: 'curso', cursoRef: 'c1', janela: 'ementa' }))
+      .toBe('/aluno/curso/c1?janela=ementa');
   });
 
-  it('módulo fora de um curso não suja o endereço', () => {
-    // Não há módulo no Ambiente de Estudos; guardá-lo ali seria lixo na URL.
-    expect(caminhoAluno({ tela: 'painel', modulo: 'Módulo 2' })).toBe('/aluno');
-    expect(caminhoAluno({ tela: 'catalogo', catalogoId: 'c9', modulo: 'M2' }))
-      .toBe('/aluno/catalogo/c9');
-  });
-
-  it('a janela entra e sai, e convive com o módulo', () => {
+  it('a janela entra e sai', () => {
     // É o que faz o Voltar do navegador FECHAR o modal em vez de trocar de tela.
     expect(caminhoAluno({ aba: 'certificates', janela: 'emitir' }))
       .toBe('/aluno/certificados?janela=emitir');
-    expect(caminhoAluno({ tela: 'curso', cursoRef: 'c1', modulo: 'M2', janela: 'ementa' }))
-      .toBe('/aluno/curso/c1?modulo=M2&janela=ementa');
-    expect(parseAluno('/aluno/curso/c1', '?modulo=M2&janela=ementa')).toMatchObject({
-      modulo: 'M2', janela: 'ementa',
-    });
+    expect(parseAluno('/aluno/curso/c1', '?janela=ementa')).toMatchObject({ janela: 'ementa' });
     expect(parseAluno('/aluno').janela).toBeNull();
     expect(caminhoAluno({ janela: '' })).toBe('/aluno');
   });

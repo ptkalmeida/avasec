@@ -17,6 +17,13 @@
  * de caber neste tipo — se não cabe, é estado que o F5 perde, e isso agora é
  * visível em vez de silencioso.
  *
+ * `?modulo=` foi REMOVIDO deste tipo. Ele carregava o NOME do módulo, e módulo
+ * não existe no banco — `Lesson` não tem coluna de módulo e não há tabela
+ * `Module`; os módulos eram construídos no componente a partir de
+ * `course.id === 'course-1'`. Ou seja, era um trecho de endereço ancorado em
+ * texto que ninguém cadastrou. Decisão da coordenação (09/09/2026): módulo não
+ * precisa existir, a lista de aulas basta.
+ *
  * `curso` e `catalogo` são segmentos reservados: nenhuma seção do painel pode se
  * chamar assim, senão `/aluno/curso` seria ambíguo. O teste de colisão prende
  * isso.
@@ -95,8 +102,6 @@ export interface DestinoAluno {
   sessionId: string | null;
   /** Curso da vitrine, na tela `catalogo`. */
   catalogoId: string | null;
-  /** Módulo aberto dentro do curso (vem de `?modulo=`; é nome, não id). */
-  modulo: string | null;
   /** Janela aberta sobre a tela (vem de `?janela=`). */
   janela: string | null;
 }
@@ -109,7 +114,6 @@ const VAZIO: DestinoAluno = {
   quizId: null,
   sessionId: null,
   catalogoId: null,
-  modulo: null,
   janela: null,
 };
 
@@ -117,7 +121,7 @@ const VAZIO: DestinoAluno = {
 export function parseAluno(pathname: string, search = ''): DestinoAluno {
   const partes = pathname.replace(/\/+$/, '').split('/').filter((p) => p !== '');
   const q = new URLSearchParams(search);
-  const base: DestinoAluno = { ...VAZIO, modulo: q.get('modulo'), janela: q.get('janela') };
+  const base: DestinoAluno = { ...VAZIO, janela: q.get('janela') };
 
   if (partes[0] !== 'aluno') return base;
 
@@ -180,12 +184,11 @@ export function caminhoAluno(destino: {
   quizId?: string | null;
   sessionId?: string | null;
   catalogoId?: string | null;
-  modulo?: string | null;
   janela?: string | null;
 }): string {
   const {
     tela = 'painel', aba = 'general', cursoRef = null, lessonId = null,
-    quizId = null, sessionId = null, catalogoId = null, modulo = null, janela = null,
+    quizId = null, sessionId = null, catalogoId = null, janela = null,
   } = destino;
 
   let caminho = RAIZ_ALUNO;
@@ -212,8 +215,6 @@ export function caminhoAluno(destino: {
   }
 
   const q = new URLSearchParams();
-  // `modulo` só faz sentido dentro de um curso; fora dele sujaria o endereço.
-  if (modulo !== null && modulo !== '' && caminho.includes('/curso/')) q.set('modulo', modulo);
   if (janela !== null && janela !== '') q.set('janela', janela);
   const busca = q.toString();
 
