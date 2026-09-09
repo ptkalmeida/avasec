@@ -31,6 +31,25 @@ final class CourseController extends Controller
         return response()->json($this->courses->listCoursesFor($this->optionalRequester($request)));
     }
 
+    /**
+     * Resolve um endereço de curso: slug de hoje, slug aposentado ou id antigo.
+     *
+     * Existe para o link salvo não morrer. O frontend usa o slug no endereço,
+     * mas precisa do id para falar com a API — e quando o valor recebido não é o
+     * canônico (rename, ou link de antes desta mudança), a resposta diz qual é,
+     * para a barra de endereços ser corrigida em vez de propagar o antigo.
+     *
+     * `jwt.optional` como o catálogo: sem sessão resolve só curso publicado.
+     */
+    public function resolve(Request $request, string $valor): JsonResponse
+    {
+        $requester = $this->optionalRequester($request);
+
+        return response()->json(
+            $this->courses->resolverCurso($valor, $requester['role'] ?? null)
+        );
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $this->validated($request, false);

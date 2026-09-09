@@ -77,8 +77,16 @@ export interface DestinoAluno {
   tela: TelaAluno;
   /** Aba do painel. Só significa algo quando `tela` é `painel`. */
   aba: DashboardTab;
-  /** Curso aberto (telas `curso`, `aula`, `avaliacoes`, `exercicios`, `ao-vivo`). */
-  courseId: string | null;
+  /**
+   * Curso aberto, como veio no endereço (telas `curso`, `aula`, `avaliacoes`,
+   * `exercicios`, `ao-vivo`).
+   *
+   * É o SLUG do curso, não o id (ADR 13) — `ux-ui-design-...`, não `course-1`.
+   * Chamava-se `courseId` e o nome passou a mentir quando o endereço deixou de
+   * carregar id. Ainda aceita um id, porque link antigo tem de continuar
+   * abrindo; quem transforma isto em curso é `cursoPorRef`, em utils/cursoRef.
+   */
+  cursoRef: string | null;
   /** Aula aberta, na tela `aula`. */
   lessonId: string | null;
   /** Prova em andamento, na tela `avaliacoes`. Null = lista de avaliações. */
@@ -96,7 +104,7 @@ export interface DestinoAluno {
 const VAZIO: DestinoAluno = {
   tela: 'painel',
   aba: 'general',
-  courseId: null,
+  cursoRef: null,
   lessonId: null,
   quizId: null,
   sessionId: null,
@@ -123,11 +131,11 @@ export function parseAluno(pathname: string, search = ''): DestinoAluno {
   }
 
   if (primeiro === 'curso') {
-    const courseId = segmento(partes[2]);
+    const cursoRef = segmento(partes[2]);
     // Não há como pedir "a aula" sem dizer de qual curso.
-    if (courseId === null) return base;
+    if (cursoRef === null) return base;
 
-    const dentro = { ...base, courseId };
+    const dentro = { ...base, cursoRef };
     switch (partes[3]) {
       case undefined:
         return { ...dentro, tela: 'curso' };
@@ -167,7 +175,7 @@ function segmento(parte: string | undefined): string | null {
 export function caminhoAluno(destino: {
   tela?: TelaAluno;
   aba?: DashboardTab;
-  courseId?: string | null;
+  cursoRef?: string | null;
   lessonId?: string | null;
   quizId?: string | null;
   sessionId?: string | null;
@@ -176,7 +184,7 @@ export function caminhoAluno(destino: {
   janela?: string | null;
 }): string {
   const {
-    tela = 'painel', aba = 'general', courseId = null, lessonId = null,
+    tela = 'painel', aba = 'general', cursoRef = null, lessonId = null,
     quizId = null, sessionId = null, catalogoId = null, modulo = null, janela = null,
   } = destino;
 
@@ -184,10 +192,10 @@ export function caminhoAluno(destino: {
 
   if (tela === 'catalogo' && catalogoId !== null && catalogoId !== '') {
     caminho += `/catalogo/${encodeURIComponent(catalogoId)}`;
-  } else if (tela !== 'painel' && tela !== 'catalogo' && courseId !== null && courseId !== '') {
+  } else if (tela !== 'painel' && tela !== 'catalogo' && cursoRef !== null && cursoRef !== '') {
     // Sem curso, qualquer tela de dentro do curso é a raiz do painel: é a mesma
     // regra do painel do instrutor — seção sem curso é endereço que não existe.
-    caminho += `/curso/${encodeURIComponent(courseId)}`;
+    caminho += `/curso/${encodeURIComponent(cursoRef)}`;
     if (tela === 'aula' && lessonId !== null && lessonId !== '') {
       caminho += `/aula/${encodeURIComponent(lessonId)}`;
     } else if (tela === 'avaliacoes') {

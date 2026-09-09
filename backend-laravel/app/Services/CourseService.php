@@ -13,9 +13,11 @@ use App\Models\StudentProgress;
 use App\Models\User;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;
+use App\Support\CursoSlug;
 use App\Support\Payload;
 use App\Support\VideoSource;
 use App\Support\Visibilidade;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -122,6 +124,121 @@ final class CourseService
     }
 
     /**
+     * Curso a partir de um slug, de um slug aposentado ou de um id.
+     *
+     * A ordem é slug atual -> slug aposentado -> id, e as três formas resolvem
+     * porque as três circulam em link salvo: o slug é o endereço de hoje, o
+     * aposentado é o endereço de antes de alguém renomear o curso, e o id é o
+     * endereço de antes desta mudança existir (ADR 13). Um link que já funcionou
+     * não pode passar a dar 404 por causa de uma melhoria de URL.
+     *
+     * `canonico` diz se o valor recebido É o endereço de hoje. Quando é false, o
+     * cliente troca a URL da barra pela canônica — senão o endereço antigo se
+     * propaga para sempre, copiado de tela em tela.
+     *
+     * A escada de visibilidade vale AQUI TAMBÉM (`Visibilidade::aplicar`). Sem
+     * ela a rota responderia "existe, e o id é este" para o slug de um curso em
+     * rascunho, e passaria a ser o único jeito de um visitante confirmar que um
+     * curso não publicado existe — o catálogo já filtra por papel. Resolver id é
+     * pouca informação, mas é informação.
+     *
+     * @return array{id:string, slug:string, canonico:bool}
+     */
+    public function resolverCurso(string $valor, ?string $role = null): array
+    {
+        if ($valor === '') {
+            throw ApiException::notFound('Curso não encontrado.');
+        }
+
+        $visivel = function (string $coluna, string $busca) use ($role): ?Course {
+            $q = Course::query()->where($coluna, $busca);
+            Visibilidade::aplicar($q, $role);
+
+            return $q->first(['id', 'slug']);
+        };
+
+        $porSlug = $visivel('slug', $valor);
+        if ($porSlug !== null) {
+            return ['id' => (string) $porSlug->id, 'slug' => (string) $porSlug->slug, 'canonico' => true];
+        }
+
+        $aposentado = DB::table('CourseSlugHistory')->where('slug', $valor)->value('courseId');
+        if (is_string($aposentado)) {
+            $atual = $visivel('id', $aposentado);
+            if ($atual !== null) {
+                return ['id' => (string) $atual->id, 'slug' => (string) $atual->slug, 'canonico' => false];
+            }
+        }
+
+        $porId = $visivel('id', $valor);
+        if ($porId !== null) {
+            return ['id' => (string) $porId->id, 'slug' => (string) $porId->slug, 'canonico' => false];
+        }
+
+        throw ApiException::notFound('Curso não encontrado.');
+    }
+
+    /**
+     * Todo slug que não está livre: os em uso e os aposentados.
+     *
+     * Os aposentados entram porque continuam resolvendo para o curso antigo
+     * (`resolverCurso`). Reaproveitar um faria o link salvo de um curso abrir
+     * outro — o pior defeito possível numa mudança feita para melhorar endereços.
+     *
+     * Lê `Course` com SQL cru para incluir curso INATIVADO: o SoftDeletes o
+     * esconderia, e é a mesma armadilha de upsert registrada na ADR 12 — o id
+     * (aqui, o slug) continua ocupado no banco mesmo invisível na consulta.
+     *
+     * @return array<int, string>
+     */
+    private function slugsTomados(): array
+    {
+        /** @var array<int, string> $emUso */
+        $emUso = DB::table('Course')->whereNotNull('slug')->pluck('slug')->all();
+        /** @var array<int, string> $aposentados */
+        $aposentados = DB::table('CourseSlugHistory')->pluck('slug')->all();
+
+        return array_merge($emUso, $aposentados);
+    }
+
+    /**
+     * Aposenta o slug atual do curso, se o título mudou de verdade.
+     *
+     * Devolve o slug novo, ou null quando não há nada a trocar. Título igual não
+     * gera slug novo — senão salvar o formulário sem tocar no título aposentaria
+     * o endereço e encheria o histórico de linhas iguais.
+     */
+    private function trocarSlugPorTitulo(string $courseId, string $tituloNovo): ?string
+    {
+        $atual = DB::table('Course')->where('id', $courseId)->first(['title', 'slug']);
+        if ($atual === null) {
+            return null;
+        }
+
+        $slugAtual = is_string($atual->slug) ? $atual->slug : '';
+        if (is_string($atual->title) && $atual->title === $tituloNovo && $slugAtual !== '') {
+            return null;
+        }
+
+        $novo = CursoSlug::unico($tituloNovo, $this->slugsTomados());
+        if ($novo === $slugAtual) {
+            return null;
+        }
+
+        if ($slugAtual !== '') {
+            // insertOrIgnore: o mesmo slug pode voltar a ser aposentado depois de
+            // um rename de ida e volta, e a segunda vez não pode estourar a PK.
+            DB::table('CourseSlugHistory')->insertOrIgnore([
+                'slug' => $slugAtual,
+                'courseId' => $courseId,
+                'aposentadoEm' => CarbonImmutable::now()->toDateTimeString(),
+            ]);
+        }
+
+        return $novo;
+    }
+
+    /**
      * @param  array<string, mixed>  $input
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
@@ -156,6 +273,13 @@ final class CourseService
         DB::transaction(function () use ($input, $id, $instructorName, $instructorId, $lessons, $liveSessions): void {
             $courseData = $this->scalarCourseData($input);
             $courseData['id'] = $id;
+            // Slug é DERIVADO do título, nunca aceito do cliente — mesma regra de
+            // instructorName. Slug escolhido pelo requisitante seria um campo de
+            // identidade editável por quem manda o JSON.
+            $courseData['slug'] = CursoSlug::unico(
+                is_string($input['title'] ?? null) ? $input['title'] : '',
+                $this->slugsTomados(),
+            );
             $courseData['instructorName'] = $instructorName;
             $courseData['instructorId'] = $instructorId;
             Course::query()->create($courseData);
@@ -203,6 +327,12 @@ final class CourseService
 
         DB::transaction(function () use ($courseId, $updates, $instructorIdUpdate, $lessons, $liveSessions): void {
             $scalar = array_merge($this->scalarCourseData($updates), $instructorIdUpdate);
+            if (is_string($updates['title'] ?? null) && $updates['title'] !== '') {
+                $slugNovo = $this->trocarSlugPorTitulo($courseId, $updates['title']);
+                if ($slugNovo !== null) {
+                    $scalar['slug'] = $slugNovo;
+                }
+            }
             if (count($scalar) > 0) {
                 Course::query()->where('id', $courseId)->update($scalar);
             }
