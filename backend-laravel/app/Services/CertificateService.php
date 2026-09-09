@@ -7,12 +7,15 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\Certificate;
 use App\Models\Course;
+use App\Models\Quiz;
+use App\Models\QuizSubmission;
 use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
 use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
+use App\Support\Visibilidade;
 use Carbon\CarbonImmutable;
 
 /**
@@ -163,6 +166,30 @@ final class CertificateService
             throw ApiException::forbidden("Critério de frequência ainda não atingido para emissão do certificado ({$attendancePercent}% de {$minAttendance}% exigidos).");
         }
 
+        /*
+         * Frequência não basta quando o curso avalia.
+         *
+         * A regra existe por uma consequência concreta: desde que concluir aula
+         * passou a ser automático ao avançar, quem clicasse "Próxima aula" até o
+         * fim atingia o mínimo de frequência e o certificado saía sozinho — sem
+         * responder uma única questão. Certificado de escola pública é registro
+         * acadêmico, e revogar depois é ato administrativo, não um desfazer.
+         *
+         * Decisão da coordenação (09/09/2026): se o curso tem avaliação, o
+         * certificado automático exige TODAS as avaliações ativas APROVADAS.
+         * Curso sem avaliação segue só pela frequência — é o que ele mede.
+         */
+        $pendentes = $this->avaliacoesNaoAprovadas($course->id, $userId);
+        if ($pendentes !== []) {
+            $quantas = count($pendentes);
+            $lista = implode(', ', $pendentes);
+            throw ApiException::forbidden(
+                $quantas === 1
+                    ? "Falta ser aprovado na avaliação \"{$lista}\" para a emissão do certificado."
+                    : "Faltam {$quantas} avaliações aprovadas para a emissão do certificado: {$lista}."
+            );
+        }
+
         $enrollmentId = StudentEnrollment::query()->whereKey($userId)->value('id');
 
         $hashHex = strtoupper(bin2hex(random_bytes(8)));
@@ -180,6 +207,54 @@ final class CertificateService
         ]);
 
         return $certificate->toArray();
+    }
+
+    /**
+     * Avaliações do curso em que o aluno ainda NÃO foi aprovado, por título.
+     *
+     * Três recortes, e cada um evita travar o certificado de quem não tem culpa:
+     *
+     * 1. Avaliação **inativada** não conta — o SoftDeletes já a exclui. Tirar uma
+     *    prova do ar não pode congelar o certificado de todo mundo.
+     * 2. Só avaliação **visível ao aluno** conta, e a escada é consultada com o
+     *    papel `student` FIXO, não com o papel de quem chama. Uma prova em
+     *    rascunho, que o aluno nem enxerga, não pode ser cobrada dele — e se o
+     *    papel do requisitante entrasse aqui, o gestor emitindo em nome do aluno
+     *    seria cobrado por uma prova que só o gestor vê.
+     * 3. Aprovação é `passed` em QUALQUER tentativa, não na última: a ADR 12
+     *    manda acrescentar tentativa em vez de sobrescrever, então reprovar
+     *    depois de já ter sido aprovado não desfaz a aprovação.
+     *
+     * @return array<int, string>
+     */
+    private function avaliacoesNaoAprovadas(string $courseId, string $userId): array
+    {
+        $exigidas = Quiz::query()->where('courseId', $courseId);
+        Visibilidade::aplicar($exigidas, 'student');
+        /** @var array<string, string> $titulos */
+        $titulos = $exigidas->pluck('title', 'id')->all();
+
+        if ($titulos === []) {
+            return [];
+        }
+
+        /** @var array<int, string> $aprovadas */
+        $aprovadas = QuizSubmission::query()
+            ->where('userId', $userId)
+            ->where('courseId', $courseId)
+            ->where('passed', true)
+            ->whereIn('quizId', array_keys($titulos))
+            ->pluck('quizId')
+            ->all();
+
+        $pendentes = [];
+        foreach ($titulos as $quizId => $titulo) {
+            if (! in_array($quizId, $aprovadas, true)) {
+                $pendentes[] = $titulo;
+            }
+        }
+
+        return $pendentes;
     }
 
     /**

@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   BookOpen, Calendar, CheckCircle, Award, Video, Clock, ChevronRight,
-  TrendingUp, FileCheck, ArrowRight, ArrowLeft, User, Settings, Sparkles, BookMarked, Monitor, Linkedin, Download, Globe, PlayCircle,
+  FileCheck, ArrowRight, ArrowLeft, User, Settings, Sparkles, BookMarked, Monitor, Linkedin, Download, Globe, PlayCircle,
   Lock, MessageSquare, Send, ChevronDown, Check, Play, FileText, Notebook, Layers, HelpCircle, CheckSquare, ExternalLink, Archive, Library, Info,
   Bell, Shield, Smartphone, X, Bold, Italic, Underline, List, ListOrdered,
   AlertTriangle, Lightbulb, Tag, LayoutGrid, Star, PartyPopper
@@ -17,6 +17,7 @@ import { DashboardTab, useLMS, authFetch } from '../context/LMSContext';
 import { RAIZ_ALUNO, caminhoAluno, parseAluno } from '../router/studentRoutes';
 import { assuntoDaMensagem, comAssuntoDaAula } from '../utils/assuntoMensagem';
 import { cursoPorRef, refDoCurso, refEhCanonica } from '../utils/cursoRef';
+import { avaliacoesPendentes, oQueFaltaParaOCertificado } from '../utils/certificadoElegivel';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -38,69 +39,24 @@ import { formatScheduledAt, dataCurta, horaCurta, transmissoesDoDia, situacaoTra
 import { exerciciosDoCurso } from '../utils/exerciseStatus';
 import { tentativaVigente, textoDaTentativa } from '../utils/quizAttempts';
 
-interface ModuleGroup {
-  name: string;
-  description: string;
-  lessons: Lesson[];
-}
-
-const getCourseModules = (course: Course): ModuleGroup[] => {
-  const lessons = [...course.lessons].sort((a, b) => a.order - b.order);
-  const modules: ModuleGroup[] = [];
-
-  if (lessons.length === 0) return modules;
-
-  if (course.id === 'course-1') {
-    modules.push({
-      name: 'Módulo 1: Conceitos e Fundamentos UX',
-      description: 'Entenda os pilares primários da experiência do usuário e arquiteturas de navegação ricas.',
-      lessons: lessons.slice(0, 2)
-    });
-    modules.push({
-      name: 'Módulo 2: Interfaces Gráficas & Design System',
-      description: 'Aprenda a criar grids de alta performance e bibliotecas reutilizáveis eficientes no Figma.',
-      lessons: lessons.slice(2, 4)
-    });
-    modules.push({
-      name: 'Módulo 3: Métricas & Teste com Usuários',
-      description: 'Como medir a performance, conduzir análises heurísticas e testar com usuários reais.',
-      lessons: lessons.slice(4)
-    });
-  } else if (course.id === 'course-2') {
-    modules.push({
-      name: 'Módulo 1: Fundamentos de Frontend (React)',
-      description: 'Aprenda virtualização, componentização e controle de estado reativo pelo ecossistema Vite.',
-      lessons: lessons.slice(0, 1)
-    });
-    modules.push({
-      name: 'Módulo 2: Rest APIs & Express Backend',
-      description: 'Desenvolvimento do servidor de alta performance, manipulação de CORS e payloads das requisições.',
-      lessons: lessons.slice(1, 3)
-    });
-    modules.push({
-      name: 'Módulo 3: Bancos de Dados & Integração Segura',
-      description: 'Modelagem persistente estruturada, noções gerais de PostgreSQL e segurança de conexões.',
-      lessons: lessons.slice(3)
-    });
-  } else {
-    // Dynamic fallback division for newly created/custom courses
-    const splitIndex = Math.max(1, Math.ceil(lessons.length / 2));
-    modules.push({
-      name: 'Módulo 1: Introdução Básica',
-      description: 'Conceitos básicos e primeiros passos estruturais da trilha teórica ativa.',
-      lessons: lessons.slice(0, splitIndex)
-    });
-    if (lessons.length > splitIndex) {
-      modules.push({
-        name: 'Módulo 2: Aprofundamento Prático',
-        description: 'Tópicos avançados, exercícios de fixação assistida e material complementar.',
-        lessons: lessons.slice(splitIndex)
-      });
-    }
-  }
-
-  return modules;
-};
+/*
+ * `getCourseModules` foi REMOVIDO daqui.
+ *
+ * Ele montava tres "modulos" por curso — nome e descricao escritos neste
+ * arquivo, presos a `course.id === 'course-1'` / `'course-2'`, e dividia as
+ * aulas por POSICAO (`lessons.slice(0, 2)`). Modulo nao existe no banco:
+ * `Lesson` nao tem coluna de modulo e nao ha tabela `Module`.
+ *
+ * O que isso causava, medido e nao suposto: o gestor nao podia criar, renomear
+ * nem reordenar modulo (nao ha campo); inserir uma aula no comeco fazia as aulas
+ * escorregarem de modulo em silencio, sob um titulo que descrevia outro
+ * conteudo; e todo curso fora daqueles dois recebia "Modulo 1: Introducao
+ * Basica" prometendo "exercicios de fixacao assistida e material complementar"
+ * que podiam nao existir.
+ *
+ * Decisao da coordenacao (09/09/2026): modulo nao precisa existir — a lista de
+ * aulas basta. As aulas vem de `aulasEmOrdem`, ordenadas por `order`.
+ */
 
 interface StudentDashboardProps {
   onBackToLanding?: () => void;
@@ -298,6 +254,37 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     ? cursoDoEndereco
     : null;
 
+  /*
+   * O que ainda falta para o certificado deste curso.
+   *
+   * Frequencia deixou de bastar quando o curso avalia (decisao de 09/09/2026):
+   * com conclusao automatica ao avancar, clicar "Proxima aula" ate o fim dava
+   * 100% de presenca e o certificado saia sem uma questao respondida. Quem
+   * decide e o servidor; isto existe para a tela nao prometer o que ele vai
+   * recusar.
+   */
+  const avaliacoesQueFaltam = selectedCourse === null
+    ? []
+    : avaliacoesPendentes(quizzes, quizSubmissions, selectedCourse.id, activeUser.id);
+  const faltaParaCertificado = selectedCourse === null
+    ? null
+    : oQueFaltaParaOCertificado({
+      frequencia: calculateAttendancePercent(selectedCourse.id),
+      frequenciaMinima: courseMinAttendance(selectedCourse),
+      pendentes: avaliacoesQueFaltam,
+    });
+
+  /*
+   * Aulas na ordem que o gestor definiu.
+   *
+   * `order` e o eixo real da grade; confiar na ordem em que o array chegou
+   * deixaria a lista mudar de posicao entre renders sem ninguem ter mexido nela.
+   */
+  const aulasEmOrdem: Lesson[] = React.useMemo(
+    () => (selectedCourse === null ? [] : [...selectedCourse.lessons].sort((a, b) => a.order - b.order)),
+    [selectedCourse]
+  );
+
   const activeLesson: Lesson | null = destino.lessonId === null || selectedCourse === null
     ? null
     : selectedCourse.lessons.find((l) => l.id === destino.lessonId) ?? null;
@@ -333,13 +320,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     ? null
     : cursoPorRef(courses, destino.catalogoId);
 
-  const selectedModulePageName = destino.modulo;
   const activeDashboardTab: DashboardTab = destino.aba;
 
   const setSelectedCourse = (curso: Course | null): void => {
     irPara(curso === null
-      ? { tela: 'painel', aba: 'general', cursoRef: null, modulo: null }
-      : { tela: 'curso', cursoRef: refDoCurso(curso), modulo: null });
+      ? { tela: 'painel', aba: 'general', cursoRef: null }
+      : { tela: 'curso', cursoRef: refDoCurso(curso) });
   };
 
   const setActiveLesson = (aula: Lesson | null): void => {
@@ -364,23 +350,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
       : { tela: 'catalogo', catalogoId: curso.id });
   };
 
-  /*
-   * O módulo aberto SUBSTITUI a entrada no histórico em vez de empurrar outra.
-   * É um acordeão na lateral do curso: se cada abrir/fechar deixasse marca, o
-   * Voltar do navegador viraria "desfaz o último clique de acordeão" e a pessoa
-   * precisaria de dez toques para sair do curso.
-   */
-  const setSelectedModulePageName = (nome: string | null): void => {
-    irPara({ modulo: nome }, true);
-  };
-
   const setActiveDashboardTab = (aba: DashboardTab): void => {
-    irPara({ tela: 'painel', aba, cursoRef: null, catalogoId: null, modulo: null });
+    irPara({ tela: 'painel', aba, cursoRef: null, catalogoId: null });
   };
 
   /** Sai do curso inteiro numa navegação só. */
   const voltarParaMeusCursos = (): void => {
-    irPara({ tela: 'painel', aba: 'general', cursoRef: null, catalogoId: null, modulo: null });
+    irPara({ tela: 'painel', aba: 'general', cursoRef: null, catalogoId: null });
   };
 
   // Custom non-blocking alert/confirm states
@@ -416,18 +392,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   const [twoFactor, setTwoFactor] = useState(false);
   const [language, setLanguage] = useState('Português (BR)');
   const [penaltyJustification, setPenaltyJustification] = useState('');
-
-  // Module sidebar accordion expansion states
-  const [expandedModules, setExpandedModules] = useState<{[key: string]: boolean}>({
-    'Módulo 1: Conceitos e Fundamentos UX': true,
-    'Módulo 1: Fundamentos de Frontend (React)': true,
-    'Módulo 1: Introdução Básica': true,
-    'Módulo 2: Interfaces Gráficas & Design System': false,
-    'Módulo 3: Métricas & Teste com Usuários': false,
-    'Módulo 2: Rest APIs & Express Backend': false,
-    'Módulo 3: Bancos de Dados & Integração Segura': false,
-    'Módulo 2: Aprofundamento Prático': false
-  });
 
 
   /*
@@ -541,7 +505,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
         tela: lesson ? 'aula' : 'curso',
         cursoRef: refDoCurso(course),
         lessonId: lesson?.id ?? null,
-        modulo: params.get('module'),
       }),
       { replace: true }
     );
@@ -559,16 +522,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     return () => window.removeEventListener('reset-dashboard', handleResetDashboard);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const toggleModuleExpand = (moduleName: string) => {
-    // Fecha a aula e abre o módulo numa navegação só: eram dois setters, e a
-    // segunda navegação partiria do mesmo destino, reabrindo a aula.
-    irPara({ tela: 'curso', modulo: moduleName }, true);
-    setExpandedModules(prev => ({
-      ...prev,
-      [moduleName]: true
-    }));
-  };
 
   // Student private notebook states
   const [activeTab, setActiveTab] = useState<'teoria' | 'anotacao' | 'suporte' | 'forum'>('teoria');
@@ -1108,8 +1061,17 @@ ${html}
                         <strong className={`text-sm font-black font-mono mt-0.5 block ${qualificado ? 'text-emerald-700' : 'text-teal-700'}`}>
                           {frequencia}%
                         </strong>
+                        {/*
+                          Frequencia deixou de ser o unico critério (09/09/2026).
+                          Dizer so "minimo de 70% para o certificado" faria o
+                          medidor prometer o certificado a quem bate a presenca e
+                          nao passou na prova — o mesmo defeito do banner abaixo.
+                        */}
                         <span className="block text-[9px] text-slate-400 leading-tight mt-0.5">
-                          mínimo de {minimo}% para o certificado
+                          mínimo de {minimo}%
+                          {avaliacoesQueFaltam.length > 0
+                            ? ' e aprovação nas avaliações'
+                            : ' para o certificado'}
                         </span>
                       </div>
                       <div
@@ -1118,9 +1080,7 @@ ${html}
                             ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                             : 'border-slate-200 bg-slate-50 text-slate-500'
                         }`}
-                        title={qualificado
-                          ? `Frequência suficiente: ${frequencia}% de um mínimo de ${minimo}%.`
-                          : `Faltam ${minimo - frequencia} pontos percentuais para o mínimo de ${minimo}%.`}
+                        title={faltaParaCertificado ?? `Critérios cumpridos: ${frequencia}% de frequência, mínimo de ${minimo}%.`}
                       >
                         {qualificado ? <Check className="h-4 w-4" /> : <span>faltam<br />{minimo - frequencia}%</span>}
                       </div>
@@ -1129,11 +1089,45 @@ ${html}
                 })()}
               </div>
 
-              {/* Banner de sucesso — só quando a frequência qualifica para certificação */}
+              {/*
+                Banner de conclusão. A frequência abre o banner; o que ele DIZ
+                depende de o curso ter avaliação pendente.
+
+                Antes ele afirmava "seu certificado foi emitido" com base só na
+                presença. Desde 09/09/2026 o servidor exige as avaliações
+                aprovadas, então essa frase passaria a ser falsa exatamente para
+                quem clicou "Próxima aula" até o fim — e a pessoa iria procurar
+                no perfil um documento que não existe.
+              */}
               {calculateAttendancePercent(selectedCourse.id) >= courseMinAttendance(selectedCourse) && (() => {
                 // Curso já concluído não pode ser concluído de novo: a matrícula
                 // deixou de ser ativa, então o botão só daria erro.
                 const jaConcluido = enrollmentRecord.completedCourseIds?.includes(selectedCourse.id) ?? false;
+                const temPendencia = avaliacoesQueFaltam.length > 0 && !jaConcluido;
+
+                if (temPendencia) {
+                  /*
+                   * "Concluir curso" fica FORA daqui de propósito. Concluir
+                   * encerra a matrícula e tira o curso da lista de disponíveis —
+                   * quem concluísse com avaliação pendente ficaria sem o
+                   * certificado E sem poder se matricular de novo para fazer a
+                   * prova. Nenhum aviso conserta isso depois de clicado.
+                   */
+                  return (
+                    <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-900 flex items-start gap-2.5">
+                      <Award className="h-5 w-5 text-amber-600 shrink-0" />
+                      <div>
+                        <strong className="block font-bold mb-0.5">
+                          Frequência cumprida — falta a avaliação
+                        </strong>
+                        <span>
+                          {faltaParaCertificado ?? ''} O certificado é emitido assim que a aprovação
+                          for registrada.
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
 
                 return (
                 <div className="mb-6 rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-800 flex items-center justify-between gap-4">
@@ -1145,7 +1139,7 @@ ${html}
                       </strong>
                       {jaConcluido
                         ? 'Você já concluiu este curso. Seu certificado acadêmico digital está disponível no seu perfil.'
-                        : `Você atingiu ${calculateAttendancePercent(selectedCourse.id)}% de presença! Seu certificado acadêmico digital foi emitido e está pronto no painel lateral.`}
+                        : `Você atingiu ${calculateAttendancePercent(selectedCourse.id)}% de presença e cumpriu as avaliações do curso. Seu certificado acadêmico digital está no seu perfil.`}
                     </div>
                   </div>
                   <div className="flex flex-col sm:flex-row items-center gap-2">
@@ -1218,124 +1212,6 @@ ${html}
                   notify={showAlert}
                   permiteAnexo={features.uploadArquivos}
                 />
-              ) : /* Full Page Module View (hides the Grid) */
-              selectedModulePageName && !activeLesson && !showAvaliacoes ? (
-                (() => {
-                  const module = getCourseModules(selectedCourse).find(m => m.name === selectedModulePageName);
-                  if (!module) return null;
-
-                  const completedInModule = module.lessons.filter(l => currentCourseProgress?.completedLessons.includes(l.id)).length;
-                  const hasCompletedAll = completedInModule === module.lessons.length && module.lessons.length > 0;
-
-                  return (
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs animate-in fade-in duration-300">
-                      {/* Module Billboard Header */}
-                      <div className="bg-slate-950 p-8 sm:p-10 text-left relative overflow-hidden">
-                        <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 opacity-[0.03] pointer-events-none">
-                          <Layers className="h-64 w-64 text-teal-500" />
-                        </div>
-                        
-                        <div className="flex items-center justify-between mb-4">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-teal-400 bg-teal-500/10 px-2.5 py-1 rounded inline-block font-mono border border-teal-500/20">
-                            Detalhes do Módulo
-                          </span>
-                          <button
-                            onClick={() => setSelectedModulePageName(null)}
-                            className="text-xs font-bold text-slate-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer"
-                          >
-                            <ArrowRight className="h-3.5 w-3.5 rotate-180" />
-                            <span>Voltar ao Curso</span>
-                          </button>
-                        </div>
-                        
-                        <h3 className="font-black text-white text-2xl sm:text-3xl leading-tight mb-3">
-                          {module.name}
-                        </h3>
-                        
-                        <p className="text-sm text-slate-400 leading-relaxed max-w-2xl">
-                          {module.description}
-                        </p>
-                        
-                        <div className="mt-8 flex items-center gap-6 border-t border-slate-800/60 pt-6">
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 font-mono tracking-wider">Aulas do Módulo</span>
-                            <span className="text-white font-bold text-sm flex items-center gap-2">
-                              <BookOpen className="h-4 w-4 text-teal-500" />
-                              {module.lessons.length} aulas
-                            </span>
-                          </div>
-
-                          <div className="flex flex-col gap-1">
-                            <span className="text-[10px] uppercase font-bold text-slate-500 font-mono tracking-wider">Seu Progresso</span>
-                            <span className="text-white font-bold text-sm flex items-center gap-2">
-                              {hasCompletedAll ? (
-                                <CheckCircle className="h-4 w-4 text-emerald-500" />
-                              ) : (
-                                <TrendingUp className="h-4 w-4 text-amber-500" />
-                              )}
-                              {completedInModule} concluídas
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Chapter List Area */}
-                      <div className="p-6 sm:p-12 bg-slate-50/50">
-                        <h4 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider mb-5 flex items-center gap-2">
-                          <Layers className="h-4 w-4 text-teal-600" />
-                          Capítulos Disponíveis
-                        </h4>
-
-                        <div className="space-y-3">
-                          {module.lessons.map((lesson, idx) => {
-                            const isDone = currentCourseProgress?.completedLessons.includes(lesson.id) || false;
-
-                            return (
-                              <div
-                                key={`${lesson.id}-${idx}`}
-                                onClick={() => {
-                                  setActiveLesson(lesson);
-                                }}
-                                className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl text-left cursor-pointer transition-all border border-slate-200 bg-white hover:border-teal-400 hover:shadow-sm"
-                              >
-                                <div className="flex-1 flex items-start sm:items-center gap-3.5">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleLessonCompletion(selectedCourse.id, lesson.id);
-                                    }}
-                                    className={`rounded-full p-0.5 border shrink-0 transition-colors mt-0.5 sm:mt-0 ${
-                                      isDone 
-                                        ? 'bg-emerald-500 border-emerald-500 text-white' 
-                                        : 'border-slate-300 text-transparent hover:bg-slate-100 hover:text-slate-400'
-                                    }`}
-                                  >
-                                    <Check className="h-4 w-4 animate-none" />
-                                  </button>
-                                  
-                                  <div className="text-left">
-                                    <span className="block text-sm font-bold text-slate-800 group-hover:text-teal-700 transition-colors">
-                                      {lesson.title}
-                                    </span>
-                                    <span className="text-[10px] font-mono text-slate-500 block mt-1">
-                                      Tempo estimado: {lesson.duration}
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <div className="shrink-0 mt-3 sm:mt-0 sm:pl-4">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-teal-600 border border-teal-200 bg-teal-50 px-3 py-1.5 rounded-lg group-hover:bg-teal-600 group-hover:text-white transition-colors flex items-center gap-1.5 focus:outline-hidden">
-                                    Acessar <ArrowRight className="h-3 w-3" />
-                                  </span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
@@ -1355,7 +1231,7 @@ ${html}
                             className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                           >
                             <ArrowRight className="h-3.5 w-3.5 rotate-180" />
-                            <span className="hidden sm:inline">Voltar ao Módulo</span>
+                            <span className="hidden sm:inline">Voltar ao Curso</span>
                             <span className="sm:hidden">Voltar</span>
                           </button>
 
@@ -1854,28 +1730,25 @@ ${html}
                       </div>
                       
                       <div className="max-w-md mx-auto space-y-2">
-                        <h4 className="font-black text-slate-900 text-lg">Área do Aluno: Módulos de {selectedCourse.title}</h4>
+                        <h4 className="font-black text-slate-900 text-lg">Aulas de {selectedCourse.title}</h4>
                         <p className="text-xs text-slate-500 leading-relaxed">
-                          Bem-vindo(a) à centralizadora oficial do curso! Aqui você tem acesso aos módulos sequenciais, tarefas de fixação e encontros ao vivo. Selecione uma aula de qualquer módulo na barra lateral para carregar a estação de aprendizagem.
+                          Selecione uma aula na barra lateral para abrir a estação de aprendizagem. As avaliações e os encontros ao vivo do curso ficam nas abas acima.
                         </p>
                       </div>
 
                       <div className="flex justify-center flex-col sm:flex-row gap-3 pt-3">
                         <button
                           onClick={() => {
-                            // Find first lesson to auto start
-                            if (selectedCourse.lessons.length > 0) {
-                              setActiveLesson(selectedCourse.lessons[0]);
-                              const modules = getCourseModules(selectedCourse);
-                              if (modules.length > 0) {
-                                setSelectedModulePageName(modules[0].name);
-                              }
-                            }
+                            // A PRIMEIRA aula e a de menor `order`, nao a
+                            // primeira do array: a ordem de chegada nao e a da
+                            // grade, e "Iniciar" abria uma aula do meio.
+                            const primeira = aulasEmOrdem[0];
+                            if (primeira !== undefined) setActiveLesson(primeira);
                           }}
                           className="rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-5 py-2.5 shadow-sm hover:scale-[1.01] transition-transform flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <Play className="h-3.5 w-3.5 fill-white" />
-                          <span>Iniciar Módulo 1 (Aula 1)</span>
+                          <span>Iniciar primeira aula</span>
                         </button>
                         
                         <button
@@ -1901,11 +1774,26 @@ ${html}
                 {(!activeLesson && !showAvaliacoes) && (
                 <div className="lg:col-span-4 space-y-4">
                   
-                  {/* Sidebar title */}
+                  {/*
+                    Lista de AULAS, e nao de modulos.
+                    O painel mostrava tres "modulos" por curso — nome e descricao
+                    escritos no proprio componente, presos a `course.id ===
+                    'course-1'`, dividindo as aulas por POSICAO (`slice(0, 2)`).
+                    Modulo nao existe no banco: `Lesson` nao tem coluna de modulo
+                    e nao ha tabela `Module`. Consequencias medidas: o gestor nao
+                    podia criar nem renomear modulo; inserir uma aula no comeco
+                    fazia as aulas escorregarem de modulo sem aviso, sob um
+                    titulo que descrevia outro conteudo; e todo curso fora do
+                    course-1/course-2 recebia "Introducao Basica" prometendo
+                    "exercicios de fixacao assistida e material complementar" que
+                    podiam nao existir.
+                    Decisao da coordenacao (09/09/2026): modulo nao precisa
+                    existir — a lista de aulas basta.
+                  */}
                   <div className="flex items-center justify-between">
                     <h4 className="font-black text-slate-900 flex items-center gap-1.5 text-xs uppercase tracking-wider">
-                      <Layers className="h-4 w-4 text-teal-600" />
-                      <span>Módulos do Curso</span>
+                      <BookOpen className="h-4 w-4 text-teal-600" />
+                      <span>Aulas do Curso</span>
                     </h4>
 
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
@@ -1913,55 +1801,47 @@ ${html}
                     </span>
                   </div>
 
-                  {/* Syllabus Modules Container Accordion list */}
                   <div className="space-y-2.5">
-                    {getCourseModules(selectedCourse).map((module) => {
-                      const completedInModule = module.lessons.filter(l => currentCourseProgress?.completedLessons.includes(l.id)).length;
-                      const hasCompletedAll = completedInModule === module.lessons.length && module.lessons.length > 0;
-                      const isSelectedModule = selectedModulePageName === module.name;
+                    {aulasEmOrdem.length === 0 ? (
+                      // Curso sem aula diz que nao tem aula. O texto anterior
+                      // anunciava modulos que ele tambem nao tinha.
+                      <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                        Este curso ainda não tem aulas publicadas.
+                      </p>
+                    ) : aulasEmOrdem.map((lesson, idx) => {
+                      const isDone = currentCourseProgress?.completedLessons.includes(lesson.id) ?? false;
 
                       return (
-                        <div 
-                          key={module.name} 
-                          onClick={() => {
-                            setSelectedModulePageName(module.name);
-                          }}
-                          className={`border rounded-lg overflow-hidden transition-all cursor-pointer p-3 flex items-center justify-between gap-3 group text-left relative ${
-                            isSelectedModule 
-                              ? 'bg-teal-50/50 border-teal-400 shadow-xs' 
-                              : 'bg-white border-slate-200 hover:border-teal-300'
-                          }`}
+                        <div
+                          key={lesson.id}
+                          onClick={() => setActiveLesson(lesson)}
+                          className="border rounded-lg overflow-hidden transition-all cursor-pointer p-3 flex items-center justify-between gap-3 group text-left bg-white border-slate-200 hover:border-teal-300"
                         >
                           <div className="flex-1 text-left min-w-0">
-                            <span className={`block text-[11px] font-bold leading-tight transition-colors ${
-                              isSelectedModule ? 'text-teal-700' : 'text-slate-800 group-hover:text-teal-600'
-                            }`}>
-                              {module.name}
+                            <span className="block text-[11px] font-bold leading-tight text-slate-800 group-hover:text-teal-600 transition-colors">
+                              {idx + 1}. {lesson.title}
                             </span>
-                            <div className="flex items-center gap-1 mt-1.5 opacity-70 group-hover:opacity-100 transition-opacity">
-                              <span className={`text-[9px] font-bold uppercase tracking-wider transition-colors ${
-                                isSelectedModule ? 'text-teal-600' : 'text-slate-500 group-hover:text-teal-600'
-                              }`}>
-                                {isSelectedModule ? 'Módulo Aberto' : 'Acessar Capítulos'}
+                            <div className="flex items-center gap-1 mt-1.5">
+                              {/*
+                                Duracao vem de texto livre digitado no cadastro e
+                                pode estar em branco — nesse caso nao se afirma
+                                duracao nenhuma, em vez de mostrar "undefined".
+                              */}
+                              <span className="text-[9px] font-mono text-slate-500">
+                                {(lesson.duration ?? '').trim() !== '' ? lesson.duration : 'Duração não informada'}
                               </span>
-                              {!isSelectedModule && (
-                                <ChevronRight className="h-2.5 w-2.5 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-transform" />
-                              )}
+                              <ChevronRight className="h-2.5 w-2.5 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-transform" />
                             </div>
                           </div>
 
                           <div className="flex items-center shrink-0">
-                            {hasCompletedAll ? (
-                              <span className="text-emerald-600 flex items-center justify-center p-1 bg-emerald-50 rounded-full">
+                            {isDone ? (
+                              <span className="text-emerald-600 flex items-center justify-center p-1 bg-emerald-50 rounded-full" title="Aula concluída">
                                 <CheckCircle className="h-3.5 w-3.5" />
                               </span>
                             ) : (
-                              <span className={`text-[9.5px] font-bold font-mono px-1.5 py-0.5 rounded border ${
-                                isSelectedModule 
-                                  ? 'bg-teal-100/50 border-teal-200 text-teal-700' 
-                                  : 'bg-slate-100 border-slate-200 text-slate-500'
-                              }`}>
-                                {completedInModule}/{module.lessons.length}
+                              <span className="text-[9.5px] font-bold font-mono px-1.5 py-0.5 rounded border bg-slate-100 border-slate-200 text-slate-500">
+                                Abrir
                               </span>
                             )}
                           </div>
@@ -2279,7 +2159,7 @@ ${html}
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                           <div>
                             <h4 className="text-xs uppercase font-black text-[#540D6E] tracking-wider">Prévia da grade do curso</h4>
-                            <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Conheça os módulos principais antes de iniciar sua matrícula.</span>
+                            <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Conheça as aulas do curso antes de iniciar sua matrícula.</span>
                           </div>
                           <button
                             onClick={() => setIsFullSyllabusOpen(true)}
@@ -2302,13 +2182,21 @@ ${html}
                                 }));
                               };
 
-                              const descriptionsPerIndex = [
-                                "Introdução Básica: Alinhamento das diretrizes curriculares do AVA, glossário fundamental e primeiras leituras acadêmicas.",
-                                "Aprofundamento Prático: Atividades com exemplos de mercado passo a passo no sandbox de simulação e consolidação conceitual.",
-                                "Avaliação Teórica de Meio-Termo: Métricas, boas práticas de resolução rápida e exercícios adaptativos de fixação imediata.",
-                                "Trabalho Final Integrado: Casos corporativos práticos reais e orientação direta para postagem e validação do portfólio."
-                              ];
-                              const customizedDesc = descriptionsPerIndex[idx % descriptionsPerIndex.length];
+                              /*
+                               * Havia AQUI quatro descricoes fixas sorteadas por
+                               * `idx % 4` — a aula 3 de qualquer curso era
+                               * descrita como "Avaliacao Teorica de Meio-Termo",
+                               * a aula 5 voltava a ser "Introducao Basica". Era
+                               * texto de vitrine, lido por quem decide se se
+                               * matricula, e nao descrevia a aula nenhuma.
+                               *
+                               * O catalogo e publico e por isso NAO recebe
+                               * `lesson.content` (o material sai zerado por
+                               * escopo). Ou seja: nao existe descricao de aula
+                               * para mostrar aqui. Entao nao se mostra nenhuma —
+                               * o que ha de verdade e o titulo, a duracao e se a
+                               * aula tem material de leitura.
+                               */
 
                               return (
                                 <div key={`${lesson.id}-${idx}`} className="bg-white rounded-xl border border-slate-200 transition-all overflow-hidden">
@@ -2332,8 +2220,11 @@ ${html}
                                   
                                   {isExpanded && (
                                     <div className="px-4 pb-4 pt-1 text-[11px] text-slate-500 leading-relaxed font-medium bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
-                                      <span className="font-extrabold text-[#540D6E] block text-[9.5px] uppercase tracking-wider mb-1">Destaques do Módulo:</span>
-                                      {customizedDesc} {lesson.content ? "Este bloco traz também material teórico detalhado composto por textos formatados em Markdown e testes simulados de prática." : ""}
+                                      <span className="font-extrabold text-[#540D6E] block text-[9.5px] uppercase tracking-wider mb-1">Sobre esta aula:</span>
+                                      {(lesson.duration ?? '').trim() !== ''
+                                        ? `Duração estimada: ${lesson.duration}. `
+                                        : 'Duração ainda não informada. '}
+                                      O conteúdo desta aula fica disponível após a matrícula.
                                     </div>
                                   )}
                                 </div>
@@ -2364,12 +2255,6 @@ ${html}
 
                         {/* Quality Specifications - Simple list with light dividers and less heavy boxes */}
                         <div className="space-y-2.5 pt-2 text-xs font-medium text-slate-600 border-t border-slate-100">
-                          <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                            <span>Módulos:</span>
-                            <strong className="text-slate-800 font-bold font-mono text-[11px]">
-                              {viewingCatalogCourse.lessons ? viewingCatalogCourse.lessons.length : 0}
-                            </strong>
-                          </div>
                           <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
                             <span>Aulas:</span>
                             <strong className="text-slate-800 font-bold font-mono text-[11px]">
@@ -3008,7 +2893,7 @@ ${html}
                   id: 'faq-2',
                   category: 'certificates',
                   question: 'Como e quando posso emitir meu certificado?',
-                  answer: 'O certificado digital oficial chancelado é liberado de forma imediata assim que você atingir o progresso mínimo de 70% de presença ativa no curso. Basta acessar a seção "Certificados" no seu Perfil para baixá-lo em formato PDF seguro e chancelado com selo eletrônico.'
+                  answer: 'O certificado é liberado quando você cumpre DOIS critérios: a frequência mínima do curso (70% por padrão, mas cada curso pode exigir outro percentual — o valor do seu aparece no painel do curso) e a aprovação em todas as avaliações do curso. Curso sem avaliação depende só da frequência. Cumpridos os critérios, o certificado aparece na seção "Certificados" do seu Perfil, em PDF.'
                 },
                 {
                   id: 'faq-3',
@@ -3643,7 +3528,7 @@ ${html}
                       id: 'faq-2',
                       category: 'certificates',
                       question: 'Como e quando posso emitir meu certificado?',
-                      answer: 'O certificado digital oficial chancelado é liberado de forma imediata assim que você atingir o progresso mínimo de 70% de presença ativa no curso. Basta acessar a seção "Certificados" no seu Perfil para baixá-lo em formato PDF seguro e chancelado com selo eletrônico.'
+                      answer: 'O certificado é liberado quando você cumpre DOIS critérios: a frequência mínima do curso (70% por padrão, mas cada curso pode exigir outro percentual — o valor do seu aparece no painel do curso) e a aprovação em todas as avaliações do curso. Curso sem avaliação depende só da frequência. Cumpridos os critérios, o certificado aparece na seção "Certificados" do seu Perfil, em PDF.'
                     },
                     {
                       id: 'faq-3',
@@ -3784,110 +3669,63 @@ ${html}
                 </button>
               </div>
 
-              {/* Scrollable Curriculum list */}
-              <div className="p-6 overflow-y-auto space-y-5 flex-1 max-h-[60vh] no-scrollbar">
-                <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-4 text-xs font-medium text-teal-900 leading-relaxed">
-                  <Lightbulb className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-teal-700" /><strong>Diretrizes do Curso:</strong> Esta ementa foi planejada para fornecer competências reais de mercado passo a passo. Verifique abaixo todos os módulos e seus requisitos.
-                </div>
+              {/*
+                Aqui havia uma EMENTA INTEIRA INVENTADA: quatro modulos fixos
+                ("Modulo 1: Introducao & Conceitos Iniciais", "5 horas"), com
+                nomes de aula proprios ("Aula 1.1: Boas-vindas e Configuracao de
+                Perfil"), objetivos de aprendizagem e pre-requisitos — os MESMOS
+                para todos os cursos, escritos neste arquivo.
 
-                <div className="space-y-4">
-                  {[
-                    {
-                      id: 'mod-1',
-                      title: 'Módulo 1: Introdução & Conceitos Iniciais',
-                      duration: '5 horas',
-                      contentType: 'Vídeo-aulas síncronas gravadas, Leituras de suporte e Quiz de fixação',
-                      learningGoals: 'Compreender a arquitetura geral do AVA, dominar a terminologia inicial de sistemas e configurar ferramentas fundamentais de desenvolvimento.',
-                      prereqs: 'Nenhum.',
-                      aulas: [
-                        'Aula 1.1: Boas-vindas e Configuração de Perfil',
-                        'Aula 1.2: Visão Geral da Tecnologia e Stack',
-                        'Aula 1.3: Introdução ao Ambiente de Sandbox',
-                        'Aula 1.4: Material de Leitura e Glossário Acadêmico',
-                        'Aula 1.5: Quiz Rápido de Nivelamento'
-                      ]
-                    },
-                    {
-                      id: 'mod-2',
-                      title: 'Módulo 2: Desenvolvimento de Frontend Moderno',
-                      duration: '6 horas',
-                      contentType: 'Atividades interativas com React, Vite e Tailwind CSS',
-                      learningGoals: 'Criar interfaces ricas, reativas e com excelente contraste visual utilizando as melhores práticas do ecossistema React.',
-                      prereqs: 'Lógica de programação básica.',
-                      aulas: [
-                        'Aula 2.1: Estruturando Componentes com React',
-                        'Aula 2.2: Estilização Rápida com Tailwind Utility Classes',
-                        'Aula 2.3: Estados e Ciclo de Vida do Componente',
-                        'Aula 2.4: Construção de Formulários Reativos',
-                        'Aula 2.5: Projeto Prático: Primeira Interface SPA'
-                      ]
-                    },
-                    {
-                      id: 'mod-3',
-                      title: 'Módulo 3: APIs Robustas & Integrações Backend',
-                      duration: '5 horas',
-                      contentType: 'Aulas práticas guiadas, Exercícios de Live-Coding',
-                      learningGoals: 'Projetar e construir APIs RESTful seguras e eficientes, preparadas para conexão fluida com qualquer frontend.',
-                      prereqs: 'Conhecimento básico de JS/TS e redes.',
-                      aulas: [
-                        'Aula 3.1: Servidores Web com Node.js e Express',
-                        'Aula 3.2: Definição de Rotas e Verbos HTTP',
-                        'Aula 3.3: Middleware de Autenticação e Segurança',
-                        'Aula 3.4: Conexão e Comunicação entre Client e Server',
-                        'Aula 3.5: Quiz de Validação Backend'
-                      ]
-                    },
-                    {
-                      id: 'mod-4',
-                      title: 'Módulo 4: Consolidação & Projeto Final Integrador',
-                      duration: '4 horas',
-                      contentType: 'Mentoria individual gravada e Quiz de encerramento do curso',
-                      learningGoals: 'Unificar frontend e backend em um ecossistema produtivo e homologar o portfólio prático.',
-                      prereqs: 'Módulos 1, 2 e 3 concluídos.',
-                      aulas: [
-                        'Aula 4.1: Organizando Arquivos e Boas Práticas',
-                        'Aula 4.2: Testes de Integração Ponta a Ponta',
-                        'Aula 4.3: Preparação do Ambiente de Produção',
-                        'Aula 4.4: Envio de Atividade Avaliativa Final',
-                        'Aula 4.5: Liberação Automática do Certificado Oficial'
-                      ]
-                    }
-                  ].map((module, mIdx) => (
-                    <div key={module.id} className="border border-slate-200 rounded-xl bg-white p-4.5 space-y-3 shadow-3xs">
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                        <h4 className="text-xs font-black text-[#540D6E] uppercase tracking-wide">{module.title}</h4>
-                        <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-150">
-                          <Clock className="h-2.5 w-2.5 inline-block mr-1 -mt-px" />{module.duration}
-                        </span>
+                Era o pior caso da familia: texto de vitrine, lido por quem
+                decide se se matricula numa escola publica, descrevendo um curso
+                que nao e o que a pessoa esta olhando.
+
+                No lugar, a grade REAL: as aulas cadastradas, na ordem do gestor.
+                O catalogo e publico e nao recebe `lesson.content` (o material
+                sai zerado por escopo), entao nao ha o que dizer de cada aula
+                alem do titulo e da duracao — e e so isso que se diz.
+              */}
+              <div className="p-6 overflow-y-auto space-y-5 flex-1 max-h-[60vh] no-scrollbar">
+                {(() => {
+                  const aulas = [...(viewingCatalogCourse?.lessons ?? [])].sort((a, b) => a.order - b.order);
+
+                  if (aulas.length === 0) {
+                    // Curso sem aula diz que nao tem aula, em vez de exibir uma
+                    // ementa de quatro modulos que ninguem cadastrou.
+                    return (
+                      <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-4 font-semibold">
+                        Este curso ainda não tem aulas cadastradas.
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-4 text-xs font-medium text-teal-900 leading-relaxed">
+                        <Lightbulb className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-teal-700" />
+                        <strong>Grade do curso:</strong> {aulas.length} {aulas.length === 1 ? 'aula cadastrada' : 'aulas cadastradas'}.
+                        {' '}O conteúdo de cada aula fica disponível após a matrícula.
                       </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[10.5px]">
-                        <div className="space-y-1">
-                          <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block font-bold">Aulas do Módulo</span>
-                          <ul className="list-disc pl-4 space-y-0.5 text-slate-600 font-semibold">
-                            {module.aulas.map((aula, aIdx) => (
-                              <li key={`${module.id}-aula-${aIdx}`}>{aula}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        <div className="space-y-2 text-left">
-                          <div>
-                            <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block font-bold">Objetivo de Aprendizagem</span>
-                            <p className="text-slate-600 font-semibold mt-0.5">{module.learningGoals}</p>
+
+                      <div className="space-y-2.5">
+                        {aulas.map((aula, idx) => (
+                          <div
+                            key={aula.id}
+                            className="border border-slate-200 rounded-xl p-3.5 bg-white flex items-start justify-between gap-3"
+                          >
+                            <span className="block text-xs font-bold text-slate-800 leading-snug min-w-0">
+                              {idx + 1}. {aula.title}
+                            </span>
+                            <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-150 shrink-0 whitespace-nowrap">
+                              <Clock className="h-2.5 w-2.5 inline-block mr-1 -mt-px" />
+                              {(aula.duration ?? '').trim() !== '' ? aula.duration : 'a definir'}
+                            </span>
                           </div>
-                          <div>
-                            <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block font-bold">Tipo de Conteúdo</span>
-                            <p className="text-slate-500 font-semibold mt-0.5">{module.contentType}</p>
-                          </div>
-                          <div>
-                            <span className="text-[8.5px] font-black text-slate-400 uppercase tracking-widest block font-bold">Pré-requisitos</span>
-                            <p className="text-slate-500 font-semibold mt-0.5">{module.prereqs}</p>
-                          </div>
-                        </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Sticky Footer */}
@@ -3940,7 +3778,7 @@ ${html}
 
                     <div className="space-y-2.5">
                       {[
-                        "Para emissão do certificado, é necessário manter frequência mínima de 70%.",
+                        "Para emissão do certificado, é necessário cumprir a frequência mínima do curso (70% por padrão) e ser aprovado em todas as avaliações do curso.",
                         "O aluno deve acompanhar as aulas e realizar as atividades obrigatórias, quando houver.",
                         "Após a confirmação, o curso ficará disponível para início imediato.",
                         "O certificado será liberado conforme os critérios de conclusão do curso."
@@ -4020,7 +3858,6 @@ ${html}
                           tela: 'curso',
                           cursoRef: refDoCurso(viewingCatalogCourse),
                           catalogoId: null,
-                          modulo: null,
                         });
                         setIsEnrollModalOpen(false);
                         setEnrollSuccessMessage(null);
