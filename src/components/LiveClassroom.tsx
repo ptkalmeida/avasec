@@ -96,10 +96,10 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
         sendLiveChatMessage(session.id, `A presença é registrada clicando no botão verde "Confirmar Presença" no painel esquerdo da aula!`);
       } else {
         const responses = [
-          "Sensacional essa explicação!",
-          "Também concordo perfeitamente com esse ponto.",
-          "Estou anotando tudo!",
-          "Que conteúdo incrível",
+"Sensacional essa explicação!",
+"Também concordo perfeitamente com esse ponto.",
+"Estou anotando tudo!",
+"Que conteúdo incrível",
         ];
         const randomResp = responses[Math.floor(Math.random() * responses.length)];
         // Choose a random student name
@@ -173,7 +173,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
             
             <button
               onClick={toggleFocusMode}
-              className="rounded-lg border border-indigo-750 bg-indigo-950/40 hover:bg-indigo-950/80 text-indigo-300 hover:text-indigo-200 text-indigo-400 px-4 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer uppercase shadow-3xs"
+              className="rounded-lg border border-escult-purple bg-escult-purple hover:bg-escult-purple text-escult-ink-claro hover:text-escult-ink-claro text-escult-purple px-4 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer uppercase shadow-3xs"
               title="Ativar o Modo Foco (Ocultar menus, manter apenas Player + Chat)"
             >
               <Maximize2 className="h-3.5 w-3.5" />
@@ -218,7 +218,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   <div className="flex items-center gap-2">
                     <button
                       onClick={toggleFocusMode}
-                      className="rounded-lg bg-indigo-650 hover:bg-indigo-600 border border-indigo-500/25 text-white px-3 py-1.5 text-apoio font-bold tracking-tight transition-all flex items-center gap-1.5 cursor-pointer"
+                      className="rounded-lg bg-escult-purple hover:bg-escult-purple border border-escult-purple/25 text-white px-3 py-1.5 text-apoio font-bold tracking-tight transition-all flex items-center gap-1.5 cursor-pointer"
                       title="Sair do Modo Foco"
                     >
                       <Minimize2 className="h-3 w-3" />

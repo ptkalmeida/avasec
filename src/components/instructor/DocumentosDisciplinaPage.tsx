@@ -57,7 +57,7 @@ const TIPOS: { valor: TipoDoc; rotulo: string }[] = [
 /** Cor do selo por tipo, igual à da página da aula. */
 export const corDoTipo = (tipo: TipoDoc): string => {
   if (tipo === 'pdf') return 'bg-rose-50 text-rose-700 border border-rose-100/40';
-  if (tipo === 'doc') return 'bg-blue-50 text-blue-700 border border-blue-100/40';
+  if (tipo === 'doc') return 'bg-escult-surface text-escult-purple border border-escult-line/40';
   if (tipo === 'url') return 'bg-amber-50 text-amber-700 border border-amber-100/40';
   if (tipo === 'drive') return 'bg-emerald-50 text-emerald-700 border border-emerald-100/40';
 
@@ -246,7 +246,7 @@ const BlocoDaAula: React.FC<{
                   rel="noopener noreferrer"
                   referrerPolicy="no-referrer"
                   title="Abrir o documento"
-                  className="rounded-md p-1.5 text-escult-ink-2 transition-colors hover:bg-slate-50 hover:text-teal-600"
+                  className="rounded-md p-1.5 text-escult-ink-2 transition-colors hover:bg-slate-50 hover:text-teal-700"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
@@ -423,7 +423,7 @@ export const DocumentosDisciplinaPage: React.FC<DocumentosDisciplinaPageProps> =
         </button>
         <div className="text-right">
           <h3 className="flex items-center justify-end gap-2 text-sm font-black text-slate-900">
-            <FileText className="h-4 w-4 text-teal-600" />
+            <FileText className="h-4 w-4 text-teal-700" />
             Documentos da disciplina
           </h3>
           <p className="text-apoio font-semibold text-escult-ink-2">{courseTitle}</p>

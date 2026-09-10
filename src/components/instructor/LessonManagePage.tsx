@@ -135,7 +135,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       {/* 1. Cabeçalho da aula */}
       <div className={caixa}>
         <ZoneHeader
-          icon={<BookOpen className="h-3.5 w-3.5 text-teal-600" />}
+          icon={<BookOpen className="h-3.5 w-3.5 text-teal-700" />}
           title="Identificação da aula"
           hint={`${courseTitle} • aula ${lesson.order} de ${totalLessons}`}
           editing={zone === 'header'}
@@ -198,7 +198,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       {/* 2. Vídeo */}
       <div className={caixa}>
         <ZoneHeader
-          icon={<Video className="h-3.5 w-3.5 text-teal-600" />}
+          icon={<Video className="h-3.5 w-3.5 text-teal-700" />}
           title="Vídeo da aula"
           hint={temVideo ? 'O aluno vê o player no topo da aula.' : 'Sem vídeo: a aula abre como conteúdo de leitura.'}
           editing={zone === 'video'}
@@ -243,7 +243,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       {/* 3. Material didático */}
       <div className={caixa}>
         <ZoneHeader
-          icon={<FileText className="h-3.5 w-3.5 text-teal-600" />}
+          icon={<FileText className="h-3.5 w-3.5 text-teal-700" />}
           title="Material didático"
           hint={`${parsed.sections.filter((s) => s.level === 2).length} seções${parsed.hasCode ? ' • contém bloco de código' : ''}`}
           editing={zone === 'content'}
@@ -285,7 +285,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       {/* 4. Documentos anexos */}
       <div className={caixa}>
         <ZoneHeader
-          icon={<Paperclip className="h-3.5 w-3.5 text-teal-600" />}
+          icon={<Paperclip className="h-3.5 w-3.5 text-teal-700" />}
           title={`Material de apoio (${docs.length})`}
           hint="Arquivos e links que o aluno abre no fim da aula."
           editing={zone === 'docs'}

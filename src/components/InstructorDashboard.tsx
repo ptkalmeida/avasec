@@ -662,7 +662,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sobretitulo text-slate-800 uppercase flex items-center gap-1.5">
-              <FileText className="h-4 w-4 text-teal-600" />
+              <FileText className="h-4 w-4 text-teal-700" />
               Documentos Vinculados ({docs.length})
             </span>
             <span className="text-apoio text-escult-ink-2 font-medium">Os alunos podem abrir esses arquivos na seção de aula</span>
@@ -680,7 +680,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               {docs.map((doc, docIdx) => {
                 let typeColor = 'bg-slate-100 text-slate-700';
                 if (doc.type === 'pdf') typeColor = 'bg-rose-50 text-rose-700 border border-rose-100/40';
-                if (doc.type === 'doc') typeColor = 'bg-blue-50 text-blue-700 border border-blue-100/40';
+                if (doc.type === 'doc') typeColor = 'bg-escult-surface text-escult-purple border border-escult-line/40';
                 if (doc.type === 'url') typeColor = 'bg-amber-50 text-amber-700 border border-amber-100/40';
                 if (doc.type === 'drive') typeColor = 'bg-emerald-50 text-emerald-700 border border-emerald-100/40';
 
@@ -703,7 +703,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         target="_blank" 
                         referrerPolicy="no-referrer"
                         rel="noopener noreferrer" 
-                        className="p-1.5 text-slate-600 hover:bg-slate-50 hover:text-teal-600 transition-colors"
+                        className="p-1.5 text-slate-600 hover:bg-slate-50 hover:text-teal-700 transition-colors"
                         title="Testar Link Externo"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -758,7 +758,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                     </div>
                     <div className="min-w-0">
                       <p className="font-bold text-slate-800 text-xs truncate">{uploadedFile.name}</p>
-                      <p className="text-apoio text-teal-600 font-semibold">{newDocSize}</p>
+                      <p className="text-apoio text-teal-700 font-semibold">{newDocSize}</p>
                     </div>
                   </div>
                   <button
@@ -1269,7 +1269,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           updateCourseProps(activeCourse.id, { contractExpirationDate: dateStr });
                           speakText(`Contrato renovado por mais 6 meses. O curso está ativo novamente.`);
                         }}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-sobretitulo uppercase px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                        className="bg-escult-purple hover:bg-escult-purple text-white text-sobretitulo uppercase px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
                       >
                         +6 Meses
                       </button>
@@ -1281,7 +1281,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           updateCourseProps(activeCourse.id, { contractExpirationDate: dateStr });
                           speakText(`Contrato renovado por mais 1 ano. O curso está ativo novamente.`);
                         }}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-sobretitulo uppercase px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+                        className="bg-escult-purple hover:bg-escult-purple text-white text-sobretitulo uppercase px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
                       >
                         +1 Ano
                       </button>
@@ -1316,15 +1316,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               {/* Course Title metadata header */}
               <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold text-teal-600">
+                  <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold text-teal-700">
                     {activeCourse.category}
                   </span>
                   <h3 className="text-xl font-bold text-slate-900 mt-2">{activeCourse.title}</h3>
                   <p className="text-xs text-escult-ink-2 mt-1">Instrutor ativo: {activeCourse.instructorName}</p>
                   {activeCourse.contractExpirationDate ? (
-                    <p className="text-rotulo text-indigo-600 mt-1.5 flex items-center gap-1 font-semibold">
+                    <p className="text-rotulo text-escult-purple mt-1.5 flex items-center gap-1 font-semibold">
                       <Clock className="h-3.5 w-3.5" />
-                      <span>Vigência de Exibição até: <strong className="font-bold bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">{activeCourse.contractExpirationDate}</strong></span>
+                      <span>Vigência de Exibição até: <strong className="font-bold bg-escult-surface border border-escult-line px-1.5 py-0.5 rounded">{activeCourse.contractExpirationDate}</strong></span>
                     </p>
                   ) : (
                     <p className="text-rotulo text-escult-ink-3 mt-1.5 flex items-center gap-1">
@@ -1343,7 +1343,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       setEditExpiration(activeCourse.contractExpirationDate || '');
                       setIsEditingCourse(true);
                     }}
-                    className="rounded-lg bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 px-2 sm:px-3 py-2 text-rotulo font-bold text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer"
+                    className="rounded-lg bg-escult-surface border border-escult-line hover:bg-escult-surface px-2 sm:px-3 py-2 text-rotulo font-bold text-escult-purple transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <Edit3 className="h-3.5 w-3.5" />
                     <span>Editar Propriedades</span>
@@ -1391,7 +1391,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                     {activeCourse.lessons.length > 4 && (
                       <button 
                         onClick={() => setActiveDashboardTab('curriculum')}
-                        className="text-apoio font-bold text-teal-600 hover:underline mt-1"
+                        className="text-apoio font-bold text-teal-700 hover:underline mt-1"
                       >
                         + ver mais {activeCourse.lessons.length - 4} aulas na aba Grade
                       </button>
@@ -1449,10 +1449,10 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                               href={safeHref(session.meetingLink)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-apoio text-teal-600 hover:text-teal-700 hover:underline flex items-center gap-1 truncate max-w-[150px] cursor-pointer"
+                              className="text-apoio text-teal-700 hover:text-teal-700 hover:underline flex items-center gap-1 truncate max-w-[150px] cursor-pointer"
                               title="Abrir no Google Meet"
                             >
-                              <ExternalLink className="h-3 w-3 shrink-0 text-teal-600" />
+                              <ExternalLink className="h-3 w-3 shrink-0 text-teal-700" />
                               <span className="truncate">{session.meetingLink}</span>
                             </a>
                             
@@ -1501,7 +1501,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               {/*
                 Resumo apenas: elaborar, editar e excluir avaliação mora na aba
-                "Avaliações". Aqui ficava um botão de lixeira que apagava a
+"Avaliações". Aqui ficava um botão de lixeira que apagava a
                 avaliação — e as respostas dos alunos — num clique, sem confirmar.
               */}
               <div className="border-t border-slate-100 pt-5">
@@ -1541,7 +1541,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             
             <div className="grid grid-cols-1 gap-3">
               {/*
-                "Documentos da Disciplina" e de UM curso: abre o material das
+"Documentos da Disciplina" e de UM curso: abre o material das
                 aulas de `activeCourse`. Sem curso escolhido o botao levava a uma
                 pagina sem disciplina nenhuma — mesma regra de curso-primeiro que
                 vale para os submenus.
@@ -1551,7 +1551,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 onClick={() => setShowDocumentos(true)}
                 className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:border-teal-300 hover:shadow-sm transition-all text-left flex items-center gap-4 group cursor-pointer"
               >
-                <div className="p-3 rounded-xl bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
+                <div className="p-3 rounded-xl bg-teal-50 text-teal-700 group-hover:bg-teal-100 transition-colors">
                   <FileText className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -1568,9 +1568,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               {features.eventosWebinars && (
               <button 
                 onClick={() => setIsCreatingWebinar(true)}
-                className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm transition-all text-left flex items-center gap-4 group cursor-pointer"
+                className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:border-escult-line hover:shadow-sm transition-all text-left flex items-center gap-4 group cursor-pointer"
               >
-                <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-100 transition-colors">
+                <div className="p-3 rounded-xl bg-escult-surface text-escult-purple group-hover:bg-escult-surface transition-colors">
                   <Calendar className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -1620,7 +1620,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         <button
                           onClick={() => handleEditWebinar(webinar)}
                           title="Editar webinar"
-                          className="p-1.5 rounded-lg text-escult-ink-2 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
+                          className="p-1.5 rounded-lg text-escult-ink-2 hover:text-escult-purple hover:bg-escult-surface transition-colors cursor-pointer"
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
@@ -2101,7 +2101,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         </div>
                         <div className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-right">
                           <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none">Curso Certificado</span>
-                          <span className="text-xs font-black text-teal-600"><span className="inline-flex items-center gap-1">{hasCert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}{hasCert ? 'Emitido' : 'Pendente'}</span></span>
+                          <span className="text-xs font-black text-teal-700"><span className="inline-flex items-center gap-1">{hasCert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}{hasCert ? 'Emitido' : 'Pendente'}</span></span>
                         </div>
                       </div>
                     </div>
@@ -2233,7 +2233,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       return (
                         <div key={req.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-slate-300 transition-all">
                           <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-700 font-black">
+                            <div className="h-10 w-10 bg-escult-surface rounded-full flex items-center justify-center text-escult-purple font-black">
                               {req.studentName.charAt(0)}
                             </div>
                             <div>
@@ -2646,7 +2646,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-xs"
+                className="rounded-lg bg-escult-purple hover:bg-escult-purple px-4 py-2 text-xs font-bold text-white shadow-xs"
               >
                 Salvar Alterações
               </button>
@@ -2658,7 +2658,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       {/*
         O modal "Editar Aula" saiu junto com o lápis que o abria.
         Ele editava título, duração, vídeo e conteúdo — os MESMOS quatro campos que
-        "Gerenciar Aula" (`LessonManagePage`) já edita, cada um na sua seção. Eram
+"Gerenciar Aula" (`LessonManagePage`) já edita, cada um na sua seção. Eram
         dois caminhos para a mesma escrita, e dois lugares para a validação
         divergir. Remover só o botão deixaria o modal inalcançável no arquivo, que
         é como código morto sobrevive a revisão.
@@ -2666,7 +2666,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
       {/*
         REMOVIDO: modal "Adicionar Recurso à Biblioteca". Era o que o botão
-        "Biblioteca Digital" abria, e cadastrava no acervo GERAL da escola
+"Biblioteca Digital" abria, e cadastrava no acervo GERAL da escola
         (`LibraryItem` não tem courseId) atrás da flag `bibliotecaDigital`, que
         está desligada — logo `/api/library` responde 404 e o recurso "publicado"
         ficava só no localStorage. O acervo geral é gerido pelo painel do admin;
@@ -2758,7 +2758,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-xs"
+                className="rounded-lg bg-escult-purple hover:bg-escult-purple px-4 py-2 text-xs font-bold text-white shadow-xs"
               >
                 {webSaving ? 'Salvando...' : (webEditingId !== null ? 'Salvar Alterações' : 'Confirmar Agendamento')}
               </button>
@@ -2847,7 +2847,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       let docColor = 'bg-slate-800/40 border-slate-800 hover:bg-slate-850';
                       let tagColor = 'bg-slate-700 text-slate-300';
                       if (doc.type === 'pdf') { docColor = 'bg-rose-950/20 border-rose-900/30 hover:bg-rose-950/30'; tagColor = 'bg-rose-900/40 text-rose-300'; }
-                      if (doc.type === 'doc') { docColor = 'bg-blue-950/20 border-blue-900/30 hover:bg-blue-950/30'; tagColor = 'bg-blue-900/40 text-blue-300'; }
+                      if (doc.type === 'doc') { docColor = 'bg-escult-purple border-escult-purple/30 hover:bg-escult-purple'; tagColor = 'bg-escult-purple text-escult-ink-claro'; }
                       if (doc.type === 'url') { docColor = 'bg-amber-950/20 border-amber-900/30 hover:bg-amber-950/30'; tagColor = 'bg-amber-900/40 text-amber-300'; }
                       if (doc.type === 'drive') { docColor = 'bg-emerald-950/20 border-emerald-900/30 hover:bg-emerald-950/30'; tagColor = 'bg-emerald-900/40 text-emerald-300'; }
 

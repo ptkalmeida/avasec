@@ -1052,10 +1052,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             }
                           }, 150);
                         }}
-                        className="p-2 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-150 text-teal-600 hover:text-teal-800 flex items-center justify-center transition-all cursor-pointer"
+                        className="p-2 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-150 text-teal-700 hover:text-teal-800 flex items-center justify-center transition-all cursor-pointer"
                         title="Canal de Dúvidas e Feedbacks com os Professores"
                       >
-                        <MessageSquare className="h-4 w-4 text-teal-600" />
+                        <MessageSquare className="h-4 w-4 text-teal-700" />
                       </button>
                     )}
                   </div>
@@ -2003,7 +2003,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 onBackToLanding={() => setCurrentView('landing')}
                 onNavigateToProfile={() => { setPerfilAbaInicial('profile'); setCurrentView('perfil'); }}
                 /*
-                  "Certificados" na navegacao do aluno abre o Perfil JA na aba
+"Certificados" na navegacao do aluno abre o Perfil JA na aba
                   deles. E o mesmo destino de `/aluno/certificados`, que era
                   rota sem tela e caia no bloco "secao nao disponivel".
                 */
@@ -2197,7 +2197,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="space-y-1">
                   <span className="text-sobretitulo uppercase bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md w-fit block">PREFERÊNCIAS</span>
                   <h3 className="font-black text-slate-900 text-lg font-serif flex items-center gap-2">
-                    <Settings className="h-5 w-5 text-teal-600" />
+                    <Settings className="h-5 w-5 text-teal-700" />
                     <span>Painel de Acessibilidade da Escola</span>
                   </h3>
                 </div>
@@ -2406,14 +2406,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <div className="flex flex-col gap-2 text-xs">
                     <button 
                       onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('João Silva', 'student'); speakText("Acesso de Aluno Homologado"); }}
-                      className="text-left py-1.5 px-2 hover:bg-blue-50 rounded text-[#540D6E] transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
+                      className="text-left py-1.5 px-2 hover:bg-escult-surface rounded text-[#540D6E] transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
                       <span>• Dashboard do Aluno</span>
                       <span className="text-sobretitulo bg-escult-surface text-escult-purple px-1.5 py-0.2 rounded uppercase">Mapeado</span>
                     </button>
                     <button 
                       onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Gestor de Conteúdos', 'instructor'); speakText("Acesso de Gestão Homologado"); }}
-                      className="text-left py-1.5 px-2 hover:bg-blue-50 rounded text-teal-700 transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
+                      className="text-left py-1.5 px-2 hover:bg-escult-surface rounded text-teal-700 transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
                       <span>• Dashboard de Gestão</span>
                       <span className="text-sobretitulo bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded uppercase">Mapeado</span>
@@ -3166,7 +3166,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     }}
                     disabled={senhaOk}
                     placeholder="Digite a sua senha"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 pl-3 pr-10 text-sm text-slate-800 placeholder:text-slate-350 focus:border-escult-purple focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-300 disabled:opacity-60"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 pl-3 pr-10 text-sm text-slate-800 placeholder:text-slate-350 focus:border-escult-purple focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-escult-purple disabled:opacity-60"
                   />
 
                   <button

@@ -113,7 +113,7 @@ const CorrigirEntrega: React.FC<{
   const chip = submissao.status === 'approved'
     ? { classe: 'bg-emerald-50 text-emerald-800 border-emerald-200', icone: <CheckCircle className="h-3 w-3" />, texto: `Aprovado · ${submissao.score ?? 0}/${maxPoints}` }
     : submissao.status === 'pending'
-      ? { classe: 'bg-indigo-50 text-indigo-800 border-indigo-200', icone: <Clock className="h-3 w-3" />, texto: 'Aguardando correção' }
+      ? { classe: 'bg-escult-surface text-escult-purple border-escult-line', icone: <Clock className="h-3 w-3" />, texto: 'Aguardando correção' }
       : submissao.status === 'revision'
         ? { classe: 'bg-amber-50 text-amber-800 border-amber-200', icone: <HelpCircle className="h-3 w-3" />, texto: 'Ajustes solicitados' }
         : { classe: 'bg-rose-50 text-rose-800 border-rose-200', icone: <AlertTriangle className="h-3 w-3" />, texto: 'Reprovado' };
@@ -345,7 +345,7 @@ export const ExerciciosManagePanel: React.FC<ExerciciosManagePanelProps> = ({
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
         <div className="space-y-1">
           <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-800">
-            <FileCheck className="h-4 w-4 text-teal-600" />
+            <FileCheck className="h-4 w-4 text-teal-700" />
             <span>Exercícios Práticos</span>
           </h4>
           <p className="text-rotulo leading-relaxed text-escult-ink-2">
@@ -383,7 +383,7 @@ export const ExerciciosManagePanel: React.FC<ExerciciosManagePanelProps> = ({
         <div className="flex gap-2">
           <span className={`rounded-xl border px-3 py-2 text-sobretitulo font-black uppercase ${
             fila.aguardando > 0
-              ? 'border-indigo-200 bg-indigo-50 text-indigo-800'
+              ? 'border-escult-line bg-escult-surface text-escult-purple'
               : 'border-slate-200 bg-slate-50 text-escult-ink-2'
           }`}>
             {fila.aguardando} para corrigir
@@ -477,7 +477,7 @@ export const ExerciciosManagePanel: React.FC<ExerciciosManagePanelProps> = ({
                       type="button"
                       onClick={() => abrirEdicao(ex)}
                       title="Editar exercício"
-                      className="cursor-pointer rounded-lg p-1.5 text-escult-ink-2 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
+                      className="cursor-pointer rounded-lg p-1.5 text-escult-ink-2 transition-colors hover:bg-escult-surface hover:text-escult-purple"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>

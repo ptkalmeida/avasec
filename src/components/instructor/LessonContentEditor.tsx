@@ -292,7 +292,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
       {showHelp && (
         <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-rotulo leading-relaxed text-slate-700 space-y-1.5">
           <p>O que você vê abaixo é exatamente o que o aluno vê. Para mudar algo:</p>
-          <ul className="space-y-1 pl-4 list-disc marker:text-teal-600">
+          <ul className="space-y-1 pl-4 list-disc marker:text-teal-700">
             <li>Passe o mouse sobre um trecho e clique no <strong>lápis</strong> para editá-lo.</li>
             <li>Clique em <strong>Adicionar</strong>, entre dois trechos, para inserir algo novo ali.</li>
             <li>A <strong>lixeira</strong> remove o trecho.</li>
@@ -373,7 +373,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
         <span>{parsed.sections.filter((s) => s.level === 2).length} seções</span>
         <span>{parsed.blocks.length} {parsed.blocks.length === 1 ? 'trecho' : 'trechos'}</span>
         <span>{value.trim() === '' ? 0 : value.trim().split(/\s+/).length} palavras</span>
-        {parsed.hasCode && <span className="text-teal-600">contém bloco de código</span>}
+        {parsed.hasCode && <span className="text-teal-700">contém bloco de código</span>}
       </div>
     </div>
   );

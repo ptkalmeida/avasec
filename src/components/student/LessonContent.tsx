@@ -28,7 +28,7 @@ const TONES = {
     sectionNumber: 'text-[#540D6E]',
     subsection: 'text-teal-700',
     orderedMarker: 'marker:text-[#540D6E]',
-    bulletMarker: 'marker:text-teal-600',
+    bulletMarker: 'marker:text-teal-700',
   },
   dark: {
     body: 'text-slate-300',
