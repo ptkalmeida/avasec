@@ -23,7 +23,6 @@ import {
 const DIAS_DA_AGENDA = 30;
 
 interface CalendarioPageProps {
-  onBack: () => void;
   isUserLoggedIn: boolean;
   /** Abre o modal de login quando o visitante ainda não está autenticado. */
   onRequireLogin: () => void;
@@ -122,7 +121,6 @@ const EventoCard: React.FC<{
 );
 
 export const CalendarioPage: React.FC<CalendarioPageProps> = ({
-  onBack,
   isUserLoggedIn,
   onRequireLogin,
   speakText,
@@ -149,7 +147,6 @@ export const CalendarioPage: React.FC<CalendarioPageProps> = ({
         `Nossos cursos livres oferecem encontros ao vivo periódicos para tirar dúvidas, realizar mentorias de projetos e debater temas contemporâneos da cultura. Veja o que está agendado para os próximos ${DIAS_DA_AGENDA} dias:`
       )}
       align="center"
-      onBack={onBack}
     >
       {agenda.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-250 bg-slate-50/60 p-10 text-center">

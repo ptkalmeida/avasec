@@ -11,7 +11,6 @@ import { exportAllManagementBases, exportManagementBase, ManagementBase } from '
 import { downloadSubmissionFile, previewDocumentTemplatePdf } from '../utils/fileDownload';
 import { courseMinAttendance } from '../config/constants';
 import { isCourseExpired, StudentEnrollment, DocumentTemplate } from '../types';
-import { BackButton } from './BackButton';
 import { SiteContentPanel } from './admin/SiteContentPanel';
 import { AnchoredMenu } from './shared/AnchoredMenu';
 import { SitePageKey } from '../types';
@@ -1421,7 +1420,15 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       {activeTab === 'professors' && (
         <div className="space-y-4 text-left animate-in fade-in duration-300">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
+            {/*
+              Havia um BackButton "Voltar ao Painel Administrativo" aqui — e em
+              mais NOVE lugares (oito neste arquivo, dois no SiteContentPanel).
+              Todos duplicavam o PRIMEIRO item da barra lateral, que esta sempre
+              visivel. Um botao que repete o que ja esta na tela nao ajuda: ocupa
+              a primeira linha de cada secao e adia o conteudo.
+
+              Bloco 1 do handoff. Este comentario existe uma vez so, aqui.
+            */}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
@@ -1511,7 +1518,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       {activeTab === 'courses' && (
         <div className="space-y-4 text-left animate-in fade-in duration-300">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
@@ -1885,7 +1891,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       {activeTab === 'students' && (
         <div className="space-y-6 text-left animate-in fade-in duration-300">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           
           {/* Top Title Card */}
@@ -2884,7 +2889,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       {activeTab === 'requests' && (
         <div className="space-y-6 text-left animate-in fade-in duration-300">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           
           {/* Header instructions card */}
@@ -3168,7 +3172,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       {activeTab === 'exercicios' && (
         <div className="space-y-6 text-left">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           
           {/* Header */}
@@ -3602,7 +3605,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       {activeTab === 'settings' && (
         <div className="space-y-4 text-left">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           <div className="bg-white border border-slate-200 rounded-[10px] p-5 text-left space-y-6 settings-tab-content">
           <div>
@@ -3738,7 +3740,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
       {activeTab === 'site_content' && features.gestaoConteudoSite && (
         <SiteContentPanel
-          onBack={() => setActiveTab('analytics')}
           onPreviewPage={(pageKey) => onPreviewPage?.(pageKey)}
           speakText={speakText}
           showToast={showToast}
@@ -3748,7 +3749,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       {activeTab === 'templates' && (
         <div className="space-y-5 text-left">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -3907,7 +3907,6 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
       {activeTab === 'export_bi' && (
         <div className="space-y-4 text-left">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           <div className="bg-white border border-slate-200 rounded-[10px] p-6 text-left space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">

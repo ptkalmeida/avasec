@@ -6,11 +6,9 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowUp, ArrowDown, Trash2, Plus, ExternalLink, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import { useLMS } from '../../context/LMSContext';
-import { BackButton } from '../BackButton';
 import { SitePageContent, SitePageItem, SitePageKey, SitePageSchema } from '../../types';
 
 interface SiteContentPanelProps {
-  onBack: () => void;
   /** Abre a página pública correspondente, para conferir o resultado. */
   onPreviewPage: (pageKey: SitePageKey) => void;
   speakText: (text: string) => void;
@@ -31,7 +29,6 @@ const headerValue = (draft: SitePageContent, key: string): string =>
  * seria uma porta de XSS.
  */
 export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
-  onBack,
   onPreviewPage,
   speakText,
   showToast,
@@ -66,7 +63,6 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
   if (!sitePageSchema || !sitePageContent) {
     return (
       <div className="space-y-5 text-left">
-        <BackButton onClick={onBack} text="Voltar ao Painel Administrativo" />
         <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
           <p className="text-xs text-slate-500">Carregando o conteúdo das páginas...</p>
         </div>
@@ -148,10 +144,6 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
 
   return (
     <div className="space-y-5 text-left">
-      <div>
-        <BackButton onClick={onBack} text="Voltar ao Painel Administrativo" />
-      </div>
-
       <div className="space-y-1">
         <h2 className="text-lg font-black text-slate-900 font-serif">Gestão de Páginas do Site</h2>
         <p className="text-xs text-slate-500 leading-relaxed max-w-3xl">

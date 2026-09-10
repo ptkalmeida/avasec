@@ -9,7 +9,6 @@ import { SitePageContent, SitePageItem } from '../../types';
 import { pageField, pageItems } from '../../utils/sitePageContent';
 
 interface DuvidasPageProps {
-  onBack: () => void;
   /** Conteúdo editado pelo admin; ausente = usa os padrões abaixo. */
   content?: SitePageContent;
 }
@@ -33,7 +32,7 @@ const DEFAULT_ITEMS: SitePageItem[] = [
   }
 ];
 
-export const DuvidasPage: React.FC<DuvidasPageProps> = ({ onBack, content }) => {
+export const DuvidasPage: React.FC<DuvidasPageProps> = ({ content }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const items = pageItems(content, DEFAULT_ITEMS);
 
@@ -46,7 +45,6 @@ export const DuvidasPage: React.FC<DuvidasPageProps> = ({ onBack, content }) => 
       description={pageField(content, 'description', 'Tem dúvidas sobre como utilizar o Portal AVA? Acesse nosso FAQ rápido:')}
       align="center"
       accent="#FFD23F"
-      onBack={onBack}
     >
       <div className="space-y-3.5 max-w-2xl mx-auto text-left">
         {items.map((faq) => (

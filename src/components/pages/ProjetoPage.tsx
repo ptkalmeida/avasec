@@ -9,7 +9,6 @@ import { SitePageContent, SitePageItem } from '../../types';
 import { pageField, pageItems } from '../../utils/sitePageContent';
 
 interface ProjetoPageProps {
-  onBack: () => void;
   /** Conteúdo editado pelo admin; ausente = usa os padrões abaixo. */
   content?: SitePageContent;
 }
@@ -37,7 +36,7 @@ const DEFAULT_ITEMS: SitePageItem[] = [
   }
 ];
 
-export const ProjetoPage: React.FC<ProjetoPageProps> = ({ onBack, content }) => {
+export const ProjetoPage: React.FC<ProjetoPageProps> = ({ content }) => {
   const items = pageItems(content, DEFAULT_ITEMS);
   const imageUrl = pageField(content, 'imageUrl', DEFAULT_IMAGE);
 
@@ -46,7 +45,6 @@ export const ProjetoPage: React.FC<ProjetoPageProps> = ({ onBack, content }) => 
       eyebrow={pageField(content, 'eyebrow', 'Iniciativa de fomento público')}
       title={pageField(content, 'title', 'O Projeto Pedagógico')}
       background="bg-slate-50"
-      onBack={onBack}
     >
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         {/* Imagem decorativa */}
