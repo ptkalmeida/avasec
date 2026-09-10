@@ -55,31 +55,31 @@ const EventoCard: React.FC<{
   >
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-2">
-        <span className="text-[9px] font-mono font-black uppercase bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-md inline-flex items-center gap-1.5">
+        <span className="text-sobretitulo uppercase bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-md inline-flex items-center gap-1.5">
           {evento.kind === 'webinar'
             ? <><Globe className="h-3 w-3" /> Webinar aberto</>
             : <><Video className="h-3 w-3" /> Aula ao vivo</>}
         </span>
-        <span className="text-[10px] font-mono text-slate-450 flex items-center gap-1 shrink-0">
+        <span className="text-apoio text-escult-ink-2 flex items-center gap-1 shrink-0">
           <Clock className="h-3.5 w-3.5" />
           {formatHora(evento.quando)}
         </span>
       </div>
 
       <div className="flex gap-4 items-start">
-        <div className="h-14 w-14 shrink-0 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center font-mono">
+        <div className="h-14 w-14 shrink-0 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center">
           <span className="text-xl font-black text-[#540D6E] leading-none">{formatDia(evento.quando)}</span>
-          <span className="text-[9px] text-slate-400 font-extrabold">{formatMes(evento.quando)}</span>
+          <span className="text-apoio text-escult-ink-2 font-extrabold">{formatMes(evento.quando)}</span>
         </div>
         <div className="space-y-1">
           <strong className="text-xs font-bold text-slate-800 line-clamp-2 leading-snug">{evento.titulo}</strong>
-          <span className="text-[11px] text-slate-550 block">{evento.contexto}</span>
+          <span className="text-rotulo text-slate-550 block">{evento.contexto}</span>
         </div>
       </div>
     </div>
 
     <div className="pt-4 mt-4 border-t border-slate-200/50 flex items-center justify-between gap-2">
-      <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wide">
+      <span className="text-sobretitulo text-escult-ink-2 uppercase">
         {distanciaEmDias(evento.quando, agora)}
         {evento.durationMinutes !== null && ` · ${evento.durationMinutes} min`}
       </span>
@@ -102,7 +102,7 @@ const EventoCard: React.FC<{
           target="_blank"
           rel="noreferrer noopener"
           onClick={onAcessarSala}
-          className="text-[10px] font-black uppercase text-[#540D6E] hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
+          className="text-sobretitulo uppercase text-[#540D6E] hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
         >
           <span>Acessar sala</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -110,7 +110,7 @@ const EventoCard: React.FC<{
       ) : (
         <button
           onClick={onParticipar}
-          className="text-[10px] font-black uppercase text-[#540D6E] hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
+          className="text-sobretitulo uppercase text-[#540D6E] hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
         >
           <span>{isUserLoggedIn ? 'Ir ao painel' : 'Participar'}</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -154,7 +154,7 @@ export const CalendarioPage: React.FC<CalendarioPageProps> = ({
           <strong className="block text-sm font-bold text-slate-700">
             Nenhum encontro agendado para os próximos {DIAS_DA_AGENDA} dias.
           </strong>
-          <span className="mt-1 block text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+          <span className="mt-1 block text-xs text-escult-ink-2 max-w-md mx-auto leading-relaxed">
             Esta agenda mostra apenas encontros realmente marcados pelos gestores dos
             cursos. Assim que uma nova aula ao vivo for agendada, ela aparece aqui.
           </span>
@@ -181,7 +181,7 @@ export const CalendarioPage: React.FC<CalendarioPageProps> = ({
               />
             ))}
           </div>
-          <p className="mt-6 text-center text-[11px] text-slate-450">
+          <p className="mt-6 text-center text-rotulo text-escult-ink-2">
             {agenda.length} {agenda.length === 1 ? 'encontro' : 'encontros'} nos próximos {DIAS_DA_AGENDA} dias.
             O link de acesso fica disponível no painel de quem está matriculado.
           </p>

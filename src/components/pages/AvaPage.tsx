@@ -66,7 +66,7 @@ export const AvaPage: React.FC<AvaPageProps> = ({ content }) => {
                 <Icon className="h-6 w-6" />
               </div>
               <h4 className="text-lg font-extrabold text-slate-900 font-serif">{item.title}</h4>
-              <p className="text-xs text-slate-500 leading-relaxed">{item.description}</p>
+              <p className="text-xs text-escult-ink-2 leading-relaxed">{item.description}</p>
             </div>
           );
         })}

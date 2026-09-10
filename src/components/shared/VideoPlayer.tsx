@@ -43,7 +43,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return (
       <>
         {unavailableSlot ?? (
-          <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center gap-2 text-slate-500">
+          <div className="w-full h-full bg-slate-950 flex flex-col items-center justify-center gap-2 text-escult-ink-2">
             <VideoOff className="h-10 w-10 text-slate-600" />
             <span className="text-xs font-semibold">Vídeo indisponível</span>
           </div>

@@ -50,17 +50,26 @@ export const PageShell: React.FC<PageShellProps> = ({
           }`}
         >
           <span
-            className="text-[10px] font-extrabold uppercase tracking-widest block font-mono"
+            className="text-sobretitulo uppercase block"
             style={{ color: accent }}
           >
             {eyebrow}
           </span>
-          <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">
+          {/*
+            <h1>, e nao <h3>: este e o titulo DA pagina. As nove paginas
+            institucionais nao tinham nenhum <h1> — para quem navega por
+            cabecalhos, o titulo da pagina era anunciado como subsubtitulo.
+
+            `md:text-3.5xl` estava aqui e nao existe no tema (Tailwind 4 nao
+            gera classe para tamanho nao declarado): o titulo ficava em 24px em
+            qualquer largura de tela, e ninguem via erro nenhum.
+          */}
+          <h1 className="text-secao md:text-pagina font-semibold text-escult-ink tracking-tight font-serif">
             {title}
-          </h3>
+          </h1>
           {description && (
             <p
-              className={`text-xs md:text-sm text-slate-500 leading-relaxed font-light max-w-2xl ${
+              className={`text-corpo text-escult-ink-2 max-w-2xl ${
                 isCentered ? 'mx-auto' : ''
               }`}
             >

@@ -1,17 +1,109 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..950;1,400..950&family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..950;1,400..950&family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+/*
+ * Duas familias, e nao quatro.
+ *
+ * O @import baixava tambem Space Grotesk e JetBrains Mono. A Space Grotesk era
+ * declarada em `--font-display` e **nenhuma classe a usava**: a fonte era
+ * transferida em toda visita e aplicada a zero elementos. A JetBrains Mono
+ * aparecia em sobretitulo, numero de indicador, rotulo e data — lugares onde
+ * monoespacada nao informa nada, so estreita o texto.
+ *
+ * `--font-mono` continua existindo, apontando para a monoespacada do sistema:
+ * em `LessonCodeBlock` ha um <pre> com codigo de aula, e ali a largura fixa
+ * carrega informacao (indentacao, e distinguir `l` de `1` de `I`). Manter o
+ * token sem baixar webfont preserva esse caso e economiza a transferencia.
+ *
+ * `--font-display` foi removido em vez de reapontado: um token de titulo que
+ * ninguem usa reaparece como "fonte de titulo" na cabeca de quem le, e volta a
+ * ser aplicado por engano. Titulo usa `font-serif` (Playfair), que e o que o
+ * codigo ja faz.
+ */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", sans-serif;
   --font-serif: "Playfair Display", Georgia, serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Paleta institucional. `escult-blue` e roxo: o nome nasceu errado e esta em
+     centenas de classes; `escult-purple` e o mesmo valor com o nome certo, para
+     o codigo novo. Nao ha dois roxos — ha dois nomes para um. */
   --color-escult-blue: #540D6E;
+  --color-escult-purple: #540D6E;
   --color-escult-green: #3BCEAC;
   --color-escult-yellow: #FFD23F;
   --color-escult-red: #EE4266;
   --color-escult-dark: #111622;
+
+  /* Estados de foco/hover das duas cores de acao. */
+  --color-escult-purple-dark: #42095a;
+
+  /*
+   * Vermelho: DUAS entradas, porque uma nao serve para as duas coisas.
+   *
+   * `escult-red` (#EE4266) e o indicador e o enfeite. Branco sobre ele da
+   * 3,75:1 — abaixo do piso de 4,5:1 —, entao ele NAO carrega texto.
+   * `escult-red-acao` (#d62f52) e o fundo da acao principal: branco sobre ele
+   * da 4,79:1. O hover desce mais (6,37:1) em vez de subir, para o estado de
+   * foco nunca perder contraste.
+   */
+  --color-escult-red-acao: #d62f52;
+  --color-escult-red-acao-hover: #b52443;
+
+  /*
+   * Texto sobre superficie escura ou saturada.
+   *
+   * Os cinzas `ink-*` sao calibrados para fundo BRANCO: `ink-2` sobre a secao
+   * quase preta (#111622) da 2,38:1, e sobre o roxo do heroi 1,66:1. Este e o
+   * neutro do outro lado — 10,77:1 sobre o escuro e 7,54:1 sobre o roxo.
+   */
+  --color-escult-ink-claro: #c3c8d2;
+
+  /*
+   * Neutros com papel declarado.
+   *
+   * O portal usava `slate-400` (#94a3b8) em nome de professor e em rotulo:
+   * ~2,6:1 sobre branco, abaixo do piso de 4,5:1 do WCAG AA. `ink-3` e o cinza
+   * mais claro admissivel, e so a partir de 15px — abaixo disso use `ink-2`.
+   */
+  --color-escult-ink: #1d2432;
+  --color-escult-ink-2: #4a5468;
+  --color-escult-ink-3: #6b7385;
+  --color-escult-line: #e4e1dc;
+  --color-escult-surface: #f4f2ef;
+
+  /*
+   * Escada tipografica.
+   *
+   * Havia 799 ocorrencias de texto entre 9px e 11px, quase sempre com
+   * `font-light`. Nomear o papel em vez do numero e o que impede a escada de
+   * ser reinventada a cada tela: `text-corpo` nao tem como virar 10px sem
+   * alguem editar este arquivo.
+   *
+   * `--text-nota` (12px) e o PISO, para nota de rodape e aviso legal. Nao
+   * existe token menor de proposito.
+   */
+  --text-nota: 0.75rem;
+  --text-nota--line-height: 1.5;
+  --text-apoio: 0.875rem;
+  --text-apoio--line-height: 1.5;
+  --text-rotulo: 0.9375rem;
+  --text-rotulo--line-height: 1.4;
+  --text-corpo: 1rem;
+  --text-corpo--line-height: 1.65;
+  --text-cartao: 1.1875rem;
+  --text-cartao--line-height: 1.35;
+  --text-secao: 2.25rem;
+  --text-secao--line-height: 1.15;
+  --text-pagina: 2.625rem;
+  --text-pagina--line-height: 1.1;
+
+  /* Sobretitulo e o unico lugar onde caixa alta continua: palavra curta, com
+     entreletra aberta, nunca em titulo nem em rotulo de navegacao. */
+  --text-sobretitulo: 0.875rem;
+  --text-sobretitulo--line-height: 1.2;
+  --text-sobretitulo--letter-spacing: 0.12em;
+  --text-sobretitulo--font-weight: 600;
 }
 
 /* Tons intermediarios usados pela interface (ex.: border-slate-150). O Tailwind

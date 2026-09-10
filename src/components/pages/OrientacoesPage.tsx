@@ -57,11 +57,11 @@ export const OrientacoesPage: React.FC<OrientacoesPageProps> = ({ content }) => 
             key={o.id}
             className="bg-white rounded-2xl p-5 border border-slate-200 shadow-3xs hover:shadow-xs transition-all space-y-3"
           >
-            <span className="text-[10px] font-mono font-extrabold text-[#EE4266] uppercase bg-rose-50 border border-rose-100 rounded-md px-2 py-0.5 inline-block">
+            <span className="text-sobretitulo text-escult-red-acao-hover uppercase bg-rose-50 border border-rose-100 rounded-md px-2 py-0.5 inline-block">
               Diretriz {ROMANOS[index] ?? index + 1}
             </span>
             <h4 className="text-sm font-bold text-slate-900 font-serif">{o.title}</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed font-light">{o.description}</p>
+            <p className="text-rotulo text-escult-ink-2 leading-relaxed">{o.description}</p>
           </div>
         ))}
       </div>
