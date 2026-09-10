@@ -18,6 +18,7 @@ import { RAIZ_ALUNO, caminhoAluno, parseAluno } from '../router/studentRoutes';
 import { assuntoDaMensagem, comAssuntoDaAula } from '../utils/assuntoMensagem';
 import { cursoPorRef, refDoCurso, refEhCanonica } from '../utils/cursoRef';
 import { avaliacoesPendentes, oQueFaltaParaOCertificado } from '../utils/certificadoElegivel';
+import { abaVisivelParaAluno } from '../utils/abasAluno';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -852,9 +853,17 @@ ${html}
       </div>
       )}
 
-      {/* Dynamic Tab Navigation System */}
-      {features.mensagensDiretas && systemSettings.allowDirectMessages && (
-        <div className="flex border-b border-slate-200 mb-8 gap-3 p-1.5 bg-slate-100 rounded-2xl w-full sm:w-fit flex-wrap overflow-x-auto no-scrollbar">
+      {/*
+        A barra de abas NAO depende de mensagens diretas.
+        Ela estava inteira dentro de
+        `{features.mensagensDiretas && systemSettings.allowDirectMessages && (`,
+        e `allowDirectMessages` e chave EDITAVEL pelo admin nas Configuracoes do
+        Sistema. Ou seja: um administrador desligava mensagens e o aluno perdia
+        de uma vez Documentos, Biblioteca Digital, Eventos, Central de Ajuda e
+        Meu Perfil — sem erro e sem aviso. A condicao pertence ao botao de
+        Mensagens, e e la que ela esta agora.
+      */}
+      <div className="flex border-b border-slate-200 mb-8 gap-3 p-1.5 bg-slate-100 rounded-2xl w-full sm:w-fit flex-wrap overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveDashboardTab('general')}
             className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
@@ -867,7 +876,7 @@ ${html}
             <span>Meu Painel de Estudos</span>
           </button>
 
-          {features.solicitacoesAcademicas && (
+          {abaVisivelParaAluno('documents', features, systemSettings) && (
             <button
               onClick={() => setActiveDashboardTab('documents')}
               className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
@@ -881,7 +890,7 @@ ${html}
             </button>
           )}
 
-          {features.forum && (
+          {abaVisivelParaAluno('messages', features, systemSettings) && (
             <button
               onClick={() => setActiveDashboardTab('messages')}
               className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
@@ -895,7 +904,7 @@ ${html}
             </button>
           )}
 
-          {features.materiaisComplementares && (
+          {abaVisivelParaAluno('library', features, systemSettings) && (
             <button
               onClick={() => setActiveDashboardTab('library')}
               className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
@@ -909,7 +918,7 @@ ${html}
             </button>
           )}
 
-          {features.eventosWebinars && (
+          {abaVisivelParaAluno('events', features, systemSettings) && (
           <button
             onClick={() => setActiveDashboardTab('events')}
             className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
@@ -935,7 +944,7 @@ ${html}
             <span>Central de Ajuda / FAQ</span>
           </button>
 
-          {features.perfilBasico && (
+          {abaVisivelParaAluno('settings', features, systemSettings) && (
             <button
               onClick={() => setActiveDashboardTab('settings')}
               className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
@@ -949,16 +958,27 @@ ${html}
             </button>
           )}
         </div>
-      )}
 
-      {((!features.solicitacoesAcademicas && activeDashboardTab === 'documents') ||
-        (!features.forum && activeDashboardTab === 'messages') ||
-        (!features.materiaisComplementares && activeDashboardTab === 'library') ||
-        (!features.perfilBasico && activeDashboardTab === 'settings')) ? (
+      {/*
+        Aba desligada: a MESMA fonte que esconde o botao decide a mensagem, em vez
+        de uma segunda lista de flags que pode divergir dela (era o caso: a lista
+        aqui nao citava `eventosWebinars`, e nem `mensagensDiretas`).
+
+        E o texto deixou de dizer "temporariamente". Um recurso pode ficar meses
+        desligado por decisao de produto — o comentario em `features.ts` diz que
+        webinar "nao entra nesta fase" — e prometer volta breve para quem nunca
+        vai ver a tela e informacao falsa. Quem chega aqui chegou por link antigo
+        ou por endereco digitado: o que serve e saber o que aconteceu e para onde
+        ir.
+      */}
+      {!abaVisivelParaAluno(activeDashboardTab, features, systemSettings) ? (
         <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-8 text-center max-w-xl mx-auto my-12 shadow-3xs space-y-3">
           <Lock className="h-10 w-10 text-amber-600 mx-auto" />
-          <h3 className="font-extrabold text-base">Esta funcionalidade está temporariamente indisponível.</h3>
-          <p className="text-xs text-slate-500">Estamos trabalhando em melhorias e atualizações para esta seção. Por favor, tente novamente mais tarde.</p>
+          <h3 className="font-extrabold text-base">Esta seção não está disponível nesta versão da plataforma.</h3>
+          <p className="text-xs text-slate-500">
+            Ela não aparece no menu porque está desativada. Se você chegou aqui por um link
+            salvo, use o menu acima para voltar ao seu Painel de Estudos.
+          </p>
         </div>
       ) : activeDashboardTab === 'general' ? (
         /* Main split: left courses or detail / right certificates tracking */
