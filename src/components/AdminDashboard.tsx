@@ -10,6 +10,7 @@ import { AbaAdmin, SubAbaRelatorio, caminhoAdmin, parseAdmin } from '../router/a
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
 import { downloadSubmissionFile, previewDocumentTemplatePdf } from '../utils/fileDownload';
 import { courseMinAttendance } from '../config/constants';
+import { gruposVisiveisDoAdmin, itemDoAdmin, itensVisiveisDoAdmin } from '../config/menuAdmin';
 import { isCourseExpired, StudentEnrollment, DocumentTemplate } from '../types';
 import { SiteContentPanel } from './admin/SiteContentPanel';
 import { AnchoredMenu } from './shared/AnchoredMenu';
@@ -21,7 +22,8 @@ import {
   ArrowUpRight, ArrowDownRight, TrendingUp, Eye, EyeOff, Key,
   MoreVertical, Mail, AlertTriangle, UserCheck, RefreshCw, Unlock, 
   MessageSquare, CheckCircle2, XCircle, ExternalLink, ChevronDown, 
-  SlidersHorizontal, Sparkles, Clock, AlertCircle, HelpCircle, Database, ArrowRight
+  SlidersHorizontal, Sparkles, Clock, AlertCircle, HelpCircle, Database, ArrowRight,
+  Menu
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
@@ -118,6 +120,24 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   // Área de gerenciamento de templates de documentos (certificado, histórico)
   const [templateDocType, setTemplateDocType] = useState<DocumentTemplate['type']>('certificado');
   const [templateDraft, setTemplateDraft] = useState<DocumentTemplate | null>(null);
+  /* Gaveta de secoes abaixo de 1024px — substitui o <select> que colapsava
+     a barra lateral inteira num campo. */
+  const [gavetaAberta, setGavetaAberta] = useState(false);
+
+  /*
+    Esc fecha a gaveta. Um `role="dialog"` com `aria-modal` que so fecha por
+    clique deixa quem navega por teclado presa dentro dela.
+  */
+  useEffect(() => {
+    if (!gavetaAberta) return undefined;
+
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setGavetaAberta(false);
+    };
+    window.addEventListener('keydown', aoTeclar);
+
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [gavetaAberta]);
   const [templateLoading, setTemplateLoading] = useState(false);
   const [templateSaving, setTemplateSaving] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -820,19 +840,31 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   const getGlobalAverageQuizScore = () => mediaDasVigentes(quizSubmissions) ?? 0;
 
   // Itens de navegação do módulo administrativo (esqueleto sidebar+topbar do PC Design System).
-  const adminNavItems = [
-    { id: 'analytics', label: 'Dashboard & Relatórios', icon: Activity, visible: true },
-    { id: 'professors', label: 'Equipe Pedagógica', icon: User, visible: true },
-    { id: 'students', label: 'Alunos', icon: Award, visible: true },
-    { id: 'courses', label: 'Cursos & Trilhas', icon: BookOpen, visible: features.catalogoCursos },
-    { id: 'requests', label: 'Documentos', icon: FileCheck, visible: features.solicitacoesAcademicas },
-    { id: 'exercicios', label: 'Exercícios Práticos', icon: CheckSquare, visible: features.atividadesPraticasAvancadas },
-    { id: 'export_bi', label: 'Dados Gerenciais', icon: Database, visible: features.dadosGerenciais },
-    { id: 'templates', label: 'Templates de Documentos', icon: FileText, visible: true },
-    { id: 'site_content', label: 'Páginas do Site', icon: Layers, visible: features.gestaoConteudoSite },
-    { id: 'settings', label: 'Configurações', icon: Settings, visible: features.perfilBasico },
-  ].filter((t) => t.visible);
-  const activeNavItem = adminNavItems.find((t) => t.id === activeTab);
+  /*
+    Os dez itens continuam os mesmos, com as mesmas flags — o que mudou e que
+    agora eles vem agrupados (Pessoas / Ensino / Sistema) de `config/menuAdmin`,
+    e cada secao tem o seu subtitulo. O icone fica aqui porque e do lucide, e o
+    modulo de configuracao nao importa componente.
+  */
+  const iconeDaAba: Record<string, React.ElementType> = {
+    analytics: Activity,
+    professors: User,
+    students: Award,
+    courses: BookOpen,
+    requests: FileCheck,
+    exercicios: CheckSquare,
+    export_bi: Database,
+    templates: FileText,
+    site_content: Layers,
+    settings: Settings,
+  };
+  const gruposDaNav = gruposVisiveisDoAdmin(features as Record<string, boolean | undefined>);
+  const abasVisiveis = itensVisiveisDoAdmin(features as Record<string, boolean | undefined>);
+  /*
+    `itemDoAdmin` e nao `abasVisiveis.find`: quem chega por link antigo numa aba
+    desligada tambem precisa ler onde esta.
+  */
+  const activeNavItem = itemDoAdmin(activeTab);
 
   return (
     <div className="flex min-h-[calc(100vh-5rem)] bg-[#F1F5F9] animate-in fade-in duration-300 text-left">
@@ -847,24 +879,38 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
           </div>
         </div>
 
-        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
-          <span className="block px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestão</span>
-          {adminNavItems.map((tab) => {
-            const IconComp = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm transition-colors cursor-pointer text-left ${
-                  isActive ? 'bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/5'
-                }`}
-              >
-                <IconComp className="h-4 w-4 shrink-0" />
-                <span className="truncate">{tab.label}</span>
-              </button>
-            );
-          })}
+        {/*
+          Era uma lista plana de dez itens sob o rotulo unico "Gestao",
+          misturando pessoas, conteudo pedagogico e administracao de sistema.
+          Os grupos vem de `config/menuAdmin`, e grupo vazio nao e desenhado.
+        */}
+        <nav className="p-3 flex-1 overflow-y-auto" aria-label="Seções da administração">
+          {gruposDaNav.map((grupo) => (
+            <div key={grupo.titulo || 'topo'} className="space-y-1 mb-3 last:mb-0">
+              {grupo.titulo !== '' && (
+                <span className="block px-3 pt-2 pb-1 text-[12px] font-bold uppercase tracking-wider text-slate-500">
+                  {grupo.titulo}
+                </span>
+              )}
+              {grupo.itens.map((tab) => {
+                const IconComp = iconeDaAba[tab.id] ?? Activity;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm transition-colors cursor-pointer text-left ${
+                      isActive ? 'bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <IconComp className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{tab.rotulo}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Aviso de privacidade — rodapé da sidebar */}
@@ -875,6 +921,72 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
           </p>
         </div>
       </aside>
+
+      {/*
+        ===== GAVETA DE SECOES (abaixo de 1024px) =====
+
+        Mesma lista agrupada da barra lateral, mesma paleta do painel. O
+        <select> que existia aqui apagava tres coisas de uma vez: a visao geral
+        das secoes, os grupos e a marcacao do item ativo.
+      */}
+      {gavetaAberta && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <button
+            className="absolute inset-0 bg-slate-950/60 cursor-pointer"
+            aria-label="Fechar seções"
+            onClick={() => setGavetaAberta(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Seções da administração"
+            className="relative w-72 max-w-[85vw] bg-[#0F172A] text-slate-300 flex flex-col shadow-2xl"
+          >
+            <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ShieldCheck className="h-5 w-5 text-blue-400 shrink-0" />
+                <span className="block text-sm font-bold text-white truncate">Administração</span>
+              </div>
+              <button
+                onClick={() => setGavetaAberta(false)}
+                className="p-1.5 rounded-[6px] hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Fechar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <nav className="p-3 flex-1 overflow-y-auto">
+              {gruposDaNav.map((grupo) => (
+                <div key={grupo.titulo || 'topo'} className="space-y-1 mb-3 last:mb-0">
+                  {grupo.titulo !== '' && (
+                    <span className="block px-3 pt-2 pb-1 text-[12px] font-bold uppercase tracking-wider text-slate-500">
+                      {grupo.titulo}
+                    </span>
+                  )}
+                  {grupo.itens.map((tab) => {
+                    const IconComp = iconeDaAba[tab.id] ?? Activity;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => { setActiveTab(tab.id as any); setGavetaAberta(false); }}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-[6px] text-sm transition-colors cursor-pointer text-left ${
+                          isActive ? 'bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/5'
+                        }`}
+                      >
+                        <IconComp className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{tab.rotulo}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* ===== TOPBAR branca ===== */}
@@ -896,24 +1008,36 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
             )}
             <div className="min-w-0">
               <h1 className="text-[1.2rem] font-bold text-slate-900 leading-tight truncate">
-                {activeNavItem?.label ?? 'Portal do Administrador'}
+                {activeNavItem?.rotulo ?? 'Portal do Administrador'}
               </h1>
-              <p className="text-xs text-slate-500 truncate">Gestão global de professores, alunos, turmas e cursos.</p>
+              {/*
+                Aqui ficava UM subtitulo — "Gestao global de professores, alunos,
+                turmas e cursos" — repetido nas dez telas, inclusive em
+                Configuracoes e em Paginas do Site, onde nao descrevia nada do
+                que estava na tela. Agora cada secao diz o que e a sua.
+              */}
+              <p className="text-xs text-slate-500 truncate" title={activeNavItem?.subtitulo}>
+                {activeNavItem?.subtitulo ?? 'Administração do AVASEC.'}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            {/* Navegação mobile (sidebar oculta abaixo de lg) */}
-            <select
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value as any)}
-              className="lg:hidden border border-slate-200 rounded-[6px] text-sm text-slate-700 px-2 py-1.5 bg-white"
-              aria-label="Seção do painel administrativo"
+            {/*
+              Abaixo de 1024px a barra lateral inteira colapsava num <select>:
+              sumia a visao geral das secoes, sumiam os grupos e o item ativo
+              virava so o valor de um campo. A gaveta preserva a estrutura — e,
+              por ser a mesma lista agrupada, nao ha duas fontes de verdade.
+            */}
+            <button
+              onClick={() => setGavetaAberta(true)}
+              className="lg:hidden border border-slate-200 text-slate-700 rounded-[6px] text-sm px-3 py-1.5 bg-white hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-2"
+              aria-label="Abrir seções da administração"
+              aria-expanded={gavetaAberta}
             >
-              {adminNavItems.map((tab) => (
-                <option key={tab.id} value={tab.id}>{tab.label}</option>
-              ))}
-            </select>
+              <Menu className="h-4 w-4" />
+              <span className="truncate max-w-[9rem]">{activeNavItem?.rotulo ?? 'Seções'}</span>
+            </button>
             <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-blue-50 text-blue-600">
               Administrador Superior
             </span>

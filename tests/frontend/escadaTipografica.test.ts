@@ -35,7 +35,13 @@ const CONVERTIDAS = [
  * perde função. A tipografia dele entra numa rodada revisável sozinha.
  */
 const PENDENTES: Record<string, number> = {
-  'components/AdminDashboard.tsx': 477,
+  /*
+   * Subiu de 477 para 479 com os grupos e a gaveta do Bloco 6: são dois
+   * cabeçalhos de grupo em caixa alta (`uppercase`), que é o único lugar onde o
+   * handoff mantém caixa alta. O código novo respeita o piso de 12px — foi este
+   * teste que pegou o `text-[11px]` que eu havia escrito aqui.
+   */
+  'components/AdminDashboard.tsx': 479,
   'components/StudentDashboard.tsx': 316,
   'components/InstructorDashboard.tsx': 190,
   'components/ProfileView.tsx': 193,
@@ -61,7 +67,7 @@ function ler(alvo: string): { caminho: string; texto: string }[] {
 
 /** Tamanhos arbitrários abaixo do piso de 12px, fracionários incluídos. */
 function abaixoDoPiso(texto: string): string[] {
-  const achados = texto.match(/text-\[[0-9]+(?:\.[0-9]+)?px\]/g) ?? [];
+  const achados: string[] = texto.match(/text-\[[0-9]+(?:\.[0-9]+)?px\]/g) ?? [];
 
   return achados.filter((c) => {
     const px = parseFloat(c.slice(6, -3));
