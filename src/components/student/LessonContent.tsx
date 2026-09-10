@@ -15,7 +15,7 @@ const LessonCodeBlock = React.lazy(() =>
 /** Placeholder enquanto o bloco de código chega, para o texto não "pular". */
 const CodeFallback: React.FC = () => (
   <div className="my-5 rounded-xl border border-slate-800 bg-slate-950 px-4 py-6">
-    <span className="text-[11px] font-mono text-slate-500">Carregando código...</span>
+    <span className="text-rotulo text-escult-ink-2">Carregando código...</span>
   </div>
 );
 
@@ -70,7 +70,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({ blocks, tone = 'li
   const t = TONES[tone];
 
   return (
-  <div className={`text-[13.5px] leading-[1.75] ${t.body}`}>
+  <div className={`text-apoio leading-[1.75] ${t.body}`}>
     {blocks.map((block, i) => {
       switch (block.kind) {
         case 'section':
@@ -80,7 +80,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({ blocks, tone = 'li
               id={block.id}
               className={`scroll-mt-28 mt-9 mb-4 first:mt-0 flex items-baseline gap-2.5 text-base md:text-lg font-black font-serif ${t.section}`}
             >
-              <span className={`font-mono text-sm shrink-0 ${t.sectionNumber}`}>{block.index}.</span>
+              <span className={`text-sm shrink-0 ${t.sectionNumber}`}>{block.index}.</span>
               <span>{renderInline(block.text, `s-${i}`, t.strong)}</span>
             </h3>
           );

@@ -37,11 +37,11 @@ export const LessonIndex: React.FC<LessonIndexProps> = ({ sections, onNavigate }
         type="button"
         onClick={() => setIsOpen((v) => !v)}
         aria-expanded={isOpen}
-        className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-slate-600 transition-colors cursor-pointer shadow-3xs"
+        className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2 text-sobretitulo uppercase text-slate-600 transition-colors cursor-pointer shadow-3xs"
       >
         {isOpen ? <X className="h-3.5 w-3.5" /> : <List className="h-3.5 w-3.5" />}
         <span>Nesta aula</span>
-        <span className="text-slate-400 font-mono normal-case">({sections.length})</span>
+        <span className="text-escult-ink-2 normal-case">({sections.length})</span>
       </button>
 
       {isOpen && (
@@ -58,11 +58,11 @@ export const LessonIndex: React.FC<LessonIndexProps> = ({ sections, onNavigate }
                   className={`w-full text-left rounded-lg px-3 py-2 text-xs transition-colors cursor-pointer hover:bg-slate-50 ${
                     section.level === 2
                       ? 'font-bold text-slate-800'
-                      : 'font-medium text-slate-500 pl-6'
+                      : 'font-medium text-escult-ink-2 pl-6'
                   }`}
                 >
                   {section.level === 2 && section.index !== undefined && (
-                    <span className="text-[#540D6E] font-mono mr-1.5">{section.index}.</span>
+                    <span className="text-[#540D6E] mr-1.5">{section.index}.</span>
                   )}
                   {section.text}
                 </button>

@@ -14,7 +14,7 @@ export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack }
       <div className="text-left">
         <button
           onClick={onBack}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-xs font-black uppercase tracking-wider border border-slate-200/65"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
           <span>Voltar ao Meu Painel de Estudos</span>
@@ -23,7 +23,7 @@ export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack }
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-black text-slate-900 tracking-tight">Eventos & Webinars</h3>
-          <p className="text-xs text-slate-500">Aulas magnas, workshops e eventos extracurriculares exclusivos.</p>
+          <p className="text-xs text-escult-ink-2">Aulas magnas, workshops e eventos extracurriculares exclusivos.</p>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -35,14 +35,14 @@ export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack }
             </div>
             <div className="p-6 flex-1 flex flex-col justify-between">
               <div>
-                <div className="flex items-center gap-3 text-[10px] font-black text-teal-600 uppercase tracking-widest mb-2">
+                <div className="flex items-center gap-3 text-sobretitulo text-teal-600 uppercase mb-2">
                   <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {event.date}</span>
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {event.time}</span>
                 </div>
                 <h4 className="font-black text-lg text-slate-900 leading-tight mb-2">{event.title}</h4>
-                <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{event.description}</p>
+                <p className="text-xs text-escult-ink-2 leading-relaxed line-clamp-2">{event.description}</p>
               </div>
-              <button className="mt-4 w-full bg-[#540D6E] hover:bg-slate-900 text-white font-black py-2.5 rounded-xl text-[10px] uppercase tracking-widest transition-all cursor-pointer">
+              <button className="mt-4 w-full bg-[#540D6E] hover:bg-slate-900 text-white py-2.5 rounded-xl text-sobretitulo uppercase transition-all cursor-pointer">
                 Realizar Inscrição
               </button>
             </div>

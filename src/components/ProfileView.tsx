@@ -21,6 +21,14 @@ interface ProfileViewProps {
   onBack: () => void;
   speakText: (text: string) => void;
   onLogout?: () => void;
+  /**
+   * Sub-aba em que o Perfil abre. Ausente = dados pessoais.
+   *
+   * Os certificados vivem aqui, numa sub-aba sem endereço próprio. Quem clica
+   * em "Certificados" na navegação do painel precisa cair NELA — abrir o
+   * Perfil na aba de dados obrigaria a procurar.
+   */
+  abaInicial?: 'profile' | 'password' | 'certificates';
 }
 
 // Atalho de troca rápida de perfil (SOMENTE em dev). Faz um login REAL com o PIN do
@@ -41,7 +49,8 @@ const AVATAR_PRESETS = [
 export function ProfileView({
   onBack,
   speakText,
-  onLogout
+  onLogout,
+  abaInicial
 }: ProfileViewProps) {
   const {
     activeUser,
@@ -104,7 +113,7 @@ export function ProfileView({
   };
   
   // State to manage showing the main Profile view, the password change view, or Certificados
-  const [currentTab, setCurrentTab] = useState<'profile' | 'password' | 'certificates'>('profile');
+  const [currentTab, setCurrentTab] = useState<'profile' | 'password' | 'certificates'>(abaInicial ?? 'profile');
 
   // Certificados — antes vivia como aba do painel do aluno; agora único lugar é o Perfil.
   const [activeCertificatesTab, setActiveCertificatesTab] = useState<'available' | 'in_progress' | 'validation'>('available');
@@ -858,6 +867,12 @@ export function ProfileView({
     const activeEnrolledCourseCount = [enrollmentRecord.enrolledCourseId, ...(enrollmentRecord.extraCourseIds || [])]
       .filter(Boolean).length;
 
+    /** Cursos matriculados que ainda não têm certificado emitido. */
+    const cursosSemCertificado = [enrollmentRecord.enrolledCourseId, ...(enrollmentRecord.extraCourseIds || [])]
+      .filter((id): id is string => !!id)
+      .filter((id) => !studentCerts.some((cert) => cert.courseId === id))
+      .length;
+
     return (
       <div className="mx-auto max-w-5xl px-4 py-8 md:px-6 animate-in fade-in slide-in-from-bottom-4 duration-300 text-left space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
@@ -886,15 +901,32 @@ export function ProfileView({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
           <div className="bg-white border border-emerald-100 rounded-2xl p-5 shadow-xs text-left">
             <span className="text-3xl font-black text-emerald-600 block mb-1">{studentCerts.length}</span>
-            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Cursos Concluídos</span>
+            {/*
+              Dizia "Cursos Concluídos" e contava `studentCerts.length`, que é
+              o número de CERTIFICADOS. Quem terminou um curso e ainda não teve
+              o certificado emitido lia "0 cursos concluídos" — a tela negava um
+              trabalho que a pessoa fez. O rótulo passa a dizer o que conta.
+            */}
+            <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Certificados Emitidos</span>
           </div>
           <div className="bg-white border border-blue-100 rounded-2xl p-5 shadow-xs text-left">
             <span className="text-3xl font-black text-blue-600 block mb-1">{activeEnrolledCourseCount}</span>
             <span className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Cursos em Andamento</span>
           </div>
           <div className="bg-white border border-amber-100 rounded-2xl p-5 shadow-xs text-left">
+            {/*
+              Contava 1 quando a frequência do curso ativo estava abaixo do
+              mínimo, e 0 no resto. Dois erros: frequência insuficiente não é
+              "certificado pendente" (é requisito não cumprido), e desde a
+              ADR 14 o certificado exige também aprovação nas avaliações — com
+              a frequência cumprida e uma prova em aberto, o contador dizia 0
+              enquanto o certificado estava, de fato, pendente.
+
+              Agora conta o que o rótulo diz: curso em que a pessoa está
+              matriculada e para o qual ainda não há certificado emitido.
+            */}
             <span className="text-3xl font-black text-amber-600 block mb-1">
-              {activeEnrolledCourse && calculateAttendancePercent(activeEnrolledCourse.id) < courseMinAttendance(activeEnrolledCourse) ? 1 : 0}
+              {cursosSemCertificado}
             </span>
             <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">Certificados Pendentes</span>
           </div>

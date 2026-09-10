@@ -25,6 +25,10 @@ const CONVERTIDAS = [
   'App.tsx',
   'components/pages',
   'components/shared',
+  'components/StudentDashboard.tsx',
+  'components/student',
+  'components/LiveClassroom.tsx',
+  'components/CourseForum.tsx',
 ];
 
 /**
@@ -42,7 +46,6 @@ const PENDENTES: Record<string, number> = {
    * teste que pegou o `text-[11px]` que eu havia escrito aqui.
    */
   'components/AdminDashboard.tsx': 479,
-  'components/StudentDashboard.tsx': 316,
   'components/InstructorDashboard.tsx': 190,
   'components/ProfileView.tsx': 193,
 };
@@ -109,14 +112,33 @@ describe('escada tipográfica nas superfícies convertidas', () => {
 
   it('a monoespaçada não é usada como enfeite', () => {
     /*
-     * Ela ficou só onde carrega informação: o <pre> de código de aula, onde
-     * largura fixa mostra indentação e distingue `l` de `1` de `I`.
+     * Ela aparecia em sobretítulo, número de indicador, rótulo e data — 228
+     * vezes —, e em nenhum desses lugares carrega informação.
+     *
+     * A exceção é UMA, e é verificada abaixo em vez de apenas permitida.
      */
     for (const alvo of CONVERTIDAS) {
       for (const { caminho, texto } of ler(alvo)) {
+        if (caminho.endsWith('LessonCodeBlock.tsx')) continue;
+
         expect(texto.match(/\bfont-mono\b/g) ?? [], caminho).toEqual([]);
       }
     }
+  });
+
+  it('a única monoespaçada que fica está no <pre> de código', () => {
+    /*
+     * Ali a largura fixa carrega informação: mostra a indentação e distingue
+     * `l` de `1` de `I`. Este teste existe para a exceção não virar porta
+     * aberta — se ela sair do `<pre>`, cai.
+     */
+    const texto = readFileSync(join(RAIZ, 'components', 'student', 'LessonCodeBlock.tsx'), 'utf-8');
+    const usos = texto.match(/\bfont-mono\b/g) ?? [];
+
+    expect(usos).toHaveLength(1);
+    // O `<pre>` e a classe com `font-mono` estão na mesma marcação.
+    const trecho = texto.slice(texto.indexOf('<pre'), texto.indexOf('</pre>'));
+    expect(trecho).toContain('font-mono');
   });
 });
 

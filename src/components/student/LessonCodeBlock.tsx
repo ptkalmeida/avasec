@@ -85,7 +85,7 @@ export const LessonCodeBlock: React.FC<LessonCodeBlockProps> = ({ code, language
   return (
     <figure className="my-5 space-y-2">
       {caption && (
-        <figcaption className="text-[11px] font-bold text-teal-700">{caption}</figcaption>
+        <figcaption className="text-apoio font-semibold text-teal-700">{caption}</figcaption>
       )}
 
       <div
@@ -100,8 +100,8 @@ export const LessonCodeBlock: React.FC<LessonCodeBlockProps> = ({ code, language
           }`}
         >
           <span
-            className={`text-[10px] font-mono font-black uppercase tracking-wider ${
-              isLight ? 'text-slate-500' : 'text-slate-400'
+            className={`text-sobretitulo uppercase ${
+              isLight ? 'text-escult-ink-2' : 'text-escult-ink-claro'
             }`}
           >
             {label}
@@ -114,7 +114,7 @@ export const LessonCodeBlock: React.FC<LessonCodeBlockProps> = ({ code, language
               title={isLight ? 'Usar fundo escuro' : 'Usar fundo claro'}
               aria-label={isLight ? 'Usar fundo escuro' : 'Usar fundo claro'}
               className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                isLight ? 'text-slate-500 hover:bg-slate-150' : 'text-slate-400 hover:bg-slate-800'
+                isLight ? 'text-escult-ink-2 hover:bg-slate-150' : 'text-escult-ink-claro hover:bg-slate-800'
               }`}
             >
               {isLight ? <Moon className="h-3.5 w-3.5" /> : <Sun className="h-3.5 w-3.5" />}
@@ -124,7 +124,7 @@ export const LessonCodeBlock: React.FC<LessonCodeBlockProps> = ({ code, language
               type="button"
               onClick={copy}
               title="Copiar código"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sobretitulo uppercase transition-colors cursor-pointer ${
                 isLight
                   ? 'text-slate-600 hover:bg-slate-150'
                   : 'text-slate-300 hover:bg-slate-800'
@@ -155,7 +155,7 @@ export const LessonCodeBlock: React.FC<LessonCodeBlockProps> = ({ code, language
             </SyntaxHighlighter>
           ) : (
             <pre
-              className={`m-0 px-4 py-3.5 text-[12px] leading-relaxed font-mono ${
+              className={`m-0 px-4 py-3.5 text-apoio leading-relaxed font-mono ${
                 isLight ? 'text-slate-800' : 'text-slate-200'
               }`}
             >

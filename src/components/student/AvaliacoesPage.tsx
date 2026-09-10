@@ -200,7 +200,7 @@ const ProvaEmAndamento: React.FC<{
             <span className="text-slate-350">•</span>
             <span>Rendimento: <span className="font-bold text-teal-600">{resultado.scorePercent}%</span></span>
           </div>
-          <p className="mx-auto max-w-md text-[11px] font-medium leading-relaxed text-slate-700">
+          <p className="mx-auto max-w-md text-rotulo font-medium leading-relaxed text-slate-700">
             {resultado.passed
               ? `Você atingiu ${resultado.scorePercent}% de aproveitamento.`
               : `Você atingiu ${resultado.scorePercent}% de aproveitamento. O mínimo recomendado para consolidar o conteúdo é ${QUIZ_PASS_THRESHOLD}%.`}
@@ -209,19 +209,19 @@ const ProvaEmAndamento: React.FC<{
 
         {erradas.length > 0 && (
           <div className="space-y-3 rounded-2xl border border-amber-200/50 bg-amber-50/10 p-4">
-            <h4 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-800">
+            <h4 className="flex items-center gap-1.5 text-sobretitulo uppercase text-amber-800">
               <Info className="h-4 w-4" />
               <span>Tópicos recomendados para revisão</span>
             </h4>
             <div className="space-y-2.5">
               {erradas.map((q) => (
-                <div key={q.id} className="space-y-1 rounded-lg border border-slate-200 bg-white p-3 text-left text-[11px]">
+                <div key={q.id} className="space-y-1 rounded-lg border border-slate-200 bg-white p-3 text-left text-rotulo">
                   <span className="block font-bold text-slate-800">
                     Questão {quiz.questions.indexOf(q) + 1}: {q.questionText}
                   </span>
                   {q.recommendedModule && (
                     <div className="mt-1.5 flex items-center gap-1.5 text-xs">
-                      <span className="rounded bg-amber-100 px-2 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-amber-800">
+                      <span className="rounded bg-amber-100 px-2 py-0.5 text-sobretitulo uppercase text-amber-800">
                         Módulo recomendado
                       </span>
                       <strong className="font-semibold text-amber-750">{q.recommendedModule}</strong>
@@ -234,7 +234,7 @@ const ProvaEmAndamento: React.FC<{
         )}
 
         {resultado.passed && erradas.length === 0 && (
-          <p className="rounded-2xl border border-emerald-100 bg-emerald-50/20 p-4 text-center text-[11px] text-slate-650">
+          <p className="rounded-2xl border border-emerald-100 bg-emerald-50/20 p-4 text-center text-rotulo text-slate-650">
             <Sparkles className="mr-1 -mt-0.5 inline-block h-3.5 w-3.5 text-amber-500" />
             Você acertou todas as questões.
           </p>
@@ -245,7 +245,7 @@ const ProvaEmAndamento: React.FC<{
             <button
               type="button"
               onClick={recomecar}
-              className="cursor-pointer rounded-xl bg-amber-600 px-6 py-3 text-xs font-black uppercase tracking-wider text-white transition-all hover:bg-amber-500"
+              className="cursor-pointer rounded-xl bg-amber-600 px-6 py-3 text-sobretitulo uppercase text-white transition-all hover:bg-amber-500"
             >
               Tentar novamente
             </button>
@@ -264,7 +264,7 @@ const ProvaEmAndamento: React.FC<{
 
   if (!questao) {
     return (
-      <p className="rounded-2xl border border-dashed border-slate-250 p-8 text-center text-xs text-slate-500">
+      <p className="rounded-2xl border border-dashed border-slate-250 p-8 text-center text-xs text-escult-ink-2">
         Esta avaliação não tem questões cadastradas.
       </p>
     );
@@ -277,9 +277,9 @@ const ProvaEmAndamento: React.FC<{
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+      <div className="flex items-center justify-between text-rotulo font-semibold text-escult-ink-2">
         <span>Questão {idx + 1} de {total}</span>
-        <span className="font-mono">{percentual(idx, total)}% concluído</span>
+        <span className="">{percentual(idx, total)}% concluído</span>
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
         <div
@@ -289,12 +289,12 @@ const ProvaEmAndamento: React.FC<{
       </div>
 
       <div className="space-y-3 rounded-2xl border border-slate-150 bg-slate-50/50 p-5">
-        <span className="text-[10px] font-black uppercase tracking-wider text-teal-600">Enunciado</span>
+        <span className="text-sobretitulo uppercase text-teal-600">Enunciado</span>
         <h3 className="text-sm font-bold leading-relaxed text-slate-800">{questao.questionText}</h3>
       </div>
 
       <div className="space-y-2.5">
-        <span className="block text-[10px] font-black uppercase tracking-wider text-slate-400">
+        <span className="block text-sobretitulo uppercase text-escult-ink-2">
           Alternativas
         </span>
         {questao.options.map((opt, optIdx) => {
@@ -302,7 +302,7 @@ const ProvaEmAndamento: React.FC<{
           const correta = questao.correctOptionIndex === optIdx;
 
           let caixa = 'border-slate-200 bg-white text-slate-700 hover:border-teal-500 hover:bg-slate-50/50';
-          let bolinha = 'border-slate-300 bg-white text-slate-400';
+          let bolinha = 'border-slate-300 bg-white text-escult-ink-2';
           if (selecionada && !respondida) {
             caixa = 'border-teal-500 bg-teal-50/10 font-bold text-teal-950';
             bolinha = 'border-teal-600 bg-teal-600 text-white';
@@ -313,7 +313,7 @@ const ProvaEmAndamento: React.FC<{
             caixa = 'border-amber-400 bg-amber-50/30 font-bold text-slate-700';
             bolinha = 'border-amber-500 bg-amber-500 text-white';
           } else if (respondida) {
-            caixa = 'border-slate-100 bg-slate-50/30 text-slate-400 cursor-not-allowed';
+            caixa = 'border-slate-100 bg-slate-50/30 text-escult-ink-2 cursor-not-allowed';
             bolinha = 'border-slate-200 bg-slate-50 text-slate-300';
           }
 
@@ -325,7 +325,7 @@ const ProvaEmAndamento: React.FC<{
               onClick={() => setRespostas((prev) => ({ ...prev, [questao.id]: optIdx }))}
               className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3.5 text-left text-xs transition-all ${caixa}`}
             >
-              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${bolinha}`}>
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-apoio font-bold ${bolinha}`}>
                 {String.fromCharCode(65 + optIdx)}
               </span>
               <span className="flex-1 leading-snug">{opt}</span>
@@ -341,7 +341,7 @@ const ProvaEmAndamento: React.FC<{
           onClick={() => setRespondidas((prev) => ({ ...prev, [questao.id]: true }))}
           className={`flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all ${
             escolhida === undefined
-              ? 'cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400'
+              ? 'cursor-not-allowed border border-slate-200 bg-slate-100 text-escult-ink-2'
               : 'cursor-pointer bg-teal-600 text-white shadow-xs hover:bg-teal-500'
           }`}
         >
@@ -366,8 +366,8 @@ const ProvaEmAndamento: React.FC<{
               </strong>
             </div>
 
-            <div className="space-y-2 border-t border-slate-200/30 pt-3 text-[11px]">
-              <span className="block text-[9px] font-bold uppercase tracking-wider text-slate-500">
+            <div className="space-y-2 border-t border-slate-200/30 pt-3 text-rotulo">
+              <span className="block text-sobretitulo uppercase text-escult-ink-2">
                 Gabarito da questão
               </span>
               <p className="font-semibold text-slate-800">
@@ -380,7 +380,7 @@ const ProvaEmAndamento: React.FC<{
 
               {(questao.reviewMessage || questao.recommendedModule) && (
                 <div className="mt-2 rounded-lg border border-slate-200/10 bg-white/40 p-2.5">
-                  <span className="block font-mono text-[9px] font-bold uppercase tracking-wider text-slate-500">
+                  <span className="block text-sobretitulo uppercase text-escult-ink-2">
                     Indicação de estudo
                   </span>
                   {questao.reviewMessage && (
@@ -397,7 +397,7 @@ const ProvaEmAndamento: React.FC<{
           </div>
 
           {erro !== null && (
-            <p className="flex items-start gap-1.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-[11px] font-bold leading-relaxed text-rose-700">
+            <p className="flex items-start gap-1.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-rotulo font-bold leading-relaxed text-rose-700">
               <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
               {erro}
             </p>
@@ -425,7 +425,7 @@ const ProvaEmAndamento: React.FC<{
               type="button"
               disabled={enviando}
               onClick={() => (ultima ? finalizar() : setIdx((i) => i + 1))}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-teal-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white transition-all hover:bg-teal-500 disabled:opacity-60"
+              className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-teal-600 px-5 py-3 text-sobretitulo uppercase text-white transition-all hover:bg-teal-500 disabled:opacity-60"
             >
               <span>
                 {enviando ? 'Enviando...' : ultima ? 'Ver resultado final' : 'Próxima pergunta'}
@@ -441,20 +441,20 @@ const ProvaEmAndamento: React.FC<{
       <div className="border-t border-slate-100 pt-4">
         {confirmandoSaida ? (
           <div className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
-            <span className="flex-1 text-[11px] font-bold text-amber-900">
+            <span className="flex-1 text-rotulo font-bold text-amber-900">
               Sair agora descarta as respostas desta tentativa.
             </span>
             <button
               type="button"
               onClick={descartarESair}
-              className="cursor-pointer rounded-lg bg-rose-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white hover:bg-rose-500"
+              className="cursor-pointer rounded-lg bg-rose-600 px-3 py-1.5 text-sobretitulo uppercase text-white hover:bg-rose-500"
             >
               Sair e descartar
             </button>
             <button
               type="button"
               onClick={continuarProva}
-              className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-600 hover:bg-slate-100"
+              className="cursor-pointer rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sobretitulo uppercase text-slate-600 hover:bg-slate-100"
             >
               Continuar prova
             </button>
@@ -463,7 +463,7 @@ const ProvaEmAndamento: React.FC<{
           <button
             type="button"
             onClick={() => setConfirmandoSaida(true)}
-            className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-450 hover:text-slate-700"
+            className="cursor-pointer text-sobretitulo uppercase text-escult-ink-2 hover:text-slate-700"
           >
             Sair do teste
           </button>
@@ -514,7 +514,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
       <button
         type="button"
         onClick={quiz ? () => setEmAndamento(null) : onBack}
-        className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
+        className="inline-flex cursor-pointer items-center gap-1.5 text-sobretitulo uppercase text-escult-ink-2 hover:text-slate-800"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         {quiz ? 'Voltar às avaliações' : 'Voltar ao curso'}
@@ -522,7 +522,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
 
       <header className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50/25 p-5">
         <div className="space-y-1">
-          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-amber-700">
+          <span className="flex items-center gap-1.5 text-sobretitulo uppercase text-amber-700">
             <CheckSquare className="h-3.5 w-3.5" />
             Testes e avaliações
           </span>
@@ -532,22 +532,22 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
         </div>
 
         {!quiz && doCurso.length > 0 && (
-          <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t border-amber-100 pt-3 text-[11px]">
+          <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t border-amber-100 pt-3 text-rotulo">
             <div>
-              <dt className="font-bold uppercase tracking-wide text-slate-450">Avaliações</dt>
-              <dd className="font-mono text-sm font-black text-slate-900">{doCurso.length}</dd>
+              <dt className="font-bold uppercase tracking-wide text-escult-ink-2">Avaliações</dt>
+              <dd className="text-sm font-black text-slate-900">{doCurso.length}</dd>
             </div>
             <div>
-              <dt className="flex items-center gap-1 font-bold uppercase tracking-wide text-slate-450">
+              <dt className="flex items-center gap-1 font-bold uppercase tracking-wide text-escult-ink-2">
                 <Award className="h-3 w-3 text-emerald-600" /> Aprovadas
               </dt>
-              <dd className="font-mono text-sm font-black text-emerald-700">
+              <dd className="text-sm font-black text-emerald-700">
                 {aprovadas} de {doCurso.length}
               </dd>
             </div>
             <div>
-              <dt className="font-bold uppercase tracking-wide text-slate-450">Mínimo</dt>
-              <dd className="font-mono text-sm font-black text-slate-900">{QUIZ_PASS_THRESHOLD}%</dd>
+              <dt className="font-bold uppercase tracking-wide text-escult-ink-2">Mínimo</dt>
+              <dd className="text-sm font-black text-slate-900">{QUIZ_PASS_THRESHOLD}%</dd>
             </div>
           </dl>
         )}
@@ -569,7 +569,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
           <strong className="block text-sm font-bold text-slate-700">
             Este curso ainda não tem avaliações.
           </strong>
-          <span className="mx-auto mt-1 block max-w-md text-xs leading-relaxed text-slate-500">
+          <span className="mx-auto mt-1 block max-w-md text-xs leading-relaxed text-escult-ink-2">
             Quando o professor publicar um teste, ele aparece aqui com o número de
             questões e a sua nota.
           </span>
@@ -587,7 +587,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
               >
                 <div className="min-w-0 space-y-1">
                   <strong className="block text-xs font-bold leading-snug text-slate-900">{q.title}</strong>
-                  <span className="block text-[10px] text-slate-450">
+                  <span className="block text-apoio text-escult-ink-2">
                     {q.questions.length} {q.questions.length === 1 ? 'questão' : 'questões'}
                     {tentativa && ` · ${anteriores.length === 0 ? 'respondida' : 'tentativa vigente'} em ${textoDaTentativa(tentativa)}`}
                   </span>
@@ -599,7 +599,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
                     */}
                   {anteriores.length > 0 && (
                     <details className="group">
-                      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-slate-450 hover:text-slate-700">
+                      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-sobretitulo uppercase text-escult-ink-2 hover:text-slate-700">
                         <History className="h-3 w-3" />
                         {anteriores.length === 1
                           ? '1 tentativa anterior'
@@ -607,8 +607,8 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
                       </summary>
                       <ul className="mt-1.5 space-y-1 border-l border-slate-200 pl-2.5">
                         {anteriores.map((t) => (
-                          <li key={t.id} className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                            <span className="font-mono font-bold text-slate-600">{t.scorePercent}%</span>
+                          <li key={t.id} className="flex items-center gap-1.5 text-apoio text-escult-ink-2">
+                            <span className="font-bold text-slate-600">{t.scorePercent}%</span>
                             <span className="text-slate-350">·</span>
                             <span>{textoDaTentativa(t)}</span>
                             {t.passed && <span className="font-bold text-emerald-700">aprovado</span>}
@@ -621,7 +621,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
 
                 <div className="flex shrink-0 items-center gap-2">
                   {tentativa && (
-                    <span className={`rounded-md border px-2 py-0.5 text-[10px] font-black uppercase ${
+                    <span className={`rounded-md border px-2 py-0.5 text-sobretitulo font-black uppercase ${
                       tentativa.passed
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                         : 'border-amber-200 bg-amber-50 text-amber-800'
@@ -632,7 +632,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
                   <button
                     type="button"
                     onClick={() => setEmAndamento(q.id)}
-                    className={`cursor-pointer rounded-xl px-4 py-2 text-[10px] font-black uppercase tracking-wider transition-all ${
+                    className={`cursor-pointer rounded-xl px-4 py-2 text-sobretitulo font-black uppercase tracking-wider transition-all ${
                       tentativa
                         ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'
                         : 'bg-amber-600 text-white shadow-xs hover:bg-amber-500'
