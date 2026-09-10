@@ -35,6 +35,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { features } from './config/features';
+import { NavegacaoPublica } from './components/portal/NavegacaoPublica';
+import { MENU_PUBLICO } from './config/menuPublico';
 import { demoProfiles } from './dev/demoProfiles';
 // @ts-ignore
 
@@ -192,7 +194,6 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   const [dismissedNotice, setDismissedNotice] = useState(false);
   const [loginRoleTab, setLoginRoleTab] = useState<'student' | 'instructor' | 'admin'>('student');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [globalSearchQuery, setGlobalSearchQuery] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -670,17 +671,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   const isPublicPage = currentView !== 'active_app' && currentView !== 'perfil';
 
   // Fonte única do menu público (usada no desktop e no dropdown mobile).
-  const publicNavItems: { label: string; action: () => void }[] = [
-    { label: 'Início', action: () => goToPage('landing', "Voltando para o topo da Página Inicial.") },
-    { label: 'O AVA', action: () => goToPage('o-ava', "O AVA") },
-    { label: 'O Projeto', action: () => goToPage('o-projeto', "O Projeto") },
-    { label: 'Cursos', action: () => goToPage('cursos', "Cursos") },
-    { label: 'Certificados', action: () => goToPage('certificados', "Certificados") },
-    { label: 'Calendário', action: () => goToPage('calendario', "Calendário") },
-    { label: 'Notícias', action: () => goToPage('noticias', "Notícias") },
-    { label: 'Dúvidas', action: () => goToPage('duvidas', "Dúvidas") },
-    { label: 'Orientações', action: () => goToPage('orientacoes', "Orientações") },
-  ];
+  /*
+   * `publicNavItems` (nove entradas) foi REMOVIDO. A estrutura do menu publico
+   * vive em `src/config/menuPublico.ts`, com quatro entradas — dois links e dois
+   * grupos — e a regra de qual delas acende em cada pagina, que e testada.
+   */
 
   return (
     <div className={`min-h-screen bg-white flex flex-col justify-between text-slate-800 font-sans selection:bg-slate-900 selection:text-white transition-colors duration-300 ${accessibilitySettings.highContrast ? 'high-contrast-active' : ''} ${textSizeMultiplier !== 1.0 ? 'text-scaled-active' : ''}`}>
@@ -744,8 +739,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       )}
 
       {/* 4. AVASEC Branded Header Section */}
-      <header className="sticky top-0 z-40 bg-white/95 border-b border-slate-200/80 backdrop-blur-md shadow-3xs">
-        <div className="mx-auto max-w-7xl px-4 h-20 md:px-6 flex items-center justify-between">
+      {/*
+        Bloco 2 do handoff. O `backdrop-blur` com `/95` saiu: sobre um heroi
+        colorido o texto do cabecalho ficava com contraste variavel conforme o
+        que rolava atras. Fundo solido resolve, e a altura vai a 84px para caber
+        o menu de 15px sem aperto.
+      */}
+      <header className="sticky top-0 z-40 bg-white border-b border-[#e4e1dc] shadow-3xs">
+        <div className="mx-auto max-w-7xl px-4 h-[84px] md:px-6 flex items-center justify-between gap-4">
           
           {/* Logo & Brand title */}
           <div 
@@ -760,114 +761,106 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             <AvasecLogo />
           </div>
 
-          {/* Desktop Navigation Links */}
-          {isPublicPage && !isSearchOpen && (
-            <nav className="hidden lg:flex items-center gap-4 text-[11px] font-black text-slate-650 uppercase tracking-widest">
-              {publicNavItems.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={item.action}
-                  className="hover:text-[#540D6E] transition-colors pb-0.5 cursor-pointer whitespace-nowrap"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-          )}
+          {/*
+            O menu nao desaparece mais quando a busca abre: a busca deixou de ser
+            uma lupa que expande e virou campo permanente, entao nao ha mais o
+            que esconder. `!isSearchOpen` estava aqui por causa daquele arranjo.
+          */}
+          {isPublicPage && <NavegacaoPublica view={currentView} irPara={goToPage} />}
 
           {/* Right Header Controls / Sign In or Sign Out buttons */}
           <div className="flex items-center gap-3">
-            {/* Interactive collapsible search inside the header */}
+            {/*
+              Busca PERMANENTE, e nao uma lupa de 18px que expande um campo.
+
+              A lupa custava dois cliques e escondia a propria existencia da
+              busca; ao abrir, ela ainda ocultava o menu inteiro (`!isSearchOpen`
+              na nav). Campo visivel resolve os dois de uma vez.
+
+              E o clique num resultado de curso deixou de mentir: chamava
+              `goToPage('cursos')` anunciando "Navegando para o curso X" e
+              entregava o catalogo inteiro. Nao existe pagina publica de detalhe
+              do curso (o handoff registra isso como tela que falta), entao aqui
+              se faz o proximo passo honesto: abrir o catalogo JA FILTRADO
+              naquele curso, escrevendo o titulo no filtro que o catalogo usa.
+            */}
             {isPublicPage && (
-              <div className="relative z-50">
-                {isSearchOpen ? (
-                  <div className="flex items-center bg-slate-100 hover:bg-slate-150 rounded-xl px-2.5 py-1.5 transition-all text-slate-800 w-44 sm:w-60 border border-slate-200">
-                    <Search className="h-3.5 w-3.5 text-slate-400 shrink-0 mr-1.5" />
-                    <input 
-                      type="text"
-                      placeholder="Buscar no portal..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      autoFocus
-                      className="bg-transparent border-0 outline-none text-xs w-full font-medium text-slate-850"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') {
-                          setIsSearchOpen(false);
-                          setSearchQuery('');
-                        }
-                      }}
-                    />
-                    <button 
-                      onClick={() => { setIsSearchOpen(false); setSearchQuery(''); }}
-                      className="p-0.5 text-slate-400 hover:text-slate-850 rounded-full hover:bg-slate-200 cursor-pointer shrink-0"
+              <div className="relative z-50 hidden md:block">
+                <div className="flex items-center bg-[#f4f2ef] rounded-[10px] border border-[#e4e1dc] w-[230px] pl-3 pr-2 py-2.5 focus-within:border-[#540D6E] transition-colors">
+                  <Search className="h-4 w-4 text-[#6b7385] shrink-0 mr-2" aria-hidden="true" />
+                  <input
+                    type="text"
+                    placeholder="Buscar cursos e notícias"
+                    aria-label="Buscar cursos e notícias no portal"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="bg-transparent border-0 outline-none text-[14px] w-full font-medium text-[#1d2432] placeholder:text-[#6b7385]"
+                    onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }}
+                  />
+                  {searchQuery.trim().length > 0 && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      title="Limpar busca"
+                      aria-label="Limpar busca"
+                      className="p-0.5 text-[#6b7385] hover:text-[#1d2432] rounded-full hover:bg-[#e4e1dc] cursor-pointer shrink-0"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-3.5 w-3.5" />
                     </button>
+                  )}
+                </div>
 
-                    {/* Search Results Dropdown Popover */}
-                    {searchQuery.trim().length > 0 && (
-                      <div className="absolute top-[calc(100%+8px)] right-0 w-80 bg-white border border-slate-250 shadow-xl rounded-2xl p-4.5 z-[100] text-slate-800 text-left space-y-3.5 animate-in fade-in slide-in-from-top-3 duration-205 max-h-[350px] overflow-y-auto">
-                        <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Resultados da Busca</span>
-                        
-                        {matchedCourses.length === 0 && matchedNews.length === 0 && (
-                          <p className="text-xs text-slate-400 py-2">Nenhum resultado encontrado para "{searchQuery}"</p>
-                        )}
+                {searchQuery.trim().length > 0 && (
+                  <div className="absolute top-[calc(100%+8px)] right-0 w-80 bg-white border border-[#e4e1dc] shadow-xl rounded-[14px] p-4 z-[100] text-[#1d2432] text-left space-y-3.5 animate-in fade-in slide-in-from-top-2 duration-200 max-h-[350px] overflow-y-auto">
+                    <span className="text-[13px] font-semibold text-[#6b7385] block">Resultados da busca</span>
 
-                        {matchedCourses.length > 0 && (
-                          <div className="space-y-1.5">
-                            <span className="text-[9px] font-bold text-[#540D6E] block uppercase tracking-wide">Cursos ({matchedCourses.length})</span>
-                            {matchedCourses.map((c, i) => (
-                              <div 
-                                key={i}
-                                onClick={() => {
-                                  setIsSearchOpen(false);
-                                  setSearchQuery('');
-                                  goToPage('cursos', `Navegando para o curso ${c.title}`);
-                                }}
-                                className="hover:bg-slate-50 p-2 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-100 flex items-center gap-2"
-                              >
-                                <div className="h-8 w-8 rounded-lg bg-[#540D6E]/5 text-[#540D6E] text-xs font-bold font-serif flex items-center justify-center shrink-0">
-                                  C
-                                </div>
-                                <div className="min-w-0">
-                                  <span className="block text-xs font-bold text-slate-800 truncate leading-snug">{c.title}</span>
-                                  <span className="block text-[10px] text-slate-450 truncate">{c.category}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                    {matchedCourses.length === 0 && matchedNews.length === 0 && (
+                      <p className="text-[14px] text-[#4a5468] py-2">Nada encontrado para "{searchQuery}".</p>
+                    )}
 
-                        {matchedNews.length > 0 && (
-                          <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                            <span className="text-[9px] font-bold text-[#EE4266] block uppercase tracking-wide">Notícias ({matchedNews.length})</span>
-                            {matchedNews.map((n, i) => (
-                              <div 
-                                key={i}
-                                onClick={() => {
-                                  // Mantém `searchQuery` para a página abrir já filtrada.
-                                  setIsSearchOpen(false);
-                                  goToPage('noticias', `Navegando para notícia: ${n.title}`);
-                                }}
-                                className="hover:bg-slate-50 p-2 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-100 flex items-center gap-2"
-                              >
-                                <div className="h-8 w-8 rounded-lg bg-[#EE4266]/5 text-[#EE4266] text-xs font-bold font-serif flex items-center justify-center shrink-0">
-                                  N
-                                </div>
-                                <div className="min-w-0">
-                                  <span className="block text-xs font-bold text-slate-800 truncate leading-snug">{n.title}</span>
-                                  <span className="block text-[10px] text-slate-450 truncate">{n.tag}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                    {matchedCourses.length > 0 && (
+                      <div className="space-y-1.5">
+                        <span className="text-[13px] font-semibold text-[#540D6E] block">Cursos ({matchedCourses.length})</span>
+                        {matchedCourses.map((c, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setCourseSearch(c.title);
+                              setSearchQuery('');
+                              goToPage('cursos', `Catálogo filtrado no curso ${c.title}`);
+                            }}
+                            className="w-full text-left hover:bg-[#f4f2ef] p-2 rounded-[10px] transition-all cursor-pointer flex items-center gap-2"
+                          >
+                            <div className="h-8 w-8 rounded-lg bg-[#540D6E]/5 text-[#540D6E] text-xs font-bold font-serif flex items-center justify-center shrink-0">C</div>
+                            <div className="min-w-0">
+                              <span className="block text-[14px] font-semibold text-[#1d2432] truncate leading-snug">{c.title}</span>
+                              <span className="block text-[13px] text-[#6b7385] truncate">{c.category}</span>
+                            </div>
+                          </button>
+                        ))}
                       </div>
                     )}
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 mr-1 text-slate-400">
-                    <span title="Buscar no Site" onClick={() => setIsSearchOpen(true)} className="cursor-pointer"><Search className="h-4.5 w-4.5 hover:text-slate-800 transition-colors" /></span>
+
+                    {matchedNews.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-[#e4e1dc]">
+                        <span className="text-[13px] font-semibold text-[#EE4266] block">Notícias ({matchedNews.length})</span>
+                        {matchedNews.map((n, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              // Mantem `searchQuery` para a pagina abrir filtrada.
+                              goToPage('noticias', `Notícias filtradas em: ${n.title}`);
+                            }}
+                            className="w-full text-left hover:bg-[#f4f2ef] p-2 rounded-[10px] transition-all cursor-pointer flex items-center gap-2"
+                          >
+                            <div className="h-8 w-8 rounded-lg bg-[#EE4266]/5 text-[#EE4266] text-xs font-bold font-serif flex items-center justify-center shrink-0">N</div>
+                            <div className="min-w-0">
+                              <span className="block text-[14px] font-semibold text-[#1d2432] truncate leading-snug">{n.title}</span>
+                              <span className="block text-[13px] text-[#6b7385] truncate">{n.tag}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1010,7 +1003,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             ) : (
               <div className="flex items-center gap-2">
                 {/* Padlock and User icons (already interactive login triggers) */}
-                {!isSearchOpen && (
+                {(
                   <div className="hidden sm:flex items-center gap-3.5 mr-2 text-slate-400 border-r border-slate-200 pr-4">
                     <span title="Simular Conexão" onClick={() => setIsLoginModalOpen(true)} className="cursor-pointer"><Lock className="h-4.5 w-4.5 hover:text-slate-800 transition-colors" /></span>
                     <span
@@ -1083,9 +1076,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   </div>
                 ) : (
                   <>
-                    <button 
+                    {/*
+                      Entrar deixou de ser contorno e virou o botao cheio: e a
+                      acao principal do portal para quem nao esta logado. Caixa
+                      mista e 15px, como o resto do cabecalho.
+                    */}
+                    <button
                       onClick={() => setIsLoginModalOpen(true)}
-                      className="rounded-lg border border-[#540D6E] bg-transparent hover:bg-blue-50 text-[#540D6E] px-4.5 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                      className="rounded-[10px] bg-[#540D6E] hover:bg-[#42095a] text-white px-[22px] py-3 text-[15px] font-semibold transition-all cursor-pointer whitespace-nowrap"
                     >
                       Entrar
                     </button>
@@ -1094,7 +1092,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         setIsRegisterModalOpen(true);
                         speakText("Portal de direcionamento e validação de cadastro externo aberto.");
                       }}
-                      className="rounded-lg bg-[#540D6E] hover:bg-blue-700 text-white px-4.5 py-2 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-xs"
+                      className="rounded-[10px] border border-[#540D6E] bg-white hover:bg-[#f4f2ef] text-[#540D6E] px-[18px] py-3 text-[15px] font-semibold transition-all cursor-pointer whitespace-nowrap hidden sm:block"
                     >
                       Cadastre-se
                     </button>
@@ -1128,18 +1126,48 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               transition={{ duration: 0.2 }}
               className="lg:hidden bg-white border-t border-slate-150 shadow-lg overflow-hidden"
             >
-              <div className="px-5 py-4.5 flex flex-col gap-3.5 text-left text-xs font-bold text-slate-650 uppercase tracking-widest bg-slate-50/50">
-                {publicNavItems.map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => {
-                      item.action();
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="hover:text-[#540D6E] text-left transition-colors cursor-pointer py-1 block"
-                  >
-                    {item.label}
-                  </button>
+              {/*
+                A gaveta do celular sai da MESMA estrutura do menu do desktop
+                (`MENU_PUBLICO`). Antes era a lista de nove itens, ja aposentada
+                no desktop — duas navegacoes divergindo e como um dos dois lugares
+                fica desatualizado sem ninguem notar.
+
+                Aqui os grupos aparecem abertos, com titulo: numa gaveta nao ha
+                custo de espaco, e um suspenso dentro de outro suspenso e pior que
+                a lista.
+              */}
+              <div className="px-5 py-4.5 flex flex-col gap-1 text-left bg-white">
+                {MENU_PUBLICO.map((entrada) => (
+                  entrada.tipo === 'link' ? (
+                    <button
+                      key={entrada.rotulo}
+                      onClick={() => {
+                        goToPage(entrada.view, entrada.rotulo);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="text-left text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] rounded-[10px] px-3 py-3 transition-colors cursor-pointer"
+                    >
+                      {entrada.rotulo}
+                    </button>
+                  ) : (
+                    <div key={entrada.rotulo} className="pt-2">
+                      <span className="block px-3 pb-1 text-[13px] font-semibold uppercase tracking-[0.12em] text-[#6b7385]">
+                        {entrada.rotulo}
+                      </span>
+                      {entrada.itens.map((item) => (
+                        <button
+                          key={item.rotulo}
+                          onClick={() => {
+                            goToPage(item.view, item.rotulo);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className="w-full text-left text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] rounded-[10px] px-3 py-3 transition-colors cursor-pointer"
+                        >
+                          {item.rotulo}
+                        </button>
+                      ))}
+                    </div>
+                  )
                 ))}
               </div>
             </motion.div>
@@ -1956,9 +1984,80 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
         </div>
       </div>
 
-      {/* Footer minimalista e elegante coerente com a remoção solicitada */}
-      <footer className="bg-slate-950 text-slate-500 text-center py-8 text-xs border-t border-slate-900 font-sans">
-        <p>© 2026 AVASEC — Escola Estadual da Cultura. Todos os direitos reservados.</p>
+      {/*
+        Bloco 5 do handoff: o rodape era UMA linha de copyright.
+
+        Num portal com nove paginas institucionais, o rodape e o segundo lugar
+        onde se procura o mapa do site — o primeiro e o menu, que tinha nove
+        itens de 11px sem indicacao de pagina atual. Agora ele repete a
+        organizacao do menu novo (Estudar / A Escola / Ajuda), para as duas
+        navegacoes dizerem a mesma coisa.
+
+        Os alvos sao os mesmos de `PORTAL_PATHS`; nada aqui inventa destino.
+      */}
+      <footer className="bg-[#1d2432] text-[#c3c8d2] font-sans">
+        <div className="mx-auto max-w-7xl px-8 pt-14 pb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-12">
+
+            <div className="space-y-3">
+              <strong className="block text-[22px] font-extrabold text-white tracking-tight">AVASEC</strong>
+              <p className="text-[15px] leading-relaxed text-[#c3c8d2] max-w-xs">
+                Ambiente virtual de aprendizagem da Escola Estadual da Cultura.
+              </p>
+            </div>
+
+            {[
+              {
+                titulo: 'Estudar',
+                itens: [
+                  { rotulo: 'Cursos', acao: () => goToPage('cursos', 'Cursos') },
+                  { rotulo: 'Certificados', acao: () => goToPage('certificados', 'Certificados') },
+                  { rotulo: 'Calendário', acao: () => goToPage('calendario', 'Calendário') },
+                ],
+              },
+              {
+                titulo: 'A Escola',
+                itens: [
+                  { rotulo: 'O que é o AVA', acao: () => goToPage('o-ava', 'O AVA') },
+                  { rotulo: 'O Projeto', acao: () => goToPage('o-projeto', 'O Projeto') },
+                  { rotulo: 'Notícias', acao: () => goToPage('noticias', 'Notícias') },
+                ],
+              },
+              {
+                titulo: 'Ajuda',
+                itens: [
+                  { rotulo: 'Dúvidas frequentes', acao: () => goToPage('duvidas', 'Dúvidas') },
+                  { rotulo: 'Orientações ao estudante', acao: () => goToPage('orientacoes', 'Orientações') },
+                  // Acessibilidade e janela, nao pagina: abre o mesmo painel do cabecalho.
+                  { rotulo: 'Acessibilidade', acao: () => { setIsAccessibilityOpen(true); speakText('Janela de acessibilidade aberta'); } },
+                ],
+              },
+            ].map((coluna) => (
+              <nav key={coluna.titulo} aria-label={coluna.titulo} className="space-y-3">
+                <strong className="block text-[15px] font-semibold text-white">{coluna.titulo}</strong>
+                <ul className="space-y-2">
+                  {coluna.itens.map((item) => (
+                    <li key={item.rotulo}>
+                      <button
+                        onClick={item.acao}
+                        className="text-[15px] text-[#c3c8d2] hover:text-white hover:underline underline-offset-[3px] transition-colors cursor-pointer text-left"
+                      >
+                        {item.rotulo}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+            ))}
+
+          </div>
+
+          <div className="mt-12 pt-6 border-t border-[#313a4a]">
+            <p className="text-[14px] text-[#8b93a3]">
+              © 2026 AVASEC — Escola Estadual da Cultura. Todos os direitos reservados.
+            </p>
+          </div>
+        </div>
       </footer>
 
       {/* 6. MODAL DIALOG CONTAINERS: Accessibility preferences, Site Map & Conexão Acadêmica */}

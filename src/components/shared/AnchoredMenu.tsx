@@ -30,6 +30,17 @@ interface AnchoredMenuProps {
   onClose: () => void;
   /** Largura do painel em px. */
   width?: number;
+  /**
+   * Borda do botão com que o painel se alinha.
+   *
+   * `'right'` é o padrão porque foi o caso que originou o componente: menu de
+   * três pontos na última coluna de uma tabela, onde alinhar à esquerda jogaria
+   * o painel para fora da tela. `'left'` serve ao menu de navegação do
+   * cabeçalho, onde o gatilho é um rótulo à esquerda e o painel desce sob ele.
+   *
+   * Em qualquer dos dois, o painel nunca vaza da janela.
+   */
+  align?: 'left' | 'right';
   children: React.ReactNode;
 }
 
@@ -40,6 +51,7 @@ export const AnchoredMenu: React.FC<AnchoredMenuProps> = ({
   anchor,
   onClose,
   width = 192,
+  align = 'right',
   children,
 }) => {
   const painel = React.useRef<HTMLDivElement | null>(null);
@@ -57,12 +69,12 @@ export const AnchoredMenu: React.FC<AnchoredMenuProps> = ({
     const cabeAbaixo = altura === 0 || abaixo + altura + MARGEM <= alturaJanela;
     const top = cabeAbaixo ? abaixo : Math.max(MARGEM, botao.top - 4 - altura);
 
-    // Alinhado à direita do botão, sem vazar para fora da janela.
-    const direita = botao.right - width;
-    const left = Math.min(Math.max(MARGEM, direita), Math.max(MARGEM, larguraJanela - width - MARGEM));
+    // Alinhado a uma das bordas do botão, sem vazar para fora da janela.
+    const desejado = align === 'left' ? botao.left : botao.right - width;
+    const left = Math.min(Math.max(MARGEM, desejado), Math.max(MARGEM, larguraJanela - width - MARGEM));
 
     setPos({ top, left });
-  }, [anchor, width]);
+  }, [anchor, width, align]);
 
   // Primeiro cálculo antes da pintura: evita o menu "pular" de lugar.
   React.useLayoutEffect(() => {
