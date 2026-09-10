@@ -70,7 +70,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, onHome, rotuloIni
 
               {ehAtual || degrau.onClick === undefined ? (
                 <span
-                  className="text-[15px] font-semibold text-[#1d2432] whitespace-nowrap"
+                  className="text-rotulo font-semibold text-[#1d2432] whitespace-nowrap"
                   aria-current={ehAtual ? 'page' : undefined}
                 >
                   {degrau.rotulo}
@@ -78,7 +78,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, onHome, rotuloIni
               ) : (
                 <button
                   onClick={degrau.onClick}
-                  className="text-[15px] font-medium text-[#540D6E] underline underline-offset-[3px] hover:text-[#42095a] transition-colors cursor-pointer whitespace-nowrap"
+                  className="text-rotulo font-medium text-[#540D6E] underline underline-offset-[3px] hover:text-[#42095a] transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {degrau.rotulo}
                 </button>

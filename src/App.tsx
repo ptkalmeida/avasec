@@ -62,7 +62,7 @@ function AvasecLogo() {
       </svg>
       <div className="leading-none text-left">
         <span className="font-sans font-black text-2xl tracking-tighter text-[#540D6E] block">AVASEC</span>
-        <span className="text-[7.5px] uppercase tracking-widest text-slate-500 font-bold block mt-0.5">Escola Estadual da Cultura</span>
+        <span className="text-sobretitulo uppercase text-escult-ink-2 block mt-0.5">Escola Estadual da Cultura</span>
       </div>
     </div>
   );
@@ -694,45 +694,94 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       {/* Dynamic Style Injections for High Contrast and Text Scaler */}
       {accessibilitySettings.highContrast && (
         <style dangerouslySetInnerHTML={{ __html: `
-          .high-contrast-active, .high-contrast-active * {
-            background-color: #000000 !important;
-            color: #ffffff !important;
-            border-color: #ffff00 !important;
+          /*
+            Alto contraste como TEMA DE TOKENS, e nao como sobrescrita cega.
+            Ha um limite real, e ele esta escrito aqui porque volta a morder
+            quem tentar "so remapear a paleta":
+
+            1. O Tailwind 4 emite 'var(--color-*)', entao redefinir token cascateia
+               para toda classe da paleta. Mas o MESMO passo serve papeis opostos
+               neste codigo: 'text-slate-300' e TEXTO em 37 lugares e
+               'bg-slate-900' e FUNDO em 84. Mapear "tom claro = fundo" inverteria
+               os dois e apagaria o texto.
+            2. Ha 337 cores arbitrarias ('bg-[#540D6E]'), que sao valor literal e
+               nao passam por token nenhum.
+
+            Por isso o fundo e o texto ainda precisam de uma regra ampla — mas
+            agora ela tem excecoes nomeadas, os valores vivem em tokens (um lugar
+            para mudar) e o foco existe, o que antes nao acontecia.
+          */
+          .high-contrast-active {
+            --hc-fundo: #000000;
+            --hc-texto: #ffffff;
+            --hc-borda: #ffff00;
+            --hc-acao: #ffff00;
+            --hc-foco: #ffffff;
+          }
+
+          /*
+            ':not(svg):not(svg *)' e o que impede o estrago antigo: a regra
+            universal pintava o interior dos icones e do logotipo de preto.
+          */
+          .high-contrast-active,
+          .high-contrast-active *:not(svg):not(svg *):not(img):not(video):not(canvas) {
+            background-color: var(--hc-fundo) !important;
+            color: var(--hc-texto) !important;
+            border-color: var(--hc-borda) !important;
             text-shadow: none !important;
             box-shadow: none !important;
+            background-image: none !important;
           }
-          .high-contrast-active a, .high-contrast-active button, .high-contrast-active [role="button"] {
-            background-color: #000000 !important;
-            color: #ffff00 !important;
-            border: 2px solid #ffff00 !important;
+
+          .high-contrast-active a,
+          .high-contrast-active button,
+          .high-contrast-active [role="button"] {
+            color: var(--hc-acao) !important;
+            border: 2px solid var(--hc-borda) !important;
             text-decoration: underline !important;
           }
-          .high-contrast-active a:hover, .high-contrast-active button:hover {
-            background-color: #ffff00 !important;
-            color: #000000 !important;
+
+          .high-contrast-active a:hover,
+          .high-contrast-active button:hover {
+            background-color: var(--hc-acao) !important;
+            color: var(--hc-fundo) !important;
           }
-          .high-contrast-active input, .high-contrast-active textarea, .high-contrast-active select {
-            background-color: #000000 !important;
-            color: #ffffff !important;
-            border: 2.5px solid #ffff00 !important;
+
+          /*
+            Foco visivel: nao existia nenhuma regra de foco aqui. Num tema que
+            zera sombra e fundo, o anel de foco padrao do navegador desaparece —
+            e quem usa alto contraste com frequencia navega por teclado.
+          */
+          .high-contrast-active :focus-visible {
+            outline: 3px solid var(--hc-foco) !important;
+            outline-offset: 2px !important;
           }
+
+          .high-contrast-active input,
+          .high-contrast-active textarea,
+          .high-contrast-active select {
+            background-color: var(--hc-fundo) !important;
+            color: var(--hc-texto) !important;
+            border: 2.5px solid var(--hc-borda) !important;
+          }
+
           /*
             A regra que existia aqui era:
               svg, svg * { stroke:#ffff00 !important; fill:none !important }
-            e ela APAGAVA o logotipo (que e desenhado com 'fill'), os icones dos
-            cartoes e qualquer grafico. Junto com o 'background:#000' universal,
-            zerava tambem o contorno das imagens. O recurso quebrava a pagina
-            para quem mais precisa dele.
-
-            Agora: os icones do lucide-react desenham com 'stroke=currentColor',
-            entao definir a COR do svg basta para deixa-los amarelos — sem forcar
-            'fill:none' em todo mundo, o que preserva logotipo e icone decorativo.
+            e ela APAGAVA o logotipo (desenhado com 'fill'), os icones dos cartoes
+            e qualquer grafico. Os icones do lucide-react desenham com
+            'stroke=currentColor', entao definir a COR do svg basta.
           */
           .high-contrast-active svg {
-            color: #ffff00 !important;
+            color: var(--hc-acao) !important;
           }
-          /* Imagem e video voltam a ter fundo proprio: o 'background:#000'
-             universal apagava o contorno de qualquer figura. */
+
+          /*
+            Imagem e video ficam FORA da regra ampla acima (e nao apenas com uma
+            regra propria depois): o :not() dela soma tres seletores de elemento,
+            entao '.high-contrast-active img' perdia a disputa de especificidade
+            e a figura continuava com fundo preto.
+          */
           .high-contrast-active img,
           .high-contrast-active video,
           .high-contrast-active canvas {
@@ -823,7 +872,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     aria-label="Buscar cursos e notícias no portal"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-transparent border-0 outline-none text-[14px] w-full font-medium text-[#1d2432] placeholder:text-[#6b7385]"
+                    className="bg-transparent border-0 outline-none text-apoio w-full font-medium text-[#1d2432] placeholder:text-[#6b7385]"
                     onKeyDown={(e) => { if (e.key === 'Escape') setSearchQuery(''); }}
                   />
                   {searchQuery.trim().length > 0 && (
@@ -840,15 +889,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 {searchQuery.trim().length > 0 && (
                   <div className="absolute top-[calc(100%+8px)] right-0 w-80 bg-white border border-[#e4e1dc] shadow-xl rounded-[14px] p-4 z-[100] text-[#1d2432] text-left space-y-3.5 animate-in fade-in slide-in-from-top-2 duration-200 max-h-[350px] overflow-y-auto">
-                    <span className="text-[13px] font-semibold text-[#6b7385] block">Resultados da busca</span>
+                    <span className="text-apoio font-semibold text-[#6b7385] block">Resultados da busca</span>
 
                     {matchedCourses.length === 0 && matchedNews.length === 0 && (
-                      <p className="text-[14px] text-[#4a5468] py-2">Nada encontrado para "{searchQuery}".</p>
+                      <p className="text-apoio text-[#4a5468] py-2">Nada encontrado para "{searchQuery}".</p>
                     )}
 
                     {matchedCourses.length > 0 && (
                       <div className="space-y-1.5">
-                        <span className="text-[13px] font-semibold text-[#540D6E] block">Cursos ({matchedCourses.length})</span>
+                        <span className="text-apoio font-semibold text-[#540D6E] block">Cursos ({matchedCourses.length})</span>
                         {matchedCourses.map((c, i) => (
                           <button
                             key={i}
@@ -861,8 +910,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           >
                             <div className="h-8 w-8 rounded-lg bg-[#540D6E]/5 text-[#540D6E] text-xs font-bold font-serif flex items-center justify-center shrink-0">C</div>
                             <div className="min-w-0">
-                              <span className="block text-[14px] font-semibold text-[#1d2432] truncate leading-snug">{c.title}</span>
-                              <span className="block text-[13px] text-[#6b7385] truncate">{c.category}</span>
+                              <span className="block text-apoio font-semibold text-[#1d2432] truncate leading-snug">{c.title}</span>
+                              <span className="block text-apoio text-[#6b7385] truncate">{c.category}</span>
                             </div>
                           </button>
                         ))}
@@ -871,7 +920,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                     {matchedNews.length > 0 && (
                       <div className="space-y-1.5 pt-2 border-t border-[#e4e1dc]">
-                        <span className="text-[13px] font-semibold text-[#EE4266] block">Notícias ({matchedNews.length})</span>
+                        <span className="text-apoio font-semibold text-[#EE4266] block">Notícias ({matchedNews.length})</span>
                         {matchedNews.map((n, i) => (
                           <button
                             key={i}
@@ -883,8 +932,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           >
                             <div className="h-8 w-8 rounded-lg bg-[#EE4266]/5 text-[#EE4266] text-xs font-bold font-serif flex items-center justify-center shrink-0">N</div>
                             <div className="min-w-0">
-                              <span className="block text-[14px] font-semibold text-[#1d2432] truncate leading-snug">{n.title}</span>
-                              <span className="block text-[13px] text-[#6b7385] truncate">{n.tag}</span>
+                              <span className="block text-apoio font-semibold text-[#1d2432] truncate leading-snug">{n.title}</span>
+                              <span className="block text-apoio text-[#6b7385] truncate">{n.tag}</span>
                             </div>
                           </button>
                         ))}
@@ -938,7 +987,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           title={`${unrepliedStudents.length} conversa(s) aguardando resposta dos alunos: ${unrepliedStudents.join(', ')}`}
                         >
                           <Bell className="h-4 w-4 text-rose-500 fill-rose-200 animate-bounce" />
-                          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-[9px] font-black text-white ring-2 ring-rose-100">
+                          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-600 text-apoio font-black text-white ring-2 ring-rose-100">
                             {unrepliedStudents.length}
                           </span>
                         </button>
@@ -962,7 +1011,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                               }
                             }, 150);
                           }}
-                          className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer"
+                          className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-escult-ink-2 hover:text-slate-600 flex items-center justify-center transition-all cursor-pointer"
                           title="Sem novas mensagens de alunos. Clique para acessar o canal."
                         >
                           <Bell className="h-4 w-4" />
@@ -999,7 +1048,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 <button
                   onClick={handleLogout}
-                  className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
+                  className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
                   title="Sair do Portal e encerrar sessão"
                 >
                   <LogOut className="h-3.5 w-3.5 text-rose-500" />
@@ -1018,14 +1067,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 >
                   <div className="text-right">
                     <span className="block text-xs font-bold text-slate-800 leading-none">{activeUser.name}</span>
-                    <span className="text-[9px] text-[#540D6E] font-bold block mt-0.5">
+                    <span className="text-apoio text-[#540D6E] font-bold block mt-0.5">
                       {activeUser.role === 'student' && 'Aluno Credenciado'}
                       {activeUser.role === 'instructor' && 'Gestor de Conteúdos'}
                       {activeUser.role === 'admin' && 'Moderação Coordenação'}
                     </span>
                   </div>
                   <span className={`h-2.5 w-2.5 rounded-full ${
-                    activeUser.role === 'admin' ? 'bg-amber-400' : activeUser.role === 'instructor' ? 'bg-emerald-400' : 'bg-blue-500'
+                    activeUser.role === 'admin' ? 'bg-amber-400' : activeUser.role === 'instructor' ? 'bg-emerald-400' : 'bg-escult-purple'
                   }`} />
                 </div>
               </div>
@@ -1033,7 +1082,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div className="flex items-center gap-2">
                 {/* Padlock and User icons (already interactive login triggers) */}
                 {(
-                  <div className="hidden sm:flex items-center gap-3.5 mr-2 text-slate-400 border-r border-slate-200 pr-4">
+                  <div className="hidden sm:flex items-center gap-3.5 mr-2 text-escult-ink-2 border-r border-slate-200 pr-4">
                     <span title="Simular Conexão" onClick={() => setIsLoginModalOpen(true)} className="cursor-pointer"><Lock className="h-4.5 w-4.5 hover:text-slate-800 transition-colors" /></span>
                     <span
                       className="cursor-pointer"
@@ -1059,7 +1108,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <div className="flex items-center gap-2 animate-in fade-in transition-all">
                     <button
                       onClick={handleLogout}
-                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
+                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
                       title="Sair do Portal e encerrar sessão"
                     >
                       <LogOut className="h-3.5 w-3.5 text-rose-500" />
@@ -1072,7 +1121,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                           speakText("Acessando o seu Ambiente de Estudos.");
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 font-extrabold px-3.5 py-2 text-xs uppercase tracking-wider transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title="Ir para seu Ambiente de Estudos"
                       >
                         <BookOpen className="h-4 w-4 text-slate-900 shrink-0" />
@@ -1090,7 +1139,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             speakText("Acessando a sua Gestão de Cursos.");
                           }
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 font-extrabold px-3.5 py-2 text-xs uppercase tracking-wider transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title={activeUser.role === 'admin' ? "Acessar Coordenação / Gestão da Plataforma" : "Acessar Gestão de Cursos e Conteúdos"}
                       >
                         <GraduationCap className="h-4 w-4 text-slate-900 shrink-0" />
@@ -1112,7 +1161,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     */}
                     <button
                       onClick={() => setIsLoginModalOpen(true)}
-                      className="rounded-[10px] bg-[#540D6E] hover:bg-[#42095a] text-white px-[22px] py-3 text-[15px] font-semibold transition-all cursor-pointer whitespace-nowrap"
+                      className="rounded-[10px] bg-[#540D6E] hover:bg-[#42095a] text-white px-[22px] py-3 text-rotulo font-semibold transition-all cursor-pointer whitespace-nowrap"
                     >
                       Entrar
                     </button>
@@ -1121,7 +1170,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         setIsRegisterModalOpen(true);
                         speakText("Portal de direcionamento e validação de cadastro externo aberto.");
                       }}
-                      className="rounded-[10px] border border-[#540D6E] bg-white hover:bg-[#f4f2ef] text-[#540D6E] px-[18px] py-3 text-[15px] font-semibold transition-all cursor-pointer whitespace-nowrap hidden sm:block"
+                      className="rounded-[10px] border border-[#540D6E] bg-white hover:bg-[#f4f2ef] text-[#540D6E] px-[18px] py-3 text-rotulo font-semibold transition-all cursor-pointer whitespace-nowrap hidden sm:block"
                     >
                       Cadastre-se
                     </button>
@@ -1174,13 +1223,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         goToPage(entrada.view, entrada.rotulo);
                         setIsMobileMenuOpen(false);
                       }}
-                      className="text-left text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] rounded-[10px] px-3 py-3 transition-colors cursor-pointer"
+                      className="text-left text-rotulo font-semibold text-[#1d2432] hover:bg-[#f4f2ef] rounded-[10px] px-3 py-3 transition-colors cursor-pointer"
                     >
                       {entrada.rotulo}
                     </button>
                   ) : (
                     <div key={entrada.rotulo} className="pt-2">
-                      <span className="block px-3 pb-1 text-[13px] font-semibold uppercase tracking-[0.12em] text-[#6b7385]">
+                      <span className="block px-3 pb-1 text-apoio font-semibold uppercase tracking-[0.12em] text-[#6b7385]">
                         {entrada.rotulo}
                       </span>
                       {entrada.itens.map((item) => (
@@ -1190,7 +1239,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             goToPage(item.view, item.rotulo);
                             setIsMobileMenuOpen(false);
                           }}
-                          className="w-full text-left text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] rounded-[10px] px-3 py-3 transition-colors cursor-pointer"
+                          className="w-full text-left text-rotulo font-semibold text-[#1d2432] hover:bg-[#f4f2ef] rounded-[10px] px-3 py-3 transition-colors cursor-pointer"
                         >
                           {item.rotulo}
                         </button>
@@ -1265,31 +1314,31 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 
                 {/* Hero Left Content */}
                 <div className="lg:col-span-7 space-y-6 relative z-10">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 text-[#FFD23F] text-[9px] uppercase tracking-widest font-extrabold px-3.5 py-1.5 font-mono">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 text-[#FFD23F] text-sobretitulo uppercase px-3.5 py-1.5">
                     <Sparkles className="h-3 w-3 animate-spin duration-1000" />
                     <span>{translations[currentLang].heroBadge}</span>
                   </div>
 
-                  <h2 className="text-3xl md:text-5xl lg:text-[54px] font-extrabold tracking-tight leading-[1.08] font-serif">
+                  <h1 className="text-3xl md:text-5xl lg:text-[54px] font-semibold tracking-tight leading-[1.08] font-serif">
                     Escola Estadual da Cultura <br className="hidden sm:inline" />
                     <span className="text-[#FFD23F]">Ambiente Virtual de Aprendizagem (AVASEC)</span>
-                  </h2>
+                  </h1>
 
-                  <p className="text-slate-100 text-sm md:text-base leading-relaxed max-w-2xl font-light">
+                  <p className="text-slate-100 text-sm md:text-base leading-relaxed max-w-2xl">
                     A AVASEC é o portal de capacitação e qualificação profissional da Escola Estadual da Cultura. Oferecemos cursos livres e de excelência em Cultura, Gestão Cultural, Economia Criativa e Linguagens Artísticas com certificação digital homologada.
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     <button 
                       onClick={() => goToPage('cursos', translations[currentLang].btnDiscover)}
-                      className="rounded-full bg-[#EE4266] hover:bg-red-700 text-white px-7 py-3 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2 group shadow-lg"
+                      className="rounded-full bg-escult-red-acao hover:bg-escult-red-acao-hover text-white px-7 py-3 text-sobretitulo uppercase transition-all cursor-pointer flex items-center justify-center gap-2 group shadow-lg"
                     >
                       <span>{translations[currentLang].btnDiscover}</span>
                       <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </button>
                     <button 
                       onClick={() => { setIsLoginModalOpen(true); speakText(translations[currentLang].btnStart); }}
-                      className="rounded-full border-2 border-[#FFD23F] bg-transparent hover:bg-[#FFD23F]/10 text-white px-7 py-3 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md"
+                      className="rounded-full border-2 border-[#FFD23F] bg-transparent hover:bg-[#FFD23F]/10 text-white px-7 py-3 text-sobretitulo uppercase transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md"
                     >
                       <Star className="h-4 w-4 text-[#FFD23F] fill-[#FFD23F]" />
                       <span>{translations[currentLang].btnStart}</span>
@@ -1306,20 +1355,21 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <div className="absolute -bottom-2 -right-2 w-[110%] h-[110%] border-2 border-dashed border-[#FFD23F]/25 rounded-full pointer-events-none animate-spin" style={{ animationDuration: '40s' }} />
                     
                     {/* Multicolored shape geometries surrounding head */}
-                    <div className="absolute -top-6 -left-6 w-24 h-24 rounded-full bg-[#FFD23F] opacity-85 z-20 flex items-center justify-center font-bold text-slate-900 text-[10px] uppercase tracking-wider shadow-md">
+                    <div className="absolute -top-6 -left-6 w-24 h-24 rounded-full bg-[#FFD23F] opacity-85 z-20 flex items-center justify-center text-slate-900 text-sobretitulo uppercase shadow-md">
                       ✦ Criatividade
                     </div>
-                    <div className="absolute -bottom-4 right-10 w-20 h-20 rounded-xl bg-[#EE4266] opacity-85 z-20 flex items-center justify-center text-white text-[10px] uppercase tracking-wider rotate-12 shadow-md">
+                    <div className="absolute -bottom-4 right-10 w-20 h-20 rounded-xl bg-escult-red-acao opacity-85 z-20 flex items-center justify-center text-white text-sobretitulo uppercase rotate-12 shadow-md">
                       ▲ Inovação
                     </div>
-                    <div className="absolute -right-6 top-1/4 w-16 h-16 rounded-full bg-[#3BCEAC] opacity-90 z-20 flex items-center justify-center text-white text-[10px] rotate-45 shadow-md">
+                    <div className="absolute -right-6 top-1/4 w-16 h-16 rounded-full bg-[#3BCEAC] opacity-90 z-20 flex items-center justify-center text-escult-ink text-apoio rotate-45 shadow-md">
                       ● Arte
                     </div>
 
                     {/*
-                      Aqui havia o retrato de Paulo Freire. A mencao a ele saiu de
-                      todo o site por decisao da coordenacao (10/09/2026), e no
-                      lugar entra uma referencia a educacao, sem pessoa nenhuma.
+                      Aqui havia o retrato de um educador homenageado. A mencao
+                      nominal saiu de todo o site por decisao da coordenacao
+                      (10/09/2026), e no lugar entra uma referencia a educacao,
+                      sem pessoa nenhuma.
 
                       Sem imagem, e nao com uma foto de banco de imagens: uma foto
                       de estudantes que nao sao desta escola seria outra afirmacao
@@ -1330,7 +1380,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       <span className="text-white font-serif text-lg leading-tight">
                         Educação pública, gratuita e de qualidade
                       </span>
-                      <span className="text-slate-400 text-xs">
+                      <span className="text-escult-ink-claro text-nota">
                         Escola Estadual da Cultura
                       </span>
                     </div>
@@ -1347,7 +1397,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="mx-auto max-w-7xl animate-in fade-in duration-200">
                   <div className="bg-white rounded-3xl border border-slate-250/75 p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="space-y-4 text-left w-full">
-                      <div className="inline-flex items-center gap-2 rounded-full bg-[#540D6E]/10 border border-[#540D6E]/20 text-[#540D6E] text-[10px] uppercase tracking-widest font-extrabold px-3 py-1 font-mono">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-[#540D6E]/10 border border-[#540D6E]/20 text-[#540D6E] text-sobretitulo uppercase px-3 py-1">
                         <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                         <span>Sua Área de Estudos</span>
                       </div>
@@ -1356,7 +1406,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         <h3 className="text-xl md:text-2xl font-black text-slate-900 font-serif">
                           Olá, {activeUser.name}!
                         </h3>
-                        <p className="text-xs text-slate-500 max-w-2xl font-light">
+                        <p className="text-xs text-escult-ink-2 max-w-2xl">
                           Continue de onde você parou. Acesse seu curso ativo ou acompanhe suas notas, presenças síncronas de mentoria e certificados homologados.
                         </p>
                       </div>
@@ -1371,13 +1421,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           return (
                             <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-150 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
                               <div className="space-y-1">
-                                <span className="text-[9px] uppercase font-bold text-slate-400 block font-mono">CURSO ATIVO</span>
+                                <span className="text-sobretitulo uppercase text-escult-ink-2 block">CURSO ATIVO</span>
                                 <strong className="text-sm font-bold text-[#540D6E] block font-serif">{activeCourse.title}</strong>
-                                <span className="text-xs text-slate-500 block">Ministrado por: Prof. {activeCourse.instructorName}</span>
+                                <span className="text-xs text-escult-ink-2 block">Ministrado por: Prof. {activeCourse.instructorName}</span>
                               </div>
                               <button 
                                 onClick={() => { setCurrentView('active_app'); speakText(`Iniciando estudos no curso ${activeCourse.title}`); }}
-                                className="w-full sm:w-auto shrink-0 bg-[#540D6E] hover:bg-purple-950 text-white text-xs font-black uppercase tracking-wider py-2.5 px-5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                                className="w-full sm:w-auto shrink-0 bg-[#540D6E] hover:bg-purple-950 text-white text-sobretitulo uppercase py-2.5 px-5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                               >
                                 <span>Continuar Aula</span>
                                 <ArrowRight className="h-4 w-4" />
@@ -1390,7 +1440,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                               <p>Você não tem nenhuma matrícula ativa de curso no momento. Explore nosso catálogo e matricule-se!</p>
                               <button 
                                 onClick={() => goToPage('cursos', "Cursos disponíveis")}
-                                className="shrink-0 text-xs font-black uppercase tracking-wider text-[#540D6E] hover:underline"
+                                className="shrink-0 text-sobretitulo uppercase text-[#540D6E] hover:underline"
                               >
                                 <span className="inline-flex items-center gap-1">Ver Cursos <ArrowRight className="h-3 w-3" /></span>
                               </button>
@@ -1402,16 +1452,16 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                     <div className="grid grid-cols-2 gap-4 w-full md:w-80 shrink-0">
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
-                        <strong className="text-2xl font-black text-[#540D6E] font-mono block">
+                        <strong className="text-2xl font-black text-[#540D6E] block">
                           {studentEnrollments[activeUser.id]?.completedCourseIds?.length || 0}
                         </strong>
-                        <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1 block">Cursos Concluídos</span>
+                        <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Cursos Concluídos</span>
                       </div>
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
-                        <strong className="text-2xl font-black text-[#3BCEAC] font-mono block">
+                        <strong className="text-2xl font-black text-[#540D6E] block">
                           {certificates.filter(c => c.userId === activeUser.id).length || 0}
                         </strong>
-                        <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1 block">Certificados Emitidos</span>
+                        <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Certificados Emitidos</span>
                       </div>
                     </div>
                   </div>
@@ -1432,26 +1482,26 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <div className="h-1.5 w-12 bg-[#540D6E] rounded-full" />
                   </div>
 
-                  <p className="text-xs md:text-[13px] text-slate-500 leading-relaxed font-light">
+                  <p className="text-xs md:text-[13px] text-escult-ink-2 leading-relaxed">
                     A Escola Estadual da Cultura foi lançada em janeiro de 2024 e é promovida pela Diretoria de Políticas para Trabalhadores da Cultura e da Economia Criativa por meio da Coordenação de Capacitação e Qualificação Profissional. Veja aqui os resultados já alcançados de nossa rede:
                   </p>
 
                   <div className="grid grid-cols-2 gap-6 pt-4">
-                    <div className="p-5 bg-blue-50/50 border border-blue-100 rounded-2xl">
-                      <strong className="text-3xl font-black text-[#540D6E] font-mono block">188K</strong>
-                      <span className="text-[10px] text-slate-500 font-extrabold uppercase mt-1 block">Estudantes cadastrados</span>
+                    <div className="p-5 bg-escult-surface border border-escult-line rounded-2xl">
+                      <strong className="text-3xl font-black text-[#540D6E] block">188K</strong>
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Estudantes cadastrados</span>
                     </div>
                     <div className="p-5 bg-green-50/50 border border-green-100 rounded-2xl">
-                      <strong className="text-3xl font-black text-[#3BCEAC] font-mono block">300K</strong>
-                      <span className="text-[10px] text-slate-500 font-extrabold uppercase mt-1 block">Inscrições nos cursos</span>
+                      <strong className="text-3xl font-black text-[#540D6E] block">300K</strong>
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Inscrições nos cursos</span>
                     </div>
                     <div className="p-5 bg-red-50/50 border border-red-100 rounded-2xl">
-                      <strong className="text-3xl font-black text-[#EE4266] font-mono block">66K</strong>
-                      <span className="text-[10px] text-slate-500 font-extrabold uppercase mt-1 block">Mil concluintes</span>
+                      <strong className="text-3xl font-black text-[#540D6E] block">66K</strong>
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Mil concluintes</span>
                     </div>
                     <div className="p-5 bg-amber-50/50 border border-amber-100 rounded-2xl">
-                      <strong className="text-3xl font-black text-amber-500 font-mono block">4M+</strong>
-                      <span className="text-[10px] text-slate-500 font-extrabold uppercase mt-1 block">Visitas à plataforma</span>
+                      <strong className="text-3xl font-black text-[#540D6E] block">4M+</strong>
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Visitas à plataforma</span>
                     </div>
                   </div>
                 </div>
@@ -1483,9 +1533,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     </div>
 
                     <div className="bg-slate-900/90 text-white p-4.5 rounded-2xl relative z-10 text-left space-y-1">
-                      <span className="text-[9px] uppercase tracking-widest text-[#FFD23F] font-bold">Patrimônio Vivo</span>
+                      <span className="text-sobretitulo uppercase text-[#FFD23F]">Patrimônio Vivo</span>
                       <strong className="text-xs font-bold block">Fazer Artístico Decolonial</strong>
-                      <p className="text-[10px] text-slate-300">Oficinas ministradas de maneira autônoma com apoio das comunidades locais e certificadas em nossa rede.</p>
+                      <p className="text-apoio text-slate-300">Oficinas ministradas de maneira autônoma com apoio das comunidades locais e certificadas em nossa rede.</p>
                     </div>
 
                   </div>
@@ -1496,15 +1546,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
 
             {/* SUGGESTION BANNER & MEMORIAL SECTION: Celebrating Solano Trindade (Image 7) */}
-            <section className="bg-[#FFD23F] py-4 px-4 text-center">
+            <section className="bg-escult-surface border-y border-escult-line py-4 px-4 text-center">
               <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 font-sans py-2">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center shrink-0">
-                    <HelpCircle className="h-5 w-5 text-amber-300" />
+                  <div className="h-10 w-10 rounded-full bg-[#FFD23F] text-escult-ink flex items-center justify-center shrink-0">
+                    <HelpCircle className="h-5 w-5" />
                   </div>
                   <div className="text-left leading-tight">
                     <strong className="text-slate-950 font-sans tracking-wide font-black block">Sentiu falta de algum curso?</strong>
-                    <span className="text-xs text-slate-800 font-medium">ENVIE A SUA SUGESTÃO PARA NÓS!</span>
+                    <span className="text-apoio text-escult-ink-2">Envie a sua sugestão para nós.</span>
                   </div>
                 </div>
 
@@ -1516,11 +1566,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     placeholder="Sugira um tema ou trilha..."
                     value={suggestedCourseName}
                     onChange={(e) => setSuggestedCourseName(e.target.value)}
-                    className="bg-white/90 border border-amber-500/30 text-slate-900 rounded-lg px-4.5 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#540D6E]"
+                    className="bg-white/90 border border-amber-500/30 text-slate-900 rounded-lg px-4.5 py-2.5 text-corpo focus:outline-none focus:ring-2 focus:ring-[#540D6E]"
                   />
                   <button 
                     type="submit"
-                    className="rounded-lg bg-[#540D6E] hover:bg-blue-700 text-white font-extrabold text-xs px-5 py-2.5 uppercase tracking-wider transition-colors shadow-xs shrink-0 cursor-pointer"
+                    className="rounded-lg bg-escult-purple hover:bg-escult-purple-dark text-white text-sobretitulo px-5 py-2.5 uppercase transition-colors shadow-xs shrink-0 cursor-pointer"
                   >
                     {suggestionSubmitted ? 'Enviado!' : 'Sugerir'}
                   </button>
@@ -1529,11 +1579,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             </section>
 
             {/*
-              Aqui havia a secao "Celebrando Paulo Freire": retrato, datas de
-              nascimento e morte, o rotulo "Nosso Grande Patrono" e um botao
-              "Conheca Paulo Freire" que levava para as Duvidas Frequentes.
+              Aqui havia uma secao de homenagem a um educador: retrato, datas
+              de nascimento e morte, o rotulo de patrono e um botao que prometia
+              a biografia e levava para as Duvidas Frequentes.
 
-              A mencao a ele saiu de todo o site por decisao da coordenacao
+              A mencao nominal saiu de todo o site por decisao da coordenacao
               (10/09/2026), substituida por uma referencia a educacao como um
               todo. Os tres principios continuam — eles descrevem uma concepcao
               pedagogica, nao uma biografia — reescritos sem nomear ninguem.
@@ -1546,9 +1596,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div className="mx-auto max-w-4xl space-y-8 text-left">
 
                 <div className="space-y-2 text-center">
-                  <span className="text-[10px] font-extrabold text-[#FFD23F] uppercase tracking-widest block">Nossa concepção</span>
-                  <h3 className="text-3xl md:text-3.5xl font-black tracking-tight font-serif text-[#FFD23F]">A educação que orienta esta escola</h3>
-                  <p className="text-slate-400 font-sans tracking-wide text-xs">Escola Estadual da Cultura</p>
+                  <span className="text-sobretitulo text-[#FFD23F] uppercase block">Nossa concepção</span>
+                  <h2 className="text-3xl md:text-secao font-semibold tracking-tight font-serif text-[#FFD23F]">A educação que orienta esta escola</h2>
+                  <p className="text-escult-ink-claro font-sans tracking-wide text-nota">Escola Estadual da Cultura</p>
                   <div className="h-1 w-20 bg-[#EE4266] mt-2 mx-auto" />
                 </div>
 
@@ -1562,24 +1612,24 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2">
                   <div className="space-y-1.5">
                     <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-xs text-white uppercase block tracking-wider">Centrada em quem aprende</strong>
-                    <p className="text-slate-400 text-[10.5px] leading-relaxed">
+                    <strong className="text-sobretitulo text-white uppercase block">Centrada em quem aprende</strong>
+                    <p className="text-escult-ink-claro text-apoio leading-relaxed">
                       O processo parte do respeito e da bagagem que cada estudante já traz consigo.
                     </p>
                   </div>
 
                   <div className="space-y-1.5">
                     <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-xs text-white uppercase block tracking-wider">Diálogo, não transmissão</strong>
-                    <p className="text-slate-400 text-[10.5px] leading-relaxed">
+                    <strong className="text-sobretitulo text-white uppercase block">Diálogo, não transmissão</strong>
+                    <p className="text-escult-ink-claro text-apoio leading-relaxed">
                       Aprender é via de mão dupla: quem ensina também aprende com a turma.
                     </p>
                   </div>
 
                   <div className="space-y-1.5">
                     <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-xs text-white uppercase block tracking-wider">Leitura crítica</strong>
-                    <p className="text-slate-400 text-[10.5px] leading-relaxed">
+                    <strong className="text-sobretitulo text-white uppercase block">Leitura crítica</strong>
+                    <p className="text-escult-ink-claro text-apoio leading-relaxed">
                       Educar para a autonomia e a cidadania ativa, com reflexão sobre a realidade.
                     </p>
                   </div>
@@ -1588,7 +1638,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="pt-2 flex justify-center">
                   <button
                     onClick={() => goToPage('o-projeto', "O Projeto")}
-                    className="rounded-full border border-white hover:bg-white hover:text-slate-950 text-white px-6 py-2.5 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                    className="rounded-full border border-white hover:bg-white hover:text-slate-950 text-white px-6 py-2.5 text-sobretitulo uppercase transition-all cursor-pointer flex items-center gap-2 shadow-sm"
                   >
                     <BookOpen className="h-4 w-4 text-[#FFD23F]" aria-hidden="true" />
                     <span>Conheça o projeto</span>
@@ -1664,7 +1714,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <Award className="h-5 w-5 text-[#EE4266]" />
                   <span>{pageField(certContent, 'criteriaTitle', 'Orientações de Aprovação & Emissão')}</span>
                 </h4>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-escult-ink-2 leading-relaxed">
                   {pageField(certContent, 'criteriaIntro', 'Para estar elegível à geração do seu certificado digital, você deve atender aos seguintes critérios letivos na plataforma:')}
                 </p>
 
@@ -1674,7 +1724,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       <CheckCircle className="h-4.5 w-4.5 text-[#3BCEAC] shrink-0 mt-0.5" />
                       <div className="text-xs">
                         <strong className="text-slate-800 block">{criterio.title}</strong>
-                        <span className="text-slate-500 text-[11px] leading-normal block">{criterio.description}</span>
+                        <span className="text-escult-ink-2 text-rotulo leading-normal block">{criterio.description}</span>
                       </div>
                     </div>
                   ))}
@@ -1683,7 +1733,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
               <div className="bg-[#FFD23F]/10 border border-[#FFD23F]/30 p-5 rounded-2xl flex gap-3.5 items-start">
                 <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-slate-700 leading-relaxed">
+                <p className="text-rotulo text-slate-700 leading-relaxed">
                   {pageField(certContent, 'noticeText', 'Validação por Terceiros: Qualquer instituição pública ou parceira pode validar os certificados emitidos utilizando o nosso autenticador ao lado com o código de registro ou nome completo.')}
                 </p>
               </div>
@@ -1696,7 +1746,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <ShieldCheck className="h-5 w-5 text-[#3BCEAC]" />
                   <span>{pageField(certContent, 'authenticatorTitle', 'Autenticador de Certificados')}</span>
                 </h4>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-escult-ink-2">
                   {pageField(certContent, 'authenticatorDescription', 'Insira o código de validação de 10 dígitos ou o nome completo do aluno para verificar sua autenticidade.')}
                 </p>
               </div>
@@ -1711,7 +1761,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 />
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#540D6E] hover:bg-purple-950 text-white font-black text-xs px-5 py-2.5 uppercase tracking-wider transition-all shadow-xs cursor-pointer shrink-0"
+                  className="rounded-xl bg-[#540D6E] hover:bg-purple-950 text-white text-sobretitulo px-5 py-2.5 uppercase transition-all shadow-xs cursor-pointer shrink-0"
                 >
                   Verificar
                 </button>
@@ -1741,17 +1791,17 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         {certLookupResult.revogado === true ? (
                           <div className="flex items-center gap-2.5 text-rose-800">
                             <AlertTriangle className="h-5 w-5 text-rose-600 shrink-0" />
-                            <strong className="text-xs uppercase tracking-wide font-black">Certificado Revogado — Sem Validade</strong>
+                            <strong className="text-sobretitulo uppercase">Certificado Revogado — Sem Validade</strong>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2.5 text-emerald-800">
                             <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
-                            <strong className="text-xs uppercase tracking-wide font-black">Certificado Válido e Homologado</strong>
+                            <strong className="text-sobretitulo uppercase">Certificado Válido e Homologado</strong>
                           </div>
                         )}
 
                         {certLookupResult.revogado === true && (
-                          <div className="space-y-1 rounded-lg border border-rose-100 bg-white/60 p-2.5 text-[11px] leading-relaxed text-rose-900">
+                          <div className="space-y-1 rounded-lg border border-rose-100 bg-white/60 p-2.5 text-rotulo leading-relaxed text-rose-900">
                             <p className="font-bold">
                               Este documento foi revogado pela instituição
                               {typeof certLookupResult.revogadoEm === 'string' && certLookupResult.revogadoEm !== ''
@@ -1762,36 +1812,36 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             {typeof certLookupResult.motivoRevogacao === 'string' && certLookupResult.motivoRevogacao !== '' && (
                               <p className="font-medium text-rose-700">Motivo registrado: {certLookupResult.motivoRevogacao}</p>
                             )}
-                            <p className="font-light text-rose-700">
+                            <p className="text-rose-700">
                               Os dados abaixo são os do documento como foi emitido, para conferência com o papel em mãos.
                             </p>
                           </div>
                         )}
 
-                        <div className={`grid grid-cols-2 gap-3 text-[11px] leading-relaxed border-t pt-3 ${
+                        <div className={`grid grid-cols-2 gap-3 text-apoio leading-relaxed border-t pt-3 ${
                           certLookupResult.revogado === true ? 'border-rose-100' : 'border-emerald-100'
                         }`}>
                           <div>
-                            <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Aluno</span>
+                            <span className="text-emerald-600 block text-sobretitulo uppercase">Aluno</span>
                             <span className="text-slate-800 font-bold block">{certLookupResult.studentName}</span>
                           </div>
                           <div>
-                            <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Curso</span>
+                            <span className="text-emerald-600 block text-sobretitulo uppercase">Curso</span>
                             <span className="text-slate-800 font-bold block">{certLookupResult.courseTitle}</span>
                           </div>
                           <div>
-                            <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Data de Emissão</span>
+                            <span className="text-emerald-600 block text-sobretitulo uppercase">Data de Emissão</span>
                             {/* issueDate já é string d/m/Y — new Date() não parseia esse formato */}
                             <span className="text-slate-800 font-medium block">{certLookupResult.issueDate}</span>
                           </div>
                           <div>
-                            <span className="text-emerald-600 block font-mono text-[9px] uppercase font-bold">Registro de Autenticidade</span>
-                            <span className="text-slate-850 font-mono font-bold block select-all">{certLookupResult.verificationHash}</span>
+                            <span className="text-emerald-600 block text-sobretitulo uppercase">Registro de Autenticidade</span>
+                            <span className="text-slate-850 font-bold block select-all">{certLookupResult.verificationHash}</span>
                           </div>
                         </div>
                         
                         {certLookupResult.revogado !== true && (
-                          <p className="text-[10px] text-emerald-700 leading-normal font-medium bg-white/50 p-2.5 rounded-lg border border-emerald-100/50">
+                          <p className="text-apoio text-emerald-700 leading-normal font-medium bg-white/50 p-2.5 rounded-lg border border-emerald-100/50">
                             Certificado emitido em conformidade com as diretrizes do AVA da Escola Estadual da Cultura. Registro de presença homologado: {certLookupResult.attendancePercent}%.
                           </p>
                         )}
@@ -1801,7 +1851,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         <X className="h-5 w-5 text-rose-600 shrink-0 mt-0.5" />
                         <div className="text-xs space-y-1">
                           <strong className="text-rose-900 uppercase block tracking-wider font-extrabold">Código Não Encontrado</strong>
-                          <p className="text-rose-700 font-light leading-relaxed">
+                          <p className="text-rose-700 leading-relaxed">
                             Nenhum registro correspondente ao termo "{certQuery}" foi encontrado em nosso banco de dados. Verifique a grafia do nome ou o hash de verificação de 10 dígitos impresso no verso do documento.
                           </p>
                         </div>
@@ -1826,9 +1876,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               */}
 
               <div className="text-left space-y-1 border-b border-slate-200 pb-6">
-                <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">Catálogo</span>
-                <h3 className="text-2xl md:text-3.5xl font-black text-slate-900 uppercase tracking-tight font-serif">Cursos Disponíveis</h3>
-                <p className="text-xs md:text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                <span className="text-sobretitulo text-[#540D6E] uppercase block">Catálogo</span>
+                <h2 className="text-2xl md:text-secao font-semibold text-escult-ink tracking-tight font-serif">Cursos Disponíveis</h2>
+                <p className="text-apoio text-escult-ink-2 leading-relaxed max-w-2xl">
                   Conheça os cursos oferecidos pela Escola Estadual da Cultura. Use os filtros para encontrar por área ou por nome.
                 </p>
               </div>
@@ -1836,7 +1886,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               {/* Barra de filtros: busca por texto + categoria */}
               <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
                 <div className="relative w-full md:max-w-xs">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-escult-ink-2" />
                   <input
                     type="text"
                     value={courseSearch}
@@ -1852,10 +1902,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <button
                       key={cat}
                       onClick={() => setCourseCategory(cat)}
-                      className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                      className={`px-3.5 py-1.5 rounded-full text-sobretitulo uppercase transition-all cursor-pointer border ${
                         courseCategory === cat
                           ? 'bg-[#540D6E] text-white border-transparent'
-                          : 'bg-white text-slate-500 border-slate-200 hover:text-slate-800 hover:border-slate-300'
+                          : 'bg-white text-escult-ink-2 border-slate-200 hover:text-slate-800 hover:border-slate-300'
                       }`}
                     >
                       {cat === 'all' ? 'Todas' : cat}
@@ -1868,11 +1918,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
                 {filteredCourses.length === 0 ? (
                   <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-slate-50 shadow-3xs">
-                    <h4 className="text-[#540D6E] font-black text-sm uppercase tracking-wider mb-2 font-mono">Sem Resultados</h4>
-                    <p className="text-slate-500 text-xs leading-relaxed max-w-md mx-auto">Nenhum curso encontrado com os filtros atuais.</p>
+                    <h4 className="text-[#540D6E] font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
+                    <p className="text-escult-ink-2 text-xs leading-relaxed max-w-md mx-auto">Nenhum curso encontrado com os filtros atuais.</p>
                     <button
                       onClick={() => { setCourseSearch(''); setCourseCategory('all'); }}
-                      className="mt-4 px-4 py-2 bg-[#540D6E] text-white text-xs font-bold rounded-xl hover:bg-purple-950 transition-colors uppercase tracking-wider cursor-pointer font-sans"
+                      className="mt-4 px-4 py-2 bg-[#540D6E] text-white text-sobretitulo rounded-xl hover:bg-purple-950 transition-colors uppercase cursor-pointer font-sans"
                     >
                       Limpar Filtros
                     </button>
@@ -1899,7 +1949,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           {course.iconType === 'columns' && <BookOpen className="h-5 w-5 text-[#FFD23F]" />}
                         </div>
 
-                        <span className="absolute bottom-3 left-3 text-[9px] font-black uppercase tracking-widest bg-white/10 backdrop-blur-md text-white border border-white/20 py-0.8 px-2 rounded-md">
+                        <span className="absolute bottom-3 left-3 text-sobretitulo uppercase bg-white/10 backdrop-blur-md text-white border border-white/20 py-0.8 px-2 rounded-md">
                           {course.category}
                         </span>
                       </div>
@@ -1909,15 +1959,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           <h4 className="text-xs font-bold text-slate-900 leading-snug transition-colors line-clamp-2 h-9 font-serif">
                             {course.title}
                           </h4>
-                          <p className="text-[10px] text-slate-400 font-semibold">Tutorado por: Prof. {course.instructor}</p>
-                          <p className="text-[10.5px] text-slate-500 leading-relaxed font-light line-clamp-3">
+                          <p className="text-apoio text-escult-ink-2 font-semibold">Tutorado por: Prof. {course.instructor}</p>
+                          <p className="text-apoio text-escult-ink-2 leading-relaxed line-clamp-3">
                             {course.description}
                           </p>
                         </div>
 
                         <button
                           onClick={() => setIsLoginModalOpen(true)}
-                          className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-[#540D6E] hover:text-white transition-all text-slate-600 border border-slate-150 text-[10.5px] font-black uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1"
+                          className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-[#540D6E] hover:text-white transition-all text-slate-600 border border-slate-150 text-sobretitulo uppercase cursor-pointer flex items-center justify-center gap-1"
                         >
                           <span>Inscrever-se</span>
                           <ArrowRight className="h-3 w-3" />
@@ -1956,15 +2006,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       </main>
 
       {/* 1. Official Bottom Accessibility Bar (Moved to footer area for a more discrete look) */}
-      <div className="bg-slate-950 text-slate-450 py-4 px-4 md:px-6 border-t border-b border-slate-900 select-none">
+      <div className="bg-slate-950 text-escult-ink-claro py-4 px-4 md:px-6 border-t border-b border-slate-900 select-none">
         {/* justify-end: o grupo é o único filho, então "between" o jogava para a
             esquerda deixando metade da barra vazia. */}
-        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row justify-center sm:justify-end items-center gap-4 font-mono">
+        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row justify-center sm:justify-end items-center gap-4">
           {/* Interactive Accessibility Settings Buttons */}
-          <div className="flex flex-wrap justify-center gap-4 items-center text-[11px] text-slate-450">
+          <div className="flex flex-wrap justify-center gap-4 items-center text-rotulo text-escult-ink-claro">
             <button 
               onClick={() => { setIsAccessibilityOpen(true); speakText("Janela de acessibilidade aberta"); }}
-              className="cursor-pointer hover:underline text-slate-400 font-extrabold hover:text-teal-400 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
+              className="cursor-pointer hover:underline text-escult-ink-claro font-extrabold hover:text-teal-300 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
               title="Ajustar tamanho da fonte, leitor e preferências"
             >
               <Settings className="w-3.5 h-3.5 text-teal-400 animate-spin" style={{ animationDuration: '8s' }} />
@@ -1977,7 +2027,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 updateAccessibilitySettings({ highContrast: next });
                 speakText(next ? "Alto contraste ativado" : "Alto contraste desativado");
               }}
-              className={`cursor-pointer hover:underline font-extrabold flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5 ${accessibilitySettings.highContrast ? 'text-yellow-400 underline' : 'text-slate-400 hover:text-yellow-400'}`}
+              className={`cursor-pointer hover:underline font-extrabold flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5 ${accessibilitySettings.highContrast ? 'text-yellow-400 underline' : 'text-escult-ink-claro hover:text-yellow-400'}`}
               title="Ativar/Desativar cores de alto contraste para baixa visão"
             >
               <Monitor className="w-3.5 h-3.5 text-yellow-400" />
@@ -1986,7 +2036,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             
             <button 
               onClick={() => { setIsSiteMapOpen(true); speakText("Mapa de seções do site aberto"); }}
-              className="cursor-pointer hover:underline text-slate-400 font-extrabold hover:text-teal-400 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
+              className="cursor-pointer hover:underline text-escult-ink-claro font-extrabold hover:text-teal-300 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
               title="Exibir mapa do site"
             >
               <BookOpen className="w-3.5 h-3.5 text-teal-400" />
@@ -1994,26 +2044,26 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             </button>
 
             {/* Language Selector */}
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-4 text-slate-450">
+            <div className="flex items-center gap-2 border-l border-slate-800 pl-4 text-escult-ink-claro">
               <button 
                 onClick={() => { setCurrentLang('pt'); speakText("Idioma alterado para Português"); }}
-                className={`font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'pt' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
+                className={`uppercase text-sobretitulo transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'pt' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
                 title="Português (Brasil)"
               >
                 PT-BR
               </button>
-              <span className="text-slate-700 font-light">|</span>
+              <span className="text-slate-700">|</span>
               <button 
                 onClick={() => { setCurrentLang('en'); speakText("Language changed to English"); }}
-                className={`font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'en' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
+                className={`uppercase text-sobretitulo transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'en' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
                 title="English"
               >
                 EN
               </button>
-              <span className="text-slate-700 font-light">|</span>
+              <span className="text-slate-700">|</span>
               <button 
                 onClick={() => { setCurrentLang('es'); speakText("Idioma cambiado a Español"); }}
-                className={`font-black uppercase text-[10px] tracking-wider transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'es' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
+                className={`uppercase text-sobretitulo transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'es' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
                 title="Español"
               >
                 ES
@@ -2040,7 +2090,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
             <div className="space-y-3">
               <strong className="block text-[22px] font-extrabold text-white tracking-tight">AVASEC</strong>
-              <p className="text-[15px] leading-relaxed text-[#c3c8d2] max-w-xs">
+              <p className="text-rotulo leading-relaxed text-[#c3c8d2] max-w-xs">
                 Ambiente virtual de aprendizagem da Escola Estadual da Cultura.
               </p>
             </div>
@@ -2073,13 +2123,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               },
             ].map((coluna) => (
               <nav key={coluna.titulo} aria-label={coluna.titulo} className="space-y-3">
-                <strong className="block text-[15px] font-semibold text-white">{coluna.titulo}</strong>
+                <strong className="block text-rotulo font-semibold text-white">{coluna.titulo}</strong>
                 <ul className="space-y-2">
                   {coluna.itens.map((item) => (
                     <li key={item.rotulo}>
                       <button
                         onClick={item.acao}
-                        className="text-[15px] text-[#c3c8d2] hover:text-white hover:underline underline-offset-[3px] transition-colors cursor-pointer text-left"
+                        className="text-rotulo text-[#c3c8d2] hover:text-white hover:underline underline-offset-[3px] transition-colors cursor-pointer text-left"
                       >
                         {item.rotulo}
                       </button>
@@ -2092,7 +2142,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           </div>
 
           <div className="mt-12 pt-6 border-t border-[#313a4a]">
-            <p className="text-[14px] text-[#8b93a3]">
+            <p className="text-apoio text-[#8b93a3]">
               © 2026 AVASEC — Escola Estadual da Cultura. Todos os direitos reservados.
             </p>
           </div>
@@ -2123,7 +2173,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               {/* Header */}
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                  <span className="text-[10px] uppercase tracking-widest bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md font-mono font-bold w-fit block">PREFERÊNCIAS</span>
+                  <span className="text-sobretitulo uppercase bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md w-fit block">PREFERÊNCIAS</span>
                   <h3 className="font-black text-slate-900 text-lg font-serif flex items-center gap-2">
                     <Settings className="h-5 w-5 text-teal-600" />
                     <span>Painel de Acessibilidade da Escola</span>
@@ -2131,7 +2181,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </div>
                 <button 
                   onClick={() => setIsAccessibilityOpen(false)}
-                  className="text-slate-400 hover:text-slate-800 p-1.5 rounded-full hover:bg-slate-100 transition-all cursor-pointer"
+                  className="text-escult-ink-2 hover:text-slate-800 p-1.5 rounded-full hover:bg-slate-100 transition-all cursor-pointer"
                   title="Fechar"
                 >
                   <X className="h-5 w-5" />
@@ -2143,7 +2193,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 
                 {/* Text Sizing Block */}
                 <div className="space-y-2 border-b border-slate-100 pb-4">
-                  <span className="text-xs font-black text-slate-700 block uppercase tracking-wider font-mono">Tamanho do Texto [Ampliação]</span>
+                  <span className="text-sobretitulo text-slate-700 block uppercase">Tamanho do Texto [Ampliação]</span>
                   <div className="grid grid-cols-3 gap-2">
                     {[
                       { label: "Padrão (100%)", value: 1.0 },
@@ -2168,8 +2218,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 {/* High contrast switch */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="space-y-0.5">
-                    <span className="text-xs font-black text-slate-700 block uppercase tracking-wider font-mono">Alto Contraste Visual</span>
-                    <p className="text-[10px] text-slate-400 leading-tight">Melhora distinção cromática com fundo opaco preto e texto luminoso amarelo/branco.</p>
+                    <span className="text-sobretitulo text-slate-700 block uppercase">Alto Contraste Visual</span>
+                    <p className="text-apoio text-escult-ink-2 leading-tight">Melhora distinção cromática com fundo opaco preto e texto luminoso amarelo/branco.</p>
                   </div>
                   <button
                     onClick={() => {
@@ -2190,8 +2240,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 {/* Dyslexia-friendly Font Switch */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="space-y-0.5">
-                    <span className="text-xs font-black text-slate-700 block uppercase tracking-wider font-mono font-sans font-extrabold">Fonte de Alta Legibilidade</span>
-                    <p className="text-[10px] text-slate-400 leading-tight">Altera toda a tipografia do portal para mono-espaçada estruturada, auxiliando leitura seletiva.</p>
+                    <span className="text-sobretitulo text-slate-700 block uppercase font-sans">Fonte de Alta Legibilidade</span>
+                    <p className="text-apoio text-escult-ink-2 leading-tight">Altera toda a tipografia do portal para mono-espaçada estruturada, auxiliando leitura seletiva.</p>
                   </div>
                   <button
                     onClick={() => {
@@ -2212,8 +2262,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 {/* Sound description switch */}
                 <div className="flex items-center justify-between pb-2">
                   <div className="space-y-0.5">
-                    <span className="text-xs font-black text-slate-700 block uppercase tracking-wider font-mono">Feedback Sonoro e Vocalizador</span>
-                    <p className="text-[10px] text-slate-400 leading-tight">Ativa narração falada automática de botões, tags escolares e menus ao interagir.</p>
+                    <span className="text-sobretitulo text-slate-700 block uppercase">Feedback Sonoro e Vocalizador</span>
+                    <p className="text-apoio text-escult-ink-2 leading-tight">Ativa narração falada automática de botões, tags escolares e menus ao interagir.</p>
                   </div>
                   <button
                     onClick={() => { 
@@ -2247,7 +2297,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               </div>
               
               <div className="bg-slate-50/50 border border-slate-150 p-3.5 rounded-xl text-center">
-                <span className="text-[9.5px] text-slate-400 block font-mono">PORTAL HOMOLOGADO CONFORME A PORTARIA DE ACESSIBILIDADE DIGITAL EM LIBRAS E LEITOR</span>
+                <span className="text-apoio text-escult-ink-2 block">PORTAL HOMOLOGADO CONFORME A PORTARIA DE ACESSIBILIDADE DIGITAL EM LIBRAS E LEITOR</span>
               </div>
 
             </motion.div>
@@ -2276,15 +2326,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               {/* Header */}
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
-                  <span className="text-[10px] uppercase tracking-widest bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-mono font-bold w-fit block">NAVEGAÇÃO COMPLETA</span>
+                  <span className="text-sobretitulo uppercase bg-escult-surface text-escult-purple px-2 py-0.5 rounded-md w-fit block">NAVEGAÇÃO COMPLETA</span>
                   <h3 className="font-black text-slate-900 text-sm md:text-base font-serif flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-blue-600" />
+                    <BookOpen className="h-5 w-5 text-escult-purple" />
                     <span>Mapa do Site — Escola Estadual da Cultura</span>
                   </h3>
                 </div>
                 <button 
                   onClick={() => setIsSiteMapOpen(false)}
-                  className="text-slate-400 hover:text-slate-800 p-1.5 rounded-full hover:bg-slate-100 transition-all cursor-pointer"
+                  className="text-escult-ink-2 hover:text-slate-800 p-1.5 rounded-full hover:bg-slate-100 transition-all cursor-pointer"
                   title="Fechar"
                 >
                   <X className="h-5 w-5" />
@@ -2296,7 +2346,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 
                 {/* Segment 1: Landing Areas */}
                 <div className="bg-slate-50 p-4 rounded-xl space-y-3">
-                  <strong className="text-xs uppercase tracking-wider font-mono text-slate-700 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
+                  <strong className="text-sobretitulo uppercase text-slate-700 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
                     <Sparkles className="h-4 w-4 text-[#FFD23F]" />
                     <span>Seções Principais</span>
                   </strong>
@@ -2326,7 +2376,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 {/* Segment 2: Simulation Areas */}
                 <div className="bg-slate-50 p-4 rounded-xl space-y-3">
-                  <strong className="text-xs uppercase tracking-wider font-mono text-slate-700 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
+                  <strong className="text-sobretitulo uppercase text-slate-700 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
                     <ShieldCheck className="h-4 w-4 text-[#540D6E]" />
                     <span>Acesso ao Portal Acadêmico (AVA)</span>
                   </strong>
@@ -2337,21 +2387,21 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       className="text-left py-1.5 px-2 hover:bg-blue-50 rounded text-[#540D6E] transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
                       <span>• Dashboard do Aluno</span>
-                      <span className="text-[8px] bg-blue-100 text-blue-800 px-1.5 py-0.2 rounded font-mono uppercase">Mapeado</span>
+                      <span className="text-sobretitulo bg-escult-surface text-escult-purple px-1.5 py-0.2 rounded uppercase">Mapeado</span>
                     </button>
                     <button 
                       onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Gestor de Conteúdos', 'instructor'); speakText("Acesso de Gestão Homologado"); }}
                       className="text-left py-1.5 px-2 hover:bg-blue-50 rounded text-teal-700 transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
                       <span>• Dashboard de Gestão</span>
-                      <span className="text-[8px] bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded font-mono uppercase">Mapeado</span>
+                      <span className="text-sobretitulo bg-teal-100 text-teal-800 px-1.5 py-0.2 rounded uppercase">Mapeado</span>
                     </button>
                     <button 
                       onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('Admin Superior', 'admin'); speakText("Acesso de Administrador Homologado"); }}
                       className="text-left py-1.5 px-2 hover:bg-amber-50 rounded text-amber-700 transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
                       <span>• Moderação de Coordenação</span>
-                      <span className="text-[8px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-mono uppercase">Mapeado</span>
+                      <span className="text-sobretitulo bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded uppercase">Mapeado</span>
                     </button>
                   </div>
                 </div>
@@ -2359,7 +2409,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               </div>
 
               <div className="bg-slate-50/50 border border-slate-150 p-3.5 rounded-xl text-center">
-                <span className="text-[9.5px] text-slate-400 block font-mono">PORTAL DE CRIAÇÃO E QUALIFICAÇÃO INTEGRADO</span>
+                <span className="text-apoio text-escult-ink-2 block">PORTAL DE CRIAÇÃO E QUALIFICAÇÃO INTEGRADO</span>
               </div>
 
             </motion.div>
@@ -2388,7 +2438,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               {/* Close corner control */}
               <button 
                 onClick={() => setIsLoginModalOpen(false)}
-                className="absolute top-4.5 right-4.5 text-slate-400 hover:text-slate-800 p-1 rounded-full hover:bg-slate-100 transition-all cursor-pointer"
+                className="absolute top-4.5 right-4.5 text-escult-ink-2 hover:text-slate-800 p-1 rounded-full hover:bg-slate-100 transition-all cursor-pointer"
                 title="Fechar"
               >
                 <X className="h-4.5 w-4.5" />
@@ -2400,7 +2450,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <ShieldCheck className="h-5 w-5 text-[#540D6E]" />
                   <span>Portal de Conexão Acadêmica</span>
                 </h3>
-                <p className="text-[11px] text-slate-400">Escolha uma identidade acadêmica simulada para acessar e avaliar as ferramentas de dashboards:</p>
+                <p className="text-rotulo text-escult-ink-3">Escolha uma identidade acadêmica simulada para acessar e avaliar as ferramentas de dashboards:</p>
               </div>
 
               {/* Role Select tab alignment */}
@@ -2410,7 +2460,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                     loginRoleTab === 'student'
                       ? 'bg-[#540D6E] text-white shadow-3xs'
-                      : 'text-slate-500 hover:text-slate-700'
+                      : 'text-escult-ink-2 hover:text-slate-700'
                   }`}
                 >
                   Aluno
@@ -2420,7 +2470,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                     loginRoleTab === 'instructor'
                       ? 'bg-[#540D6E] text-white shadow-2xs'
-                      : 'text-slate-500 hover:text-slate-700'
+                      : 'text-escult-ink-2 hover:text-slate-700'
                   }`}
                 >
                   Gestão
@@ -2430,7 +2480,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                     loginRoleTab === 'admin'
                       ? 'bg-[#540D6E] text-white shadow-2xs'
-                      : 'text-slate-500 hover:text-slate-700'
+                      : 'text-escult-ink-2 hover:text-slate-700'
                   }`}
                 >
                   Admin
@@ -2446,12 +2496,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     className="space-y-3.5 animate-in fade-in duration-200 text-left"
                     onSubmit={(e) => { e.preventDefault(); submitStudentLogin(); }}
                   >
-                    <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">
+                    <span className="text-sobretitulo uppercase text-escult-ink-2 block">
                       Acesso do aluno — entre com o seu CPF
                     </span>
 
                     <div>
-                      <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1" htmlFor="inp-login-cpf">C.P.F.</label>
+                      <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1" htmlFor="inp-login-cpf">C.P.F.</label>
                       <input
                         id="inp-login-cpf"
                         type="text"
@@ -2460,12 +2510,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         value={studentLoginCpf}
                         onChange={(e) => { setStudentLoginCpf(maskCpf(e.target.value)); setStudentLoginError(null); }}
                         placeholder="000.000.000-00"
-                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800 font-mono"
+                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1" htmlFor="inp-login-password">Senha</label>
+                      <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1" htmlFor="inp-login-password">Senha</label>
                       <input
                         id="inp-login-password"
                         type="password"
@@ -2478,7 +2528,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     </div>
 
                     {studentLoginError && (
-                      <div className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 leading-relaxed">
+                      <div className="text-apoio font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 leading-relaxed">
                         <span className="flex items-start gap-1.5"><AlertTriangle className="h-3.5 w-3.5 mt-px shrink-0" />{studentLoginError}</span>
                       </div>
                     )}
@@ -2486,13 +2536,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <button
                       type="submit"
                       disabled={isStudentLoggingIn}
-                      className="w-full rounded-xl bg-[#540D6E] hover:bg-purple-950 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black text-xs px-5 py-3 uppercase tracking-wider transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full rounded-xl bg-[#540D6E] hover:bg-purple-950 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sobretitulo px-5 py-3 uppercase transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
                     >
                       <span>{isStudentLoggingIn ? 'Verificando...' : 'Entrar'}</span>
                       {!isStudentLoggingIn && <ArrowRight className="h-3.5 w-3.5" />}
                     </button>
 
-                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                    <p className="text-apoio text-escult-ink-2 leading-relaxed">
                       Ainda não tem cadastro? Feche esta janela e clique em <strong className="text-slate-600">Cadastre-se</strong>.
                       Seu acesso é liberado após a confirmação da coordenação.
                     </p>
@@ -2502,7 +2552,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 {/* 2. Professor choices list */}
                 {loginRoleTab === 'instructor' && (
                   <div className="space-y-2.5 animate-in fade-in duration-200">
-                    <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider block">Gestor de Conteúdos ({professorsList.length}):</span>
+                    <span className="text-sobretitulo uppercase text-escult-ink-2 block">Gestor de Conteúdos ({professorsList.length}):</span>
                     <div className="grid grid-cols-1 gap-2.5">
                       {professorsList.map((prof, idx) => (
                         <div
@@ -2516,10 +2566,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             </div>
                             <div className="text-left leading-normal">
                               <strong className="text-slate-900 text-xs font-bold block">{prof.name}</strong>
-                              <span className="text-[9px] text-slate-400 block font-sans">Gestor de Conteúdos</span>
+                              <span className="text-apoio text-escult-ink-2 block font-sans">Gestor de Conteúdos</span>
                             </div>
                           </div>
-                          <span className="rounded-lg bg-white border border-slate-200 text-slate-650 font-black text-[9px] px-3 py-1.5 uppercase tracking-wide group-hover:bg-[#540D6E] group-hover:text-white transition-all flex items-center gap-1">
+                          <span className="rounded-lg bg-white border border-slate-200 text-slate-650 text-sobretitulo px-3 py-1.5 uppercase group-hover:bg-[#540D6E] group-hover:text-white transition-all flex items-center gap-1">
                             <span>Acessar</span>
                             <ArrowRight className="h-3 w-3" />
                           </span>
@@ -2532,7 +2582,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 {/* 3. Admin credentials superior block */}
                 {loginRoleTab === 'admin' && (
                   <div className="space-y-4 animate-in fade-in duration-200 text-left">
-                    <div className="bg-amber-50/40 border border-amber-200 p-3.5 rounded-xl text-slate-700 text-[10px] leading-relaxed">
+                    <div className="bg-amber-50/40 border border-amber-200 p-3.5 rounded-xl text-slate-700 text-apoio leading-relaxed">
                       <strong className="text-xs text-amber-800 block mb-0.5">Coordenação Federal Superior</strong>
                       O perfil do administrador possui visualizações abrangentes para a monitoração pedagógica e a provisão das matrizes curriculares de novas disciplinas. No entanto, por questões éticas e de LGPD, as mensagens trocadas no chat direto entre alunos permanecem ocultas dele.
                     </div>
@@ -2547,10 +2597,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         </div>
                         <div>
                           <strong className="text-slate-900 text-xs font-black block">Administrador Superior</strong>
-                          <span className="text-[10px] text-slate-400 block mt-0.5">Provedor Geral de Segurança Letiva</span>
+                          <span className="text-apoio text-escult-ink-2 block mt-0.5">Provedor Geral de Segurança Letiva</span>
                         </div>
                       </div>
-                      <span className="rounded-lg bg-slate-900 text-white font-extrabold text-[9px] px-3 py-1.5 uppercase transition-all flex items-center gap-1.5 cursor-pointer">
+                      <span className="rounded-lg bg-slate-900 text-white text-sobretitulo px-3 py-1.5 uppercase transition-all flex items-center gap-1.5 cursor-pointer">
                         <span>Ingressar</span>
                         <ArrowRight className="h-3.5 w-3.5 text-[#FFD23F]" />
                       </span>
@@ -2562,7 +2612,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
               {/* Notice text in bottom of login block */}
               <div className="pt-2 text-center">
-                <span className="text-[9.5px] text-slate-400 block font-mono">AUTENTICAÇÃO SEGURA DE ACORDO COM A LGPD • PORTAL ESCULT</span>
+                <span className="text-apoio text-escult-ink-2 block">AUTENTICAÇÃO SEGURA DE ACORDO COM A LGPD • PORTAL ESCULT</span>
               </div>
 
             </motion.div>
@@ -2597,7 +2647,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               {(validationStep === 'idle' || validationStep === 'completed') && (
                 <button
                   onClick={() => setIsRegisterModalOpen(false)}
-                  className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-650 hover:bg-slate-100 rounded-lg transition-all cursor-pointer border-none bg-transparent"
+                  className="absolute top-4 right-4 p-1.5 text-escult-ink-2 hover:text-slate-650 hover:bg-slate-100 rounded-lg transition-all cursor-pointer border-none bg-transparent"
                   title="Fechar"
                   id="btn-close-register-modal"
                 >
@@ -2607,14 +2657,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
               {/* Title Section */}
               <div className="space-y-1.5 pr-6 mb-5">
-                <span className="text-[9px] uppercase tracking-widest bg-[#540D6E]/10 text-[#540D6E] px-2 py-0.5 rounded-md font-mono font-bold w-fit block">
+                <span className="text-sobretitulo uppercase bg-[#540D6E]/10 text-[#540D6E] px-2 py-0.5 rounded-md w-fit block">
                   Célula de Integração Governamental
                 </span>
                 <h3 className="font-extrabold text-[#111] text-base sm:text-lg flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-[#540D6E]" />
                   <span>Integração de Cadastro • AVASEC</span>
                 </h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
+                <p className="text-xs text-escult-ink-2 leading-relaxed">
                   Conforme solicitado: Você será direcionado para outro site externo onde irá se cadastrar. Preencha seus dados lá e, após validados, esse mesmo cadastro será homologado e usado de forma integrada no <strong className="text-[#540D6E] font-bold">AVASEC</strong> como sua credencial oficial de estudos.
                 </p>
               </div>
@@ -2624,12 +2674,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   {/* Passo 1 block */}
                   <div className="relative border border-slate-200 hover:border-[#540D6E]/35 rounded-2xl p-4 bg-slate-50/50 hover:bg-white transition-all space-y-3">
                     <div className="flex items-start gap-3">
-                      <div className="h-7 w-7 rounded-lg bg-[#540D6E]/5 text-[#540D6E] flex items-center justify-center font-bold text-xs uppercase tracking-wide">
+                      <div className="h-7 w-7 rounded-lg bg-[#540D6E]/5 text-[#540D6E] flex items-center justify-center text-sobretitulo uppercase">
                         01
                       </div>
                       <div className="space-y-1 flex-1">
-                        <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Direcionamento para Portal Externo</h4>
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                        <h4 className="text-sobretitulo text-slate-800 uppercase">Direcionamento para Portal Externo</h4>
+                        <p className="text-rotulo text-escult-ink-2 leading-relaxed">
                           Crie ou obtenha suas informações no Portal Externo de Inscrição onde você realiza o cadastro de sua Identidade Digital antes de usá-la aqui.
                         </p>
                       </div>
@@ -2644,7 +2694,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           setIsExternalLinkClicked(true);
                           speakText("Redirecionando para o Portal Externo de Inscrição.");
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#540D6E]/5 hover:bg-[#540D6E]/10 text-[#540D6E] border border-[#540D6E]/15 px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-wider transition-all cursor-pointer no-underline"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#540D6E]/5 hover:bg-[#540D6E]/10 text-[#540D6E] border border-[#540D6E]/15 px-3 py-1.5 text-sobretitulo uppercase transition-all cursor-pointer no-underline"
                         id="lnk-external-cadastro"
                       >
                         <span>Ir para o Portal de Cadastro</span>
@@ -2652,7 +2702,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       </a>
                       
                       {isExternalLinkClicked && (
-                        <span className="text-[9.5px] text-emerald-600 font-bold block mt-1.5">
+                        <span className="text-apoio text-emerald-600 font-bold block mt-1.5">
                           <Check className="h-3 w-3 inline-block mr-1 -mt-px" />Conexão externa simulada. Preencha e valide suas informações abaixo para liberá-la no AVASEC.
                         </span>
                       )}
@@ -2663,12 +2713,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
                       <div className="flex items-start gap-3">
-                        <div className="h-7 w-7 rounded-lg bg-[#540D6E]/5 text-[#540D6E] flex items-center justify-center font-bold text-xs uppercase tracking-wide">
+                        <div className="h-7 w-7 rounded-lg bg-[#540D6E]/5 text-[#540D6E] flex items-center justify-center text-sobretitulo uppercase">
                           02
                         </div>
                         <div className="space-y-1">
-                          <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wide">Validação & Sincronização no AVASEC</h4>
-                          <p className="text-[11px] text-slate-500 leading-relaxed">
+                          <h4 className="text-sobretitulo text-slate-800 uppercase">Validação & Sincronização no AVASEC</h4>
+                          <p className="text-rotulo text-escult-ink-2 leading-relaxed">
                             Insira abaixo os dados cadastrados no portal externo para simular a autenticação unificada sob os padrões de conformidade da LGPD.
                           </p>
                         </div>
@@ -2681,7 +2731,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationStep('idle');
                             speakText("Voltando para o passo inicial de consulta externa.");
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 text-slate-400 hover:text-[#540D6E] transition-all text-[9.5px] font-bold uppercase tracking-widest cursor-pointer border border-slate-200 group"
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 text-escult-ink-2 hover:text-[#540D6E] transition-all text-sobretitulo uppercase cursor-pointer border border-slate-200 group"
                         >
                           <ArrowLeft className="h-3 w-3 group-hover:-translate-x-0.5 transition-transform" />
                           <span>Mudar Método</span>
@@ -2691,7 +2741,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pb-1">
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Nome Completo</label>
+                        <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1">Nome Completo</label>
                         <input 
                           type="text" 
                           required
@@ -2708,8 +2758,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                       <div>
                         <div className="flex justify-between items-center mb-1">
-                          <label className="block text-[10px] uppercase font-bold text-slate-400">C.P.F.</label>
-                          <span className="text-[8.5px] text-slate-400 font-mono">Seu login de acesso</span>
+                          <label className="block text-sobretitulo uppercase text-escult-ink-2">C.P.F.</label>
+                          <span className="text-apoio text-escult-ink-2">Seu login de acesso</span>
                         </div>
                         <input
                           type="text"
@@ -2721,13 +2771,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationError(null);
                           }}
                           placeholder="000.000.000-00"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800 font-mono"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-cpf"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Nome Social (opcional)</label>
+                        <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1">Nome Social (opcional)</label>
                         <input
                           type="text"
                           value={registerNomeSocial}
@@ -2739,7 +2789,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       </div>
 
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Identidade / R.G. (opcional)</label>
+                        <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1">Identidade / R.G. (opcional)</label>
                         <input
                           type="text"
                           value={registerIdentidade}
@@ -2751,20 +2801,20 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       </div>
 
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Celular</label>
+                        <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1">Celular</label>
                         <input
                           type="tel"
                           inputMode="numeric"
                           value={registerCelular}
                           onChange={(e) => setRegisterCelular(maskCelular(e.target.value))}
                           placeholder="(00) 00000-0000"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800 font-mono"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-celular"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">C.E.P.</label>
+                        <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1">C.E.P.</label>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -2774,13 +2824,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationError(null);
                           }}
                           placeholder="00000-000"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800 font-mono"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-cep"
                         />
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Endereço</label>
+                        <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1">Endereço</label>
                         <input
                           type="text"
                           value={registerEndereco}
@@ -2792,7 +2842,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="block text-[10px] uppercase font-bold text-slate-400 mb-1">Endereço de E-mail</label>
+                        <label className="block text-sobretitulo uppercase text-escult-ink-2 mb-1">Endereço de E-mail</label>
                         <input 
                           type="email" 
                           required
@@ -2809,8 +2859,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                       <div className="sm:col-span-2">
                         <div className="flex justify-between items-center mb-1">
-                          <label className="block text-[10px] uppercase font-bold text-slate-400">Senha de Acesso</label>
-                          <span className="text-[8.5px] text-slate-400 font-mono">Mínimo {PASSWORD_MIN_LENGTH} caracteres, com letra e número</span>
+                          <label className="block text-sobretitulo uppercase text-escult-ink-2">Senha de Acesso</label>
+                          <span className="text-apoio text-escult-ink-2">Mínimo {PASSWORD_MIN_LENGTH} caracteres, com letra e número</span>
                         </div>
                         <input
                           type="password"
@@ -2829,7 +2879,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     </div>
 
                     {validationError && (
-                      <div className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 text-center leading-relaxed">
+                      <div className="text-apoio font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-lg p-2.5 text-center leading-relaxed">
                         <span className="inline-flex items-start gap-1.5"><AlertTriangle className="h-3.5 w-3.5 mt-px shrink-0" />Erro de Registro: {validationError}</span>
                       </div>
                     )}
@@ -2880,7 +2930,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           }
                         }, 120);
                       }}
-                      className="w-full rounded-xl bg-[#540D6E] hover:bg-[#340845] text-white font-extrabold text-xs py-3.5 uppercase tracking-wider transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 border-none"
+                      className="w-full rounded-xl bg-[#540D6E] hover:bg-[#340845] text-white text-sobretitulo py-3.5 uppercase transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 border-none"
                       id="btn-trigger-validation"
                     >
                       <ShieldCheck className="h-4.5 w-4.5" />
@@ -2899,12 +2949,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   </div>
 
                   <div className="space-y-1.5 max-w-sm">
-                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-wide">
+                    <h4 className="text-sobretitulo text-slate-800 uppercase">
                       {validationStep === 'matching' && "Buscando Registro na Rede do Ministério..."}
                       {validationStep === 'verifying' && "Verificando Autenticidade e CPF do Titular..."}
                       {validationStep === 'syncing' && "Homologando Documento Digital Governamental..."}
                     </h4>
-                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                    <p className="text-rotulo text-escult-ink-3 leading-relaxed">
                       {validationStep === 'matching' && "Localizando cadastros sob a infraestrutura do Portal da Cultura e Economia Criativa."}
                       {validationStep === 'verifying' && `Submetendo credencial biométrica do CPF ${registerCpf || "Federal"} aos órgãos de validação.`}
                       {validationStep === 'syncing' && `Sucesso no registro digital! Gravando acesso estudantil no AVASEC de ${registerName}.`}
@@ -2918,7 +2968,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         className="h-full bg-gradient-to-r from-teal-400 via-indigo-500 to-[#540D6E] transition-all duration-100"
                       />
                     </div>
-                    <span className="text-[9.5px] font-mono text-slate-450 font-bold block">{validationProgress}% CONCLUÍDO</span>
+                    <span className="text-apoio text-escult-ink-2 font-bold block">{validationProgress}% CONCLUÍDO</span>
                   </div>
                 </div>
               )}
@@ -2934,17 +2984,17 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <h4 className="text-base font-black text-slate-900 uppercase tracking-wide leading-tight">
                       Integração Sincronizada!
                     </h4>
-                    <p className="text-[11.5px] text-slate-500 leading-relaxed">
-                      Seu cadastro foi homologado externamente. Use a senha numérica <span className="font-bold text-[#540D6E] font-mono">{registerPassword}</span> para reconectores futuros.
+                    <p className="text-rotulo text-escult-ink-2 leading-relaxed">
+                      Seu cadastro foi homologado externamente. Use a senha numérica <span className="font-bold text-[#540D6E]">{registerPassword}</span> para reconectores futuros.
                     </p>
                   </div>
 
                   {/* Summary Box */}
                   <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 max-w-md">
-                    <span className="text-[9px] uppercase font-extrabold text-[#540D6E] font-mono block border-b border-slate-150 pb-1.5">
+                    <span className="text-sobretitulo uppercase text-[#540D6E] block border-b border-slate-150 pb-1.5">
                       Ficha de Aluno no AVASEC
                     </span>
-                    <div className="grid grid-cols-2 gap-2 text-[9.5px] font-mono text-slate-600 leading-relaxed">
+                    <div className="grid grid-cols-2 gap-2 text-apoio text-slate-600 leading-relaxed">
                       <div>
                         <strong>NOME ID:</strong> <span className="block text-slate-800 font-sans font-bold">{registerName}</span>
                       </div>
@@ -3003,7 +3053,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       setValidationProgress(0);
                       setIsExternalLinkClicked(false);
                     }}
-                    className="w-full rounded-xl bg-slate-950 hover:bg-[#540D6E] text-white font-extrabold text-xs py-3.5 uppercase tracking-wider transition-all cursor-pointer shadow-md border-none"
+                    className="w-full rounded-xl bg-slate-950 hover:bg-[#540D6E] text-white text-sobretitulo py-3.5 uppercase transition-all cursor-pointer shadow-md border-none"
                     id="btn-finish-integration"
                   >
                     Ingressar no Meu Painel de Estudos
@@ -3035,20 +3085,20 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               className="relative w-full max-w-sm bg-white border border-slate-200/90 rounded-2xl shadow-2xl p-6 overflow-hidden text-center z-50 text-left"
             >
               {/* Top security header shield badge */}
-              <div className="mx-auto h-12 w-12 bg-indigo-50 border border-indigo-150 rounded-full flex items-center justify-center mb-3">
-                <Fingerprint className="h-6 w-6 text-indigo-600 animate-pulse" />
+              <div className="mx-auto h-12 w-12 bg-escult-surface border border-escult-line rounded-full flex items-center justify-center mb-3">
+                <Fingerprint className="h-6 w-6 text-escult-purple" />
               </div>
 
               <h3 className="font-extrabold text-slate-900 text-sm text-center uppercase tracking-wider">
                 Controle de Acesso AVA
               </h3>
-              <p className="text-[11px] text-slate-400 text-center mt-0.5">
+              <p className="text-rotulo text-escult-ink-3 text-center mt-0.5">
                 Validação de Fluxo de Segurança LGPD
               </p>
 
               {/* Account details */}
               <div className="mt-4 p-3 bg-slate-50 border border-slate-200/80 rounded-xl flex items-center gap-2.5 mx-auto max-w-[280px]">
-                <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center font-bold text-apoio ${
                   pendingLogin.role === 'admin' 
                     ? 'bg-amber-100 text-amber-800' 
                     : pendingLogin.role === 'instructor' 
@@ -3058,8 +3108,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   {pendingLogin.name.charAt(0)}
                 </div>
                 <div className="text-left">
-                  <span className="text-[11px] font-black text-slate-800 block leading-tight">{pendingLogin.name}</span>
-                  <span className="text-[8.5px] uppercase text-slate-450 font-mono tracking-wide block">Identidade: {pendingLogin.role === 'student' ? 'Aluno' : pendingLogin.role === 'instructor' ? 'Instrutor' : 'Administrador'}</span>
+                  <span className="text-rotulo font-black text-slate-800 block leading-tight">{pendingLogin.name}</span>
+                  <span className="text-sobretitulo uppercase text-escult-ink-2 block">Identidade: {pendingLogin.role === 'student' ? 'Aluno' : pendingLogin.role === 'instructor' ? 'Instrutor' : 'Administrador'}</span>
                 </div>
               </div>
 
@@ -3069,7 +3119,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div className="my-5 space-y-2 text-left">
                 <label
                   htmlFor="inp-login-senha"
-                  className="block text-[10px] font-bold uppercase tracking-wider text-slate-450"
+                  className="block text-sobretitulo uppercase text-escult-ink-2"
                 >
                   Senha de acesso
                 </label>
@@ -3094,7 +3144,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     }}
                     disabled={senhaOk}
                     placeholder="Digite a sua senha"
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 pl-3 pr-10 text-sm text-slate-800 placeholder:text-slate-350 focus:border-indigo-300 focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-300 disabled:opacity-60"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/60 py-2.5 pl-3 pr-10 text-sm text-slate-800 placeholder:text-slate-350 focus:border-escult-purple focus:bg-white focus:outline-hidden focus:ring-1 focus:ring-indigo-300 disabled:opacity-60"
                   />
 
                   <button
@@ -3103,20 +3153,20 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     disabled={senhaOk}
                     title={senhaVisivel ? 'Ocultar senha' : 'Mostrar senha'}
                     aria-label={senhaVisivel ? 'Ocultar senha' : 'Mostrar senha'}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-600"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 cursor-pointer rounded-lg p-1.5 text-escult-ink-2 hover:bg-slate-100 hover:text-escult-purple"
                   >
                     {senhaVisivel ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
 
                 {senhaErro && (
-                  <span className="inline-block rounded border border-rose-200/60 bg-rose-50 px-2 py-0.5 text-[10px] font-bold text-rose-600">
+                  <span className="inline-block rounded border border-rose-200/60 bg-rose-50 px-2 py-0.5 text-apoio font-bold text-rose-600">
                     {senhaErro}
                   </span>
                 )}
 
                 {senhaOk && (
-                  <span className="inline-block rounded border border-emerald-250 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                  <span className="inline-block rounded border border-emerald-250 bg-emerald-50 px-2 py-0.5 text-apoio font-bold text-emerald-700">
                     <Check className="mr-1 -mt-px inline-block h-3 w-3" />Credencial Homologada!
                   </span>
                 )}
@@ -3126,7 +3176,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 type="button"
                 onClick={verificarSenhaEEntrar}
                 disabled={senhaOk || senhaInput === '' || isPinVerifying}
-                className={`w-full rounded-xl py-2.5 text-[10px] font-black uppercase tracking-widest shadow-3xs transition-all active:scale-[0.99] ${
+                className={`w-full rounded-xl py-2.5 text-sobretitulo uppercase shadow-3xs transition-all active:scale-[0.99] ${
                   senhaInput !== '' && !senhaOk && !isPinVerifying
                     ? 'cursor-pointer bg-[#540D6E] text-white hover:bg-[#6e118f]'
                     : 'pointer-events-none border border-slate-200 bg-slate-100 text-slate-350'
@@ -3141,14 +3191,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   a lista é vazia e o bloco não existe. Expor senha padrão nesta tela,
                   somado ao login por nome, é tomada de conta real. */}
               {import.meta.env.DEV && demoProfiles.length > 0 && (
-                <div className="mt-5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-left text-[9.5px] text-slate-500 leading-relaxed font-mono">
-                  <span className="font-bold text-indigo-700 block mb-0.5 uppercase tracking-wide">Dica para Avaliação do Fluxo (dev):</span>
+                <div className="mt-5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-left text-apoio text-escult-ink-2 leading-relaxed">
+                  <span className="font-bold text-escult-purple block mb-0.5 uppercase tracking-wide">Dica para Avaliação do Fluxo (dev):</span>
                   {demoProfiles.map(p => (
                     <span key={p.name} className="block">
                       • {p.label}: <code className="font-extrabold text-slate-800">{p.pin}</code>
                     </span>
                   ))}
-                  <span className="text-[8.5px] text-slate-400 block mt-1 leading-normal">
+                  <span className="text-apoio text-escult-ink-2 block mt-1 leading-normal">
                     (Senhas customizadas no perfil também servem para desbloqueio do aluno).
                   </span>
                 </div>
@@ -3159,7 +3209,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <button
                   onClick={() => setPendingLogin(null)}
                   disabled={senhaOk}
-                  className="text-[10px] font-black text-slate-400 hover:text-slate-600 uppercase tracking-widest ease-in-out transition-colors cursor-pointer bg-transparent border-none py-1"
+                  className="text-sobretitulo text-escult-ink-2 hover:text-slate-600 uppercase ease-in-out transition-colors cursor-pointer bg-transparent border-none py-1"
                 >
                   Voltar ao Portal
                 </button>

@@ -38,13 +38,18 @@ export const DuvidasPage: React.FC<DuvidasPageProps> = ({ content }) => {
 
   const toggle = (id: string) => setExpandedId((prev) => (prev === id ? null : id));
 
+  /*
+   * `accent` colore o sobretitulo. Era #FFD23F: amarelo sobre branco da
+   * 1,44:1, e o piso e 4,5:1 — o texto ficava praticamente invisivel.
+   * Amarelo e "destaque pontual sobre fundo ESCURO" (Bloco 4).
+   */
   return (
     <PageShell
       eyebrow={pageField(content, 'eyebrow', 'Suporte ao Aluno')}
       title={pageField(content, 'title', 'Dúvidas Frequentes')}
       description={pageField(content, 'description', 'Tem dúvidas sobre como utilizar o Portal AVA? Acesse nosso FAQ rápido:')}
       align="center"
-      accent="#FFD23F"
+      accent="#540D6E"
     >
       <div className="space-y-3.5 max-w-2xl mx-auto text-left">
         {items.map((faq) => (
@@ -55,10 +60,10 @@ export const DuvidasPage: React.FC<DuvidasPageProps> = ({ content }) => {
               className="w-full flex justify-between items-center gap-3 p-4.5 text-xs font-black text-slate-800 hover:text-[#540D6E] text-left cursor-pointer"
             >
               <span>{faq.question}</span>
-              <span className="text-[#540D6E] font-mono text-xs shrink-0">{expandedId === faq.id ? '▲' : '▼'}</span>
+              <span className="text-[#540D6E] text-xs shrink-0">{expandedId === faq.id ? '▲' : '▼'}</span>
             </button>
             {expandedId === faq.id && (
-              <div className="p-4.5 pt-0 border-t border-slate-100 text-xs text-slate-500 leading-relaxed font-light animate-in fade-in duration-200">
+              <div className="p-4.5 pt-0 border-t border-slate-100 text-xs text-escult-ink-2 leading-relaxed animate-in fade-in duration-200">
                 {faq.answer}
               </div>
             )}

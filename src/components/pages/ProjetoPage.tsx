@@ -30,8 +30,9 @@ const DEFAULT_ITEMS: SitePageItem[] = [
   {
     id: 'pilar-3',
     title: 'Pedagogia Decolonial e Inclusiva',
-    // A mencao nominal a Paulo Freire saiu de todo o site (10/09/2026). O que
-    // fica e a concepcao pedagogica, que e o que a frase de fato descreve.
+    // A mencao nominal ao educador homenageado saiu de todo o site
+    // (10/09/2026). O que fica e a concepcao pedagogica, que e o que a frase
+    // de fato descreve.
     description: 'Nossa prática integra teoria crítica e o fazer artístico imediato: a educação parte do repertório de quem aprende e se volta para a leitura crítica da realidade.'
   }
 ];
@@ -64,19 +65,19 @@ export const ProjetoPage: React.FC<ProjetoPageProps> = ({ content }) => {
 
         {/* Texto e pilares do plano político-pedagógico */}
         <div className="lg:col-span-7 space-y-6 text-left">
-          <p className="text-xs md:text-sm text-slate-500 leading-relaxed font-light">
+          <p className="text-xs md:text-sm text-escult-ink-2 leading-relaxed">
             {pageField(content, 'description', 'A Escola Estadual da Cultura é um projeto estratégico estatal gerido pela Diretoria de Formação e Qualificação de Trabalhadores da Cultura. Nosso plano político-pedagógico tem como compromisso democratizar as ferramentas da Economia Criativa.')}
           </p>
 
           <div className="space-y-4 pt-2">
             {items.map((p, index) => (
               <div key={p.id} className="flex gap-3.5">
-                <div className="h-6.5 w-6.5 rounded-full bg-[#540D6E]/10 flex items-center justify-center text-[#540D6E] text-xs font-black shrink-0 font-mono mt-0.5">
+                <div className="h-6.5 w-6.5 rounded-full bg-[#540D6E]/10 flex items-center justify-center text-[#540D6E] text-xs font-black shrink-0 mt-0.5">
                   {index + 1}
                 </div>
                 <div className="space-y-0.5">
                   <strong className="text-xs text-slate-800 font-bold block">{p.title}</strong>
-                  <p className="text-xs text-slate-400 font-light leading-relaxed">{p.description}</p>
+                  <p className="text-xs text-escult-ink-2 leading-relaxed">{p.description}</p>
                 </div>
               </div>
             ))}

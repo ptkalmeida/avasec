@@ -66,16 +66,21 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
   const goPrev = () => setActiveIndex((prev) => (prev - 1 + allNews.length) % allNews.length);
   const goNext = () => setActiveIndex((prev) => (prev + 1) % allNews.length);
 
+  /*
+   * `accent` colore o sobretitulo. #EE4266 e cor de indicador, nao de
+   * texto: da 3,58:1 sobre este fundo. #d62f52 e o mesmo vermelho na
+   * versao que alcanca o piso de 4,5:1.
+   */
   return (
     <PageShell
       eyebrow={pageField(content, 'eyebrow', 'Destaques Letivos')}
       title={pageField(content, 'title', 'Notícias & Novidades')}
       description={pageField(content, 'description', 'Acompanhe os informativos, aberturas de turma e novidades do Portal AVASEC.')}
-      accent="#EE4266"
+      accent="#d62f52"
       background="bg-slate-50"
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <span className="text-[10px] text-slate-400 font-mono font-bold">Portal de Notícias AVASEC</span>
+        <span className="text-apoio text-escult-ink-2 font-bold">Portal de Notícias AVASEC</span>
         <div className="flex gap-1.5">
           <button
             onClick={goPrev}
@@ -97,14 +102,14 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
         {displayedNews.length === 0 ? (
           <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-white shadow-3xs">
-            <h4 className="text-[#EE4266] font-black text-sm uppercase tracking-wider mb-2 font-mono">Sem Resultados</h4>
-            <p className="text-slate-500 text-xs leading-relaxed max-w-md mx-auto">
+            <h4 className="text-[#EE4266] font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
+            <p className="text-escult-ink-2 text-xs leading-relaxed max-w-md mx-auto">
               Nenhuma notícia coincide com a sua busca por "
               <strong className="text-slate-800 font-bold">{searchQuery}</strong>".
             </p>
             <button
               onClick={onClearSearch}
-              className="mt-4 px-4 py-2 bg-[#EE4266] text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-colors uppercase tracking-wider cursor-pointer font-sans"
+              className="mt-4 px-4 py-2 bg-escult-red-acao text-white text-sobretitulo rounded-xl hover:bg-escult-red-acao-hover transition-colors uppercase cursor-pointer font-sans"
             >
               Limpar Filtro de Busca
             </button>
@@ -129,7 +134,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
                       referrerPolicy="no-referrer"
                     />
                     {news.tag && (
-                      <div className="absolute top-3 left-3 bg-[#EE4266] text-white text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded font-bold">
+                      <div className="absolute top-3 left-3 bg-escult-red-acao text-white text-sobretitulo uppercase px-2 py-0.5 rounded">
                         {news.tag}
                       </div>
                     )}
@@ -138,18 +143,18 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
 
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
-                    <span className="text-[10px] text-slate-400 font-mono font-bold block">{news.date}</span>
+                    <span className="text-apoio text-escult-ink-2 font-bold block">{news.date}</span>
                     <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 h-9 font-serif">
                       {news.title}
                     </h4>
-                    <p className="text-[10.5px] text-slate-500 leading-relaxed font-light line-clamp-3">
+                    <p className="text-apoio text-escult-ink-2 leading-relaxed line-clamp-3">
                       {news.description}
                     </p>
                   </div>
 
                   <button
                     onClick={onRequireLogin}
-                    className="w-full text-center py-2.5 rounded-xl bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors text-slate-650 border border-slate-150 text-[10px] font-black uppercase tracking-wider cursor-pointer"
+                    className="w-full text-center py-2.5 rounded-xl bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors text-slate-650 border border-slate-150 text-sobretitulo uppercase cursor-pointer"
                   >
                     Ler Mais Informações
                   </button>

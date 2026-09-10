@@ -22,11 +22,11 @@ export const LessonVideoField: React.FC<LessonVideoFieldProps> = ({ value, onCha
 
   return (
     <div>
-      <label className="block text-xs font-bold text-slate-500 uppercase mb-1 tracking-wider flex items-center gap-1.5">
+      <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1 flex items-center gap-1.5">
         <Youtube className="h-3.5 w-3.5 text-red-500" />
         Vídeo da aula (opcional)
       </label>
-      <p className="text-[11px] text-slate-500 mb-2 leading-relaxed">
+      <p className="text-rotulo text-escult-ink-2 mb-2 leading-relaxed">
         Abra o vídeo no YouTube, copie o endereço que aparece na barra do navegador e cole aqui.
         O vídeo aparece automaticamente abaixo — sem precisar de mais nada.
       </p>
@@ -46,13 +46,13 @@ export const LessonVideoField: React.FC<LessonVideoFieldProps> = ({ value, onCha
       />
 
       {hasInput && source && (
-        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
+        <div className="mt-1.5 flex items-center gap-1.5 text-rotulo font-bold text-emerald-700">
           <CheckCircle2 className="h-3.5 w-3.5" />
           <span>Link reconhecido! Veja a prévia do vídeo abaixo.</span>
         </div>
       )}
       {hasInput && !source && (
-        <div className="mt-1.5 flex items-start gap-1.5 text-[11px] font-semibold text-amber-700">
+        <div className="mt-1.5 flex items-start gap-1.5 text-rotulo font-semibold text-amber-700">
           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
           <span>
             Não reconhecemos esse link. Copie o endereço direto do vídeo no YouTube — ele começa
@@ -63,7 +63,7 @@ export const LessonVideoField: React.FC<LessonVideoFieldProps> = ({ value, onCha
 
       {source && (
         <div className="mt-3">
-          <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block mb-1.5">
+          <span className="text-sobretitulo uppercase text-escult-ink-2 block mb-1.5">
             Prévia (é assim que o aluno vai ver)
           </span>
           <div className="aspect-video w-full max-w-md rounded-xl overflow-hidden bg-black border border-slate-800 shadow-sm">
