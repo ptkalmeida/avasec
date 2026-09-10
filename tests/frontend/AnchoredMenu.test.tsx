@@ -114,6 +114,48 @@ describe('AnchoredMenu', () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it('alinha à ESQUERDA do gatilho quando pedido, sem mudar o padrão', () => {
+    /*
+     * O menu de navegação do cabeçalho ("A Escola", "Ajuda") desce sob o próprio
+     * rótulo, que fica à esquerda. O padrão continua `right`, que é o caso que
+     * originou o componente: três pontos na última coluna de uma tabela, onde
+     * alinhar à esquerda jogaria o painel para fora da tela.
+     */
+    const painelDe = (nome: RegExp): HTMLElement =>
+      screen.getByRole('button', { name: nome }).parentElement as HTMLElement;
+
+    render(
+      <AnchoredMenu anchor={ancoraEm({ top: 20, bottom: 68, left: 400, right: 480 })} onClose={() => {}} width={280} align="left">
+        <button>O que é o AVA</button>
+      </AnchoredMenu>
+    );
+    expect(painelDe(/o que é o ava/i).style.left).toBe('400px');
+
+    render(
+      <AnchoredMenu anchor={ancoraEm({ top: 20, bottom: 68, left: 400, right: 480 })} onClose={() => {}} width={280}>
+        <button>Perfil do aluno</button>
+      </AnchoredMenu>
+    );
+    // Padrão inalterado: borda direita do botão menos a largura -> 480 - 280.
+    expect(painelDe(/perfil do aluno/i).style.left).toBe('200px');
+  });
+
+  it('nem alinhado à esquerda o painel vaza da janela', () => {
+    // Gatilho perto da borda direita: o painel recua para caber.
+    window.innerWidth = 500;
+
+    render(
+      <AnchoredMenu anchor={ancoraEm({ top: 20, bottom: 68, left: 460, right: 490 })} onClose={() => {}} width={280} align="left">
+        <button>Dúvidas frequentes</button>
+      </AnchoredMenu>
+    );
+
+    const painel = screen.getByRole('button', { name: /dúvidas frequentes/i }).parentElement as HTMLElement;
+    const left = Number.parseInt(painel.style.left, 10);
+    expect(left).toBeLessThanOrEqual(500 - 280 - 8);
+    expect(left).toBeGreaterThanOrEqual(8);
+  });
+
   it('não renderiza nada sem âncora, para não piscar num canto da tela', () => {
     render(
       <AnchoredMenu anchor={null} onClose={() => {}}>
