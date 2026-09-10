@@ -31,7 +31,9 @@ const DEFAULT_ITEMS: SitePageItem[] = [
   {
     id: 'pilar-3',
     title: 'Pedagogia Decolonial e Inclusiva',
-    description: 'Celebramos e nos inspiramos no grande educador patrono Paulo Freire e na vanguarda negra de Solano Trindade, integrando teoria crítica com prática imediata do fazer artístico.'
+    // A mencao nominal a Paulo Freire saiu de todo o site (10/09/2026). O que
+    // fica e a concepcao pedagogica, que e o que a frase de fato descreve.
+    description: 'Nossa prática integra teoria crítica e o fazer artístico imediato: a educação parte do repertório de quem aprende e se volta para a leitura crítica da realidade.'
   }
 ];
 

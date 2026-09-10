@@ -1749,7 +1749,7 @@ export function ProfileView({
                     </h4>
                     <p className="text-[10.5px] text-slate-500 leading-relaxed max-w-xl">
                       {currentLang === 'pt' 
-                        ? 'Gere um documento oficial contendo seu histórico de aproveitamento em todos os cursos livres da Escola da Cultura e a lista autenticada dos seus certificados emitidos com validação eletrônica.' 
+                        ? 'Gere um documento oficial contendo seu histórico de aproveitamento em todos os cursos livres da Escola Estadual da Cultura e a lista autenticada dos seus certificados emitidos com validação eletrônica.' 
                         : currentLang === 'es'
                         ? 'Genere un documento oficial con su historial de calificaciones, carga horaria de cursos libres y certificados emitidos con validación electrónica.'
                         : 'Generate an official document containing your academic course progress transcript and an authenticated registry of certificates with validation keys.'}
@@ -1958,7 +1958,7 @@ export function ProfileView({
                         AVASEC
                       </div>
                       <span className="text-[10px] uppercase tracking-widest text-[#540D6E] font-extrabold font-mono">
-                        Escola da Cultura e Economia Criativa
+                        Escola Estadual da Cultura
                       </span>
                     </div>
                     <h1 className="text-xl md:text-3xl font-black text-slate-900 tracking-tight font-serif uppercase leading-tight">

@@ -1362,7 +1362,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ipAddress: '192.168.1.14',
         device: 'Chrome / macOS (Sistema Autenticado)',
         action: 'Auditoria de Sistema',
-        details: 'Geração de relatório geral de matrículas ativas na Escola da Cultura.',
+        details: 'Geração de relatório geral de matrículas ativas na Escola Estadual da Cultura.',
         status: 'SUCCESS' as const
       },
       {
