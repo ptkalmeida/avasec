@@ -135,8 +135,8 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                 <span>AO VIVO</span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-400 border border-slate-700">
-                <VideoOff className="h-3 w-3 text-slate-400" />
+              <div className="flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-semibold text-escult-ink-2 border border-slate-700">
+                <VideoOff className="h-3 w-3 text-escult-ink-2" />
                 <span>OFFLINE</span>
               </div>
             )}
@@ -144,7 +144,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
               <h1 className="text-sm font-bold text-slate-100 max-w-xs md:max-w-xl truncate leading-tight">
                 {session.title}
               </h1>
-              <p className="text-[11px] text-slate-400 truncate">
+              <p className="text-rotulo text-escult-ink-3 truncate">
                 Curso: {course.title} • {course.instructorName}
               </p>
             </div>
@@ -166,14 +166,14 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
               </button>
             )}
 
-            <div className="hidden items-center gap-1.5 text-xs text-slate-400 sm:flex">
-              <Users className="h-4 w-4 text-slate-400" />
+            <div className="hidden items-center gap-1.5 text-xs text-escult-ink-2 sm:flex">
+              <Users className="h-4 w-4 text-escult-ink-2" />
               <span>{isSessionLive ? '42 alunos assistindo' : 'Aguardando transmissão'}</span>
             </div>
             
             <button
               onClick={toggleFocusMode}
-              className="rounded-lg border border-indigo-750 bg-indigo-950/40 hover:bg-indigo-950/80 text-indigo-300 hover:text-indigo-200 text-indigo-400 px-4 py-2 text-xs font-bold font-mono tracking-wider transition-all flex items-center gap-1.5 cursor-pointer uppercase shadow-3xs"
+              className="rounded-lg border border-indigo-750 bg-indigo-950/40 hover:bg-indigo-950/80 text-indigo-300 hover:text-indigo-200 text-indigo-400 px-4 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer uppercase shadow-3xs"
               title="Ativar o Modo Foco (Ocultar menus, manter apenas Player + Chat)"
             >
               <Maximize2 className="h-3.5 w-3.5" />
@@ -211,14 +211,14 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                 <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between bg-slate-950/80 backdrop-blur-md px-4 py-2.5 rounded-xl border border-slate-800/80 hover:opacity-100 opacity-95 transition-opacity duration-200 shadow-xl">
                   <div className="flex items-center gap-2">
                     <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                    <span className="text-[10px] font-extrabold uppercase font-mono tracking-wider text-red-400">Modo Foco Ativo</span>
-                    <span className="text-slate-500 font-mono text-[11px] hidden md:inline">|</span>
+                    <span className="text-sobretitulo uppercase text-red-400">Modo Foco Ativo</span>
+                    <span className="text-escult-ink-2 text-rotulo hidden md:inline">|</span>
                     <h2 className="text-xs font-bold text-white leading-none max-w-xs md:max-w-md truncate">{session.title}</h2>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={toggleFocusMode}
-                      className="rounded-lg bg-indigo-650 hover:bg-indigo-600 border border-indigo-500/25 text-white px-3 py-1.5 text-[10.5px] font-bold tracking-tight transition-all flex items-center gap-1.5 cursor-pointer"
+                      className="rounded-lg bg-indigo-650 hover:bg-indigo-600 border border-indigo-500/25 text-white px-3 py-1.5 text-apoio font-bold tracking-tight transition-all flex items-center gap-1.5 cursor-pointer"
                       title="Sair do Modo Foco"
                     >
                       <Minimize2 className="h-3 w-3" />
@@ -226,7 +226,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                     </button>
                     <button
                       onClick={onClose}
-                      className="rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 text-[10.5px] font-bold transition-all cursor-pointer"
+                      className="rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 text-apoio font-bold transition-all cursor-pointer"
                     >
                       Sair da Aula
                     </button>
@@ -237,11 +237,11 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
               {/* Virtual Presentation background */}
               {!isSessionLive && activeUser.role === 'student' ? (
                 <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
-                  <div className="p-4 bg-slate-850 rounded-full border border-slate-800 text-slate-500 mb-4 animate-pulse">
-                    <VideoOff className="h-10 w-10 text-slate-400" />
+                  <div className="p-4 bg-slate-850 rounded-full border border-slate-800 text-escult-ink-2 mb-4 animate-pulse">
+                    <VideoOff className="h-10 w-10 text-escult-ink-2" />
                   </div>
                   <h3 className="text-sm font-bold text-slate-200">Aguardando o início da transmissão</h3>
-                  <p className="text-xs text-slate-400 max-w-sm mt-1.5 leading-relaxed">
+                  <p className="text-xs text-escult-ink-2 max-w-sm mt-1.5 leading-relaxed">
                     O professor ainda não iniciou a transmissão ao vivo desta aula virtual. Você pode utilizar o chat ao lado para interagir com seus colegas e professores enquanto aguarda.
                   </p>
                 </div>
@@ -252,10 +252,10 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                       <Monitor className="h-4 w-4" />
                       Compartilhando Tela — {course.instructorName}
                     </span>
-                    <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded text-slate-300">Apresentação_Final.pdf</span>
+                    <span className="text-apoio bg-slate-800 px-2 py-0.5 rounded text-slate-300">Apresentação_Final.pdf</span>
                   </div>
                   <div className="flex-1 rounded-lg bg-slate-950/80 p-6 flex flex-col justify-center border border-slate-800">
-                    <span className="text-xs uppercase font-semibold text-teal-400 mb-2">Estrutura Estratégica do AVA</span>
+                    <span className="text-sobretitulo uppercase text-teal-400 mb-2">Estrutura Estratégica do AVA</span>
                     <h3 className="text-xl md:text-2xl font-bold mb-4 text-white">REQUISITOS METRICOS DE SUCESSO</h3>
                     <div className="space-y-2 text-sm text-slate-300">
                       <div className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                     <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=60')] bg-cover bg-center opacity-85" />
                     {!cameraOn && (
                       <div className="absolute inset-0 bg-slate-800 flex items-center justify-center">
-                        <VideoOff className="h-10 w-10 text-slate-500" />
+                        <VideoOff className="h-10 w-10 text-escult-ink-2" />
                       </div>
                     )}
                     {/* Pulsing indicator */}
@@ -298,7 +298,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   </div>
 
                   {!isSessionLive && (activeUser.role === 'instructor' || activeUser.role === 'admin') && (
-                    <div className="absolute bottom-4 left-4 right-4 bg-amber-500/90 text-slate-950 font-bold text-[11px] px-4 py-2.5 rounded-lg flex items-center justify-between gap-3 shadow-lg">
+                    <div className="absolute bottom-4 left-4 right-4 bg-amber-500/90 text-slate-950 font-bold text-rotulo px-4 py-2.5 rounded-lg flex items-center justify-between gap-3 shadow-lg">
                       <AlertTriangle className="h-4 w-4 shrink-0" />
                       <span>Você está offline. Clique em "Iniciar Transmissão" no cabeçalho acima para iniciar a aula letiva.</span>
                     </div>
@@ -329,7 +329,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   <div className="w-1 bg-teal-500 rounded animate-[bounce_1.4s_infinite]" style={{ height: '70%' }}></div>
                   <div className="w-1 bg-teal-500 rounded animate-[bounce_0.8s_infinite]" style={{ height: '30%' }}></div>
                   <div className="w-1 bg-teal-500 rounded animate-[bounce_1.2s_infinite]" style={{ height: '90%' }}></div>
-                  <span className="text-[10px] text-slate-400 ml-1.5">Áudio ao vivo</span>
+                  <span className="text-apoio text-escult-ink-2 ml-1.5">Áudio ao vivo</span>
                 </div>
               )}
 
@@ -395,7 +395,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
 
             {/* Attendance Status Action block */}
             <div className="flex items-center gap-3">
-              <span className="text-[11px] text-slate-400">Presença do Aluno:</span>
+              <span className="text-rotulo text-escult-ink-3">Presença do Aluno:</span>
               {isPresent ? (
                 <div className="flex items-center gap-1.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 px-4 py-2 rounded-lg text-xs font-semibold">
                   <CheckCircle className="h-4 w-4" />
@@ -410,7 +410,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   <span>Confirmar Minha Presença</span>
                 </button>
               ) : (
-                <div className="bg-slate-800 px-3 py-2 rounded text-xs font-mono text-teal-300">
+                <div className="bg-slate-800 px-3 py-2 rounded text-xs text-teal-300">
                   Modo Instrutor • Presença desativada
                 </div>
               )}
@@ -424,11 +424,11 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
           {/* Sub Navigation */}
           {isFocusMode ? (
             <div className="flex h-14 items-center justify-between border-b border-slate-800 bg-slate-950 px-4 shrink-0 shadow-2xs">
-              <span className="text-[10px] font-extrabold tracking-wider text-teal-400 uppercase flex items-center gap-1.5 font-mono">
+              <span className="text-sobretitulo text-teal-400 uppercase flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
                 <span>Bate-papo da Aula ao Vivo</span>
               </span>
-              <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded uppercase">
+              <span className="text-sobretitulo text-escult-ink-2 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded uppercase">
                 {messages.length} msgs
               </span>
             </div>
@@ -440,7 +440,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 ${
                     activeTab === 'chat' 
                       ? 'border-teal-500 text-teal-400 bg-slate-950/20' 
-                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                      : 'border-transparent text-escult-ink-2 hover:text-slate-200'
                   }`}
                 >
                   <div className="flex items-center justify-center gap-1.5">
@@ -454,7 +454,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                 className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 ${
                   activeTab === 'info' 
                     ? 'border-teal-500 text-teal-400 bg-slate-950/20' 
-                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                    : 'border-transparent text-escult-ink-2 hover:text-slate-200'
                 }`}
               >
                 <div className="flex items-center justify-center gap-1.5">
@@ -470,7 +470,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
               {/* Chat messages canvas container */}
               <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-thin scrollbar-thumb-slate-800">
                 {messages.length === 0 ? (
-                  <div className="text-center text-xs text-slate-500 py-10">
+                  <div className="text-center text-xs text-escult-ink-2 py-10">
                     Nenhuma mensagem enviada. Seja o primeiro a iniciar!
                   </div>
                 ) : (
@@ -479,15 +479,15 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                     return (
                       <div key={msg.id} className="flex flex-col text-left">
                         <div className="flex items-baseline gap-1.5">
-                          <span className={`text-[11px] font-bold ${isInstructor ? 'text-amber-400' : 'text-teal-400'}`}>
+                          <span className={`text-rotulo font-bold ${isInstructor ? 'text-amber-400' : 'text-teal-400'}`}>
                             {msg.senderName}
                           </span>
                           {isInstructor && (
-                            <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[8px] uppercase tracking-wider px-1 py-0.2 rounded font-semibold">
+                            <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sobretitulo uppercase px-1 py-0.2 rounded">
                               Instrutor
                             </span>
                           )}
-                          <span className="text-[9px] text-slate-500">
+                          <span className="text-apoio text-escult-ink-2">
                             {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
@@ -530,21 +530,21 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
               </div>
 
               <div className="space-y-2 border border-slate-800 rounded-lg p-3 bg-slate-950/20">
-                <span className="text-slate-400 uppercase tracking-widest text-[10px] font-bold">Link de Videoconferência</span>
-                <p className="font-mono text-[11px] text-emerald-400 truncate select-all">{session.meetingLink}</p>
+                <span className="text-escult-ink-2 uppercase text-sobretitulo">Link de Videoconferência</span>
+                <p className="text-rotulo text-emerald-400 truncate select-all">{session.meetingLink}</p>
                 <a
                   href={safeHref(session.meetingLink)}
                   target="_blank"
                   referrerPolicy="no-referrer"
-                  className="mt-2 inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold px-3 py-1.5 rounded text-[11px] transition-all"
+                  className="mt-2 inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold px-3 py-1.5 rounded text-rotulo transition-all"
                 >
                   <span>Abrir em Nova Aba</span>
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </div>
 
-              <div className="space-y-2 text-slate-400 text-[11px]">
-                <h5 className="font-bold text-slate-300 uppercase shrink text-[10px]">Instruções para o Aluno</h5>
+              <div className="space-y-2 text-escult-ink-3 text-rotulo">
+                <h5 className="text-slate-300 uppercase shrink text-sobretitulo">Instruções para o Aluno</h5>
                 <ul className="list-disc leading-loose pl-4 space-y-1">
                   <li>Seu progresso da aula ao vivo exige que você permaneça ativo na transmissão por alguns momentos.</li>
                   <li>Incentivamos que abra a conferência externa para participar por áudio/vídeo.</li>
@@ -564,7 +564,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
           </div>
           <div>
             <h5 className="text-xs font-bold text-white">Presença Registrada!</h5>
-            <p className="text-[10px] text-emerald-100">Atualizamos suas estatísticas do curso com sucesso.</p>
+            <p className="text-apoio text-emerald-100">Atualizamos suas estatísticas do curso com sucesso.</p>
           </div>
         </div>
       )}

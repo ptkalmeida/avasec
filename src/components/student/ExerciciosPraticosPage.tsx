@@ -114,22 +114,22 @@ const ExercicioCard: React.FC<{
       <header className="flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
           <h3 className="text-sm font-bold leading-snug text-slate-900">{exercicio.title}</h3>
-          <p className="text-[11px] leading-relaxed text-slate-600">{exercicio.description}</p>
+          <p className="text-rotulo leading-relaxed text-slate-600">{exercicio.description}</p>
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2 sm:flex-col sm:items-end">
           <span
-            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-black uppercase ${TOM_CHIP[rotulo.tom]}`}
+            className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-sobretitulo uppercase ${TOM_CHIP[rotulo.tom]}`}
           >
             {ICONE_SITUACAO[rotulo.situacao]}
             {rotulo.texto}
           </span>
-          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-600">
+          <span className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-apoio font-bold text-slate-600">
             vale {exercicio.maxPoints} pts
           </span>
           {prazo !== null && (
             <span
-              className={`text-[10px] font-bold ${prazo.atrasado ? 'text-rose-600' : 'text-slate-450'}`}
+              className={`text-apoio font-bold ${prazo.atrasado ? 'text-rose-600' : 'text-escult-ink-2'}`}
             >
               {prazo.texto}
             </span>
@@ -138,26 +138,26 @@ const ExercicioCard: React.FC<{
       </header>
 
       <div className="space-y-1 rounded-xl border border-teal-100 bg-teal-50/30 p-3">
-        <strong className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-teal-800">
+        <strong className="flex items-center gap-1 text-sobretitulo uppercase text-teal-800">
           <Info className="h-3.5 w-3.5" /> Como entregar
         </strong>
-        <p className="whitespace-pre-line text-[11px] leading-relaxed text-slate-700">
+        <p className="whitespace-pre-line text-rotulo leading-relaxed text-slate-700">
           {exercicio.instructions}
         </p>
       </div>
 
       {submissao !== undefined && (
         <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/50 p-3">
-          <span className="text-[10px] font-bold text-slate-500">
+          <span className="text-apoio font-bold text-escult-ink-2">
             Entregue em {submissao.submittedAt}
           </span>
-          <p className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-2.5 font-mono text-[10px] leading-normal text-slate-700">
+          <p className="max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-2.5 text-apoio leading-normal text-slate-700">
             {submissao.submissionText}
           </p>
 
           {submissao.fileName && (
-            <div className="flex items-center gap-1.5 rounded-md border border-dashed border-slate-250 bg-white p-1.5 text-[10px]">
-              <FileText className="h-3.5 w-3.5 text-slate-500" />
+            <div className="flex items-center gap-1.5 rounded-md border border-dashed border-slate-250 bg-white p-1.5 text-apoio">
+              <FileText className="h-3.5 w-3.5 text-escult-ink-2" />
               <span className="min-w-0 truncate">{submissao.fileName}</span>
               <button
                 type="button"
@@ -174,11 +174,11 @@ const ExercicioCard: React.FC<{
 
           {submissao.feedback && (
             <div className="space-y-1 rounded-xl border border-slate-200 bg-white p-3">
-              <strong className="block text-[11px] font-bold text-slate-900">
+              <strong className="block text-rotulo font-bold text-slate-900">
                 Feedback de {submissao.gradedBy ?? 'professor'}
                 {submissao.gradedAt ? ` em ${submissao.gradedAt}` : ''}
               </strong>
-              <p className="whitespace-pre-line text-[10.5px] italic leading-relaxed text-slate-650">
+              <p className="whitespace-pre-line text-apoio italic leading-relaxed text-slate-650">
                 {submissao.feedback}
               </p>
             </div>
@@ -189,7 +189,7 @@ const ExercicioCard: React.FC<{
       {podeEntregar ? (
         <div className="space-y-3 border-t border-slate-100 pt-3">
           <label className="block space-y-1">
-            <span className="text-[10.5px] font-bold text-slate-700">
+            <span className="text-apoio font-bold text-slate-700">
               {submissao ? 'Atualizar sua resposta' : 'Sua resposta'}
             </span>
             <textarea
@@ -204,14 +204,14 @@ const ExercicioCard: React.FC<{
           {props.permiteAnexo && (
             <div className="flex flex-wrap items-center gap-2">
               {nomeAnexo !== undefined ? (
-                <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-[10.5px] text-slate-700">
+                <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-apoio text-slate-700">
                   <Paperclip className="h-3.5 w-3.5 text-teal-600" />
                   <span className="min-w-0 max-w-[16rem] truncate font-bold">{nomeAnexo}</span>
                   {anexo !== null && (
                     <button
                       type="button"
                       onClick={() => setAnexo(null)}
-                      className="cursor-pointer text-[9px] font-black uppercase text-rose-600 hover:text-rose-700"
+                      className="cursor-pointer text-sobretitulo uppercase text-rose-600 hover:text-rose-700"
                     >
                       remover
                     </button>
@@ -219,9 +219,9 @@ const ExercicioCard: React.FC<{
                 </span>
               ) : (
                 <label
-                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 ${subindo ? 'pointer-events-none opacity-50' : ''}`}
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-apoio font-semibold text-slate-700 hover:bg-slate-50 ${subindo ? 'pointer-events-none opacity-50' : ''}`}
                 >
-                  <Paperclip className="h-3.5 w-3.5 text-slate-500" />
+                  <Paperclip className="h-3.5 w-3.5 text-escult-ink-2" />
                   <span>{subindo ? 'Enviando arquivo...' : 'Anexar documento (opcional)'}</span>
                   <input
                     type="file"
@@ -242,14 +242,14 @@ const ExercicioCard: React.FC<{
                   />
                 </label>
               )}
-              <span className="text-[10px] text-slate-400">
+              <span className="text-apoio text-escult-ink-2">
                 Visível apenas para você e para os professores.
               </span>
             </div>
           )}
 
           {erro !== null && (
-            <p className="flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-[10.5px] font-bold leading-relaxed text-rose-700">
+            <p className="flex items-start gap-1.5 rounded-lg border border-rose-200 bg-rose-50 p-2.5 text-apoio font-bold leading-relaxed text-rose-700">
               <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
               {erro}
             </p>
@@ -268,7 +268,7 @@ const ExercicioCard: React.FC<{
           </button>
         </div>
       ) : (
-        <p className="border-t border-slate-100 pt-3 text-[10.5px] font-bold text-emerald-700">
+        <p className="border-t border-slate-100 pt-3 text-apoio font-bold text-emerald-700">
           Atividade concluída e aprovada. Nada mais a entregar aqui.
         </p>
       )}
@@ -293,7 +293,7 @@ export const ExerciciosPraticosPage: React.FC<ExerciciosPraticosPageProps> = (pr
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
+        className="inline-flex cursor-pointer items-center gap-1.5 text-sobretitulo uppercase text-escult-ink-2 hover:text-slate-800"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Voltar ao curso
@@ -301,7 +301,7 @@ export const ExerciciosPraticosPage: React.FC<ExerciciosPraticosPageProps> = (pr
 
       <header className="space-y-3 rounded-2xl border border-teal-100 bg-teal-50/25 p-5">
         <div className="space-y-1">
-          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-teal-700">
+          <span className="flex items-center gap-1.5 text-sobretitulo uppercase text-teal-700">
             <FileCheck className="h-3.5 w-3.5" />
             Exercícios práticos
           </span>
@@ -309,29 +309,29 @@ export const ExerciciosPraticosPage: React.FC<ExerciciosPraticosPageProps> = (pr
         </div>
 
         {doCurso.length > 0 && (
-          <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t border-teal-100 pt-3 text-[11px]">
+          <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t border-teal-100 pt-3 text-rotulo">
             <div>
-              <dt className="font-bold uppercase tracking-wide text-slate-450">Atividades</dt>
-              <dd className="font-mono text-sm font-black text-slate-900">{progresso.total}</dd>
+              <dt className="font-bold uppercase tracking-wide text-escult-ink-2">Atividades</dt>
+              <dd className="text-sm font-black text-slate-900">{progresso.total}</dd>
             </div>
             <div>
-              <dt className="font-bold uppercase tracking-wide text-slate-450">Entregues</dt>
-              <dd className="font-mono text-sm font-black text-slate-900">
+              <dt className="font-bold uppercase tracking-wide text-escult-ink-2">Entregues</dt>
+              <dd className="text-sm font-black text-slate-900">
                 {progresso.entregues} de {progresso.total}
               </dd>
             </div>
             <div>
-              <dt className="font-bold uppercase tracking-wide text-slate-450">Corrigidas</dt>
-              <dd className="font-mono text-sm font-black text-slate-900">{progresso.corrigidos}</dd>
+              <dt className="font-bold uppercase tracking-wide text-escult-ink-2">Corrigidas</dt>
+              <dd className="text-sm font-black text-slate-900">{progresso.corrigidos}</dd>
             </div>
             {progresso.corrigidos > 0 && (
               <div>
-                <dt className="flex items-center gap-1 font-bold uppercase tracking-wide text-slate-450">
+                <dt className="flex items-center gap-1 font-bold uppercase tracking-wide text-escult-ink-2">
                   <Award className="h-3 w-3 text-emerald-600" /> Pontos
                 </dt>
                 {/* Só o que já foi corrigido entra na conta — a fila do professor
                     não deve fazer a nota do aluno parecer pior do que é. */}
-                <dd className="font-mono text-sm font-black text-emerald-700">
+                <dd className="text-sm font-black text-emerald-700">
                   {progresso.pontos} de {progresso.pontosPossiveis}
                 </dd>
               </div>
@@ -346,7 +346,7 @@ export const ExerciciosPraticosPage: React.FC<ExerciciosPraticosPageProps> = (pr
           <strong className="block text-sm font-bold text-slate-700">
             Este curso ainda não tem exercícios práticos.
           </strong>
-          <span className="mx-auto mt-1 block max-w-md text-xs leading-relaxed text-slate-500">
+          <span className="mx-auto mt-1 block max-w-md text-xs leading-relaxed text-escult-ink-2">
             Quando o professor lançar uma atividade, ela aparece aqui com o enunciado,
             o prazo e o espaço para você entregar.
           </span>

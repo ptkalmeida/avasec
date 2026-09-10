@@ -207,6 +207,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   // Accessibility & Multi-language Internationalization (Transient UI states only)
   const [isAccessibilityOpen, setIsAccessibilityOpen] = useState(false);
   const [isSiteMapOpen, setIsSiteMapOpen] = useState(false);
+  /*
+    Sub-aba em que o Perfil abre. Existe porque os certificados vivem numa
+    sub-aba do Perfil, sem endereco proprio: quem clica em "Certificados"
+    no painel precisa cair nela, e nao na aba de dados pessoais.
+  */
+  const [perfilAbaInicial, setPerfilAbaInicial] = useState<'profile' | 'password' | 'certificates'>('profile');
 
   // PIN Verification Flow Security States
   const [pendingLogin, setPendingLogin] = useState<{ name: string; role: 'student' | 'instructor' | 'admin' } | null>(null);
@@ -1653,6 +1659,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
         ) : currentView === 'perfil' ? (
           /* NEW PROFILE VIEW */
           <ProfileView
+            abaInicial={perfilAbaInicial}
             onBack={() => {
               if (isUserLoggedIn) {
                 setCurrentView('active_app');
@@ -1985,7 +1992,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             {activeUser.role === 'student' && (
               <StudentDashboard
                 onBackToLanding={() => setCurrentView('landing')}
-                onNavigateToProfile={() => setCurrentView('perfil')}
+                onNavigateToProfile={() => { setPerfilAbaInicial('profile'); setCurrentView('perfil'); }}
+                /*
+                  "Certificados" na navegacao do aluno abre o Perfil JA na aba
+                  deles. E o mesmo destino de `/aluno/certificados`, que era
+                  rota sem tela e caia no bloco "secao nao disponivel".
+                */
+                onNavigateToCertificates={() => { setPerfilAbaInicial('certificates'); setCurrentView('perfil'); }}
                 speakText={speakText}
               />
             )}

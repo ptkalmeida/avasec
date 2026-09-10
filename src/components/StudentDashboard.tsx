@@ -11,6 +11,7 @@ import {
   Lock, MessageSquare, Send, ChevronDown, Check, Play, FileText, Notebook, Layers, HelpCircle, CheckSquare, ExternalLink, Archive, Library, Info,
   Bell, Shield, Smartphone, X, Bold, Italic, Underline, List, ListOrdered,
   AlertTriangle, Lightbulb, Tag, LayoutGrid, Star, PartyPopper
+, GraduationCap
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardTab, useLMS, authFetch } from '../context/LMSContext';
@@ -18,7 +19,12 @@ import { RAIZ_ALUNO, caminhoAluno, parseAluno } from '../router/studentRoutes';
 import { assuntoDaMensagem, comAssuntoDaAula } from '../utils/assuntoMensagem';
 import { cursoPorRef, refDoCurso, refEhCanonica } from '../utils/cursoRef';
 import { avaliacoesPendentes, oQueFaltaParaOCertificado } from '../utils/certificadoElegivel';
-import { abaVisivelParaAluno } from '../utils/abasAluno';
+import {
+  abaVisivelParaAluno,
+  acoesDoAluno,
+  LugarDoAluno,
+  lugaresDoAluno,
+} from '../utils/abasAluno';
 import { trilhaDoAluno } from '../utils/trilhaAluno';
 import { Breadcrumb } from './shared/Breadcrumb';
 import { VideoPlayer } from './shared/VideoPlayer';
@@ -64,10 +70,19 @@ import { tentativaVigente, textoDaTentativa } from '../utils/quizAttempts';
 interface StudentDashboardProps {
   onBackToLanding?: () => void;
   onNavigateToProfile?: () => void;
+  /**
+   * Abre o Perfil já na aba de certificados.
+   *
+   * Os certificados vivem numa sub-aba do Perfil, sem endereço próprio, e
+   * `/aluno/certificados` — rota real, com rótulo na trilha — caía no bloco
+   * "esta seção não está disponível". A entrada da navegação leva ao lugar
+   * onde eles realmente estão, em vez de a uma tela que não existe.
+   */
+  onNavigateToCertificates?: () => void;
   speakText: (text: string) => void;
 }
 
-export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLanding, onNavigateToProfile, speakText }) => {
+export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLanding, onNavigateToProfile, onNavigateToCertificates, speakText }) => {
   const {
     courses,
     progress,
@@ -312,6 +327,58 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     : cursoPorRef(courses, destino.catalogoId);
 
   const activeDashboardTab: DashboardTab = destino.aba;
+
+  /*
+    Navegacao do Bloco 6: LUGAR na barra, ACAO no canto. As condicoes vivem em
+    `utils/abasAluno`, com teste — o icone fica aqui porque e do lucide.
+  */
+  const lugares = lugaresDoAluno(features, systemSettings, {
+    temCursoAtivo: activeEnrolledCourseIds.length > 0,
+  });
+  const acoes = acoesDoAluno(features, systemSettings);
+  const iconeDoLugar: Record<string, React.ElementType> = {
+    painel: BookOpen,
+    curso: GraduationCap,
+    certificados: Award,
+    documentos: FileCheck,
+    biblioteca: Library,
+    mensagens: MessageSquare,
+    eventos: Globe,
+  };
+
+  const abrirLugar = (lugar: LugarDoAluno): void => {
+    if (lugar.id === 'certificados') {
+      onNavigateToCertificates?.();
+      return;
+    }
+
+    if (lugar.id === 'curso') {
+      /*
+        Vai para o curso ATIVO. Com matricula multipla concedida
+        (`canMultiEnroll`) ha mais de um, e a entrada abre o primeiro — os
+        outros continuam na lista do painel.
+      */
+      const curso = courses.find((c) => c.id === activeEnrolledCourseIds[0]) ?? null;
+      if (curso !== null) setSelectedCourse(curso);
+      return;
+    }
+
+    if (lugar.aba !== undefined) {
+      irPara({ tela: 'painel', aba: lugar.aba, cursoRef: null, catalogoId: null });
+    }
+  };
+
+  /*
+    `/aluno/certificados` existia como rota e nao tinha tela: mostrava o bloco
+    "esta secao nao esta disponivel". Agora resolve para onde os certificados de
+    fato estao, em vez de dar erro a quem salvou o endereco.
+  */
+  useEffect(() => {
+    if (destino.tela === 'painel' && destino.aba === 'certificates') {
+      onNavigateToCertificates?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destino.tela, destino.aba]);
 
   const setSelectedCourse = (curso: Course | null): void => {
     irPara(curso === null
@@ -829,7 +896,7 @@ ${html}
 
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[9px] uppercase font-black tracking-widest text-teal-800 bg-teal-100/40 border border-teal-200/50 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1.5 shadow-3xs">
+                <span className="text-sobretitulo uppercase text-teal-800 bg-teal-100/40 border border-teal-200/50 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1.5 shadow-3xs">
                   Painel de Estudos AVASEC
                 </span>
                 
@@ -845,19 +912,19 @@ ${html}
               <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight pt-0.5">
                 Olá, {activeUser.name}
               </h2>
-              <p className="text-xs text-slate-500 font-medium">Pronto para acelerar os seus conhecimentos profissionais hoje?</p>
+              <p className="text-xs text-escult-ink-2 font-medium">Pronto para acelerar os seus conhecimentos profissionais hoje?</p>
             </div>
           </div>
 
           {/* Right section: Indicators as mini cards */}
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <div className="bg-white/60 border border-slate-150 rounded-xl px-4 py-2.5 text-left shadow-3xs hover:bg-white/90 transition-all flex-1 sm:flex-initial min-w-[115px]">
-              <span className="block text-xl font-black text-[#540D6E] font-mono tracking-tight">{activeEnrollments}</span>
-              <span className="text-[10px] text-slate-500 font-semibold block mt-0.5 whitespace-nowrap">Cursos ativos</span>
+              <span className="block text-xl font-black text-[#540D6E] tracking-tight">{activeEnrollments}</span>
+              <span className="text-apoio text-escult-ink-2 font-semibold block mt-0.5 whitespace-nowrap">Cursos ativos</span>
             </div>
             <div className="bg-white/60 border border-slate-150 rounded-xl px-4 py-2.5 text-left shadow-3xs hover:bg-white/90 transition-all flex-1 sm:flex-initial min-w-[115px]">
-              <span className="block text-xl font-black text-teal-600 font-mono tracking-tight">{avgGlobalAttendance}%</span>
-              <span className="text-[10px] text-slate-500 font-semibold block mt-0.5 whitespace-nowrap">Presença média</span>
+              <span className="block text-xl font-black text-teal-600 tracking-tight">{avgGlobalAttendance}%</span>
+              <span className="text-apoio text-escult-ink-2 font-semibold block mt-0.5 whitespace-nowrap">Presença média</span>
             </div>
           </div>
         </div>
@@ -865,110 +932,68 @@ ${html}
       )}
 
       {/*
-        A barra de abas NAO depende de mensagens diretas.
-        Ela estava inteira dentro de
-        `{features.mensagensDiretas && systemSettings.allowDirectMessages && (`,
-        e `allowDirectMessages` e chave EDITAVEL pelo admin nas Configuracoes do
-        Sistema. Ou seja: um administrador desligava mensagens e o aluno perdia
-        de uma vez Documentos, Biblioteca Digital, Eventos, Central de Ajuda e
-        Meu Perfil — sem erro e sem aviso. A condicao pertence ao botao de
-        Mensagens, e e la que ela esta agora.
+        Bloco 6 do handoff: LUGAR e ACAO deixam de ser a mesma coisa.
+
+        Eram sete botoes identicos numa barra unica. Dois deles nao eram lugar:
+        "Central de Ajuda / FAQ" abre uma GAVETA lateral — prometia trocar de
+        tela e nao trocava — e "Meu Perfil" e area pessoal, nao secao de estudo.
+        Enquanto isso, os dois lugares que o aluno mais procura nao estavam na
+        barra: o curso em que ele esta matriculado e os certificados.
+
+        A condicao de cada entrada continua em `utils/abasAluno` (foi a mistura
+        entre "condicao de um item" e "condicao da barra" que causou o defeito
+        do Bloco 0), e a barra nao depende de mensagens diretas.
       */}
-      <div className="flex border-b border-slate-200 mb-8 gap-3 p-1.5 bg-slate-100 rounded-2xl w-full sm:w-fit flex-wrap overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setActiveDashboardTab('general')}
-            className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-              activeDashboardTab === 'general'
-                ? 'bg-[#540D6E] text-white shadow-md transform scale-[1.02]'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-            }`}
-          >
-            <BookOpen className="h-4 w-4" />
-            <span>Meu Painel de Estudos</span>
-          </button>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-8">
+        <nav
+          aria-label="Seções do painel do aluno"
+          className="flex gap-2 p-1.5 bg-slate-100 rounded-2xl w-full sm:w-fit flex-wrap overflow-x-auto no-scrollbar"
+        >
+          {lugares.map((lugar) => {
+            const Icone = iconeDoLugar[lugar.id] ?? BookOpen;
+            const ativo = lugar.aba === undefined
+              ? (lugar.id === 'curso' && destino.tela === 'curso')
+              : (destino.tela === 'painel' && activeDashboardTab === lugar.aba);
 
-          {abaVisivelParaAluno('documents', features, systemSettings) && (
-            <button
-              onClick={() => setActiveDashboardTab('documents')}
-              className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-                activeDashboardTab === 'documents'
-                  ? 'bg-[#540D6E] text-white shadow-md transform scale-[1.02]'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
-            >
-              <FileCheck className="h-4 w-4" />
-              <span>Documentos</span>
-            </button>
-          )}
+            return (
+              <button
+                key={lugar.id}
+                onClick={() => abrirLugar(lugar)}
+                aria-current={ativo ? 'page' : undefined}
+                className={`px-5 py-2.5 rounded-xl text-rotulo font-semibold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                  ativo
+                    ? 'bg-[#540D6E] text-white shadow-md'
+                    : 'text-escult-ink-2 hover:text-escult-ink hover:bg-white'
+                }`}
+              >
+                <Icone className="h-4 w-4" />
+                <span>{lugar.rotulo}</span>
+              </button>
+            );
+          })}
+        </nav>
 
-          {abaVisivelParaAluno('messages', features, systemSettings) && (
-            <button
-              onClick={() => setActiveDashboardTab('messages')}
-              className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-                activeDashboardTab === 'messages'
-                  ? 'bg-[#540D6E] text-white shadow-md transform scale-[1.02]'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
-            >
-              <MessageSquare className="h-4 w-4" />
-              <span>Mensagens & Suporte</span>
-            </button>
-          )}
+        {/*
+          Canto: acao, e nao lugar. Sem fundo de aba selecionada, porque nenhuma
+          das duas troca a secao em que a pessoa esta.
+        */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {acoes.map((acao) => {
+            const Icone = acao.id === 'ajuda' ? HelpCircle : User;
 
-          {abaVisivelParaAluno('library', features, systemSettings) && (
-            <button
-              onClick={() => setActiveDashboardTab('library')}
-              className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-                activeDashboardTab === 'library'
-                  ? 'bg-[#540D6E] text-white shadow-md transform scale-[1.02]'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
-            >
-              <Library className="h-4 w-4" />
-              <span>Biblioteca Digital</span>
-            </button>
-          )}
-
-          {abaVisivelParaAluno('events', features, systemSettings) && (
-          <button
-            onClick={() => setActiveDashboardTab('events')}
-            className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-              activeDashboardTab === 'events'
-                ? 'bg-[#540D6E] text-white shadow-md transform scale-[1.02]'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-            }`}
-          >
-            <Globe className="h-4 w-4" />
-            <span>Eventos & Webinars</span>
-          </button>
-          )}
-
-          <button
-            onClick={() => setIsFaqDrawerOpen(true)}
-            className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-              isFaqDrawerOpen
-                ? 'bg-[#540D6E] text-white shadow-md transform scale-[1.02]'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-            }`}
-          >
-            <HelpCircle className="h-4 w-4" />
-            <span>Central de Ajuda / FAQ</span>
-          </button>
-
-          {abaVisivelParaAluno('settings', features, systemSettings) && (
-            <button
-              onClick={() => setActiveDashboardTab('settings')}
-              className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-2.5 cursor-pointer whitespace-nowrap ${
-                activeDashboardTab === 'settings'
-                  ? 'bg-[#540D6E] text-white shadow-md transform scale-[1.02]'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50/50'
-              }`}
-            >
-              <User className="h-4 w-4" />
-              <span>Meu Perfil</span>
-            </button>
-          )}
+            return (
+              <button
+                key={acao.id}
+                onClick={() => (acao.id === 'ajuda' ? setIsFaqDrawerOpen(true) : onNavigateToProfile?.())}
+                className="px-3.5 py-2.5 rounded-xl text-rotulo font-medium text-escult-ink-2 hover:text-escult-ink hover:bg-slate-100 transition-colors cursor-pointer flex items-center gap-2 whitespace-nowrap"
+              >
+                <Icone className="h-4 w-4" />
+                <span>{acao.rotulo}</span>
+              </button>
+            );
+          })}
         </div>
+      </div>
 
       {/*
         Aba desligada: a MESMA fonte que esconde o botao decide a mensagem, em vez
@@ -986,7 +1011,7 @@ ${html}
         <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-8 text-center max-w-xl mx-auto my-12 shadow-3xs space-y-3">
           <Lock className="h-10 w-10 text-amber-600 mx-auto" />
           <h3 className="font-extrabold text-base">Esta seção não está disponível nesta versão da plataforma.</h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-escult-ink-2">
             Ela não aparece no menu porque está desativada. Se você chegou aqui por um link
             salvo, use o menu acima para voltar ao seu Painel de Estudos.
           </p>
@@ -1025,7 +1050,7 @@ ${html}
                     e as aulas deixaram de ficar disponíveis.
                   </p>
 
-                  <div className="bg-white border border-amber-200 rounded-xl p-4 text-[13px] text-slate-700 text-left space-y-2.5">
+                  <div className="bg-white border border-amber-200 rounded-xl p-4 text-apoio text-slate-700 text-left space-y-2.5">
                     <p className="flex items-start gap-2">
                       <Check className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
                       <span>
@@ -1052,7 +1077,7 @@ ${html}
 
                   <button
                     onClick={voltarParaMeusCursos}
-                    className="mt-4 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider py-3 px-6 rounded-xl transition-all cursor-pointer"
+                    className="mt-4 bg-slate-900 hover:bg-slate-800 text-white text-sobretitulo uppercase py-3 px-6 rounded-xl transition-all cursor-pointer"
                   >
                     Voltar para Meus Cursos
                   </button>
@@ -1072,7 +1097,7 @@ ${html}
                 </button>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Trilha de Estudos:</span>
+                  <span className="text-sobretitulo uppercase text-escult-ink-2">Trilha de Estudos:</span>
                   <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-bold text-slate-600">
                     {selectedCourse.category}
                   </span>
@@ -1087,13 +1112,13 @@ ${html}
                   </h3>
                   <div className="flex flex-wrap items-center gap-2 mt-1">
                     <span className="text-xs text-slate-550 font-medium">Instrutor responsável: Prof. {selectedCourse.instructorName}</span>
-                    <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                    <span className="inline-flex items-center gap-1 bg-white border border-slate-200 px-2 py-0.5 rounded-full text-apoio font-bold">
                       <span className={`h-1.5 w-1.5 rounded-full ${
                         (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online'
                           ? 'bg-emerald-500 animate-pulse'
                           : 'bg-slate-400'
                       }`} />
-                      <span className={(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online' ? 'text-emerald-600' : 'text-slate-500'}>
+                      <span className={(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online' ? 'text-emerald-600' : 'text-escult-ink-2'}>
                         {(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online' ? 'Online' : 'Offline'}
                       </span>
                     </span>
@@ -1119,8 +1144,8 @@ ${html}
                   return (
                     <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg border border-slate-250">
                       <div className="text-right">
-                        <span className="block text-[9px] uppercase font-semibold text-slate-400 leading-none">Sua frequência</span>
-                        <strong className={`text-sm font-black font-mono mt-0.5 block ${qualificado ? 'text-emerald-700' : 'text-teal-700'}`}>
+                        <span className="block text-sobretitulo uppercase text-escult-ink-2 leading-none">Sua frequência</span>
+                        <strong className={`text-cartao font-bold mt-0.5 block ${qualificado ? 'text-emerald-700' : 'text-teal-700'}`}>
                           {frequencia}%
                         </strong>
                         {/*
@@ -1129,7 +1154,7 @@ ${html}
                           medidor prometer o certificado a quem bate a presenca e
                           nao passou na prova — o mesmo defeito do banner abaixo.
                         */}
-                        <span className="block text-[9px] text-slate-400 leading-tight mt-0.5">
+                        <span className="block text-apoio text-escult-ink-2 leading-tight mt-0.5">
                           mínimo de {minimo}%
                           {avaliacoesQueFaltam.length > 0
                             ? ' e aprovação nas avaliações'
@@ -1137,10 +1162,10 @@ ${html}
                         </span>
                       </div>
                       <div
-                        className={`h-9 w-9 shrink-0 rounded-full border-2 flex items-center justify-center text-[8px] font-bold leading-none text-center ${
+                        className={`h-9 w-9 shrink-0 rounded-full border-2 flex items-center justify-center text-apoio font-bold leading-none text-center ${
                           qualificado
                             ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : 'border-slate-200 bg-slate-50 text-slate-500'
+                            : 'border-slate-200 bg-slate-50 text-escult-ink-2'
                         }`}
                         title={faltaParaCertificado ?? `Critérios cumpridos: ${frequencia}% de frequência, mínimo de ${minimo}%.`}
                       >
@@ -1290,7 +1315,7 @@ ${html}
                         <div className="max-w-3xl mx-auto flex items-center justify-between gap-3">
                           <button
                             onClick={() => setActiveLesson(null)}
-                            className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                            className="text-xs font-bold text-escult-ink-2 hover:text-slate-800 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                           >
                             <ArrowRight className="h-3.5 w-3.5 rotate-180" />
                             <span className="hidden sm:inline">Voltar ao Curso</span>
@@ -1298,8 +1323,8 @@ ${html}
                           </button>
 
                           <div className="min-w-0 flex-1 text-center hidden md:block">
-                            <p className="text-[11px] font-bold text-slate-700 truncate">{activeLesson.title}</p>
-                            <span className="text-[9px] font-mono text-slate-400">
+                            <p className="text-rotulo font-bold text-slate-700 truncate">{activeLesson.title}</p>
+                            <span className="text-apoio text-escult-ink-2">
                               Aula {activeLesson.order} de {selectedCourse.lessons.length}
                             </span>
                           </div>
@@ -1332,14 +1357,14 @@ ${html}
                           conteúdo, em vez de um player vazio. */}
                       {!lessonHasVideo && (
                         <div className="w-full max-w-3xl mx-auto text-left space-y-2 pt-1">
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 border border-teal-150 text-teal-800 text-[9px] font-black uppercase tracking-widest px-2.5 py-1">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 border border-teal-150 text-teal-800 text-sobretitulo uppercase px-2.5 py-1">
                             <FileText className="h-3 w-3" />
                             Conteúdo de leitura
                           </span>
                           <h2 className="text-lg md:text-2xl font-black text-slate-900 font-serif leading-tight">
                             {activeLesson.title}
                           </h2>
-                          <p className="text-[11px] text-slate-400 font-mono">
+                          <p className="text-rotulo text-escult-ink-3">
                             Aula {activeLesson.order} de {selectedCourse.lessons.length}
                             {activeLesson.duration ? ` • ${activeLesson.duration} de leitura` : ''}
                           </p>
@@ -1349,7 +1374,7 @@ ${html}
                       {/* Controles da aula. A navegação entre aulas vive só no rodapé
                           da aula (um par de botões, não dois fazendo a mesma coisa). */}
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/65 flex items-center justify-between gap-4 w-full max-w-3xl mx-auto">
-                        <span className="hidden sm:inline text-[10px] font-mono text-slate-400 select-none">
+                        <span className="hidden sm:inline text-apoio text-escult-ink-2 select-none">
                           Aula {activeLesson.order} de {selectedCourse.lessons.length}
                         </span>
 
@@ -1376,7 +1401,7 @@ ${html}
                                 <button
                                   onClick={() => toggleLessonCompletion(selectedCourse.id, activeLesson.id)}
                                   title="Voltar esta aula para pendente"
-                                  className="cursor-pointer text-[10px] font-bold uppercase tracking-wider text-slate-450 underline decoration-slate-300 hover:text-slate-700"
+                                  className="cursor-pointer text-sobretitulo uppercase text-escult-ink-2 underline decoration-slate-300 hover:text-slate-700"
                                 >
                                   Desfazer
                                 </button>
@@ -1403,7 +1428,7 @@ ${html}
                         <div className="flex border-b border-slate-200 bg-slate-50/50">
                           <button
                             onClick={() => setActiveTab('teoria')}
-                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                               activeTab === 'teoria' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                             }`}
                           >
@@ -1413,7 +1438,7 @@ ${html}
 
                           <button
                             onClick={() => setActiveTab('anotacao')}
-                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                               activeTab === 'anotacao' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                             }`}
                           >
@@ -1435,7 +1460,7 @@ ${html}
                           {features.mensagensDiretas && (
                             <button
                               onClick={() => setActiveTab('suporte')}
-                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                                 activeTab === 'suporte' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                               }`}
                             >
@@ -1447,14 +1472,14 @@ ${html}
                           {features.forum && (
                             <button
                               onClick={() => setActiveTab('forum')}
-                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-[11px] sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
                                 activeTab === 'forum' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
                               }`}
                             >
                               <MessageSquare className="h-4 w-4 text-teal-650 shrink-0" />
                               <span className="flex items-center gap-1">
                                 Fórum Interativo
-                                <span className="bg-teal-100 text-teal-800 text-[8px] font-black uppercase px-2 py-0.5 rounded-full animate-pulse shrink-0">Comunidade</span>
+                                <span className="bg-teal-100 text-teal-800 text-sobretitulo uppercase px-2 py-0.5 rounded-full animate-pulse shrink-0">Comunidade</span>
                               </span>
                             </button>
                           )}
@@ -1476,11 +1501,11 @@ ${html}
                               {/* Student-Facing attached documents list */}
                               {activeLesson.documents && activeLesson.documents.length > 0 && (
                                 <div className="mt-8 border-t border-slate-150 pt-6 space-y-3.5">
-                                  <h4 className="font-extrabold text-slate-950 text-xs uppercase tracking-wider flex items-center gap-2">
+                                  <h4 className="text-slate-950 text-sobretitulo uppercase flex items-center gap-2">
                                     <Archive className="h-4 w-4 text-teal-600" />
                                     Material de Apoio e Documentos Anexos ({activeLesson.documents.length})
                                   </h4>
-                                  <p className="text-[10px] text-slate-400 -mt-1 leading-none">Arquivos e links disponibilizados pelo seu instrutor para aprofundamento.</p>
+                                  <p className="text-apoio text-escult-ink-2 -mt-1 leading-none">Arquivos e links disponibilizados pelo seu instrutor para aprofundamento.</p>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1.5">
                                     {activeLesson.documents.map((doc, docIdx) => {
                                       let docBg = 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-350';
@@ -1513,16 +1538,16 @@ ${html}
                                             <div className="min-w-0">
                                               <p className="font-extrabold text-slate-900 text-xs truncate group-hover/doc:text-teal-700">{doc.title}</p>
                                               <div className="flex items-center gap-1.5 mt-1">
-                                                <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider ${labelColor}`}>
+                                                <span className={`px-1.5 py-0.2 rounded text-sobretitulo uppercase ${labelColor}`}>
                                                   {doc.type}
                                                 </span>
                                                 {doc.size && (
-                                                  <span className="text-[10px] text-slate-400 font-mono">{doc.size}</span>
+                                                  <span className="text-apoio text-escult-ink-2">{doc.size}</span>
                                                 )}
                                               </div>
                                             </div>
                                           </div>
-                                          <ExternalLink className="h-3.5 w-3.5 text-slate-400 group-hover/doc:text-teal-600 transition-colors shrink-0 self-center" />
+                                          <ExternalLink className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-teal-600 transition-colors shrink-0 self-center" />
                                         </a>
                                       );
                                     })}
@@ -1539,7 +1564,7 @@ ${html}
                                   <Notebook className="h-4 w-4 text-teal-500" />
                                   <span>Suas Anotações Digitais Privadas</span>
                                 </h4>
-                                <p className="text-[10px] text-slate-400 leading-normal mt-1">
+                                <p className="text-apoio text-escult-ink-2 leading-normal mt-1">
                                   Gravadas localmente no seu navegador, separadas por aula. O PDF também
                                   é gerado aqui — a anotação não é enviada para o servidor.
                                 </p>
@@ -1596,13 +1621,13 @@ ${html}
                                   contentEditable
                                   suppressContentEditableWarning
                                   data-placeholder="Grave observações importantes, trechos de código ou anotações teóricas desta aula aqui..."
-                                  className="w-full min-h-32 p-3 text-xs font-sans text-slate-800 focus:outline-hidden empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+                                  className="w-full min-h-32 p-3 text-xs font-sans text-slate-800 focus:outline-hidden empty:before:content-[attr(data-placeholder)] empty:before:text-escult-ink-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
                                 />
                               </div>
 
                               <div className="flex items-center justify-end gap-3 text-right">
                                 {noteSaved && (
-                                  <span className="text-[10.5px] font-bold text-emerald-600 flex items-center gap-1">
+                                  <span className="text-apoio font-bold text-emerald-600 flex items-center gap-1">
                                     <Check className="h-3.5 w-3.5" />
                                     Anotação salva!
                                   </span>
@@ -1631,13 +1656,13 @@ ${html}
                                 <HelpCircle className="h-4 w-4 text-teal-500" />
                                 <span>Suporte Pedagógico</span>
                               </h4>
-                              <p className="text-[11px] text-slate-500 leading-relaxed">
+                              <p className="text-rotulo text-escult-ink-2 leading-relaxed">
                                 Tem dúvidas sobre o conteúdo desta aula ou sobre algum problema técnico? Envie sua mensagem diretamente ao Gestor de Conteúdos abaixo — ela é registrada no seu canal de mensagens e respondida por lá.
                               </p>
 
                               <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-start gap-3 mt-2">
                                 <div className="relative">
-                                  <User className="h-8 w-8 text-slate-400 p-1 bg-slate-200 rounded-full" />
+                                  <User className="h-8 w-8 text-escult-ink-2 p-1 bg-slate-200 rounded-full" />
                                   <span className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border border-white ${
                                     (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online'
                                       ? 'bg-emerald-500 animate-pulse'
@@ -1647,15 +1672,15 @@ ${html}
                                 <div className="space-y-1">
                                   <strong className="text-slate-900 block font-bold leading-tight flex items-center gap-1.5">
                                     <span>Prof. {selectedCourse.instructorName}</span>
-                                    <span className={`text-[9px] font-black leading-none ${
+                                    <span className={`text-apoio font-black leading-none ${
                                       (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online'
                                         ? 'text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-500/10'
-                                        : 'text-slate-500 text-slate-500 bg-slate-100 px-1 py-0.5 rounded border border-slate-200'
+                                        : 'text-escult-ink-2 text-escult-ink-2 bg-slate-100 px-1 py-0.5 rounded border border-slate-200'
                                     }`}>
                                       {(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online' ? 'ONLINE' : 'OFFLINE'}
                                     </span>
                                   </strong>
-                                  <span className="text-[10px] text-slate-450 block">Tempo de resposta esperado: &lt; 2 horas</span>
+                                  <span className="text-apoio text-escult-ink-2 block">Tempo de resposta esperado: &lt; 2 horas</span>
                                 </div>
                               </div>
 
@@ -1668,7 +1693,7 @@ ${html}
                                 />
                                 <div className="flex items-center justify-end gap-3">
                                   {lessonSupportMessageSent && (
-                                    <span className="text-[10.5px] font-bold text-emerald-600 flex items-center gap-1">
+                                    <span className="text-apoio font-bold text-emerald-600 flex items-center gap-1">
                                       <CheckCircle className="h-3.5 w-3.5" />
                                       Mensagem enviada!
                                     </span>
@@ -1692,7 +1717,7 @@ ${html}
                                 <MessageSquare className="h-4 w-4 text-teal-500 animate-pulse" />
                                 <span>Fórum de Dúvidas & Interação da Comunidade</span>
                               </h4>
-                              <p className="text-[11px] text-slate-500 leading-relaxed">
+                              <p className="text-rotulo text-escult-ink-2 leading-relaxed">
                                 Faça perguntas sobre o conteúdo atual da aula ou debata soluções com seus colegas sem sair do ambiente de aprendizado.
                               </p>
                               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
@@ -1780,7 +1805,7 @@ ${html}
 
                       {/* O efeito colateral fica ESCRITO. Botão que muda registro
                           acadêmico em silêncio é a origem da próxima reclamação. */}
-                      <p className="w-full max-w-3xl mx-auto text-[10px] text-slate-400 text-right leading-normal">
+                      <p className="w-full max-w-3xl mx-auto text-apoio text-escult-ink-2 text-right leading-normal">
                         Avançar marca esta aula como concluída e conta para a sua frequência.
                       </p>
                     </div>
@@ -1793,7 +1818,7 @@ ${html}
                       
                       <div className="max-w-md mx-auto space-y-2">
                         <h4 className="font-black text-slate-900 text-lg">Aulas de {selectedCourse.title}</h4>
-                        <p className="text-xs text-slate-500 leading-relaxed">
+                        <p className="text-xs text-escult-ink-2 leading-relaxed">
                           Selecione uma aula na barra lateral para abrir a estação de aprendizagem. As avaliações e os encontros ao vivo do curso ficam nas abas acima.
                         </p>
                       </div>
@@ -1853,12 +1878,12 @@ ${html}
                     existir — a lista de aulas basta.
                   */}
                   <div className="flex items-center justify-between">
-                    <h4 className="font-black text-slate-900 flex items-center gap-1.5 text-xs uppercase tracking-wider">
+                    <h4 className="text-slate-900 flex items-center gap-1.5 text-sobretitulo uppercase">
                       <BookOpen className="h-4 w-4 text-teal-600" />
                       <span>Aulas do Curso</span>
                     </h4>
 
-                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                    <span className="text-apoio font-bold text-escult-ink-2 bg-slate-100 px-2 py-0.5 rounded-full">
                       {currentCourseProgress?.completedLessons.length || 0} / {selectedCourse.lessons.length} Aulas
                     </span>
                   </div>
@@ -1867,7 +1892,7 @@ ${html}
                     {aulasEmOrdem.length === 0 ? (
                       // Curso sem aula diz que nao tem aula. O texto anterior
                       // anunciava modulos que ele tambem nao tinha.
-                      <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                      <p className="text-rotulo text-escult-ink-2 bg-slate-50 border border-slate-200 rounded-lg p-3">
                         Este curso ainda não tem aulas publicadas.
                       </p>
                     ) : aulasEmOrdem.map((lesson, idx) => {
@@ -1880,7 +1905,7 @@ ${html}
                           className="border rounded-lg overflow-hidden transition-all cursor-pointer p-3 flex items-center justify-between gap-3 group text-left bg-white border-slate-200 hover:border-teal-300"
                         >
                           <div className="flex-1 text-left min-w-0">
-                            <span className="block text-[11px] font-bold leading-tight text-slate-800 group-hover:text-teal-600 transition-colors">
+                            <span className="block text-rotulo font-bold leading-tight text-slate-800 group-hover:text-teal-600 transition-colors">
                               {idx + 1}. {lesson.title}
                             </span>
                             <div className="flex items-center gap-1 mt-1.5">
@@ -1889,10 +1914,10 @@ ${html}
                                 pode estar em branco — nesse caso nao se afirma
                                 duracao nenhuma, em vez de mostrar "undefined".
                               */}
-                              <span className="text-[9px] font-mono text-slate-500">
+                              <span className="text-apoio text-escult-ink-2">
                                 {(lesson.duration ?? '').trim() !== '' ? lesson.duration : 'Duração não informada'}
                               </span>
-                              <ChevronRight className="h-2.5 w-2.5 text-slate-400 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-transform" />
+                              <ChevronRight className="h-2.5 w-2.5 text-escult-ink-2 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-transform" />
                             </div>
                           </div>
 
@@ -1902,7 +1927,7 @@ ${html}
                                 <CheckCircle className="h-3.5 w-3.5" />
                               </span>
                             ) : (
-                              <span className="text-[9.5px] font-bold font-mono px-1.5 py-0.5 rounded border bg-slate-100 border-slate-200 text-slate-500">
+                              <span className="text-apoio font-bold px-1.5 py-0.5 rounded border bg-slate-100 border-slate-200 text-escult-ink-2">
                                 Abrir
                               </span>
                             )}
@@ -1921,7 +1946,7 @@ ${html}
                   */}
                   {transmissoesDeHoje.length > 0 && (
                   <div className="border border-teal-100 bg-teal-50/15 rounded-xl p-3 text-left space-y-2.5">
-                    <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                    <h5 className="text-slate-900 text-sobretitulo uppercase flex items-center gap-1.5">
                       <Video className="h-3.5 w-3.5 text-teal-600" />
                       <span>Transmissões de hoje</span>
                     </h5>
@@ -1930,15 +1955,15 @@ ${html}
                       {transmissoesDeHoje.map((session, idx) => {
                         const isAttended = currentCourseProgress?.attendedLiveSessions.includes(session.id) || false;
                         return (
-                          <div key={`${session.id}-${idx}`} className="bg-white rounded-lg border border-teal-100/40 p-2.5 leading-relaxed text-left text-[11px]">
+                          <div key={`${session.id}-${idx}`} className="bg-white rounded-lg border border-teal-100/40 p-2.5 leading-relaxed text-left text-rotulo">
                             
                             <div className="flex items-start justify-between gap-1.5">
                               <div>
                                 <strong className="font-bold text-slate-900">{session.title}</strong>
-                                <span className="text-[9px] text-slate-400 block mt-0.5">{formatScheduledAt(session.scheduledAt)} ({session.durationMinutes} min)</span>
+                                <span className="text-apoio text-escult-ink-2 block mt-0.5">{formatScheduledAt(session.scheduledAt)} ({session.durationMinutes} min)</span>
                               </div>
 
-                              <span className={`text-[8px] font-extrabold uppercase px-1.5 rounded shrink-0 leading-normal ${
+                              <span className={`text-sobretitulo font-extrabold uppercase px-1.5 rounded shrink-0 leading-normal ${
                                 isAttended 
                                   ? 'bg-emerald-50 text-emerald-700' 
                                   : 'bg-amber-50 text-amber-600'
@@ -1967,12 +1992,12 @@ ${html}
                                   rel="noopener noreferrer"
                                   className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200/60 font-bold py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-center"
                                 >
-                                  <ExternalLink className="h-4 w-4 text-slate-500 shrink-0" />
+                                  <ExternalLink className="h-4 w-4 text-escult-ink-2 shrink-0" />
                                   <span>Google Meet</span>
                                 </a>
                               </div>
                               {situacaoTransmissao(session, agoraTransmissao) === 'agendada' && (
-                                <span className="text-[9px] text-slate-400 block text-center mt-1">
+                                <span className="text-apoio text-escult-ink-2 block text-center mt-1">
                                   Encontro agendado. Você pode entrar na sala virtual e aguardar o professor.
                                 </span>
                               )}
@@ -1987,7 +2012,7 @@ ${html}
                   {/* 4. Testes e avaliações — só quando a disciplina tem alguma. */}
                   {avaliacoesDoCursoAberto.length > 0 && (
                   <div className="border border-amber-100 bg-amber-50/10 rounded-xl p-3.5 text-left space-y-3 shadow-2xs">
-                    <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                    <h5 className="text-slate-900 text-sobretitulo uppercase flex items-center gap-1.5">
                       <CheckSquare className="h-3.5 w-3.5 text-amber-600" />
                       <span>Testes e Avaliações</span>
                     </h5>
@@ -2003,10 +2028,10 @@ ${html}
                               <div className="flex items-start justify-between gap-1.5">
                                 <div className="space-y-0.5">
                                   <strong className="font-bold text-slate-900 block text-xs leading-snug">{quiz.title}</strong>
-                                  <span className="text-[10px] text-slate-450 font-medium block">{quiz.questions.length} questões</span>
+                                  <span className="text-apoio text-escult-ink-2 font-medium block">{quiz.questions.length} questões</span>
                                 </div>
                                 {userSub && (
-                                  <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase shrink-0 ${
+                                  <span className={`text-sobretitulo font-extrabold px-2 py-0.5 rounded-md uppercase shrink-0 ${
                                     userSub.passed ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'
                                   }`}>
                                     {userSub.passed ? `Nota: ${userSub.scorePercent}%` : `${userSub.scorePercent}%`}
@@ -2016,7 +2041,7 @@ ${html}
 
                               {userSub ? (
                                 <div className="space-y-2">
-                                  <div className="text-[10px] font-semibold text-slate-500 block">
+                                  <div className="text-apoio font-semibold text-escult-ink-2 block">
                                     Último envio: {textoDaTentativa(userSub)}
                                   </div>
                                   <button
@@ -2029,7 +2054,7 @@ ${html}
                               ) : (
                                 <button
                                   onClick={() => abrirAvaliacoes(quiz.id)}
-                                  className="w-full bg-amber-600 hover:bg-amber-500 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center cursor-pointer shadow-xs"
+                                  className="w-full bg-amber-600 hover:bg-amber-500 text-white py-2 px-4 rounded-lg text-sobretitulo uppercase transition-all flex items-center justify-center cursor-pointer shadow-xs"
                                 >
                                   Começar
                                 </button>
@@ -2044,7 +2069,7 @@ ${html}
                   {/* 5. Exercícios de fixação — só quando a disciplina tem algum. */}
                   {exerciciosDoCursoAberto.length > 0 && (
                   <div className="border border-teal-100 bg-teal-50/10 rounded-xl p-3.5 text-left space-y-3 shadow-2xs">
-                    <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider flex items-center gap-1.5">
+                    <h5 className="text-slate-900 text-sobretitulo uppercase flex items-center gap-1.5">
                       <FileCheck className="h-3.5 w-3.5 text-teal-600" />
                       <span>Exercícios de Fixação</span>
                     </h5>
@@ -2058,16 +2083,16 @@ ${html}
                                 <div className="flex items-start justify-between gap-1.5">
                                   <div className="space-y-0.5">
                                     <strong className="font-bold text-slate-900 block text-xs leading-snug">{ex.title}</strong>
-                                    <span className="text-[10px] text-slate-450 font-medium block">Exercício Prático</span>
+                                    <span className="text-apoio text-escult-ink-2 font-medium block">Exercício Prático</span>
                                   </div>
-                                  <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-md uppercase shrink-0 ${
+                                  <span className={`text-sobretitulo font-extrabold px-2 py-0.5 rounded-md uppercase shrink-0 ${
                                     studentSub?.status === 'approved' 
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
                                       : studentSub?.status === 'pending'
                                       ? 'bg-indigo-50 text-indigo-750 border border-indigo-100'
                                       : studentSub?.status === 'rejected' || studentSub?.status === 'revision'
                                       ? 'bg-amber-50 text-amber-700 font-extrabold border border-amber-100'
-                                      : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                      : 'bg-slate-100 text-escult-ink-2 border border-slate-200'
                                   }`}>
                                     {
                                       studentSub?.status === 'approved' ? `Nota: ${studentSub.score}/${ex.maxPoints}` :
@@ -2089,7 +2114,7 @@ ${html}
                           */}
                           <button
                             onClick={() => setShowExercicios(true)}
-                            className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                            className="w-full bg-teal-600 hover:bg-teal-500 text-white py-2 px-4 rounded-lg text-sobretitulo uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                           >
                             <FileCheck className="h-4 w-4" />
                             <span>Abrir Atividades Práticas</span>
@@ -2119,9 +2144,9 @@ ${html}
                     <div className="bg-[#540D6E] p-4 text-white flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Calendar className="h-5 w-5" />
-                        <h4 className="font-black uppercase tracking-widest text-xs">Próximas Sessões ao Vivo</h4>
+                        <h4 className="uppercase text-sobretitulo">Próximas Sessões ao Vivo</h4>
                       </div>
-                      <button onClick={() => setShowUpcomingCalendar(false)} className="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg text-[10px] uppercase font-bold">Fechar</button>
+                      <button onClick={() => setShowUpcomingCalendar(false)} className="bg-white/10 hover:bg-white/20 p-1.5 rounded-lg text-sobretitulo uppercase">Fechar</button>
                     </div>
                     <div className="p-4 space-y-3 max-h-[400px] overflow-y-auto">
                       {courses
@@ -2137,15 +2162,15 @@ ${html}
                         .map((session, idx) => (
                         <div key={`${session.id}-${idx}`} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition-colors group">
                            <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center min-w-[70px] group-hover:border-teal-200 group-hover:bg-teal-50 transition-all">
-                              <span className="block text-[10px] font-black text-slate-400 uppercase leading-none mb-1">DATA</span>
+                              <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none mb-1">DATA</span>
                               <span className="text-sm font-black text-slate-700 leading-none">{dataCurta(session.scheduledAt)}</span>
                            </div>
                            <div className="flex-1 min-w-0">
-                              <span className="text-[9px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                              <span className="text-sobretitulo text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded uppercase">
                                 {courses.find(c => c.id === session.courseId)?.title}
                               </span>
-                              <h5 className="text-[11px] font-bold text-slate-900 mt-1 truncate">{session.title}</h5>
-                              <div className="flex items-center gap-3 mt-1.5 text-[9px] text-slate-500 font-medium">
+                              <h5 className="text-rotulo font-bold text-slate-900 mt-1 truncate">{session.title}</h5>
+                              <div className="flex items-center gap-3 mt-1.5 text-apoio text-escult-ink-2 font-medium">
                                 <span className="flex items-center gap-1"><Clock className="h-2.5 w-2.5" />{horaCurta(session.scheduledAt)}</span>
                                 <span className="flex items-center gap-1"><Globe className="h-2.5 w-2.5" />Horário de Brasília (Local)</span>
                               </div>
@@ -2168,15 +2193,15 @@ ${html}
                     <button
                       id="btn-back-to-catalog"
                       onClick={() => setViewingCatalogCourse(null)}
-                      className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                      className="flex items-center gap-2 text-xs font-bold text-escult-ink-2 hover:text-slate-800 transition-colors cursor-pointer"
                     >
                       ← Voltar à Vitrine / Catálogo de Cursos
                     </button>
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 uppercase tracking-wider text-[10px]">
+                      <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-sobretitulo text-slate-600 uppercase text-sobretitulo">
                         {viewingCatalogCourse.category}
                       </span>
-                      <span className="rounded-full bg-amber-50 text-amber-700 border border-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                      <span className="rounded-full bg-amber-50 text-amber-700 border border-amber-100 px-3 py-1 text-sobretitulo uppercase text-sobretitulo flex items-center gap-1">
                         <Lock className="h-3 w-3" /> Inscrição Pendente
                       </span>
                     </div>
@@ -2206,7 +2231,7 @@ ${html}
                           </p>
                         </div>
                         <div className="space-y-2 pt-2 border-t border-slate-100">
-                          <strong className="block text-xs font-black text-slate-700 uppercase tracking-wide">Você vai aprender a:</strong>
+                          <strong className="block text-sobretitulo text-slate-700 uppercase">Você vai aprender a:</strong>
                           <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 font-semibold list-disc pl-4">
                             <li>configurar um ambiente moderno com React e Vite;</li>
                             <li>criar APIs com Node.js e Express;</li>
@@ -2220,12 +2245,12 @@ ${html}
                       <div className="border border-slate-200 rounded-xl bg-slate-50/40 p-5 space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                           <div>
-                            <h4 className="text-xs uppercase font-black text-[#540D6E] tracking-wider">Prévia da grade do curso</h4>
-                            <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Conheça as aulas do curso antes de iniciar sua matrícula.</span>
+                            <h4 className="text-sobretitulo uppercase text-[#540D6E]">Prévia da grade do curso</h4>
+                            <span className="text-apoio text-escult-ink-2 font-bold block mt-0.5">Conheça as aulas do curso antes de iniciar sua matrícula.</span>
                           </div>
                           <button
                             onClick={() => setIsFullSyllabusOpen(true)}
-                            className="text-[10px] uppercase font-black bg-teal-50 hover:bg-teal-100 text-teal-800 px-3.5 py-2 border border-teal-200 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 shadow-xs"
+                            className="text-sobretitulo uppercase bg-teal-50 hover:bg-teal-100 text-teal-800 px-3.5 py-2 border border-teal-200 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 shadow-xs"
                           >
                             <Layers className="h-3.5 w-3.5 text-teal-600" />
                             <span>Ver grade completa</span>
@@ -2267,22 +2292,22 @@ ${html}
                                     className="w-full text-left p-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors cursor-pointer"
                                   >
                                     <div className="flex items-center gap-2.5 min-w-0">
-                                      <span className="flex items-center justify-center h-6 w-6 rounded-lg bg-teal-50 border border-teal-200 text-[10px] font-black text-teal-850 shrink-0">
+                                      <span className="flex items-center justify-center h-6 w-6 rounded-lg bg-teal-50 border border-teal-200 text-apoio font-black text-teal-850 shrink-0">
                                         {idx + 1}
                                       </span>
                                       <strong className="text-xs font-bold text-slate-800 leading-snug truncate">{lesson.title}</strong>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0">
-                                      <span className="text-slate-500 text-[9px] font-mono font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-150">
+                                      <span className="text-escult-ink-2 text-apoio font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-150">
                                         ⏰ {lesson.duration || '45 min'}
                                       </span>
-                                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                      <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                                     </div>
                                   </button>
                                   
                                   {isExpanded && (
-                                    <div className="px-4 pb-4 pt-1 text-[11px] text-slate-500 leading-relaxed font-medium bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
-                                      <span className="font-extrabold text-[#540D6E] block text-[9.5px] uppercase tracking-wider mb-1">Sobre esta aula:</span>
+                                    <div className="px-4 pb-4 pt-1 text-rotulo text-escult-ink-2 leading-relaxed font-medium bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
+                                      <span className="text-[#540D6E] block text-sobretitulo uppercase mb-1">Sobre esta aula:</span>
                                       {(lesson.duration ?? '').trim() !== ''
                                         ? `Duração estimada: ${lesson.duration}. `
                                         : 'Duração ainda não informada. '}
@@ -2293,7 +2318,7 @@ ${html}
                               );
                             })
                           ) : (
-                            <p className="text-xs text-slate-400 italic text-center py-6">Nenhuma aula cadastrada ainda nesta disciplina.</p>
+                            <p className="text-xs text-escult-ink-2 italic text-center py-6">Nenhuma aula cadastrada ainda nesta disciplina.</p>
                           )}
                         </div>
                       </div>
@@ -2319,25 +2344,25 @@ ${html}
                         <div className="space-y-2.5 pt-2 text-xs font-medium text-slate-600 border-t border-slate-100">
                           <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
                             <span>Aulas:</span>
-                            <strong className="text-slate-800 font-bold font-mono text-[11px]">
+                            <strong className="text-slate-800 font-bold text-rotulo">
                               20
                             </strong>
                           </div>
                           <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
                             <span>Frequência mínima:</span>
-                            <strong className="text-emerald-700 font-bold font-mono text-[11px]">
+                            <strong className="text-emerald-700 font-bold text-rotulo">
                               {courseMinAttendance(viewingCatalogCourse)}%
                             </strong>
                           </div>
                           <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
                             <span>Modalidade:</span>
-                            <strong className="text-slate-700 font-bold font-sans text-[11px]">
+                            <strong className="text-slate-700 font-bold font-sans text-rotulo">
                               EAD autoinstrucional
                             </strong>
                           </div>
                           <div className="flex justify-between items-center py-1.5">
                             <span>Idioma:</span>
-                            <strong className="text-slate-700 font-bold font-sans text-[11px]">
+                            <strong className="text-slate-700 font-bold font-sans text-rotulo">
                               Português (Brasil)
                             </strong>
                           </div>
@@ -2352,12 +2377,12 @@ ${html}
                               setEnrollSuccessMessage(null);
                               setIsEnrollModalOpen(true);
                             }}
-                            className="w-full bg-[#540D6E] hover:bg-[#430a58] text-white font-black text-xs uppercase tracking-wide py-3.5 rounded-xl text-center transition-all cursor-pointer shadow-md hover:scale-[1.01] flex items-center justify-center gap-1.5"
+                            className="w-full bg-[#540D6E] hover:bg-[#430a58] text-white text-sobretitulo uppercase py-3.5 rounded-xl text-center transition-all cursor-pointer shadow-md hover:scale-[1.01] flex items-center justify-center gap-1.5"
                           >
                             <BookOpen className="h-4.5 w-4.5" />
                             <span>Inscrever-se</span>
                           </button>
-                          <p className="text-[10px] text-slate-500 font-semibold text-center mt-2.5">
+                          <p className="text-apoio text-escult-ink-2 font-semibold text-center mt-2.5">
                             Comece seus estudos imediatamente após a confirmação.
                           </p>
                         </div>
@@ -2384,12 +2409,12 @@ ${html}
                         <div key={activeCourse.id} className="rounded-2xl border border-amber-250 bg-amber-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
                           <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
                             <div className="space-y-2 max-w-xl">
-                              <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Vigência de Exibição Encerrada (Arquivado)</span>
+                              <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-0.5 rounded-full text-sobretitulo uppercase inline-flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Vigência de Exibição Encerrada (Arquivado)</span>
                               <h3 className="text-base md:text-lg font-black text-slate-850 leading-tight">{activeCourse.title}</h3>
-                              <p className="text-xs text-slate-500 leading-relaxed">
+                              <p className="text-xs text-escult-ink-2 leading-relaxed">
                                 Este curso foi <strong>arquivado preventivamente</strong> e o acesso letivo foi suspenso, pois o prazo contratual de exibição encerrou em <strong>{activeCourse.contractExpirationDate}</strong>.
                               </p>
-                              <p className="text-[11px] text-amber-900 bg-amber-100/40 p-3 rounded-xl border border-amber-200/50 leading-relaxed mt-2.5">
+                              <p className="text-rotulo text-amber-900 bg-amber-100/40 p-3 rounded-xl border border-amber-200/50 leading-relaxed mt-2.5">
                                 <Lightbulb className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-amber-700" /><strong>Como estudar outra disciplina?</strong> Para liberar seu cadastro e escolher um novo curso ativo, clique no botão <strong>"Cancelar inscrição"</strong> ao lado. Isso abrirá imediatamente o catálogo de disciplinas disponíveis para você se matricular e começar a estudar!
                               </p>
                             </div>
@@ -2403,7 +2428,7 @@ ${html}
                                   }
                                   speakText("Sua inscrição no curso expirado foi cancelada.");
                                 }}
-                                className="bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition-all shadow-md text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                                className="bg-slate-900 hover:bg-slate-800 text-white text-sobretitulo uppercase px-5 py-3 rounded-xl transition-all shadow-md text-center flex items-center justify-center gap-1.5 cursor-pointer"
                               >
                                 <Archive className="h-4 w-4 text-amber-400" />
                                 <span>Cancelar inscrição</span>
@@ -2418,18 +2443,18 @@ ${html}
                       <div key={activeCourse.id} className="rounded-2xl border border-teal-200 bg-teal-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
                         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
                           <div className="space-y-2 max-w-xl">
-                            <span className="bg-teal-100 text-teal-850 border border-teal-200 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest font-mono">Curso Ativo em Andamento</span>
+                            <span className="bg-teal-100 text-teal-850 border border-teal-200 px-2.5 py-0.5 rounded-full text-sobretitulo uppercase">Curso Ativo em Andamento</span>
                             <h3 className="text-base md:text-lg font-black text-slate-900 leading-tight">{activeCourse.title}</h3>
-                            <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{activeCourse.description}</p>
+                            <p className="text-xs text-escult-ink-2 leading-relaxed line-clamp-2">{activeCourse.description}</p>
 
                             <div className="flex flex-wrap items-center gap-4 mt-2">
-                              <div className="text-[10px] text-slate-600 font-medium">
+                              <div className="text-apoio text-slate-600 font-medium">
                                 Prof. <strong className="text-slate-800 font-bold">{activeCourse.instructorName}</strong>
                               </div>
-                              <div className="text-[10px] text-slate-600 flex items-center gap-1.5">
+                              <div className="text-apoio text-slate-600 flex items-center gap-1.5">
                                 <span>Frequência Atual:</span>
-                                <strong className={`font-mono text-xs ${attendance >= minAttendance ? 'text-emerald-600 font-black' : 'text-amber-600'}`}>{attendance}%</strong>
-                                <span className="text-slate-400">/ Mínimo {minAttendance}%</span>
+                                <strong className={`text-apoio font-semibold ${attendance >= minAttendance ? 'text-emerald-600 font-black' : 'text-amber-600'}`}>{attendance}%</strong>
+                                <span className="text-escult-ink-2">/ Mínimo {minAttendance}%</span>
                               </div>
                             </div>
                           </div>
@@ -2440,7 +2465,7 @@ ${html}
                                 setSelectedCourse(activeCourse);
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                               }}
-                              className="bg-[#540D6E] hover:bg-[#430858] text-white font-black text-xs uppercase tracking-wider px-5 py-3 rounded-xl transition-all shadow-md hover:scale-[1.01] text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                              className="bg-[#540D6E] hover:bg-[#430858] text-white text-sobretitulo uppercase px-5 py-3 rounded-xl transition-all shadow-md hover:scale-[1.01] text-center flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <PlayCircle className="h-4 w-4 animate-pulse" />
                               <span>Entrar na Sala de Aula</span>
@@ -2467,22 +2492,22 @@ ${html}
                             <p className="text-xs text-rose-900/85 leading-relaxed">
                               Caso o aluno possua uma restrição temporária de nova matrícula por não conclusão anterior, o sistema informa a data prevista para nova solicitação ou permite o envio de justificativa para análise da coordenação.
                             </p>
-                            <div className="text-[11px] text-rose-700 font-semibold pt-1">
-                              Sua restrição expira em: <span className="underline font-bold font-mono bg-rose-100 px-1.5 py-0.5 rounded">{new Date(enrollmentRecord.dropOutPenaltyUntil).toLocaleDateString('pt-BR')}</span>
+                            <div className="text-rotulo text-rose-700 font-semibold pt-1">
+                              Sua restrição expira em: <span className="underline font-bold bg-rose-100 px-1.5 py-0.5 rounded">{new Date(enrollmentRecord.dropOutPenaltyUntil).toLocaleDateString('pt-BR')}</span>
                             </div>
 
                             {/* Justification Form and Statuses */}
                             <div className="mt-4 pt-4 border-t border-rose-200/50 w-full">
                               {pendingPenaltyRequest ? (
                                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1">
-                                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-800">
+                                  <div className="flex items-center gap-1.5 text-rotulo font-bold text-amber-800">
                                     <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></div>
                                     Solicitação de Reversão em Análise
                                   </div>
-                                  <p className="text-[10.5px] text-amber-900/90 italic leading-normal">
+                                  <p className="text-apoio text-amber-900/90 italic leading-normal">
                                     "{pendingPenaltyRequest.description}"
                                   </p>
-                                  <p className="text-[10px] text-slate-500 font-medium">
+                                  <p className="text-apoio text-escult-ink-2 font-medium">
                                     Sua justificativa foi protocolada com sucesso. O administrador analisará os motivos apresentados e dará o parecer em breve.
                                   </p>
                                 </div>
@@ -2490,23 +2515,23 @@ ${html}
                                 <div className="space-y-3 w-full">
                                   {rejectedPenaltyRequest && (
                                     <div className="p-3 bg-red-50 border border-red-200 rounded-xl mb-2">
-                                      <p className="text-[11px] font-bold text-red-800">Sua solicitação anterior foi indeferida</p>
-                                      <p className="text-[10.5px] text-red-900 italic leading-normal">"{rejectedPenaltyRequest.description}"</p>
-                                      <p className="text-[10px] text-slate-600 mt-1">Você pode submeter uma nova justificativa abaixo se possuir novos fatos ou documentos comprovantes.</p>
+                                      <p className="text-rotulo font-bold text-red-800">Sua solicitação anterior foi indeferida</p>
+                                      <p className="text-apoio text-red-900 italic leading-normal">"{rejectedPenaltyRequest.description}"</p>
+                                      <p className="text-apoio text-slate-600 mt-1">Você pode submeter uma nova justificativa abaixo se possuir novos fatos ou documentos comprovantes.</p>
                                     </div>
                                   )}
                                   
-                                  <label className="block text-[10px] font-black uppercase tracking-wider text-rose-900/80">
+                                  <label className="block text-sobretitulo uppercase text-rose-900/80">
                                     Justificar Cancelamento de Inscrição
                                   </label>
-                                  <p className="text-[10.5px] text-rose-800/80 leading-normal">
+                                  <p className="text-apoio text-rose-800/80 leading-normal">
                                     Apresente abaixo a justificativa (ex: motivo de saúde, trabalho ou força maior) para que a coordenação pedagógica julgue a reversão da restrição de matrícula:
                                   </p>
                                   <textarea
                                     value={penaltyJustification}
                                     onChange={(e) => setPenaltyJustification(e.target.value)}
                                     placeholder="Escreva detalhadamente o seu motivo aqui..."
-                                    className="w-full text-xs p-3 rounded-xl border border-rose-300 bg-white text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-rose-500 min-h-[80px] placeholder:text-slate-400"
+                                    className="w-full text-xs p-3 rounded-xl border border-rose-300 bg-white text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-rose-500 min-h-[80px] placeholder:text-escult-ink-3"
                                   />
                                   <button
                                     onClick={() => {
@@ -2523,7 +2548,7 @@ ${html}
                                       setPenaltyJustification('');
                                       speakText("Sua justificativa foi registrada e enviada para o julgamento da administração da plataforma.");
                                     }}
-                                    className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] uppercase tracking-wider px-4 py-2.5 rounded-xl transition-all border border-slate-700 cursor-pointer flex items-center gap-1.5"
+                                    className="bg-slate-900 hover:bg-slate-800 text-white text-sobretitulo uppercase px-4 py-2.5 rounded-xl transition-all border border-slate-700 cursor-pointer flex items-center gap-1.5"
                                   >
                                     Solicitar Liberação de Matrícula
                                   </button>
@@ -2568,7 +2593,7 @@ ${html}
                               onChange={(e) => setSearchQuery(e.target.value)}
                               className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-14 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs"
                             />
-                            <div className="absolute left-3 top-2.5 text-slate-400">
+                            <div className="absolute left-3 top-2.5 text-escult-ink-2">
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                               </svg>
@@ -2577,7 +2602,7 @@ ${html}
                               <button 
                                 type="button"
                                 onClick={() => setSearchQuery('')}
-                                className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 font-extrabold text-[10px] uppercase bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded cursor-pointer"
+                                className="absolute right-3 top-2 text-escult-ink-2 hover:text-slate-600 text-sobretitulo uppercase bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded cursor-pointer"
                               >
                                 Limpar
                               </button>
@@ -2585,7 +2610,7 @@ ${html}
                           </div>
                           
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block md:inline">Ordenar por:</span>
+                            <span className="text-sobretitulo text-escult-ink-2 uppercase block md:inline">Ordenar por:</span>
                             <div className="relative">
                               <select
                                 value={sortType}
@@ -2596,7 +2621,7 @@ ${html}
                                 <option value="alphabetical-asc">Ordem alfabética (A-Z)</option>
                                 <option value="alphabetical-desc">Ordem alfabética (Z-A)</option>
                               </select>
-                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-500">
+                              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-escult-ink-2">
                                 <ChevronDown className="h-3.5 w-3.5" />
                               </div>
                             </div>
@@ -2605,7 +2630,7 @@ ${html}
 
                         {/* Row 2: Category pill buttons with interactive state */}
                         <div className="flex flex-col gap-1.5 pt-3 border-t border-slate-200/55">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-left">Filtrar por Categoria / Área:</span>
+                          <span className="text-sobretitulo text-escult-ink-2 uppercase text-left">Filtrar por Categoria / Área:</span>
                           <div className="flex flex-wrap gap-1.5">
                             {(() => {
                               const activeCourses = enrollableCourses;
@@ -2673,9 +2698,9 @@ ${html}
                         if (filtered.length === 0) {
                           return (
                             <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3">
-                              <Info className="h-8 w-8 text-slate-400 mx-auto" />
+                              <Info className="h-8 w-8 text-escult-ink-2 mx-auto" />
                               <p className="text-sm font-extrabold text-slate-800">Ops! Sem resultados correspondentes</p>
-                              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                              <p className="text-xs text-escult-ink-2 max-w-sm mx-auto">
                                 Não encontramos nenhuma disciplina letiva que combine com sua busca "{searchQuery}" ou filtros selecionados.
                               </p>
                               <button
@@ -2696,9 +2721,9 @@ ${html}
 
                         return (
                           <div className="space-y-4">
-                            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest text-left flex items-center justify-between">
+                            <div className="text-sobretitulo text-escult-ink-2 uppercase text-left flex items-center justify-between">
                               <span>Grade Curricular Disponível para Matrícula:</span>
-                              <span className="text-teal-600 font-mono font-black shrink-0">
+                              <span className="text-teal-600 font-black shrink-0">
                                 {filtered.length} {filtered.length === 1 ? 'curso encontrado' : 'cursos encontrados'}
                               </span>
                             </div>
@@ -2709,23 +2734,23 @@ ${html}
                                   <div key={`${course.id}-${idx}`} className="group relative rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition-with-duration hover:shadow-md hover:border-[#540D6E]/30 flex flex-col justify-between text-left animate-in fade-in zoom-in-95 duration-150">
                                     <div className="space-y-3 ms-0.5">
                                       <div className="flex items-center justify-between">
-                                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-500 border border-slate-200 flex items-center gap-1">
+                                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-sobretitulo uppercase text-escult-ink-2 border border-slate-200 flex items-center gap-1">
                                           <Tag className="h-3 w-3" />
                                           {course.category}
                                         </span>
-                                        <span className="text-[10px] text-teal-600 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full shadow-2xs">
+                                        <span className="text-apoio text-teal-600 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full shadow-2xs">
                                           Meta: {minAtt}% pres.
                                         </span>
                                       </div>
                                       <div>
                                         <h4 className="text-sm font-black text-slate-950 group-hover:text-[#540D6E] transition-colors line-clamp-1">{course.title}</h4>
-                                        <p className="mt-1 text-xs text-slate-500 leading-relaxed line-clamp-2">{course.description}</p>
+                                        <p className="mt-1 text-xs text-escult-ink-2 leading-relaxed line-clamp-2">{course.description}</p>
                                         <div className="flex items-center gap-2 mt-2">
-                                          <span className="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-slate-150">
+                                          <span className="text-apoio bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-slate-150">
                                             <BookOpen className="h-3 w-3" />
                                             {course.lessons ? course.lessons.length : 0} {course.lessons && course.lessons.length === 1 ? 'Aula' : 'Aulas'}
                                           </span>
-                                          <span className="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-slate-150">
+                                          <span className="text-apoio bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1 border border-slate-150">
                                             <Video className="h-3 w-3" />
                                             {course.liveSessions ? course.liveSessions.length : 0} {course.liveSessions && course.liveSessions.length === 1 ? 'Sessão Ao Vivo' : 'Sessões'}
                                           </span>
@@ -2734,12 +2759,12 @@ ${html}
                                     </div>
 
                                     <div className="mt-4 pt-4 border-t border-slate-150 flex items-center justify-between">
-                                      <div className="text-[10px] text-slate-500 font-medium">
+                                      <div className="text-apoio text-escult-ink-2 font-medium">
                                         Prof. <strong className="text-slate-700 font-bold">{course.instructorName}</strong>
                                       </div>
                                       <button
                                         onClick={() => setViewingCatalogCourse(course)}
-                                        className="text-[10px] bg-[#540D6E] hover:bg-purple-950 text-white font-black uppercase tracking-widest px-4 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 select-none shadow-md"
+                                        className="text-sobretitulo bg-[#540D6E] hover:bg-purple-950 text-white uppercase px-4 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 select-none shadow-md"
                                       >
                                         <span>Ver e Escolher</span>
                                         <ArrowRight className="h-3 w-3" />
@@ -2760,7 +2785,7 @@ ${html}
                     <div className="space-y-4 pt-6 border-t border-slate-200 animate-in fade-in duration-500">
                       <div className="flex items-center gap-2 text-[#540D6E]">
                         <CheckCircle className="h-5 w-5 text-emerald-500" />
-                        <h3 className="text-xs font-black uppercase tracking-wider">Cursos Concluídos (Acesso Vitalício de Revisão)</h3>
+                        <h3 className="text-sobretitulo uppercase">Cursos Concluídos (Acesso Vitalício de Revisão)</h3>
                       </div>
                       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                         {courses
@@ -2775,11 +2800,11 @@ ${html}
                               className="group p-4 bg-emerald-50/10 border border-emerald-100 rounded-xl cursor-pointer hover:bg-emerald-50/20 hover:border-emerald-200 transition-all flex flex-col justify-between"
                             >
                               <div className="space-y-1 text-left">
-                                <span className="inline-block text-[8px] bg-emerald-100 text-emerald-850 px-1.5 py-0.2 rounded font-black uppercase tracking-wider mb-1">Grade Completa</span>
+                                <span className="inline-block text-sobretitulo bg-emerald-100 text-emerald-850 px-1.5 py-0.2 rounded uppercase mb-1">Grade Completa</span>
                                 <h4 className="text-xs font-black text-slate-850 group-hover:text-emerald-700 transition-colors block line-clamp-1">{course.title}</h4>
-                                <span className="text-[10px] text-slate-400 block">Prof. {course.instructorName}</span>
+                                <span className="text-apoio text-escult-ink-2 block">Prof. {course.instructorName}</span>
                               </div>
-                              <span className="text-[10px] text-teal-600 hover:underline font-bold mt-3 block text-right font-mono">Modo Revisão →</span>
+                              <span className="text-apoio text-teal-600 hover:underline font-bold mt-3 block text-right">Modo Revisão →</span>
                             </div>
                           ))}
                       </div>
@@ -2796,7 +2821,7 @@ ${html}
           <div className="text-left mb-2">
             <button
               onClick={() => setActiveDashboardTab('general')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-xs font-black uppercase tracking-wider border border-slate-200/65"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Voltar ao Meu Painel de Estudos</span>
@@ -2807,7 +2832,7 @@ ${html}
               <FileCheck className="h-5 w-5 text-teal-600" />
               <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider">Solicitações de Documentos</h3>
             </div>
-            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+            <p className="text-xs text-escult-ink-2 leading-relaxed mb-6">
               Precisa de um documento acadêmico ou comprovante? Abra um requerimento e acompanhe o parecer digital homologado pela coordenação.
             </p>
             
@@ -2819,23 +2844,23 @@ ${html}
                       <div className="p-1.5 rounded-lg bg-teal-50 text-teal-600">
                         {req.type === 'certificado' ? <Award className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                       </div>
-                      <span className="text-xs font-black text-slate-800 uppercase">{req.type === 'certificado' ? 'Certificado' : 'Histórico Escolar'}</span>
+                      <span className="text-sobretitulo text-slate-800 uppercase">{req.type === 'certificado' ? 'Certificado' : 'Histórico Escolar'}</span>
                     </div>
-                    <span className={`text-[10px] uppercase font-black px-2 py-0.5 rounded-full ${
+                    <span className={`text-sobretitulo uppercase font-black px-2 py-0.5 rounded-full ${
                       req.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
                     }`}>
                       {req.status === 'pending' ? 'Aguardando' : 'Aprovado'}
                     </span>
                   </div>
-                  {req.courseTitle && <p className="text-[11px] font-bold text-slate-600">Curso: {req.courseTitle}</p>}
-                  <p className="text-[11px] italic text-slate-500 leading-relaxed">"{req.description}"</p>
-                  <span className="text-[9px] font-mono text-slate-400">Protocolo: {req.submittedAt}</span>
+                  {req.courseTitle && <p className="text-rotulo font-bold text-slate-600">Curso: {req.courseTitle}</p>}
+                  <p className="text-rotulo italic text-escult-ink-2 leading-relaxed">"{req.description}"</p>
+                  <span className="text-apoio text-escult-ink-2">Protocolo: {req.submittedAt}</span>
                 </div>
               ))}
             </div>
 
             <div className="border-t border-slate-100 pt-6">
-                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-4">Novo Requerimento</span>
+                <span className="text-sobretitulo uppercase text-escult-ink-2 block mb-4">Novo Requerimento</span>
                 <form onSubmit={(e) => {
                   e.preventDefault();
                   const form = e.currentTarget;
@@ -2854,7 +2879,7 @@ ${html}
                 }} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 ml-1">Tipo de Documento</label>
+                      <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1.5 ml-1">Tipo de Documento</label>
                       <select name="reqType" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:outline-none cursor-pointer">
                         <option value="historico">Histórico Escolar</option>
                         <option value="certificado">Certificado de Conclusão</option>
@@ -2863,7 +2888,7 @@ ${html}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 ml-1">Curso Relacionado</label>
+                      <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1.5 ml-1">Curso Relacionado</label>
                       <select name="reqCourse" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:outline-none cursor-pointer">
                         <option value="">Nenhum / Geral</option>
                         {courses.map((c, idx) => <option key={`${c.id}-${idx}`} value={c.title}>{c.title}</option>)}
@@ -2871,10 +2896,10 @@ ${html}
                     </div>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5 ml-1">Motivo / Justificativa</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1.5 ml-1">Motivo / Justificativa</label>
                     <textarea name="reqDesc" required placeholder="Descreva detalhes adicionais ou justificativa para a emissão..." className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 h-20 focus:ring-2 focus:ring-teal-500/20 focus:outline-none resize-none"></textarea>
                   </div>
-                  <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white font-black text-xs uppercase py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer">
+                  <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white text-sobretitulo uppercase py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer">
                     <Send className="h-4 w-4" />
                     Protocolar Pedido Secundário
                   </button>
@@ -2891,7 +2916,7 @@ ${html}
           <div className="text-left mb-2">
             <button
               onClick={() => setActiveDashboardTab('general')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-xs font-black uppercase tracking-wider border border-slate-200/65"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Voltar ao Meu Painel de Estudos</span>
@@ -2902,7 +2927,7 @@ ${html}
               <HelpCircle className="h-5 w-5 text-[#540D6E]" />
               <span>Central de Ajuda & FAQ</span>
             </h3>
-            <p className="text-xs text-slate-500 mt-1">Encontre respostas rápidas para dúvidas acadêmicas, regras de frequência, certificados e prazos de contrato.</p>
+            <p className="text-xs text-escult-ink-2 mt-1">Encontre respostas rápidas para dúvidas acadêmicas, regras de frequência, certificados e prazos de contrato.</p>
           </div>
 
           {/* Search and Filters */}
@@ -2929,10 +2954,10 @@ ${html}
                 <button
                   key={category.id}
                   onClick={() => setSelectedFaqCategory(category.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                  className={`px-3.5 py-1.5 rounded-full text-sobretitulo font-black uppercase tracking-wider transition-all cursor-pointer border ${
                     selectedFaqCategory === category.id
                       ? 'bg-[#540D6E] text-white border-transparent'
-                      : 'bg-white text-slate-500 border-slate-200 hover:text-slate-800 hover:border-slate-300'
+                      : 'bg-white text-escult-ink-2 border-slate-200 hover:text-slate-800 hover:border-slate-300'
                   }`}
                 >
                   {category.label}
@@ -2993,7 +3018,7 @@ ${html}
               if (filtered.length === 0) {
                 return (
                   <div className="bg-white rounded-3xl p-8 text-center border border-slate-200">
-                    <p className="text-xs text-slate-500 font-medium">Nenhuma pergunta encontrada para sua pesquisa.</p>
+                    <p className="text-xs text-escult-ink-2 font-medium">Nenhuma pergunta encontrada para sua pesquisa.</p>
                   </div>
                 );
               }
@@ -3009,10 +3034,10 @@ ${html}
                       className="w-full text-left p-4 md:p-5 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/40 transition-colors"
                     >
                       <strong className="text-xs font-bold text-slate-800 leading-snug">{faq.question}</strong>
-                      <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-600' : ''}`} />
+                      <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-600' : ''}`} />
                     </button>
                     {isExpanded && (
-                      <div className="px-5 pb-5 pt-1 text-xs text-slate-500 leading-relaxed bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
+                      <div className="px-5 pb-5 pt-1 text-xs text-escult-ink-2 leading-relaxed bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
                         <p className="font-medium text-slate-650 whitespace-pre-wrap">{faq.answer}</p>
                       </div>
                     )}
@@ -3026,14 +3051,14 @@ ${html}
           <div className="bg-gradient-to-r from-[#540D6E]/5 to-indigo-50 border border-[#540D6E]/10 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-1 text-center md:text-left">
               <strong className="text-sm font-black text-slate-800 block">Ainda tem dúvidas ou precisa de ajuda técnica?</strong>
-              <p className="text-xs text-slate-500 font-medium">Nossa equipe de suporte acadêmico e coordenação está pronta para te atender de forma personalizada.</p>
+              <p className="text-xs text-escult-ink-2 font-medium">Nossa equipe de suporte acadêmico e coordenação está pronta para te atender de forma personalizada.</p>
             </div>
             <button
               onClick={() => {
                 setActiveDashboardTab('messages');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="bg-[#540D6E] hover:bg-[#540D6E]/90 text-white font-black text-[10px] uppercase tracking-widest px-6 py-3 rounded-xl transition-all cursor-pointer shadow-md shrink-0 flex items-center gap-2"
+              className="bg-[#540D6E] hover:bg-[#540D6E]/90 text-white text-sobretitulo uppercase px-6 py-3 rounded-xl transition-all cursor-pointer shadow-md shrink-0 flex items-center gap-2"
             >
               <MessageSquare className="h-4 w-4" />
               <span>Falar com a Equipe</span>
@@ -3045,7 +3070,7 @@ ${html}
           <div className="text-left mb-2">
             <button
               onClick={() => setActiveDashboardTab('general')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-xs font-black uppercase tracking-wider border border-slate-200/65"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               <span>Voltar ao Meu Painel de Estudos</span>
@@ -3058,25 +3083,25 @@ ${html}
                  </div>
                  <div>
                     <h3 className="text-xl font-black text-slate-900 leading-none">{activeUser.name}</h3>
-                    <p className="text-xs text-slate-500 mt-1.5 uppercase font-bold tracking-widest leading-none">Status: Aluno Ativo • Versão 2.4</p>
+                    <p className="text-sobretitulo text-escult-ink-2 mt-1.5 uppercase leading-none">Status: Aluno Ativo • Versão 2.4</p>
                  </div>
               </div>
 
               <div className="space-y-8">
                  <section>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
+                    <h4 className="text-sobretitulo text-escult-ink-2 uppercase border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
                        <Monitor className="h-4 w-4" />
                        Ajustes de Acessibilidade
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                        <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex items-center justify-between group hover:border-teal-200 transition-all">
                           <div className="flex items-center gap-3">
-                             <div className={`p-2 rounded-xl border ${accessibilitySettings.highContrast ? 'bg-[#540D6E] text-white border-transparent' : 'bg-white border-slate-200 text-slate-400'}`}>
+                             <div className={`p-2 rounded-xl border ${accessibilitySettings.highContrast ? 'bg-[#540D6E] text-white border-transparent' : 'bg-white border-slate-200 text-escult-ink-2'}`}>
                                 <Sparkles className="h-5 w-5" />
                              </div>
                              <div>
-                                <span className="block text-xs font-bold text-slate-800 uppercase tracking-tight">Alto Contraste</span>
-                                <span className="text-[10px] text-slate-500">Melhora a legibilidade visual.</span>
+                                <span className="block text-sobretitulo text-slate-800 uppercase">Alto Contraste</span>
+                                <span className="text-apoio text-escult-ink-2">Melhora a legibilidade visual.</span>
                              </div>
                           </div>
                           <button 
@@ -3089,12 +3114,12 @@ ${html}
 
                        <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex items-center justify-between group hover:border-teal-200 transition-all">
                           <div className="flex items-center gap-3">
-                             <div className={`p-2 rounded-xl border ${accessibilitySettings.dyslexicFont ? 'bg-[#540D6E] text-white border-transparent' : 'bg-white border-slate-200 text-slate-400'}`}>
+                             <div className={`p-2 rounded-xl border ${accessibilitySettings.dyslexicFont ? 'bg-[#540D6E] text-white border-transparent' : 'bg-white border-slate-200 text-escult-ink-2'}`}>
                                 <Info className="h-5 w-5" />
                              </div>
                              <div>
-                                <span className="block text-xs font-bold text-slate-800 uppercase tracking-tight">Fonte para Dislexia</span>
-                                <span className="text-[10px] text-slate-500">Usa a fonte OpenDyslexic.</span>
+                                <span className="block text-sobretitulo text-slate-800 uppercase">Fonte para Dislexia</span>
+                                <span className="text-apoio text-escult-ink-2">Usa a fonte OpenDyslexic.</span>
                              </div>
                           </div>
                           <button 
@@ -3108,25 +3133,25 @@ ${html}
                        <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex flex-col gap-4 group hover:border-teal-200 transition-all sm:col-span-2">
                           <div className="flex items-center justify-between">
                              <div className="flex items-center gap-3">
-                                <div className="p-2 rounded-xl border bg-white border-slate-200 text-slate-400">
+                                <div className="p-2 rounded-xl border bg-white border-slate-200 text-escult-ink-2">
                                    <BookMarked className="h-5 w-5" />
                                 </div>
                                 <div>
-                                   <span className="block text-xs font-bold text-slate-800 uppercase tracking-tight">Tamanho da Fonte Global</span>
-                                   <span className="text-[10px] text-slate-500">Ajuste o tamanho dos textos de toda a plataforma.</span>
+                                   <span className="block text-sobretitulo text-slate-800 uppercase">Tamanho da Fonte Global</span>
+                                   <span className="text-apoio text-escult-ink-2">Ajuste o tamanho dos textos de toda a plataforma.</span>
                                 </div>
                              </div>
-                             <span className="text-[10px] font-black uppercase text-teal-600 bg-teal-50 px-2 py-0.5 rounded tracking-widest">{accessibilitySettings.fontSize === 'small' ? 'Pequena' : accessibilitySettings.fontSize === 'medium' ? 'Padrão' : 'Grande'}</span>
+                             <span className="text-sobretitulo uppercase text-teal-600 bg-teal-50 px-2 py-0.5 rounded">{accessibilitySettings.fontSize === 'small' ? 'Pequena' : accessibilitySettings.fontSize === 'medium' ? 'Padrão' : 'Grande'}</span>
                           </div>
                           <div className="flex items-center gap-3">
                              {['small', 'medium', 'large'].map(size => (
                                <button 
                                  key={size}
                                  onClick={() => updateAccessibilitySettings({ fontSize: size as any })}
-                                 className={`flex-1 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
+                                 className={`flex-1 py-2.5 rounded-xl border text-sobretitulo font-black uppercase tracking-widest transition-all ${
                                    accessibilitySettings.fontSize === size 
                                      ? 'bg-[#540D6E] text-white border-transparent shadow-md' 
-                                     : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                                     : 'bg-white border-slate-200 text-escult-ink-2 hover:bg-slate-50'
                                  }`}
                                >
                                  {size === 'small' ? 'A-' : size === 'medium' ? 'AA' : 'A+'}
@@ -3138,27 +3163,27 @@ ${html}
                  </section>
 
                  <section>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
+                    <h4 className="text-sobretitulo text-escult-ink-2 uppercase border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
                        <User className="h-4 w-4" />
                        Dados da Conta
                     </h4>
                     <div className="space-y-4">
                        <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl">
                           <div>
-                             <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Nome Civil</span>
+                             <span className="block text-sobretitulo text-escult-ink-2 uppercase">Nome Civil</span>
                              <span className="text-xs font-bold text-slate-700">{activeUser.name}</span>
                           </div>
                        </div>
                        <div className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl bg-slate-50/30">
                           <div>
-                             <span className="block text-[9px] font-bold text-slate-400 uppercase tracking-tighter">ID de Aluno (RA)</span>
-                             <span className="text-xs font-mono font-bold text-slate-700">#AVA-2026-XQ45</span>
+                             <span className="block text-sobretitulo text-escult-ink-2 uppercase">ID de Aluno (RA)</span>
+                             <span className="text-xs font-bold text-slate-700">#AVA-2026-XQ45</span>
                           </div>
                        </div>
                     </div>
                  </section>
                  <section>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
+                    <h4 className="text-sobretitulo text-escult-ink-2 uppercase border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
                        <Bell className="h-4 w-4" />
                        Preferências de Notificação
                     </h4>
@@ -3166,12 +3191,12 @@ ${html}
                        {Object.entries(notifications).map(([key, value]) => (
                          <div key={key} className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl bg-white hover:border-teal-100 transition-all">
                             <div className="flex items-center gap-3">
-                               <div className="p-2 rounded-xl bg-slate-50 text-slate-400">
+                               <div className="p-2 rounded-xl bg-slate-50 text-escult-ink-2">
                                   {key === 'email' ? <Send className="h-4 w-4" /> : key === 'push' ? <Bell className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
                                </div>
                                <div>
-                                  <span className="block text-xs font-bold text-slate-800 uppercase tracking-tight">Notificações por {key === 'email' ? 'E-mail' : key === 'push' ? 'Desktop/Push' : 'SMS'}</span>
-                                  <span className="text-[10px] text-slate-500">Receba alertas de novas aulas e respostas.</span>
+                                  <span className="block text-sobretitulo text-slate-800 uppercase">Notificações por {key === 'email' ? 'E-mail' : key === 'push' ? 'Desktop/Push' : 'SMS'}</span>
+                                  <span className="text-apoio text-escult-ink-2">Receba alertas de novas aulas e respostas.</span>
                                 </div>
                             </div>
                             <button 
@@ -3186,24 +3211,24 @@ ${html}
                  </section>
 
                  <section>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
+                    <h4 className="text-sobretitulo text-escult-ink-2 uppercase border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
                        <Shield className="h-4 w-4" />
                        Segurança & Privacidade
                     </h4>
                     <div className="p-5 rounded-2xl border border-slate-100 bg-teal-50/20 flex items-center justify-between group hover:border-teal-200 transition-all">
                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl border ${twoFactor ? 'bg-teal-600 text-white border-transparent' : 'bg-white border-slate-200 text-slate-400'}`}>
+                          <div className={`p-2 rounded-xl border ${twoFactor ? 'bg-teal-600 text-white border-transparent' : 'bg-white border-slate-200 text-escult-ink-2'}`}>
                              <Lock className="h-5 w-5" />
                           </div>
                           <div>
-                             <span className="block text-xs font-bold text-slate-800 uppercase tracking-tight">Autenticação de Dois Fatores (2FA)</span>
-                             <span className="text-[10px] text-slate-500">Adicione uma camada extra de proteção na conta.</span>
+                             <span className="block text-sobretitulo text-slate-800 uppercase">Autenticação de Dois Fatores (2FA)</span>
+                             <span className="text-apoio text-escult-ink-2">Adicione uma camada extra de proteção na conta.</span>
                           </div>
                        </div>
                        <button 
                          onClick={() => setTwoFactor(!twoFactor)}
-                         className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                           twoFactor ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'
+                         className={`px-4 py-1.5 rounded-lg text-sobretitulo font-black uppercase tracking-widest transition-all ${
+                           twoFactor ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-escult-ink-2 hover:bg-slate-50'
                          }`}
                        >
                           {twoFactor ? 'Ativado' : 'Ativar'}
@@ -3212,14 +3237,14 @@ ${html}
                  </section>
 
                  <section>
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
+                    <h4 className="text-sobretitulo text-escult-ink-2 uppercase border-b border-slate-100 pb-3 mb-5 flex items-center gap-2">
                        <Globe className="h-4 w-4" />
                        Idioma e Região
                     </h4>
                     <div className="p-5 rounded-2xl border border-slate-100 bg-white flex items-center justify-between group hover:border-teal-200 transition-all text-left">
                        <div>
-                          <span className="block text-xs font-bold text-slate-800 uppercase tracking-tight">Idioma da Interface</span>
-                          <span className="text-[10px] text-slate-500">Altere o idioma global do sistema para navegação.</span>
+                          <span className="block text-sobretitulo text-slate-800 uppercase">Idioma da Interface</span>
+                          <span className="text-apoio text-escult-ink-2">Altere o idioma global do sistema para navegação.</span>
                        </div>
                        <select 
                          value={language}
@@ -3242,7 +3267,7 @@ ${html}
             <div className="text-left">
               <button
                 onClick={() => setActiveDashboardTab('general')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-xs font-black uppercase tracking-wider border border-slate-200/65"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>Voltar ao Meu Painel de Estudos</span>
@@ -3268,43 +3293,43 @@ ${html}
                         <Notebook className="h-6 w-6" />
                         <div>
                            <h4 className="font-black uppercase tracking-widest text-sm leading-none">Central de Ajuda</h4>
-                           <p className="text-[10px] text-white/60 mt-1.5 uppercase font-bold">Autoatendimento Acadêmico</p>
+                           <p className="text-sobretitulo text-white/60 mt-1.5 uppercase">Autoatendimento Acadêmico</p>
                         </div>
                      </div>
-                     <button onClick={() => setShowKnowledgeBase(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-xl text-[10px] uppercase font-black cursor-pointer">Fechar</button>
+                     <button onClick={() => setShowKnowledgeBase(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-xl text-sobretitulo uppercase cursor-pointer">Fechar</button>
                   </div>
                   <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-5 bg-slate-50/50">
                      <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-teal-300 hover:shadow-lg transition-all cursor-pointer group">
                         <div className="bg-teal-50 p-2.5 rounded-xl w-fit mb-4 group-hover:bg-teal-100 transition-colors">
                            <Video className="h-6 w-6 text-teal-600" />
                         </div>
-                        <h5 className="font-black text-slate-800 text-xs uppercase tracking-tight">Primeiros Passos no AVA</h5>
-                        <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">Aprenda a estruturar seu cronograma e encontrar materiais de apoio.</p>
+                        <h5 className="text-slate-800 text-sobretitulo uppercase">Primeiros Passos no AVA</h5>
+                        <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Aprenda a estruturar seu cronograma e encontrar materiais de apoio.</p>
                      </div>
                      <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-amber-300 hover:shadow-lg transition-all cursor-pointer group">
                         <div className="bg-amber-50 p-2.5 rounded-xl w-fit mb-4 group-hover:bg-amber-100 transition-colors">
                            <Award className="h-6 w-6 text-amber-600" />
                         </div>
-                        <h5 className="font-black text-slate-800 text-xs uppercase tracking-tight">Certificação & Presença</h5>
-                        <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">Entenda como atingir os 70% de frequência mínima exigida por curso.</p>
+                        <h5 className="text-slate-800 text-sobretitulo uppercase">Certificação & Presença</h5>
+                        <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Entenda como atingir os 70% de frequência mínima exigida por curso.</p>
                      </div>
                      <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer group">
                         <div className="bg-blue-50 p-2.5 rounded-xl w-fit mb-4 group-hover:bg-blue-100 transition-colors">
                            <MessageSquare className="h-6 w-6 text-blue-600" />
                         </div>
-                        <h5 className="font-black text-slate-800 text-xs uppercase tracking-tight">Suporte às Vagas</h5>
-                        <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">Dicas de como usar seu certificado para se destacar em processos seletivos.</p>
+                        <h5 className="text-slate-800 text-sobretitulo uppercase">Suporte às Vagas</h5>
+                        <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Dicas de como usar seu certificado para se destacar em processos seletivos.</p>
                      </div>
                      <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-indigo-300 hover:shadow-lg transition-all cursor-pointer group">
                         <div className="bg-indigo-50 p-2.5 rounded-xl w-fit mb-4 group-hover:bg-indigo-100 transition-colors">
                            <HelpCircle className="h-6 w-6 text-indigo-600" />
                         </div>
-                        <h5 className="font-black text-slate-800 text-xs uppercase tracking-tight">Chat de Suporte Direto</h5>
-                        <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">Vídeo tutorial sobre como usar o chat direto com coordenadores.</p>
+                        <h5 className="text-slate-800 text-sobretitulo uppercase">Chat de Suporte Direto</h5>
+                        <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Vídeo tutorial sobre como usar o chat direto com coordenadores.</p>
                      </div>
                   </div>
                   <div className="p-6 border-t border-slate-200 bg-white text-center">
-                     <p className="text-[10px] text-slate-400 font-medium">Ainda com dúvidas? Envie uma mensagem direta na aba de suporte abaixo.</p>
+                     <p className="text-apoio text-escult-ink-2 font-medium">Ainda com dúvidas? Envie uma mensagem direta na aba de suporte abaixo.</p>
                   </div>
                </div>
             </div>
@@ -3313,9 +3338,9 @@ ${html}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xs space-y-6 text-left">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div className="space-y-1">
-              <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-wider font-mono">Central de Atendimento</span>
+              <span className="text-sobretitulo text-[#540D6E] uppercase">Central de Atendimento</span>
               <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">Canal Direto com Professores</h3>
-              <p className="text-xs text-slate-500 font-medium">Tire dúvidas técnicas, receba correções de código e feedbacks individuais de estudos.</p>
+              <p className="text-xs text-escult-ink-2 font-medium">Tire dúvidas técnicas, receba correções de código e feedbacks individuais de estudos.</p>
             </div>
             
             {/* Minimal metadata information cards badge styles */}
@@ -3323,8 +3348,8 @@ ${html}
               <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 text-xs text-slate-700">
                 <Clock className="h-4 w-4 text-teal-600 shrink-0" />
                 <div>
-                  <span className="block text-[8px] text-slate-400 font-bold uppercase leading-none">Tempo de Retorno</span>
-                  <span className="font-bold text-[10.5px]">~15 minutos</span>
+                  <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none">Tempo de Retorno</span>
+                  <span className="font-bold text-apoio">~15 minutos</span>
                 </div>
               </div>
               <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 text-xs text-slate-700">
@@ -3337,13 +3362,13 @@ ${html}
                   }`} />
                 </div>
                 <div>
-                  <span className="block text-[8px] text-slate-400 font-bold uppercase leading-none">Gestor Responsável</span>
-                  <span className="font-bold text-[10.5px] flex items-center gap-1.5 leading-none mt-0.5">
+                  <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none">Gestor Responsável</span>
+                  <span className="font-bold text-apoio flex items-center gap-1.5 leading-none mt-0.5">
                     <span>Gestor de Conteúdos</span>
-                    <span className={`text-[9px] font-black ${
+                    <span className={`text-apoio font-black ${
                       (localStorage.getItem(`ava_presence_status_${enrolledCourseInstructorId}`) || 'online') === 'online'
                         ? 'text-emerald-600'
-                        : 'text-slate-500'
+                        : 'text-escult-ink-2'
                     }`}>
                       ({(localStorage.getItem(`ava_presence_status_${enrolledCourseInstructorId}`) || 'online') === 'online' ? 'Online' : 'Offline'})
                     </span>
@@ -3359,10 +3384,10 @@ ${html}
               {/* Message history */}
               <div className="flex-1 space-y-3 overflow-y-auto pr-2 mb-4 flex flex-col gap-1.5 scrollbar-thin">
                 {directMessages.filter(m => m.studentUserId === activeUser.id).length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-slate-400 space-y-2 py-10">
+                  <div className="flex-1 flex flex-col items-center justify-center text-escult-ink-2 space-y-2 py-10">
                     <MessageSquare className="h-10 w-10 text-slate-300 animate-pulse" />
-                    <p className="text-xs font-bold text-slate-500">Nenhuma conversa ativa no momento.</p>
-                    <p className="text-[10px] text-slate-400 max-w-[280px] text-center leading-relaxed">Envie uma mensagem abaixo para abrir seu canal direto de tutoria acadêmica!</p>
+                    <p className="text-xs font-bold text-escult-ink-2">Nenhuma conversa ativa no momento.</p>
+                    <p className="text-apoio text-escult-ink-2 max-w-[280px] text-center leading-relaxed">Envie uma mensagem abaixo para abrir seu canal direto de tutoria acadêmica!</p>
                   </div>
                 ) : (
                   directMessages
@@ -3378,20 +3403,20 @@ ${html}
                               : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-3xs'
                           }`}>
                             <div className="flex items-center gap-1.5 mb-1 opacity-75">
-                              <span className="font-extrabold text-[9px] uppercase tracking-wide">{msg.senderName}</span>
-                              <span className="text-[8px] font-mono">• {msg.senderRole === 'student' ? 'Estudante' : 'Professor'}</span>
+                              <span className="text-sobretitulo uppercase">{msg.senderName}</span>
+                              <span className="text-apoio">• {msg.senderRole === 'student' ? 'Estudante' : 'Professor'}</span>
                             </div>
                             {aula !== null && (
-                              <span className={`mb-1.5 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                              <span className={`mb-1.5 flex items-center gap-1 rounded-md px-1.5 py-0.5 text-sobretitulo font-black uppercase tracking-wide ${
                                 isStudent ? 'bg-white/20 text-white' : 'bg-amber-50 text-amber-800 border border-amber-200'
                               }`}>
                                 <BookOpen className="h-3 w-3 shrink-0" />
                                 <span className="truncate">Aula: {aula}</span>
                               </span>
                             )}
-                            <p className="whitespace-pre-line text-[11.5px] font-sans leading-relaxed break-words">{corpo}</p>
+                            <p className="whitespace-pre-line text-rotulo font-sans leading-relaxed break-words">{corpo}</p>
                           </div>
-                          <span className="text-[8px] text-slate-400 mt-1 px-1 font-mono">
+                          <span className="text-apoio text-escult-ink-2 mt-1 px-1">
                             {new Date(msg.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
@@ -3440,7 +3465,7 @@ ${html}
                 />
                 <button
                   type="submit"
-                  className="bg-teal-600 hover:bg-teal-500 text-white rounded-xl px-4 py-3 shrink-0 transition-colors flex items-center justify-center cursor-pointer shadow-sm text-xs font-black uppercase tracking-wider gap-1.5"
+                  className="bg-teal-600 hover:bg-teal-500 text-white rounded-xl px-4 py-3 shrink-0 transition-colors flex items-center justify-center cursor-pointer shadow-sm text-sobretitulo uppercase gap-1.5"
                 >
                   <Send className="h-4 w-4" />
                   <span>Enviar</span>
@@ -3451,9 +3476,9 @@ ${html}
             {/* Explanatory Academic Sideboard (4 cols) */}
             <div className="lg:col-span-4 space-y-4">
               <div className="bg-teal-950/20 border border-teal-500/15 p-5 rounded-2xl text-left space-y-2.5">
-                <span className="text-[9px] uppercase tracking-widest text-teal-600 font-extrabold font-mono block">DIRETRIZES DE SUPORTE</span>
+                <span className="text-sobretitulo uppercase text-teal-600 block">DIRETRIZES DE SUPORTE</span>
                 <h4 className="font-bold text-slate-800 text-xs">O que falar no canal com os professores?</h4>
-                <ul className="space-y-1.5 text-[11px] text-slate-600 leading-relaxed list-disc list-inside">
+                <ul className="space-y-1.5 text-rotulo text-slate-600 leading-relaxed list-disc list-inside">
                   <li>Envio de snippets ou feedback de códigos;</li>
                   <li>Revisões de conceitos teóricos dos módulos;</li>
                   <li>Presença acadêmica e cronograma síncrono.</li>
@@ -3472,8 +3497,8 @@ ${html}
                 na aba Suporte de dentro da aula.
               */}
               <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl text-left space-y-2.5">
-                <span className="text-[9px] uppercase tracking-widest text-[#540D6E] font-extrabold font-mono block">COMO PEDIR AJUDA</span>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <span className="text-sobretitulo uppercase text-[#540D6E] block">COMO PEDIR AJUDA</span>
+                <p className="text-rotulo text-escult-ink-2 leading-relaxed">
                   Use a aba <strong>Suporte</strong> dentro da aula: a mensagem chega à coordenação
                   já indicando de qual aula é a dúvida.
                 </p>
@@ -3495,10 +3520,10 @@ ${html}
             {/* Subtle live pulse wave */}
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-teal-500 justify-center items-center text-[8px] font-black text-white">?</span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-teal-500 justify-center items-center text-apoio font-black text-white">?</span>
             </span>
             <HelpCircle className="h-5 w-5 sm:h-4.5 sm:w-4.5" />
-            <span className="hidden sm:inline-block text-[11px] font-black uppercase tracking-widest text-slate-100">
+            <span className="hidden sm:inline-block text-sobretitulo uppercase text-slate-100">
               Dúvidas & FAQ
             </span>
           </button>
@@ -3524,12 +3549,12 @@ ${html}
                 </div>
                 <div>
                   <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Central de Ajuda & FAQ</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-wider">Suporte e Respostas Rápidas</p>
+                  <p className="text-sobretitulo text-escult-ink-2 uppercase mt-0.5">Suporte e Respostas Rápidas</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsFaqDrawerOpen(false)}
-                className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                className="p-2 rounded-lg text-escult-ink-2 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -3540,16 +3565,16 @@ ${html}
               {/* Informative Banner */}
               <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4.5 rounded-2xl shadow-sm space-y-1.5 text-left relative overflow-hidden">
                 <div className="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 bg-white/10 rounded-full blur-xl pointer-events-none" />
-                <span className="inline-block text-[8px] bg-teal-500/50 text-white border border-teal-400/40 px-2 py-0.5 rounded-full font-black uppercase tracking-wider">Atendimento Imediato</span>
+                <span className="inline-block text-sobretitulo bg-teal-500/50 text-white border border-teal-400/40 px-2 py-0.5 rounded-full uppercase">Atendimento Imediato</span>
                 <strong className="block text-xs font-black tracking-tight mt-1">Dúvidas Acadêmicas e Administrativas</strong>
-                <p className="text-[10.5px] text-teal-100/90 leading-relaxed font-medium">
+                <p className="text-apoio text-teal-100/90 leading-relaxed font-medium">
                   Nosso sistema oferece respostas 100% automatizadas para facilitar seu andamento no AVA. Caso precise de acompanhamento humano, use o botão de suporte no rodapé!
                 </p>
               </div>
 
               {/* Search Box */}
               <div className="space-y-2">
-                <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">O que você está procurando?</span>
+                <span className="text-sobretitulo uppercase text-escult-ink-2">O que você está procurando?</span>
                 <div className="relative">
                   <input
                     type="text"
@@ -3563,7 +3588,7 @@ ${html}
 
               {/* Category Tags */}
               <div className="space-y-2">
-                <span className="text-[9px] uppercase tracking-wider font-black text-slate-400">Categorias de Suporte</span>
+                <span className="text-sobretitulo uppercase text-escult-ink-2">Categorias de Suporte</span>
                 <div className="flex gap-1.5 flex-wrap">
                   {[
                     { id: 'all', label: 'Tudo' },
@@ -3575,10 +3600,10 @@ ${html}
                     <button
                       key={category.id}
                       onClick={() => setSelectedFaqCategory(category.id)}
-                      className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all cursor-pointer border ${
+                      className={`px-3 py-1.5 rounded-xl text-sobretitulo font-black uppercase tracking-wider transition-all cursor-pointer border ${
                         selectedFaqCategory === category.id
                           ? 'bg-[#540D6E] text-white border-transparent shadow-3xs'
-                          : 'bg-white text-slate-500 border-slate-200 hover:text-slate-800 hover:border-slate-300'
+                          : 'bg-white text-escult-ink-2 border-slate-200 hover:text-slate-800 hover:border-slate-300'
                       }`}
                     >
                       {category.label}
@@ -3646,7 +3671,7 @@ ${html}
                     return (
                       <div className="bg-white rounded-2xl p-8 text-center border border-slate-200">
                         <HelpCircle className="h-8 w-8 text-slate-300 mx-auto mb-2 animate-pulse" />
-                        <p className="text-xs text-slate-500 font-medium">Nenhuma dúvida encontrada para sua pesquisa.</p>
+                        <p className="text-xs text-escult-ink-2 font-medium">Nenhuma dúvida encontrada para sua pesquisa.</p>
                       </div>
                     );
                   }
@@ -3662,10 +3687,10 @@ ${html}
                           className="w-full text-left p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/40 transition-colors"
                         >
                           <strong className="text-xs font-bold text-slate-850 leading-snug">{faq.question}</strong>
-                          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-600' : ''}`} />
+                          <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-600' : ''}`} />
                         </button>
                         {isExpanded && (
-                          <div className="px-4 pb-4 pt-1 text-[11px] text-slate-500 leading-relaxed bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
+                          <div className="px-4 pb-4 pt-1 text-rotulo text-escult-ink-2 leading-relaxed bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
                             <p className="font-medium text-slate-600 whitespace-pre-wrap">{faq.answer}</p>
                           </div>
                         )}
@@ -3681,7 +3706,7 @@ ${html}
               <div className="flex items-center justify-between gap-4">
                 <div className="text-left">
                   <strong className="text-xs font-black text-slate-800 block">Não encontrou o que precisava?</strong>
-                  <span className="text-[10px] text-slate-400 font-bold block mt-0.5">Fale diretamente com nossa coordenação</span>
+                  <span className="text-apoio text-escult-ink-2 font-bold block mt-0.5">Fale diretamente com nossa coordenação</span>
                 </div>
                 <button
                   onClick={() => {
@@ -3689,7 +3714,7 @@ ${html}
                     setActiveDashboardTab('messages');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="bg-[#540D6E] hover:bg-[#430a58] text-white font-black text-[10px] uppercase tracking-widest px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+                  className="bg-[#540D6E] hover:bg-[#430a58] text-white text-sobretitulo uppercase px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1.5"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
                   <span>Suporte</span>
@@ -3731,12 +3756,12 @@ ${html}
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Grade Curricular Completa</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-wider">Detalhamento Pedagógico Completo</p>
+                    <p className="text-sobretitulo text-escult-ink-2 uppercase mt-0.5">Detalhamento Pedagógico Completo</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsFullSyllabusOpen(false)}
-                  className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                  className="p-2 rounded-lg text-escult-ink-2 hover:text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -3766,7 +3791,7 @@ ${html}
                     // Curso sem aula diz que nao tem aula, em vez de exibir uma
                     // ementa de quatro modulos que ninguem cadastrou.
                     return (
-                      <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl p-4 font-semibold">
+                      <p className="text-xs text-escult-ink-2 bg-slate-50 border border-slate-200 rounded-xl p-4 font-semibold">
                         Este curso ainda não tem aulas cadastradas.
                       </p>
                     );
@@ -3789,7 +3814,7 @@ ${html}
                             <span className="block text-xs font-bold text-slate-800 leading-snug min-w-0">
                               {idx + 1}. {aula.title}
                             </span>
-                            <span className="text-[9px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-150 shrink-0 whitespace-nowrap">
+                            <span className="text-apoio font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-150 shrink-0 whitespace-nowrap">
                               <Clock className="h-2.5 w-2.5 inline-block mr-1 -mt-px" />
                               {(aula.duration ?? '').trim() !== '' ? aula.duration : 'a definir'}
                             </span>
@@ -3805,7 +3830,7 @@ ${html}
               <div className="p-4 bg-slate-50 border-t border-slate-100 text-right shrink-0">
                 <button
                   onClick={() => setIsFullSyllabusOpen(false)}
-                  className="bg-[#540D6E] hover:bg-[#430a58] text-white font-black text-[10px] uppercase tracking-widest px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
+                  className="bg-[#540D6E] hover:bg-[#430a58] text-white text-sobretitulo uppercase px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
                 >
                   Fechar Grade Completa
                 </button>
@@ -3840,7 +3865,7 @@ ${html}
                     </div>
                     <div>
                       <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Antes de concluir sua matrícula</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5 tracking-wider">Regulamento Acadêmico</p>
+                      <p className="text-sobretitulo text-escult-ink-2 uppercase mt-0.5">Regulamento Acadêmico</p>
                     </div>
                   </div>
 
@@ -3856,7 +3881,7 @@ ${html}
                         "Após a confirmação, o curso ficará disponível para início imediato.",
                         "O certificado será liberado conforme os critérios de conclusão do curso."
                       ].map((item, idx) => (
-                        <div key={idx} className="flex gap-2 text-[11px] text-slate-650 font-semibold items-start">
+                        <div key={idx} className="flex gap-2 text-rotulo text-slate-650 font-semibold items-start">
                           <CheckCircle className="h-4 w-4 text-teal-600 mt-0.5 shrink-0" />
                           <span>{item}</span>
                         </div>
@@ -3872,7 +3897,7 @@ ${html}
                       />
                       <div className="text-left">
                         <strong className="block text-xs font-bold text-slate-800 leading-tight">Termo de Ciência</strong>
-                        <p className="text-[10.5px] text-slate-500 leading-normal mt-0.5 font-bold">
+                        <p className="text-apoio text-escult-ink-2 leading-normal mt-0.5 font-bold">
                           Li e estou ciente das regras para matrícula e certificação.
                         </p>
                       </div>
@@ -3883,7 +3908,7 @@ ${html}
                   <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2.5">
                     <button
                       onClick={() => setIsEnrollModalOpen(false)}
-                      className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer"
+                      className="px-4 py-2 bg-white hover:bg-slate-100 text-escult-ink-2 hover:text-slate-800 rounded-xl text-xs font-bold border border-slate-200 transition-all cursor-pointer"
                     >
                       Cancelar
                     </button>
@@ -3902,7 +3927,7 @@ ${html}
                       className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
                         isEnrollRulesChecked
                           ? 'bg-teal-600 hover:bg-teal-500 text-white shadow-md'
-                          : 'bg-slate-200 text-slate-400 border-slate-300 cursor-not-allowed'
+                          : 'bg-slate-200 text-escult-ink-2 border-slate-300 cursor-not-allowed'
                       }`}
                     >
                       Confirmar matrícula
@@ -3937,7 +3962,7 @@ ${html}
                         setIsEnrollRulesChecked(false);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="w-full bg-[#540D6E] hover:bg-[#430a58] text-white font-black text-xs uppercase tracking-widest py-3 rounded-xl transition-all shadow-md"
+                      className="w-full bg-[#540D6E] hover:bg-[#430a58] text-white text-sobretitulo uppercase py-3 rounded-xl transition-all shadow-md"
                     >
                       Começar curso
                     </button>
@@ -3970,14 +3995,14 @@ ${html}
               </div>
               <div className="space-y-1">
                 <h4 className="text-sm font-black text-slate-900 font-serif">Aviso do Sistema</h4>
-                <p className="text-xs text-slate-500 leading-relaxed font-light">
+                <p className="text-xs text-escult-ink-2 leading-relaxed">
                   {alertState.message}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setAlertState(null)}
-                className="w-full py-2 bg-[#540D6E] hover:bg-purple-950 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                className="w-full py-2 bg-[#540D6E] hover:bg-purple-950 text-white text-sobretitulo uppercase rounded-xl transition-all cursor-pointer"
               >
                 Entendi
               </button>
@@ -4005,7 +4030,7 @@ ${html}
               </div>
               <div className="space-y-1">
                 <h4 className="text-sm font-black text-slate-900 font-serif">Confirmar Ação</h4>
-                <p className="text-xs text-slate-500 leading-relaxed font-light">
+                <p className="text-xs text-escult-ink-2 leading-relaxed">
                   {confirmState.message}
                 </p>
               </div>
@@ -4013,7 +4038,7 @@ ${html}
                 <button
                   type="button"
                   onClick={() => setConfirmState(null)}
-                  className="py-2 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                  className="py-2 bg-slate-100 hover:bg-slate-200 text-escult-ink-2 text-sobretitulo uppercase rounded-xl transition-all cursor-pointer"
                 >
                   Cancelar
                 </button>
@@ -4023,7 +4048,7 @@ ${html}
                     confirmState.onConfirm();
                     setConfirmState(null);
                   }}
-                  className="py-2 bg-[#540D6E] hover:bg-purple-950 text-white font-black text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                  className="py-2 bg-[#540D6E] hover:bg-purple-950 text-white text-sobretitulo uppercase rounded-xl transition-all cursor-pointer"
                 >
                   Confirmar
                 </button>

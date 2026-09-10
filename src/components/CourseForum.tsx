@@ -111,11 +111,11 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
           <div>
             <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
               Fórum de Discussão da Comunidade
-              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-mono">
+              <span className="text-apoio bg-slate-100 text-escult-ink-2 px-2 py-0.5 rounded-full">
                 {messages.length} {messages.length === 1 ? 'mensagem' : 'mensagens'}
               </span>
             </h4>
-            <p className="text-xs text-slate-500 mt-1">
+            <p className="text-xs text-escult-ink-2 mt-1">
               Debata lições, compartilhe reflexões e conecte-se com alunos ativos do curso.
             </p>
           </div>
@@ -124,13 +124,13 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
         {/* Group indicators */}
         <div className="flex items-center gap-1.5 self-start sm:self-auto text-xs text-slate-600 bg-teal-50/50 border border-teal-100 px-3 py-1.5 rounded-lg">
           <Users className="h-3.5 w-3.5 text-teal-600" />
-          <span className="font-medium text-[11px] text-teal-800">Discussão Ativa</span>
+          <span className="font-medium text-rotulo text-teal-800">Discussão Ativa</span>
         </div>
       </div>
 
       {/* Quick Filter Tabs */}
       <div className="px-5 py-2.5 bg-slate-50/20 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Filtrar Tópicos</span>
+        <span className="text-sobretitulo text-escult-ink-2 uppercase">Filtrar Tópicos</span>
         <div className="flex gap-1.5 flex-wrap">
           <button
             onClick={() => setActiveFilter('all')}
@@ -178,12 +178,12 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
       {/* Discussion List */}
       <div className="divide-y divide-slate-100 max-h-[380px] overflow-y-auto p-5 space-y-4">
         {filteredMessages.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 space-y-2">
-            <div className="w-10 h-10 rounded-full bg-slate-150/10 flex items-center justify-center mx-auto text-slate-400">
+          <div className="text-center py-8 text-escult-ink-2 space-y-2">
+            <div className="w-10 h-10 rounded-full bg-slate-150/10 flex items-center justify-center mx-auto text-escult-ink-2">
               <MessageSquare className="h-5 w-5" />
             </div>
             <p className="text-xs font-bold text-slate-800">Nenhum diálogo encontrado</p>
-            <p className="text-[11px] text-slate-500">Seja o primeiro a inaugurar o debate enviando uma observação abaixo!</p>
+            <p className="text-rotulo text-escult-ink-2">Seja o primeiro a inaugurar o debate enviando uma observação abaixo!</p>
           </div>
         ) : (
           filteredMessages.map((msg, idx) => {
@@ -207,22 +207,22 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                     
                     {/* Badge mapping */}
                     {msg.senderRole === 'instructor' && (
-                      <span className="bg-teal-600 text-white text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded">
+                      <span className="bg-teal-600 text-white text-sobretitulo uppercase px-1.5 py-0.5 rounded">
                         Professor
                       </span>
                     )}
                     {msg.senderRole === 'admin' && (
-                      <span className="bg-slate-900 text-white text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded">
+                      <span className="bg-slate-900 text-white text-sobretitulo uppercase px-1.5 py-0.5 rounded">
                         Admin
                       </span>
                     )}
                     {msg.senderRole === 'student' && (
-                      <span className="bg-slate-100 text-slate-600 text-[9px] font-bold uppercase tracking-wider px-1.5 rouded-md">
+                      <span className="bg-slate-100 text-slate-600 text-sobretitulo uppercase px-1.5 rouded-md">
                         Aluno
                       </span>
                     )}
 
-                    <span className="text-[10px] text-slate-400 font-mono ml-auto shrink-0">{msg.timestamp}</span>
+                    <span className="text-apoio text-escult-ink-2 ml-auto shrink-0">{msg.timestamp}</span>
                   </div>
 
                   {/* Text representation with formatted tags */}
@@ -241,7 +241,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
 
                           return (
                             <span>
-                              <span className={`inline-block mr-1.5 px-2 py-0.5 rounded text-[10px] uppercase tracking-wider ${tagStyle}`}>
+                              <span className={`inline-block mr-1.5 px-2 py-0.5 rounded text-sobretitulo uppercase ${tagStyle}`}>
                                 {tag}
                               </span>
                               {content}
@@ -259,13 +259,13 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                   <div className="flex items-center gap-3 pt-0.5">
                     <button
                       onClick={() => toggleForumMessageLike(msg.id)}
-                      className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider py-1 px-2 rounded-md transition-all cursor-pointer ${
+                      className={`flex items-center gap-1.5 text-sobretitulo font-bold uppercase tracking-wider py-1 px-2 rounded-md transition-all cursor-pointer ${
                         hasLiked 
                           ? 'bg-rose-50 text-rose-600 border border-rose-200/50 scale-[1.01]' 
-                          : 'bg-slate-50 text-slate-500 border border-slate-200 hover:text-slate-800'
+                          : 'bg-slate-50 text-escult-ink-2 border border-slate-200 hover:text-slate-800'
                       }`}
                     >
-                      <Heart className={`h-3 w-3 transition-colors ${hasLiked ? 'fill-rose-600 stroke-rose-600' : 'text-slate-400'}`} />
+                      <Heart className={`h-3 w-3 transition-colors ${hasLiked ? 'fill-rose-600 stroke-rose-600' : 'text-escult-ink-2'}`} />
                       <span>{msg.likes} {msg.likes === 1 ? 'Curtida' : 'Curtidas'}</span>
                     </button>
 
@@ -276,7 +276,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                             deleteForumMessage(msg.id);
                           }
                         }}
-                        className="text-slate-400 hover:text-rose-600 p-1 rounded-md hover:bg-slate-50 ml-auto opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        className="text-escult-ink-2 hover:text-rose-600 p-1 rounded-md hover:bg-slate-50 ml-auto opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                         title="Excluir mensagem"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -305,7 +305,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
             
             {/* Quick Tag Options */}
             <div className="flex items-center gap-2 flex-wrap text-xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">Etiquetar dúvida:</span>
+              <span className="text-sobretitulo text-escult-ink-2 uppercase shrink-0">Etiquetar dúvida:</span>
               {quickTags.map(tag => (
                 <button
                   type="button"
@@ -343,7 +343,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                 className={`absolute right-1.5 p-2 rounded-lg text-white transition-colors cursor-pointer ${
                   inputText.trim() 
                     ? 'bg-teal-600 hover:bg-teal-500 hover:scale-105 active:scale-95' 
-                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                    : 'bg-slate-200 text-escult-ink-2 cursor-not-allowed'
                 }`}
               >
                 <Send className="h-4 w-4" />
@@ -352,7 +352,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
 
             {/* Success feedback toast */}
             {successToast && (
-              <p className="text-[10px] font-bold text-emerald-600 text-center animate-pulse flex items-center justify-center gap-1">
+              <p className="text-apoio font-bold text-emerald-600 text-center animate-pulse flex items-center justify-center gap-1">
                 <Check className="h-3 w-3" /><span>Mensagem adicionada com sucesso no fórum exclusivo!</span>
               </p>
             )}
