@@ -27,6 +27,8 @@ const CONVERTIDAS = [
   'components/shared',
   'components/StudentDashboard.tsx',
   'components/student',
+  'components/InstructorDashboard.tsx',
+  'components/instructor',
   'components/LiveClassroom.tsx',
   'components/CourseForum.tsx',
 ];
@@ -46,7 +48,6 @@ const PENDENTES: Record<string, number> = {
    * teste que pegou o `text-[11px]` que eu havia escrito aqui.
    */
   'components/AdminDashboard.tsx': 479,
-  'components/InstructorDashboard.tsx': 190,
   'components/ProfileView.tsx': 193,
 };
 

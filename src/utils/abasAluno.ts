@@ -23,6 +23,7 @@
  */
 
 import { DashboardTab } from '../context/LMSContext';
+import { canalDeMensagensAberto } from './canalDeMensagens';
 
 /** O que este módulo precisa saber das flags de produto. */
 export interface FlagsDoAluno {
@@ -57,7 +58,9 @@ export function abasVisiveisDoAluno(
   const abas: DashboardTab[] = ['general'];
 
   if (f.solicitacoesAcademicas === true) abas.push('documents');
-  if (f.forum === true && f.mensagensDiretas === true && s.allowDirectMessages === true) {
+  // A condicao do canal vive em `canalDeMensagens`, e nao aqui: o sino do
+  // cabecalho lia uma versao diferente dela e discordava desta aba.
+  if (canalDeMensagensAberto('student', f, s)) {
     abas.push('messages');
   }
   if (f.materiaisComplementares === true) abas.push('library');

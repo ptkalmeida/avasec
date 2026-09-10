@@ -59,8 +59,8 @@ interface LessonContentEditorProps {
   onChange: (next: string) => void;
 }
 
-const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-[13px] text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500';
-const rotuloCampo = 'block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1';
+const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-apoio text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500';
+const rotuloCampo = 'block text-sobretitulo text-escult-ink-2 uppercase mb-1';
 
 /**
  * Formulário do bloco em edição. Cada tipo mostra só os campos que fazem
@@ -109,7 +109,7 @@ const BlockForm: React.FC<{
 
   return (
     <div className="rounded-xl border-2 border-teal-500/60 bg-teal-50/20 p-3 space-y-2.5">
-      <span className="text-[10px] font-black uppercase tracking-widest text-teal-700">
+      <span className="text-sobretitulo uppercase text-teal-700">
         Editando: {ROTULO[block.kind]}
       </span>
 
@@ -126,7 +126,7 @@ const BlockForm: React.FC<{
         <div>
           <label className={rotuloCampo}>Texto do parágrafo</label>
           <textarea rows={4} autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} className={campo} />
-          <p className="mt-1 text-[10px] text-slate-400">
+          <p className="mt-1 text-apoio text-escult-ink-2">
             Para destacar uma palavra, envolva com dois asteriscos: **assim**.
           </p>
         </div>
@@ -135,8 +135,8 @@ const BlockForm: React.FC<{
       {(block.kind === 'orderedList' || block.kind === 'bulletList') && (
         <div>
           <label className={rotuloCampo}>Itens — um por linha</label>
-          <textarea rows={5} autoFocus value={itens} onChange={(e) => setItens(e.target.value)} className={`${campo} font-mono text-xs`} />
-          <p className="mt-1 text-[10px] text-slate-400">
+          <textarea rows={5} autoFocus value={itens} onChange={(e) => setItens(e.target.value)} className={`${campo} text-xs`} />
+          <p className="mt-1 text-apoio text-escult-ink-2">
             A numeração é automática; não precisa escrever “1.” nem “-”.
           </p>
         </div>
@@ -170,7 +170,7 @@ const BlockForm: React.FC<{
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
               spellCheck={false}
-              className={`${campo} font-mono text-xs leading-relaxed`}
+              className={`${campo} text-xs leading-relaxed`}
             />
           </div>
         </>
@@ -180,14 +180,14 @@ const BlockForm: React.FC<{
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-apoio font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
         >
           <X className="h-3 w-3" /> Cancelar
         </button>
         <button
           type="button"
           onClick={confirmar}
-          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-500 px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-white transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-500 px-3.5 py-1.5 text-sobretitulo uppercase text-white transition-colors cursor-pointer"
         >
           <Check className="h-3 w-3" /> Aplicar
         </button>
@@ -226,7 +226,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
       <div className="relative py-1">
         {aberto ? (
           <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-            <span className="mb-1.5 block px-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+            <span className="mb-1.5 block px-1 text-sobretitulo uppercase text-escult-ink-2">
               Adicionar aqui
             </span>
             <div className="flex flex-wrap gap-1.5">
@@ -235,7 +235,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                   key={n.kind}
                   type="button"
                   onClick={() => adicionar(indice, n.texto)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-apoio font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
                 >
                   <n.icon className="h-3 w-3" /> {n.label}
                 </button>
@@ -243,7 +243,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
               <button
                 type="button"
                 onClick={() => setAdicionandoEm(null)}
-                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-bold text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-apoio font-bold text-escult-ink-2 hover:text-slate-700 transition-colors cursor-pointer"
               >
                 <X className="h-3 w-3" /> Fechar
               </button>
@@ -257,7 +257,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
             className="group flex w-full items-center gap-2 py-0.5 cursor-pointer"
           >
             <span className="h-px flex-1 bg-slate-200 group-hover:bg-teal-400 transition-colors" />
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-slate-400 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-sobretitulo uppercase text-escult-ink-2 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
               <Plus className="h-2.5 w-2.5" /> Adicionar
             </span>
             <span className="h-px flex-1 bg-slate-200 group-hover:bg-teal-400 transition-colors" />
@@ -271,17 +271,17 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+          <label className="block text-sobretitulo text-escult-ink-2 uppercase">
             Conteúdo de estudo da aula
           </label>
-          <p className="text-[10px] text-slate-400">
+          <p className="text-apoio text-escult-ink-2">
             Esta é a tela do aluno. Clique no lápis de um trecho para alterá-lo.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setShowHelp((v) => !v)}
-          className="inline-flex items-center gap-1 text-[10px] font-bold text-teal-700 hover:text-teal-800 cursor-pointer"
+          className="inline-flex items-center gap-1 text-apoio font-bold text-teal-700 hover:text-teal-800 cursor-pointer"
         >
           <HelpCircle className="h-3 w-3" />
           Como funciona
@@ -290,7 +290,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
       </div>
 
       {showHelp && (
-        <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-[11px] leading-relaxed text-slate-700 space-y-1.5">
+        <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-rotulo leading-relaxed text-slate-700 space-y-1.5">
           <p>O que você vê abaixo é exatamente o que o aluno vê. Para mudar algo:</p>
           <ul className="space-y-1 pl-4 list-disc marker:text-teal-600">
             <li>Passe o mouse sobre um trecho e clique no <strong>lápis</strong> para editá-lo.</li>
@@ -304,14 +304,14 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
       <div className="rounded-xl border border-slate-200 bg-white p-4">
         {parsed.blocks.length === 0 ? (
           <div className="py-6 text-center space-y-3">
-            <p className="text-xs text-slate-400 italic">Esta aula ainda não tem material escrito.</p>
+            <p className="text-xs text-escult-ink-2 italic">Esta aula ainda não tem material escrito.</p>
             <div className="flex flex-wrap justify-center gap-1.5">
               {NOVOS_BLOCOS.map((n) => (
                 <button
                   key={n.kind}
                   type="button"
                   onClick={() => onChange(n.texto)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-apoio font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
                 >
                   <Plus className="h-3 w-3" /> {n.label}
                 </button>
@@ -342,7 +342,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                         onClick={() => { setEditando(i); setAdicionandoEm(null); }}
                         aria-label={`Editar ${ROTULO[block.kind].toLowerCase()}`}
                         title={`Editar ${ROTULO[block.kind].toLowerCase()}`}
-                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-500 shadow-3xs hover:border-[#540D6E]/40 hover:text-[#540D6E] transition-colors cursor-pointer"
+                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-[#540D6E]/40 hover:text-[#540D6E] transition-colors cursor-pointer"
                       >
                         <Pencil className="h-3 w-3" />
                       </button>
@@ -351,7 +351,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                         onClick={() => onChange(removeLessonBlock(value, block.range))}
                         aria-label={`Remover ${ROTULO[block.kind].toLowerCase()}`}
                         title={`Remover ${ROTULO[block.kind].toLowerCase()}`}
-                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-slate-400 shadow-3xs hover:border-rose-300 hover:text-rose-600 transition-colors cursor-pointer"
+                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-rose-300 hover:text-rose-600 transition-colors cursor-pointer"
                       >
                         <Trash2 className="h-3 w-3" />
                       </button>
@@ -369,7 +369,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
         )}
       </div>
 
-      <div className="flex flex-wrap gap-3 text-[10px] font-bold text-slate-400">
+      <div className="flex flex-wrap gap-3 text-apoio font-bold text-escult-ink-2">
         <span>{parsed.sections.filter((s) => s.level === 2).length} seções</span>
         <span>{parsed.blocks.length} {parsed.blocks.length === 1 ? 'trecho' : 'trechos'}</span>
         <span>{value.trim() === '' ? 0 : value.trim().split(/\s+/).length} palavras</span>
