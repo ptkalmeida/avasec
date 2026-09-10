@@ -9,7 +9,6 @@ import { SitePageContent, SitePageItem } from '../../types';
 import { pageField, pageItems } from '../../utils/sitePageContent';
 
 interface OrientacoesPageProps {
-  onBack: () => void;
   /** Conteúdo editado pelo admin; ausente = usa os padrões abaixo. */
   content?: SitePageContent;
 }
@@ -41,7 +40,7 @@ const DEFAULT_ITEMS: SitePageItem[] = [
 /** Numeração romana das diretrizes — derivada da ordem, não editável. */
 const ROMANOS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
-export const OrientacoesPage: React.FC<OrientacoesPageProps> = ({ onBack, content }) => {
+export const OrientacoesPage: React.FC<OrientacoesPageProps> = ({ content }) => {
   const items = pageItems(content, DEFAULT_ITEMS);
 
   return (
@@ -51,7 +50,6 @@ export const OrientacoesPage: React.FC<OrientacoesPageProps> = ({ onBack, conten
       description={pageField(content, 'description', 'Consulte as orientações e diretrizes de como interagir com o AVA da Escola Estadual da Cultura e garanta uma experiência de aprendizado transformadora.')}
       align="center"
       background="bg-[#540D6E]/5"
-      onBack={onBack}
     >
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
         {items.map((o, index) => (

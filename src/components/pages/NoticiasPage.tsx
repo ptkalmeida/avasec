@@ -41,7 +41,6 @@ export const DEFAULT_NEWS_ITEMS: SitePageItem[] = [
 ];
 
 interface NoticiasPageProps {
-  onBack: () => void;
   /** Termo vindo da busca global do topo; vazio lista todas as notícias. */
   searchQuery: string;
   onClearSearch: () => void;
@@ -52,7 +51,6 @@ interface NoticiasPageProps {
 }
 
 export const NoticiasPage: React.FC<NoticiasPageProps> = ({
-  onBack,
   searchQuery,
   onClearSearch,
   onRequireLogin,
@@ -75,7 +73,6 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
       description={pageField(content, 'description', 'Acompanhe os informativos, aberturas de turma e novidades do Portal AVASEC.')}
       accent="#EE4266"
       background="bg-slate-50"
-      onBack={onBack}
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <span className="text-[10px] text-slate-400 font-mono font-bold">Portal de Notícias AVASEC</span>

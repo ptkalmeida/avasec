@@ -64,6 +64,75 @@ export const PORTAL_PATHS: Record<PortalView, string> = {
 export const pathFromView = (view: PortalView): string => PORTAL_PATHS[view];
 
 /**
+ * Rótulo e pai de cada tela, para a trilha de navegação (breadcrumb).
+ *
+ * Vive aqui, e não no componente, porque é a MESMA pergunta que o mapa de
+ * caminhos responde — "que tela é esta?" — só com outra resposta. Espalhar o
+ * rótulo pelos chamadores foi como o portal chegou a cinco desenhos diferentes
+ * do botão "Voltar", cada um com seu texto.
+ *
+ * `PORTAL_PATHS` fica intacto, e `pathFromView`/`viewFromPath` também: este é um
+ * mapa NOVO, ao lado. Trocar a forma do primeiro obrigaria a mexer nos 12 pontos
+ * que já o consomem, sem ganho nenhum.
+ *
+ * `pai: null` significa que a tela pende direto de Início. A área autenticada e
+ * o perfil ficam fora: os painéis têm trilha própria, derivada da hierarquia de
+ * cada um, e o perfil é alcançado de qualquer lugar — dar-lhe um pai fixo faria
+ * a trilha afirmar um caminho que a pessoa não percorreu.
+ */
+interface TelaNaTrilha {
+  rotulo: string;
+  pai: PortalView | null;
+}
+
+const TRILHA_DO_PORTAL: Partial<Record<PortalView, TelaNaTrilha>> = {
+  cursos: { rotulo: 'Cursos', pai: null },
+  certificados: { rotulo: 'Certificados', pai: null },
+  // Os agrupamentos "A Escola" e "Ajuda" do menu NÃO entram como pai: são rótulos
+  // de menu, não telas — não há `/a-escola` para clicar. Uma trilha com item
+  // morto no meio é pior que uma trilha curta.
+  'o-ava': { rotulo: 'O que é o AVA', pai: null },
+  'o-projeto': { rotulo: 'O Projeto', pai: null },
+  noticias: { rotulo: 'Notícias', pai: null },
+  duvidas: { rotulo: 'Dúvidas frequentes', pai: null },
+  orientacoes: { rotulo: 'Orientações ao estudante', pai: null },
+  calendario: { rotulo: 'Calendário', pai: null },
+};
+
+/** Um degrau da trilha. `view` ausente = degrau atual, não clicável. */
+export interface DegrauDaTrilha {
+  rotulo: string;
+  view?: PortalView;
+}
+
+/**
+ * Trilha de uma tela do portal, SEM o "Início" — quem o insere é o componente.
+ *
+ * Devolve lista vazia para a landing (não se mostra trilha na página inicial) e
+ * para telas sem entrada no mapa. Vazio é o sinal de "não desenhe a barra", e é
+ * melhor que uma barra com um item só dizendo "Início".
+ */
+export function trilhaDaView(view: PortalView): DegrauDaTrilha[] {
+  const degraus: DegrauDaTrilha[] = [];
+
+  let atual: PortalView | null = view;
+  // Guarda contra pai ciclico: um `pai` mal escrito travaria a tela em laco
+  // infinito, e o numero de telas do portal e conhecido.
+  let limite = Object.keys(PORTAL_PATHS).length + 1;
+
+  while (atual !== null && limite-- > 0) {
+    const entrada: TelaNaTrilha | undefined = TRILHA_DO_PORTAL[atual];
+    if (entrada === undefined) break;
+
+    // O primeiro (a tela pedida) entra sem `view`: é o degrau atual.
+    degraus.unshift(atual === view ? { rotulo: entrada.rotulo } : { rotulo: entrada.rotulo, view: atual });
+    atual = entrada.pai;
+  }
+
+  return degraus;
+}
+
+/**
  * Tela de um caminho, ou null quando o caminho não é de nenhuma.
  *
  * Devolver null em vez de cair na landing é deliberado: quem decide o que fazer

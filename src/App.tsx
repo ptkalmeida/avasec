@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
-  PortalView, pathFromView, viewFromPath, caminhoConhecido,
+  PortalView, pathFromView, viewFromPath, caminhoConhecido, trilhaDaView,
   ehCaminhoAutenticado, caminhoBateComPapel, raizDoPapel,
 } from './router/portalRoutes';
 import { LMSProvider, useLMS } from './context/LMSContext';
@@ -37,6 +37,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { features } from './config/features';
 import { NavegacaoPublica } from './components/portal/NavegacaoPublica';
 import { MENU_PUBLICO } from './config/menuPublico';
+import { Breadcrumb } from './components/shared/Breadcrumb';
 import { demoProfiles } from './dev/demoProfiles';
 // @ts-ignore
 
@@ -1175,6 +1176,31 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
         </AnimatePresence>
       </header>
 
+      {/*
+        Bloco 1 do handoff: a trilha de navegacao, no lugar dos botoes "Voltar".
+
+        Renderizada UMA vez aqui, e nao dentro de cada pagina: a especificacao
+        pede "sempre no mesmo lugar", e dentro do `PageShell` ela ficaria dentro
+        do respiro de cada tela, mudando de posicao conforme a pagina.
+
+        A trilha vem de `trilhaDaView`, derivada da rota — nao de prop escrita a
+        mao em cada chamador. Era assim que o portal chegou a cinco desenhos
+        diferentes do mesmo botao, cada um com seu texto e seu destino.
+
+        Na pagina inicial e na area autenticada nao aparece: `trilhaDaView`
+        devolve lista vazia e o componente nao desenha a barra. Os paineis tem
+        trilha propria, derivada da hierarquia de cada um.
+      */}
+      <Breadcrumb
+        items={trilhaDaView(currentView).map((degrau) => ({
+          rotulo: degrau.rotulo,
+          onClick: degrau.view === undefined
+            ? undefined
+            : () => goToPage(degrau.view as PortalView, degrau.rotulo),
+        }))}
+        onHome={() => goToPage('landing', 'Página Inicial')}
+      />
+
       {/* Main Content Body Routing */}
       <main className="flex-1">
         {currentView === 'landing' ? (
@@ -1561,17 +1587,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           />
         ) : currentView === 'o-ava' ? (
           <AvaPage
-            onBack={() => goToPage('landing', "Voltando para a Página Inicial.")}
             content={sitePageContent?.['o-ava']}
           />
         ) : currentView === 'o-projeto' ? (
           <ProjetoPage
-            onBack={() => goToPage('landing', "Voltando para a Página Inicial.")}
             content={sitePageContent?.['o-projeto']}
           />
         ) : currentView === 'noticias' ? (
           <NoticiasPage
-            onBack={() => goToPage('landing', "Voltando para a Página Inicial.")}
             searchQuery={searchQuery}
             onClearSearch={() => setSearchQuery('')}
             onRequireLogin={() => setIsLoginModalOpen(true)}
@@ -1579,12 +1602,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           />
         ) : currentView === 'duvidas' ? (
           <DuvidasPage
-            onBack={() => goToPage('landing', "Voltando para a Página Inicial.")}
             content={sitePageContent?.['duvidas']}
           />
         ) : currentView === 'calendario' ? (
           <CalendarioPage
-            onBack={() => goToPage('landing', "Voltando para a Página Inicial.")}
             isUserLoggedIn={!!isUserLoggedIn}
             onRequireLogin={() => setIsLoginModalOpen(true)}
             speakText={speakText}
@@ -1594,7 +1615,6 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           />
         ) : currentView === 'orientacoes' ? (
           <OrientacoesPage
-            onBack={() => goToPage('landing', "Voltando para a Página Inicial.")}
             content={sitePageContent?.['orientacoes']}
           />
         ) : currentView === 'certificados' ? (
@@ -1606,7 +1626,6 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             description={pageField(certContent, 'description', 'Todos os cursos da Escola Estadual da Cultura dão direito a certificados de conclusão oficiais. Entenda os critérios necessários para emissão e valide certificados existentes abaixo.')}
             align="center"
             background="bg-slate-50"
-            onBack={() => goToPage('landing', "Voltando para a Página Inicial.")}
           >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
@@ -1771,20 +1790,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           /* PÁGINA DEDICADA: Catálogo completo de cursos, com busca e filtro por categoria */
           <div className="bg-white min-h-[70vh] py-10 px-4 animate-in fade-in duration-300">
             <div className="mx-auto max-w-7xl space-y-8">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentView('landing');
-                    speakText("Voltando para a Página Inicial.");
-                  }}
-                  className="group flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-all bg-white border border-slate-200 px-4 py-2 rounded-xl cursor-pointer shadow-3xs"
-                  title="Voltar ao Portal Inicial"
-                >
-                  <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-                  <span>Voltar</span>
-                </button>
-              </div>
+              {/*
+                Aqui havia o botao "Voltar" do PageShell COPIADO A MAO — mesmo
+                markup, mesmo texto, destino fixo na Inicio. Era o quinto dos
+                cinco desenhos do mesmo botao. Quem diz onde a pessoa esta e a
+                trilha, logo abaixo do cabecalho.
+              */}
 
               <div className="text-left space-y-1 border-b border-slate-200 pb-6">
                 <span className="text-[10px] font-extrabold text-[#540D6E] uppercase tracking-widest block font-mono">Catálogo</span>

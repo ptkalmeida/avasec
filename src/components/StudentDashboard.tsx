@@ -19,6 +19,8 @@ import { assuntoDaMensagem, comAssuntoDaAula } from '../utils/assuntoMensagem';
 import { cursoPorRef, refDoCurso, refEhCanonica } from '../utils/cursoRef';
 import { avaliacoesPendentes, oQueFaltaParaOCertificado } from '../utils/certificadoElegivel';
 import { abaVisivelParaAluno } from '../utils/abasAluno';
+import { trilhaDoAluno } from '../utils/trilhaAluno';
+import { Breadcrumb } from './shared/Breadcrumb';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -158,30 +160,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
     irPara({ tela: 'avaliacoes', quizId: quizId ?? null });
   };
 
-  const handleBack = () => {
-    if (showExercicios) {
-      setShowExercicios(false);
-    } else if (showAvaliacoes) {
-      setShowAvaliacoes(false);
-    } else if (activeLesson) {
-      setActiveLesson(null);
-    } else if (selectedCourse) {
-      setSelectedCourse(null);
-    } else if (activeDashboardTab !== 'general') {
-      setActiveDashboardTab('general');
-    } else if (onBackToLanding) {
-      onBackToLanding();
-    }
-  };
-
-  const getBackLabel = () => {
-    if (showExercicios) return "Voltar ao Curso";
-    if (showAvaliacoes) return "Voltar ao Curso";
-    if (activeLesson) return "Voltar ao Curso";
-    if (selectedCourse) return "Voltar p/ Meus Cursos";
-    if (activeDashboardTab !== 'general') return "Voltar ao Ambiente de Estudos";
-    return "Sair p/ Portal";
-  };
+  /*
+   * `handleBack` e `getBackLabel` foram REMOVIDOS.
+   *
+   * Eles guardavam a hierarquia do painel — exercicios -> avaliacoes -> aula ->
+   * curso -> aba -> portal — mas so como comportamento de um botao: desfaziam um
+   * nivel por clique, e a pessoa nunca via os degraus. `getBackLabel` ainda dava
+   * seis textos diferentes ao mesmo botao ("Voltar ao Curso", "Voltar p/ Meus
+   * Cursos", "Sair p/ Portal"...), entao o rotulo mudava debaixo do cursor.
+   *
+   * A MESMA hierarquia agora e dado, em `src/utils/trilhaAluno.ts`, testada, e a
+   * trilha no topo mostra todos os niveis ao mesmo tempo.
+   */
 
   /*
    * NAVEGAÇÃO — derivada do ENDEREÇO, não guardada em `useState`.
@@ -787,6 +777,34 @@ ${html}
   );
 
   return (
+    <>
+    {/*
+      Bloco 1 do handoff: a trilha do painel do aluno.
+
+      A hierarquia ja existia — estava no `handleBack`, que desfazia um nivel por
+      clique (exercicios -> avaliacoes -> aula -> curso -> aba -> portal). Mas
+      existia so como COMPORTAMENTO de um botao: a pessoa podia voltar um degrau
+      e em nenhum momento via os degraus.
+
+      E a unica pista de localizacao que havia, o cartao de saudacao, sumia
+      justamente quando um curso estava aberto — quando a hierarquia fica
+      profunda e saber onde se esta passa a importar. A trilha fica FIXA em todos
+      os niveis.
+    */}
+    <Breadcrumb
+      rotuloInicio="Painel de Estudos"
+      onHome={voltarParaMeusCursos}
+      items={trilhaDoAluno(destino, {
+        curso: selectedCourse?.title ?? viewingCatalogCourse?.title ?? null,
+        aula: activeLesson?.title ?? null,
+      }).map((degrau) => ({
+        rotulo: degrau.rotulo,
+        onClick: degrau.destino === undefined
+          ? undefined
+          : () => irPara({ tela: degrau.destino!.tela, aba: degrau.destino!.aba }),
+      }))}
+    />
+
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
       {/* Student Welcome Header — só na página de boas-vindas (painel geral, sem curso selecionado) */}
       {activeDashboardTab === 'general' && !selectedCourse && (
@@ -815,20 +833,13 @@ ${html}
                   Painel de Estudos AVASEC
                 </span>
                 
-                {onBackToLanding && (
-                  <button
-                    onClick={() => {
-                      const label = getBackLabel();
-                      speakText(`${label}. Voltando um nível no fluxo.`);
-                      handleBack();
-                    }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-all cursor-pointer text-[9px] font-bold uppercase tracking-wider border border-slate-200/60"
-                    title={getBackLabel()}
-                  >
-                    <ArrowLeft className="h-3 w-3 text-slate-500" />
-                    <span>{getBackLabel()}</span>
-                  </button>
-                )}
+                {/*
+                  Aqui havia um botao de VOLTAR DE 9px, dentro do cartao de
+                  saudacao — um dos cinco desenhos do mesmo botao no produto, e o
+                  menor deles. Ele tambem so aparecia neste cartao, que desaparece
+                  quando um curso esta aberto: existia exatamente onde era menos
+                  necessario. Quem cumpre a funcao e a trilha, no topo.
+                */}
               </div>
               
               <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight pt-0.5">
@@ -3991,5 +4002,6 @@ ${html}
         )}
       </AnimatePresence>
     </div>
+    </>
   );
 };

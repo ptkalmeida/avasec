@@ -10,7 +10,6 @@ import { SitePageContent, SitePageItem } from '../../types';
 import { pageField, pageItems } from '../../utils/sitePageContent';
 
 interface AvaPageProps {
-  onBack: () => void;
   /** Conteúdo editado pelo admin; ausente = usa os padrões abaixo. */
   content?: SitePageContent;
 }
@@ -41,7 +40,7 @@ const DECORACOES = [
   { icon: Award, accent: '#EE4266' }
 ];
 
-export const AvaPage: React.FC<AvaPageProps> = ({ onBack, content }) => {
+export const AvaPage: React.FC<AvaPageProps> = ({ content }) => {
   const items = pageItems(content, DEFAULT_ITEMS);
 
   return (
@@ -50,7 +49,6 @@ export const AvaPage: React.FC<AvaPageProps> = ({ onBack, content }) => {
       title={pageField(content, 'title', 'O que é o AVA?')}
       description={pageField(content, 'description', 'O AVA (Ambiente Virtual de Aprendizagem) da Escola Estadual da Cultura é um ecossistema digital inteligente voltado para a formação continuada, democrático e acessível a todos os fazedores de cultura.')}
       align="center"
-      onBack={onBack}
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {items.map((item, index) => {
