@@ -33,7 +33,7 @@ import {
   Printer, Download, Monitor, CheckCircle, Instagram, Youtube, Facebook, Twitter, Home, Bell, MessageSquare,
   Fingerprint, AlertTriangle, Check, Eye, EyeOff
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react';
 import { features } from './config/features';
 import { NavegacaoPublica } from './components/portal/NavegacaoPublica';
 import { MENU_PUBLICO } from './config/menuPublico';
@@ -337,12 +337,22 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   const [courseCategory, setCourseCategory] = useState<string>('all');
   const [courseSearch, setCourseSearch] = useState('');
 
-  // Hero Mouse Follow State
+  /*
+   * Brilho que segue o cursor no heroi.
+   *
+   * `useReducedMotion` porque isto e movimento em JAVASCRIPT: a `@media
+   * (prefers-reduced-motion)` do index.css alcanca animacao e transicao de CSS,
+   * e nao um `left/top` recalculado a cada `mousemove`. Sem esta guarda, quem
+   * pede menos movimento no sistema continuaria com um brilho perseguindo o
+   * cursor pela tela.
+   */
+  const movimentoReduzido = useReducedMotion();
   const heroRef = useRef<HTMLDivElement>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isMouseInHero, setIsMouseInHero] = useState(false);
 
   const handleHeroMouseMove = (e: React.MouseEvent) => {
+    if (movimentoReduzido) return;
     if (heroRef.current) {
       const rect = heroRef.current.getBoundingClientRect();
       setMousePos({
@@ -706,9 +716,27 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             color: #ffffff !important;
             border: 2.5px solid #ffff00 !important;
           }
-          .high-contrast-active svg, .high-contrast-active svg * {
-            stroke: #ffff00 !important;
-            fill: none !important;
+          /*
+            A regra que existia aqui era:
+              svg, svg * { stroke:#ffff00 !important; fill:none !important }
+            e ela APAGAVA o logotipo (que e desenhado com 'fill'), os icones dos
+            cartoes e qualquer grafico. Junto com o 'background:#000' universal,
+            zerava tambem o contorno das imagens. O recurso quebrava a pagina
+            para quem mais precisa dele.
+
+            Agora: os icones do lucide-react desenham com 'stroke=currentColor',
+            entao definir a COR do svg basta para deixa-los amarelos — sem forcar
+            'fill:none' em todo mundo, o que preserva logotipo e icone decorativo.
+          */
+          .high-contrast-active svg {
+            color: #ffff00 !important;
+          }
+          /* Imagem e video voltam a ter fundo proprio: o 'background:#000'
+             universal apagava o contorno de qualquer figura. */
+          .high-contrast-active img,
+          .high-contrast-active video,
+          .high-contrast-active canvas {
+            background-color: transparent !important;
           }
         ` }} />
       )}
@@ -1212,7 +1240,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               id="hero-section" 
               ref={heroRef}
               onMouseMove={handleHeroMouseMove}
-              onMouseEnter={() => setIsMouseInHero(true)}
+              onMouseEnter={() => { if (!movimentoReduzido) setIsMouseInHero(true); }}
               onMouseLeave={() => setIsMouseInHero(false)}
               className="bg-[#540D6E] text-white py-14 lg:py-24 relative overflow-hidden flex flex-col items-center"
             >
