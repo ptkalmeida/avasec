@@ -51,7 +51,7 @@ interface ExerciciosPraticosPageProps {
 
 const TOM_CHIP: Record<Tom, string> = {
   ok: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  aguardando: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+  aguardando: 'bg-escult-surface text-escult-purple border-escult-line',
   atencao: 'bg-amber-50 text-amber-800 border-amber-200',
   neutro: 'bg-slate-100 text-slate-600 border-slate-200',
 };
@@ -205,7 +205,7 @@ const ExercicioCard: React.FC<{
             <div className="flex flex-wrap items-center gap-2">
               {nomeAnexo !== undefined ? (
                 <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-apoio text-slate-700">
-                  <Paperclip className="h-3.5 w-3.5 text-teal-600" />
+                  <Paperclip className="h-3.5 w-3.5 text-teal-700" />
                   <span className="min-w-0 max-w-[16rem] truncate font-bold">{nomeAnexo}</span>
                   {anexo !== null && (
                     <button

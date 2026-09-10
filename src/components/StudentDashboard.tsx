@@ -370,7 +370,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   /*
     `/aluno/certificados` existia como rota e nao tinha tela: mostrava o bloco
-    "esta secao nao esta disponivel". Agora resolve para onde os certificados de
+"esta secao nao esta disponivel". Agora resolve para onde os certificados de
     fato estao, em vez de dar erro a quem salvou o endereco.
   */
   useEffect(() => {
@@ -886,7 +886,7 @@ ${html}
             {/* Avatar container with live status indicator badge */}
             <div className="relative shrink-0 w-14 h-14">
               <div className="rounded-2xl bg-teal-50 p-3 w-14 h-14 border border-teal-100 shadow-3xs flex items-center justify-center">
-                <User className="h-7 w-7 text-teal-600" />
+                <User className="h-7 w-7 text-teal-700" />
               </div>
               <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
@@ -923,7 +923,7 @@ ${html}
               <span className="text-apoio text-escult-ink-2 font-semibold block mt-0.5 whitespace-nowrap">Cursos ativos</span>
             </div>
             <div className="bg-white/60 border border-slate-150 rounded-xl px-4 py-2.5 text-left shadow-3xs hover:bg-white/90 transition-all flex-1 sm:flex-initial min-w-[115px]">
-              <span className="block text-xl font-black text-teal-600 tracking-tight">{avgGlobalAttendance}%</span>
+              <span className="block text-xl font-black text-teal-700 tracking-tight">{avgGlobalAttendance}%</span>
               <span className="text-apoio text-escult-ink-2 font-semibold block mt-0.5 whitespace-nowrap">Presença média</span>
             </div>
           </div>
@@ -935,7 +935,7 @@ ${html}
         Bloco 6 do handoff: LUGAR e ACAO deixam de ser a mesma coisa.
 
         Eram sete botoes identicos numa barra unica. Dois deles nao eram lugar:
-        "Central de Ajuda / FAQ" abre uma GAVETA lateral — prometia trocar de
+"Central de Ajuda / FAQ" abre uma GAVETA lateral — prometia trocar de
         tela e nao trocava — e "Meu Perfil" e area pessoal, nao secao de estudo.
         Enquanto isso, os dois lugares que o aluno mais procura nao estavam na
         barra: o curso em que ele esta matriculado e os certificados.
@@ -1041,7 +1041,7 @@ ${html}
                     A lista tambem afirmava mais do que o sistema faz. NENHUMA
                     linha do backend le `contractExpirationDate` — o bloqueio e
                     so de tela. Prometer "download de anexos bloqueado" e
-                    "reproducao suspensa" como garantia juridica seria afirmar
+"reproducao suspensa" como garantia juridica seria afirmar
                     uma protecao que nao existe no servidor.
                   */}
                   <p className="text-sm text-slate-600 leading-relaxed text-center">
@@ -1091,7 +1091,7 @@ ${html}
               <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <button
                   onClick={voltarParaMeusCursos}
-                  className="flex items-center gap-1.5 text-xs font-bold text-teal-600 hover:text-teal-500 transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-500 transition-colors cursor-pointer"
                 >
                   <span>← Sair do Curso</span>
                 </button>
@@ -1384,7 +1384,7 @@ ${html}
                           disponível — nunca a situação da aula. O efeito: ao clicar
                           em "Próxima aula" e chegar numa aula ainda não concluída,
                           aparecia "Concluir esta Aula de Fixação", e isso se lê como
-                          "a aula acabou de virar pendente". Nada era alterado —
+"a aula acabou de virar pendente". Nada era alterado —
                           `toggleLessonCompletion` só é chamado por clique explícito —
                           mas a tela não dava como saber disso.
                         */}
@@ -1429,7 +1429,7 @@ ${html}
                           <button
                             onClick={() => setActiveTab('teoria')}
                             className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                              activeTab === 'teoria' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
+                              activeTab === 'teoria' ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent hover:text-teal-500'
                             }`}
                           >
                             <FileText className="h-4 w-4 shrink-0" />
@@ -1439,7 +1439,7 @@ ${html}
                           <button
                             onClick={() => setActiveTab('anotacao')}
                             className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                              activeTab === 'anotacao' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
+                              activeTab === 'anotacao' ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent hover:text-teal-500'
                             }`}
                           >
                             <Notebook className="h-4 w-4 shrink-0" />
@@ -1461,7 +1461,7 @@ ${html}
                             <button
                               onClick={() => setActiveTab('suporte')}
                               className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                                activeTab === 'suporte' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
+                                activeTab === 'suporte' ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent hover:text-teal-500'
                               }`}
                             >
                               <HelpCircle className="h-4 w-4 shrink-0" />
@@ -1473,7 +1473,7 @@ ${html}
                             <button
                               onClick={() => setActiveTab('forum')}
                               className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                                activeTab === 'forum' ? 'border-teal-600 text-teal-600 bg-white' : 'border-transparent hover:text-teal-500'
+                                activeTab === 'forum' ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent hover:text-teal-500'
                               }`}
                             >
                               <MessageSquare className="h-4 w-4 text-teal-650 shrink-0" />
@@ -1502,7 +1502,7 @@ ${html}
                               {activeLesson.documents && activeLesson.documents.length > 0 && (
                                 <div className="mt-8 border-t border-slate-150 pt-6 space-y-3.5">
                                   <h4 className="text-slate-950 text-sobretitulo uppercase flex items-center gap-2">
-                                    <Archive className="h-4 w-4 text-teal-600" />
+                                    <Archive className="h-4 w-4 text-teal-700" />
                                     Material de Apoio e Documentos Anexos ({activeLesson.documents.length})
                                   </h4>
                                   <p className="text-apoio text-escult-ink-2 -mt-1 leading-none">Arquivos e links disponibilizados pelo seu instrutor para aprofundamento.</p>
@@ -1533,7 +1533,7 @@ ${html}
                                         >
                                           <div className="flex items-start gap-3 min-w-0">
                                             <div className="p-2 rounded-lg bg-white shrink-0 border border-slate-100 shadow-3xs">
-                                              <FileText className="h-4.5 w-4.5 text-teal-600" />
+                                              <FileText className="h-4.5 w-4.5 text-teal-700" />
                                             </div>
                                             <div className="min-w-0">
                                               <p className="font-extrabold text-slate-900 text-xs truncate group-hover/doc:text-teal-700">{doc.title}</p>
@@ -1547,7 +1547,7 @@ ${html}
                                               </div>
                                             </div>
                                           </div>
-                                          <ExternalLink className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-teal-600 transition-colors shrink-0 self-center" />
+                                          <ExternalLink className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-teal-700 transition-colors shrink-0 self-center" />
                                         </a>
                                       );
                                     })}
@@ -1577,7 +1577,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('bold'); }}
                                     title="Negrito"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
                                   >
                                     <Bold className="h-3.5 w-3.5" />
                                   </button>
@@ -1585,7 +1585,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('italic'); }}
                                     title="Itálico"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
                                   >
                                     <Italic className="h-3.5 w-3.5" />
                                   </button>
@@ -1593,7 +1593,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('underline'); }}
                                     title="Sublinhado"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
                                   >
                                     <Underline className="h-3.5 w-3.5" />
                                   </button>
@@ -1602,7 +1602,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('insertUnorderedList'); }}
                                     title="Lista com marcadores"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
                                   >
                                     <List className="h-3.5 w-3.5" />
                                   </button>
@@ -1610,7 +1610,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('insertOrderedList'); }}
                                     title="Lista numerada"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-600 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
                                   >
                                     <ListOrdered className="h-3.5 w-3.5" />
                                   </button>
@@ -1812,7 +1812,7 @@ ${html}
                   ) : (
                     /* Initial Welcome course billboard if no active lesson selected */
                     <div className="rounded-2xl border border-dashed border-teal-200 bg-teal-50/5 p-8 text-center text-slate-600 space-y-5 animate-in fade-in duration-300">
-                      <div className="inline-flex rounded-full bg-teal-100 text-teal-600 p-4 shrink-0 shadow-xs border border-teal-200/55">
+                      <div className="inline-flex rounded-full bg-teal-100 text-teal-700 p-4 shrink-0 shadow-xs border border-teal-200/55">
                         <Monitor className="h-10 w-10 animate-pulse" />
                       </div>
                       
@@ -1872,14 +1872,14 @@ ${html}
                     fazia as aulas escorregarem de modulo sem aviso, sob um
                     titulo que descrevia outro conteudo; e todo curso fora do
                     course-1/course-2 recebia "Introducao Basica" prometendo
-                    "exercicios de fixacao assistida e material complementar" que
+"exercicios de fixacao assistida e material complementar" que
                     podiam nao existir.
                     Decisao da coordenacao (09/09/2026): modulo nao precisa
                     existir — a lista de aulas basta.
                   */}
                   <div className="flex items-center justify-between">
                     <h4 className="text-slate-900 flex items-center gap-1.5 text-sobretitulo uppercase">
-                      <BookOpen className="h-4 w-4 text-teal-600" />
+                      <BookOpen className="h-4 w-4 text-teal-700" />
                       <span>Aulas do Curso</span>
                     </h4>
 
@@ -1905,7 +1905,7 @@ ${html}
                           className="border rounded-lg overflow-hidden transition-all cursor-pointer p-3 flex items-center justify-between gap-3 group text-left bg-white border-slate-200 hover:border-teal-300"
                         >
                           <div className="flex-1 text-left min-w-0">
-                            <span className="block text-rotulo font-bold leading-tight text-slate-800 group-hover:text-teal-600 transition-colors">
+                            <span className="block text-rotulo font-bold leading-tight text-slate-800 group-hover:text-teal-700 transition-colors">
                               {idx + 1}. {lesson.title}
                             </span>
                             <div className="flex items-center gap-1 mt-1.5">
@@ -1947,7 +1947,7 @@ ${html}
                   {transmissoesDeHoje.length > 0 && (
                   <div className="border border-teal-100 bg-teal-50/15 rounded-xl p-3 text-left space-y-2.5">
                     <h5 className="text-slate-900 text-sobretitulo uppercase flex items-center gap-1.5">
-                      <Video className="h-3.5 w-3.5 text-teal-600" />
+                      <Video className="h-3.5 w-3.5 text-teal-700" />
                       <span>Transmissões de hoje</span>
                     </h5>
 
@@ -2070,7 +2070,7 @@ ${html}
                   {exerciciosDoCursoAberto.length > 0 && (
                   <div className="border border-teal-100 bg-teal-50/10 rounded-xl p-3.5 text-left space-y-3 shadow-2xs">
                     <h5 className="text-slate-900 text-sobretitulo uppercase flex items-center gap-1.5">
-                      <FileCheck className="h-3.5 w-3.5 text-teal-600" />
+                      <FileCheck className="h-3.5 w-3.5 text-teal-700" />
                       <span>Exercícios de Fixação</span>
                     </h5>
 
@@ -2089,7 +2089,7 @@ ${html}
                                     studentSub?.status === 'approved' 
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
                                       : studentSub?.status === 'pending'
-                                      ? 'bg-indigo-50 text-indigo-750 border border-indigo-100'
+                                      ? 'bg-escult-surface text-escult-purple border border-escult-line'
                                       : studentSub?.status === 'rejected' || studentSub?.status === 'revision'
                                       ? 'bg-amber-50 text-amber-700 font-extrabold border border-amber-100'
                                       : 'bg-slate-100 text-escult-ink-2 border border-slate-200'
@@ -2166,7 +2166,7 @@ ${html}
                               <span className="text-sm font-black text-slate-700 leading-none">{dataCurta(session.scheduledAt)}</span>
                            </div>
                            <div className="flex-1 min-w-0">
-                              <span className="text-sobretitulo text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded uppercase">
+                              <span className="text-sobretitulo text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded uppercase">
                                 {courses.find(c => c.id === session.courseId)?.title}
                               </span>
                               <h5 className="text-rotulo font-bold text-slate-900 mt-1 truncate">{session.title}</h5>
@@ -2252,7 +2252,7 @@ ${html}
                             onClick={() => setIsFullSyllabusOpen(true)}
                             className="text-sobretitulo uppercase bg-teal-50 hover:bg-teal-100 text-teal-800 px-3.5 py-2 border border-teal-200 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 shadow-xs"
                           >
-                            <Layers className="h-3.5 w-3.5 text-teal-600" />
+                            <Layers className="h-3.5 w-3.5 text-teal-700" />
                             <span>Ver grade completa</span>
                           </button>
                         </div>
@@ -2505,7 +2505,7 @@ ${html}
                                     Solicitação de Reversão em Análise
                                   </div>
                                   <p className="text-apoio text-amber-900/90 italic leading-normal">
-                                    "{pendingPenaltyRequest.description}"
+"{pendingPenaltyRequest.description}"
                                   </p>
                                   <p className="text-apoio text-escult-ink-2 font-medium">
                                     Sua justificativa foi protocolada com sucesso. O administrador analisará os motivos apresentados e dará o parecer em breve.
@@ -2565,7 +2565,7 @@ ${html}
                   {canEnrollInMoreCourses && !(features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now()) && (
                     <div className="space-y-5">
                       <div className="bg-teal-50/55 p-4 rounded-2xl border border-teal-150/40 flex items-center gap-3">
-                        <Sparkles className="h-4.5 w-4.5 text-teal-600 shrink-0" />
+                        <Sparkles className="h-4.5 w-4.5 text-teal-700 shrink-0" />
                         <div className="text-left text-xs text-slate-700 leading-relaxed">
                           <span className="font-extrabold text-teal-950 mr-1.5">Início da Jornada:</span>
                           {activeEnrolledCourseIds.length > 0
@@ -2723,7 +2723,7 @@ ${html}
                           <div className="space-y-4">
                             <div className="text-sobretitulo text-escult-ink-2 uppercase text-left flex items-center justify-between">
                               <span>Grade Curricular Disponível para Matrícula:</span>
-                              <span className="text-teal-600 font-black shrink-0">
+                              <span className="text-teal-700 font-black shrink-0">
                                 {filtered.length} {filtered.length === 1 ? 'curso encontrado' : 'cursos encontrados'}
                               </span>
                             </div>
@@ -2738,7 +2738,7 @@ ${html}
                                           <Tag className="h-3 w-3" />
                                           {course.category}
                                         </span>
-                                        <span className="text-apoio text-teal-600 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full shadow-2xs">
+                                        <span className="text-apoio text-teal-700 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full shadow-2xs">
                                           Meta: {minAtt}% pres.
                                         </span>
                                       </div>
@@ -2804,7 +2804,7 @@ ${html}
                                 <h4 className="text-xs font-black text-slate-850 group-hover:text-emerald-700 transition-colors block line-clamp-1">{course.title}</h4>
                                 <span className="text-apoio text-escult-ink-2 block">Prof. {course.instructorName}</span>
                               </div>
-                              <span className="text-apoio text-teal-600 hover:underline font-bold mt-3 block text-right">Modo Revisão →</span>
+                              <span className="text-apoio text-teal-700 hover:underline font-bold mt-3 block text-right">Modo Revisão →</span>
                             </div>
                           ))}
                       </div>
@@ -2829,7 +2829,7 @@ ${html}
           </div>
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs text-left max-w-2xl">
             <div className="flex items-center gap-2 mb-2">
-              <FileCheck className="h-5 w-5 text-teal-600" />
+              <FileCheck className="h-5 w-5 text-teal-700" />
               <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider">Solicitações de Documentos</h3>
             </div>
             <p className="text-xs text-escult-ink-2 leading-relaxed mb-6">
@@ -2841,7 +2841,7 @@ ${html}
                 <div key={req.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/30 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-teal-50 text-teal-600">
+                      <div className="p-1.5 rounded-lg bg-teal-50 text-teal-700">
                         {req.type === 'certificado' ? <Award className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                       </div>
                       <span className="text-sobretitulo text-slate-800 uppercase">{req.type === 'certificado' ? 'Certificado' : 'Histórico Escolar'}</span>
@@ -3034,7 +3034,7 @@ ${html}
                       className="w-full text-left p-4 md:p-5 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/40 transition-colors"
                     >
                       <strong className="text-xs font-bold text-slate-800 leading-snug">{faq.question}</strong>
-                      <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-600' : ''}`} />
+                      <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-700' : ''}`} />
                     </button>
                     {isExpanded && (
                       <div className="px-5 pb-5 pt-1 text-xs text-escult-ink-2 leading-relaxed bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
@@ -3141,7 +3141,7 @@ ${html}
                                    <span className="text-apoio text-escult-ink-2">Ajuste o tamanho dos textos de toda a plataforma.</span>
                                 </div>
                              </div>
-                             <span className="text-sobretitulo uppercase text-teal-600 bg-teal-50 px-2 py-0.5 rounded">{accessibilitySettings.fontSize === 'small' ? 'Pequena' : accessibilitySettings.fontSize === 'medium' ? 'Padrão' : 'Grande'}</span>
+                             <span className="text-sobretitulo uppercase text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{accessibilitySettings.fontSize === 'small' ? 'Pequena' : accessibilitySettings.fontSize === 'medium' ? 'Padrão' : 'Grande'}</span>
                           </div>
                           <div className="flex items-center gap-3">
                              {['small', 'medium', 'large'].map(size => (
@@ -3276,7 +3276,7 @@ ${html}
             <div className="flex justify-end">
              <button 
                onClick={() => setShowKnowledgeBase(true)}
-               className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-teal-600 hover:bg-teal-50 transition-all shadow-xs cursor-pointer"
+               className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-teal-700 hover:bg-teal-50 transition-all shadow-xs cursor-pointer"
              >
                 <HelpCircle className="h-4 w-4" />
                 <span>Base de Conhecimento (Tutoriais)</span>
@@ -3301,7 +3301,7 @@ ${html}
                   <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-5 bg-slate-50/50">
                      <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-teal-300 hover:shadow-lg transition-all cursor-pointer group">
                         <div className="bg-teal-50 p-2.5 rounded-xl w-fit mb-4 group-hover:bg-teal-100 transition-colors">
-                           <Video className="h-6 w-6 text-teal-600" />
+                           <Video className="h-6 w-6 text-teal-700" />
                         </div>
                         <h5 className="text-slate-800 text-sobretitulo uppercase">Primeiros Passos no AVA</h5>
                         <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Aprenda a estruturar seu cronograma e encontrar materiais de apoio.</p>
@@ -3313,16 +3313,16 @@ ${html}
                         <h5 className="text-slate-800 text-sobretitulo uppercase">Certificação & Presença</h5>
                         <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Entenda como atingir os 70% de frequência mínima exigida por curso.</p>
                      </div>
-                     <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-blue-300 hover:shadow-lg transition-all cursor-pointer group">
-                        <div className="bg-blue-50 p-2.5 rounded-xl w-fit mb-4 group-hover:bg-blue-100 transition-colors">
-                           <MessageSquare className="h-6 w-6 text-blue-600" />
+                     <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-escult-line hover:shadow-lg transition-all cursor-pointer group">
+                        <div className="bg-escult-surface p-2.5 rounded-xl w-fit mb-4 group-hover:bg-escult-surface transition-colors">
+                           <MessageSquare className="h-6 w-6 text-escult-purple" />
                         </div>
                         <h5 className="text-slate-800 text-sobretitulo uppercase">Suporte às Vagas</h5>
                         <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Dicas de como usar seu certificado para se destacar em processos seletivos.</p>
                      </div>
-                     <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-indigo-300 hover:shadow-lg transition-all cursor-pointer group">
-                        <div className="bg-indigo-50 p-2.5 rounded-xl w-fit mb-4 group-hover:bg-indigo-100 transition-colors">
-                           <HelpCircle className="h-6 w-6 text-indigo-600" />
+                     <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-escult-line hover:shadow-lg transition-all cursor-pointer group">
+                        <div className="bg-escult-surface p-2.5 rounded-xl w-fit mb-4 group-hover:bg-escult-surface transition-colors">
+                           <HelpCircle className="h-6 w-6 text-escult-purple" />
                         </div>
                         <h5 className="text-slate-800 text-sobretitulo uppercase">Chat de Suporte Direto</h5>
                         <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Vídeo tutorial sobre como usar o chat direto com coordenadores.</p>
@@ -3346,7 +3346,7 @@ ${html}
             {/* Minimal metadata information cards badge styles */}
             <div className="flex gap-2 shrink-0">
               <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 text-xs text-slate-700">
-                <Clock className="h-4 w-4 text-teal-600 shrink-0" />
+                <Clock className="h-4 w-4 text-teal-700 shrink-0" />
                 <div>
                   <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none">Tempo de Retorno</span>
                   <span className="font-bold text-apoio">~15 minutos</span>
@@ -3354,7 +3354,7 @@ ${html}
               </div>
               <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 text-xs text-slate-700">
                 <div className="relative">
-                  <User className="h-4 w-4 text-teal-600 shrink-0" />
+                  <User className="h-4 w-4 text-teal-700 shrink-0" />
                   <span className={`absolute -bottom-1 -right-1 block h-2.5 w-2.5 rounded-full border border-white ${
                     (localStorage.getItem(`ava_presence_status_${enrolledCourseInstructorId}`) || 'online') === 'online'
                       ? 'bg-emerald-500 animate-pulse'
@@ -3476,7 +3476,7 @@ ${html}
             {/* Explanatory Academic Sideboard (4 cols) */}
             <div className="lg:col-span-4 space-y-4">
               <div className="bg-teal-950/20 border border-teal-500/15 p-5 rounded-2xl text-left space-y-2.5">
-                <span className="text-sobretitulo uppercase text-teal-600 block">DIRETRIZES DE SUPORTE</span>
+                <span className="text-sobretitulo uppercase text-teal-700 block">DIRETRIZES DE SUPORTE</span>
                 <h4 className="font-bold text-slate-800 text-xs">O que falar no canal com os professores?</h4>
                 <ul className="space-y-1.5 text-rotulo text-slate-600 leading-relaxed list-disc list-inside">
                   <li>Envio de snippets ou feedback de códigos;</li>
@@ -3687,7 +3687,7 @@ ${html}
                           className="w-full text-left p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/40 transition-colors"
                         >
                           <strong className="text-xs font-bold text-slate-850 leading-snug">{faq.question}</strong>
-                          <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-600' : ''}`} />
+                          <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-700' : ''}`} />
                         </button>
                         {isExpanded && (
                           <div className="px-4 pb-4 pt-1 text-rotulo text-escult-ink-2 leading-relaxed bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
@@ -3876,13 +3876,13 @@ ${html}
 
                     <div className="space-y-2.5">
                       {[
-                        "Para emissão do certificado, é necessário cumprir a frequência mínima do curso (70% por padrão) e ser aprovado em todas as avaliações do curso.",
-                        "O aluno deve acompanhar as aulas e realizar as atividades obrigatórias, quando houver.",
-                        "Após a confirmação, o curso ficará disponível para início imediato.",
-                        "O certificado será liberado conforme os critérios de conclusão do curso."
+"Para emissão do certificado, é necessário cumprir a frequência mínima do curso (70% por padrão) e ser aprovado em todas as avaliações do curso.",
+"O aluno deve acompanhar as aulas e realizar as atividades obrigatórias, quando houver.",
+"Após a confirmação, o curso ficará disponível para início imediato.",
+"O certificado será liberado conforme os critérios de conclusão do curso."
                       ].map((item, idx) => (
                         <div key={idx} className="flex gap-2 text-rotulo text-slate-650 font-semibold items-start">
-                          <CheckCircle className="h-4 w-4 text-teal-600 mt-0.5 shrink-0" />
+                          <CheckCircle className="h-4 w-4 text-teal-700 mt-0.5 shrink-0" />
                           <span>{item}</span>
                         </div>
                       ))}

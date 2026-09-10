@@ -35,7 +35,7 @@ export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack }
             </div>
             <div className="p-6 flex-1 flex flex-col justify-between">
               <div>
-                <div className="flex items-center gap-3 text-sobretitulo text-teal-600 uppercase mb-2">
+                <div className="flex items-center gap-3 text-sobretitulo text-teal-700 uppercase mb-2">
                   <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {event.date}</span>
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {event.time}</span>
                 </div>

@@ -31,6 +31,7 @@ const CONVERTIDAS = [
   'components/instructor',
   'components/LiveClassroom.tsx',
   'components/CourseForum.tsx',
+  'components/ProfileView.tsx',
 ];
 
 /**
@@ -48,7 +49,6 @@ const PENDENTES: Record<string, number> = {
    * teste que pegou o `text-[11px]` que eu havia escrito aqui.
    */
   'components/AdminDashboard.tsx': 479,
-  'components/ProfileView.tsx': 193,
 };
 
 /** Remove comentário de bloco e de linha, para não confundir registro com defeito. */

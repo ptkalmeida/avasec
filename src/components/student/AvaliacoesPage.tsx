@@ -196,9 +196,9 @@ const ProvaEmAndamento: React.FC<{
             {resultado.passed ? 'Aprovado nesta avaliação' : 'Avaliação concluída — revisão recomendada'}
           </h3>
           <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/20 bg-white/60 px-3 py-1 text-xs font-black">
-            <span>Acertos: <span className="font-bold text-teal-600">{acertos}</span> de {total}</span>
+            <span>Acertos: <span className="font-bold text-teal-700">{acertos}</span> de {total}</span>
             <span className="text-slate-350">•</span>
-            <span>Rendimento: <span className="font-bold text-teal-600">{resultado.scorePercent}%</span></span>
+            <span>Rendimento: <span className="font-bold text-teal-700">{resultado.scorePercent}%</span></span>
           </div>
           <p className="mx-auto max-w-md text-rotulo font-medium leading-relaxed text-slate-700">
             {resultado.passed
@@ -289,7 +289,7 @@ const ProvaEmAndamento: React.FC<{
       </div>
 
       <div className="space-y-3 rounded-2xl border border-slate-150 bg-slate-50/50 p-5">
-        <span className="text-sobretitulo uppercase text-teal-600">Enunciado</span>
+        <span className="text-sobretitulo uppercase text-teal-700">Enunciado</span>
         <h3 className="text-sm font-bold leading-relaxed text-slate-800">{questao.questionText}</h3>
       </div>
 
