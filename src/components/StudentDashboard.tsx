@@ -3461,10 +3461,10 @@ ${html}
               </div>
 
               {/*
-                Havia dois e-mails aqui: `faleconosco@paulo-freire.org.br` e
-                `suporte-digital@freire.com`. Os dois eram INVENTADOS — nenhum
-                existe — e um aluno que escrevesse para eles acharia que pediu
-                ajuda sem ter pedido.
+                Havia dois enderecos de e-mail aqui, os dois INVENTADOS —
+                nenhum dos dois existe — e um aluno que escrevesse para eles
+                acharia que pediu ajuda sem ter pedido. Os enderecos nao ficam
+                registrados nem aqui, para ninguem os reintroduzir por engano.
 
                 Decisao da coordenacao (10/09/2026): tirar da tela em vez de
                 trocar por outro endereco plausivel. Nao ha canal falso; ficam

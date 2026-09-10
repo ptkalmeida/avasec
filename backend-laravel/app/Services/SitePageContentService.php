@@ -229,7 +229,7 @@ final class SitePageContentService
                 [
                     'id' => 'pilar-3',
                     'title' => 'Pedagogia Decolonial e Inclusiva',
-                    'description' => 'Celebramos e nos inspiramos no grande educador patrono Paulo Freire e na vanguarda negra de Solano Trindade, integrando teoria crítica com prática imediata do fazer artístico.',
+                    'description' => 'Partimos da pedagogia crítica e da vanguarda negra de Solano Trindade, integrando teoria crítica com prática imediata do fazer artístico.',
                 ],
             ],
         ],

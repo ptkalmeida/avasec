@@ -7,7 +7,7 @@ verificado no código real (arquivo:linha) e, quando indicado, no comportamento 
 aplicação em execução (curl contra o backend, inspeção do bundle gerado).
 """
 
-PROJETO = "AVASEC — Portal Escult / Escola Paulo Freire"
+PROJETO = "AVASEC — Portal da Escola Estadual da Cultura"
 DATA = "28 de agosto de 2026"
 COMMIT = "e2b8abf (branch chore/pendencias-pos-adr10)"
 
