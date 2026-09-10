@@ -23,3 +23,12 @@ logs/
 # rastreabilidade que o AGENTS.md exige nao fica visivel para quem revisa o PR,
 # e um clone em outra maquina nao traz nada disto.
 .ai/
+
+# Handoff de design (navegacao/identidade visual, set/2026).
+#
+# Fora do git pela mesma razao da pasta .ai: material de trabalho que fica na
+# maquina de quem conduz, nao no repositorio. Custo aceito e declarado: as ADRs
+# e os commits citam um documento que quem revisar o PR nao alcanca — a
+# justificativa das mudancas tem de estar no proprio commit e na ADR, nao so no
+# handoff.
+design_handoff_avasec_navegacao/

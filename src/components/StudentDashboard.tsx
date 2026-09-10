@@ -3418,12 +3418,23 @@ ${html}
                 </ul>
               </div>
 
+              {/*
+                Havia dois e-mails aqui: `faleconosco@paulo-freire.org.br` e
+                `suporte-digital@freire.com`. Os dois eram INVENTADOS — nenhum
+                existe — e um aluno que escrevesse para eles acharia que pediu
+                ajuda sem ter pedido.
+
+                Decisao da coordenacao (10/09/2026): tirar da tela em vez de
+                trocar por outro endereco plausivel. Nao ha canal falso; ficam
+                os que funcionam de fato, e o principal e a mensagem ao gestor,
+                na aba Suporte de dentro da aula.
+              */}
               <div className="bg-slate-50 border border-slate-200 p-5 rounded-2xl text-left space-y-2.5">
-                <span className="text-[9px] uppercase tracking-widest text-[#540D6E] font-extrabold font-mono block">INFO ÚTIL</span>
-                <div className="space-y-1 text-[11px] text-slate-500 leading-relaxed">
-                  <p><strong>E-mail:</strong> faleconosco@paulo-freire.org.br</p>
-                  <p><strong>Certificados:</strong> suporte-digital@freire.com</p>
-                </div>
+                <span className="text-[9px] uppercase tracking-widest text-[#540D6E] font-extrabold font-mono block">COMO PEDIR AJUDA</span>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Use a aba <strong>Suporte</strong> dentro da aula: a mensagem chega à coordenação
+                  já indicando de qual aula é a dúvida.
+                </p>
               </div>
             </div>
           </div>

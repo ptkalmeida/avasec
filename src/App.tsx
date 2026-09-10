@@ -37,7 +37,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { features } from './config/features';
 import { demoProfiles } from './dev/demoProfiles';
 // @ts-ignore
-import pauloFreirePortrait from './assets/images/paulo_freire_portrait_1779991080618.png';
 
 // Avasec Logo Component representing the abstract artistic head profile in primary colors
 function AvasecLogo() {
@@ -46,7 +45,7 @@ function AvasecLogo() {
       <svg className="h-10 w-10 shrink-0" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Background art circle */}
         <circle cx="50" cy="50" r="46" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
-        {/* Colorful Abstract Face Segments representing Escola da Cultura Modernist Art */}
+        {/* Segmentos abstratos da identidade visual da Escola Estadual da Cultura */}
         <path d="M35 25h12v40H35z" fill="#3BCEAC" className="opacity-90" /> {/* Green left column */}
         <path d="M47 30h12v25H47z" fill="#EE4266" className="opacity-95" /> {/* Red center bar */}
         <path d="M59 20h12v50H59z" fill="#540D6E" className="opacity-95" /> {/* Blue right column */}
@@ -60,7 +59,7 @@ function AvasecLogo() {
       </svg>
       <div className="leading-none text-left">
         <span className="font-sans font-black text-2xl tracking-tighter text-[#540D6E] block">AVASEC</span>
-        <span className="text-[7.5px] uppercase tracking-widest text-slate-500 font-bold block mt-0.5">Escola da Cultura</span>
+        <span className="text-[7.5px] uppercase tracking-widest text-slate-500 font-bold block mt-0.5">Escola Estadual da Cultura</span>
       </div>
     </div>
   );
@@ -266,7 +265,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   const translations = {
     pt: {
       heroBadge: "Inscrições Abertas — Cursos Livres de Qualificação",
-      heroTitleLine1: "Escola da Cultura",
+      heroTitleLine1: "Escola Estadual da Cultura",
       heroTitleLine2: "de Cultura e Economia Criativa",
       heroDesc: "A AVASEC é uma plataforma de cursos on-line destinada à formação e qualificação profissional em Cultura e Economia Criativa por meio da oferta de Cursos Livres. Cadastre-se e comece já!",
       btnDiscover: "Descubra mais",
@@ -288,7 +287,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     },
     en: {
       heroBadge: "Open Applications — Qualification Courses",
-      heroTitleLine1: "Culture School",
+      heroTitleLine1: "Escola Estadual da Cultura",
       heroTitleLine2: "of Culture and Creative Economy",
       heroDesc: "AVASEC is an online course platform dedicated to professional qualification in Culture and Creative Economy through the offer of Courses.",
       btnDiscover: "Discover more",
@@ -310,7 +309,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     },
     es: {
       heroBadge: "Inscripciones Abiertas — Cursos Libres de Calificación",
-      heroTitleLine1: "Escuela de la Cultura",
+      heroTitleLine1: "Escola Estadual da Cultura",
       heroTitleLine2: "de Cultura y Economía Creativa",
       heroDesc: "AVASEC es una plataforma de cursos en línea dedicada a la capacitación profesional en Cultura y Economía Creativa mediante la oferta de Cursos Libres.",
       btnDiscover: "Descubre más",
@@ -1235,16 +1234,23 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       ● Arte
                     </div>
 
-                    {/* Central Image container representing the cultural leader portrait */}
-                    <div className="w-72 h-72 sm:w-85 sm:h-85 rounded-full overflow-hidden border-8 border-white shadow-2xl relative z-10 bg-slate-900">
-                      <img 
-                        src={pauloFreirePortrait} 
-                        alt="Retrato em homenagem a Paulo Freire"
-                        className="w-full h-full object-cover filter contrast-110 sepia-[10%] saturate-120"
-                        referrerPolicy="no-referrer"
-                      />
-                      {/* Geometric grid overlay mimicking the grid art style in Solano tribute face */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-blue-900/60 to-transparent mix-blend-multiply" />
+                    {/*
+                      Aqui havia o retrato de Paulo Freire. A mencao a ele saiu de
+                      todo o site por decisao da coordenacao (10/09/2026), e no
+                      lugar entra uma referencia a educacao, sem pessoa nenhuma.
+
+                      Sem imagem, e nao com uma foto de banco de imagens: uma foto
+                      de estudantes que nao sao desta escola seria outra afirmacao
+                      falsa, do mesmo tipo que a que acabou de sair.
+                    */}
+                    <div className="w-72 h-72 sm:w-85 sm:h-85 rounded-full border-8 border-white shadow-2xl relative z-10 bg-slate-900 flex flex-col items-center justify-center gap-3 text-center px-10">
+                      <GraduationCap className="h-16 w-16 text-[#FFD23F]" aria-hidden="true" />
+                      <span className="text-white font-serif text-lg leading-tight">
+                        Educação pública, gratuita e de qualidade
+                      </span>
+                      <span className="text-slate-400 text-xs">
+                        Escola Estadual da Cultura
+                      </span>
                     </div>
 
                   </div>
@@ -1345,7 +1351,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   </div>
 
                   <p className="text-xs md:text-[13px] text-slate-500 leading-relaxed font-light">
-                    A Escola da Cultura de Cultura e Economia Criativa foi lançada em janeiro de 2024 e é promovida pela Diretoria de Políticas para Trabalhadores da Cultura e da Economia Criativa por meio da Coordenação de Capacitação e Qualificação Profissional. Veja aqui os resultados já alcançados de nossa rede:
+                    A Escola Estadual da Cultura foi lançada em janeiro de 2024 e é promovida pela Diretoria de Políticas para Trabalhadores da Cultura e da Economia Criativa por meio da Coordenação de Capacitação e Qualificação Profissional. Veja aqui os resultados já alcançados de nossa rede:
                   </p>
 
                   <div className="grid grid-cols-2 gap-6 pt-4">
@@ -1388,7 +1394,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <div className="absolute inset-0 flex items-center justify-center p-4">
                       <img 
                         src="https://images.unsplash.com/photo-1514306191717-452ec28c7814?w=600&auto=format&fit=crop&q=70" 
-                        alt="Prática de Educação Libertadora Paulo Freire" 
+                        alt="Estudantes em atividade prática de arte e cultura" 
                         className="max-h-80 object-contain rounded-2xl hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"
                       />
@@ -1440,100 +1446,71 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               </div>
             </section>
 
-            {/* Paulo Freire Tribute Section */}
+            {/*
+              Aqui havia a secao "Celebrando Paulo Freire": retrato, datas de
+              nascimento e morte, o rotulo "Nosso Grande Patrono" e um botao
+              "Conheca Paulo Freire" que levava para as Duvidas Frequentes.
+
+              A mencao a ele saiu de todo o site por decisao da coordenacao
+              (10/09/2026), substituida por uma referencia a educacao como um
+              todo. Os tres principios continuam — eles descrevem uma concepcao
+              pedagogica, nao uma biografia — reescritos sem nomear ninguem.
+
+              O botao passou a apontar para "O Projeto", que e a pagina que fala
+              da concepcao pedagogica. Isso tambem corrige o defeito de rotulo:
+              antes o botao prometia um assunto e entregava outro.
+            */}
             <section id="quem-somos" className="bg-[#111622] text-white py-16 px-4">
-              <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-                
-                {/* Paulo Freire portrait oval container (Left) */}
-                <div className="lg:col-span-6 flex justify-center">
-                  <div className="relative w-80 h-96 sm:w-96 sm:h-[450px] shrink-0">
-                    
-                    {/* Modernist borders representing educational/theoretical grids */}
-                    <div className="absolute inset-0 border-2 border-dashed border-[#EE4266]/30 rounded-[100px] transform rotate-3 pointer-events-none" />
-                    <div className="absolute inset-2 border-2 border-dashed border-[#FFD23F]/25 rounded-[120px] transform -rotate-3 pointer-events-none" />
+              <div className="mx-auto max-w-4xl space-y-8 text-left">
 
-                    {/* Background colorful elements of face collage overlay */}
-                    <div className="absolute inset-0 bg-blue-900/10 rounded-[120px] scale-95" />
+                <div className="space-y-2 text-center">
+                  <span className="text-[10px] font-extrabold text-[#FFD23F] uppercase tracking-widest block">Nossa concepção</span>
+                  <h3 className="text-3xl md:text-3.5xl font-black tracking-tight font-serif text-[#FFD23F]">A educação que orienta esta escola</h3>
+                  <p className="text-slate-400 font-sans tracking-wide text-xs">Escola Estadual da Cultura</p>
+                  <div className="h-1 w-20 bg-[#EE4266] mt-2 mx-auto" />
+                </div>
 
-                    {/* Oval container with face vector alignment matching Paulo Freire */}
-                    <div className="w-full h-full rounded-[120px] overflow-hidden border-4 border-slate-800 shadow-2xl relative bg-slate-950">
-                      <img 
-                        src={pauloFreirePortrait} 
-                        alt="Retrato oval em homenagem a Paulo Freire"
-                        className="w-full h-full object-cover filter contrast-125 brightness-100"
-                        referrerPolicy="no-referrer"
-                      />
-                      
-                      {/* CSS Abstract overlay grid lines represent colorful geometric blocking of face */}
-                      <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-20 mix-blend-color-burn">
-                        <div className="bg-[#EE4266]" />
-                        <div className="bg-[#540D6E]" />
-                        <div className="bg-[#3BCEAC]" />
-                        <div className="bg-[#FFD23F]" />
-                        <div className="bg-[#540D6E]" />
-                        <div className="bg-[#EE4266]" />
-                      </div>
-                      
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                      
-                      {/* Name Card */}
-                      <div className="absolute bottom-10 left-6 right-6 text-center space-y-1">
-                        <strong className="text-lg font-black tracking-tight text-[#FFD23F]">Paulo Freire</strong>
-                        <span className="text-[10px] uppercase font-mono tracking-widest text-slate-300 block">1921 — 1997</span>
-                      </div>
-                    </div>
+                <p className="text-slate-300 text-xs md:text-[12.5px] leading-relaxed max-w-2xl mx-auto text-center">
+                  Ensinar é uma prática que começa pelo que o estudante já sabe. Nesta escola,
+                  arte, cultura e economia criativa são o caminho para desenvolver leitura crítica
+                  da realidade, autonomia e capacidade de transformar o próprio contexto — dentro e
+                  fora da sala de aula.
+                </p>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2">
+                  <div className="space-y-1.5">
+                    <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
+                    <strong className="text-xs text-white uppercase block tracking-wider">Centrada em quem aprende</strong>
+                    <p className="text-slate-400 text-[10.5px] leading-relaxed">
+                      O processo parte do respeito e da bagagem que cada estudante já traz consigo.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
+                    <strong className="text-xs text-white uppercase block tracking-wider">Diálogo, não transmissão</strong>
+                    <p className="text-slate-400 text-[10.5px] leading-relaxed">
+                      Aprender é via de mão dupla: quem ensina também aprende com a turma.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
+                    <strong className="text-xs text-white uppercase block tracking-wider">Leitura crítica</strong>
+                    <p className="text-slate-400 text-[10.5px] leading-relaxed">
+                      Educar para a autonomia e a cidadania ativa, com reflexão sobre a realidade.
+                    </p>
                   </div>
                 </div>
 
-                {/* Tribute Narrative (Right) */}
-                <div className="lg:col-span-6 space-y-6 text-left">
-                  <div className="space-y-2">
-                    <span className="text-[10px] font-extrabold text-[#FFD23F] uppercase tracking-widest block font-mono">Nosso Grande Patrono</span>
-                    <h3 className="text-3xl md:text-3.5xl font-black uppercase tracking-tight font-serif text-[#FFD23F]">Celebrando Paulo Freire</h3>
-                    <p className="text-slate-400 font-sans tracking-wide text-xs">Patrono da Educação Brasileira</p>
-                    <div className="h-1 w-20 bg-[#EE4266] mt-2" />
-                  </div>
-
-                  <p className="text-slate-300 text-xs md:text-[12.5px] leading-relaxed font-light">
-                    Paulo Freire, um dos pensadores mais célebres e influentes da história da pedagogia mundial, dedicou sua trajetória a construir uma educação conscientizadora e dialógica. Defendendo que "a educação é a prática da liberdade", seu inovador método de alfabetização partia do contexto e do vocabulário do próprio educando, capacitando os sujeitos a ler a palavra e, de forma reflexiva, reler e transformar o próprio mundo.
-                  </p>
-
-                  <div className="space-y-3.5 pt-2">
-                    <div className="flex gap-3">
-                      <span className="text-[#EE4266] text-xs mt-0.5">●</span>
-                      <div>
-                        <strong className="text-xs text-white uppercase block tracking-wider">Pedagogia Centrada no Educando:</strong>
-                        <p className="text-slate-400 text-[10.5px] mt-0.5">O processo educativo fundamentado na amorosidade, no respeito e na bagagem prévia do aluno.</p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="text-[#EE4266] text-xs mt-0.5">●</span>
-                      <div>
-                        <strong className="text-xs text-white uppercase block tracking-wider">Diálogo e Libertação:</strong>
-                        <p className="text-slate-400 text-[10.5px] mt-0.5">O aprendizado como via horizontal de mão dupla, quebrando a clássica "Educação Bancária".</p>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <span className="text-[#EE4266] text-xs mt-0.5">●</span>
-                      <div>
-                        <strong className="text-xs text-white uppercase block tracking-wider">Conscientização Crítica:</strong>
-                        <p className="text-slate-400 text-[10.5px] mt-0.5">Educar para a autonomia e cidadania ativa, estimulando a reflexão profunda sobre a realidade.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4">
-                    <button 
-                      onClick={() => goToPage('duvidas', "Dúvidas Frequentes")}
-                      className="rounded-full border border-white hover:bg-white hover:text-slate-950 text-white px-6 py-2.5 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 shadow-sm"
-                    >
-                      <User className="h-4 w-4 text-[#FFD23F] fill-[#FFD23F]" />
-                      <span>Conheça Paulo Freire</span>
-                    </button>
-                  </div>
+                <div className="pt-2 flex justify-center">
+                  <button
+                    onClick={() => goToPage('o-projeto', "O Projeto")}
+                    className="rounded-full border border-white hover:bg-white hover:text-slate-950 text-white px-6 py-2.5 text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                  >
+                    <BookOpen className="h-4 w-4 text-[#FFD23F]" aria-hidden="true" />
+                    <span>Conheça o projeto</span>
+                  </button>
                 </div>
 
               </div>
@@ -1740,7 +1717,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         
                         {certLookupResult.revogado !== true && (
                           <p className="text-[10px] text-emerald-700 leading-normal font-medium bg-white/50 p-2.5 rounded-lg border border-emerald-100/50">
-                            Certificado emitido em conformidade com as diretrizes do AVA da Escola de Cultura e Economia Criativa do Estado. Registro de presença homologado: {certLookupResult.attendancePercent}%.
+                            Certificado emitido em conformidade com as diretrizes do AVA da Escola Estadual da Cultura. Registro de presença homologado: {certLookupResult.attendancePercent}%.
                           </p>
                         )}
                       </div>
@@ -1981,7 +1958,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
       {/* Footer minimalista e elegante coerente com a remoção solicitada */}
       <footer className="bg-slate-950 text-slate-500 text-center py-8 text-xs border-t border-slate-900 font-sans">
-        <p>© 2026 Portal Escult — Escola Paulo Freire. Todos os direitos reservados.</p>
+        <p>© 2026 AVASEC — Escola Estadual da Cultura. Todos os direitos reservados.</p>
       </footer>
 
       {/* 6. MODAL DIALOG CONTAINERS: Accessibility preferences, Site Map & Conexão Acadêmica */}
@@ -2164,7 +2141,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <span className="text-[10px] uppercase tracking-widest bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-mono font-bold w-fit block">NAVEGAÇÃO COMPLETA</span>
                   <h3 className="font-black text-slate-900 text-sm md:text-base font-serif flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-blue-600" />
-                    <span>Mapa do Site — Escola Paulo Freire</span>
+                    <span>Mapa do Site — Escola Estadual da Cultura</span>
                   </h3>
                 </div>
                 <button 
@@ -2871,7 +2848,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       if (result.pending) {
                         speakText('Cadastro recebido. Seu acesso será liberado após a confirmação da coordenação.');
                         window.alert(
-                          'Cadastro recebido com sucesso!\n\nSeu acesso será liberado assim que a coordenação da Escola da Cultura confirmar sua matrícula. Depois da confirmação, entre normalmente com seu e-mail e senha.'
+                          'Cadastro recebido com sucesso!\n\nSeu acesso será liberado assim que a coordenação da Escola Estadual da Cultura confirmar sua matrícula. Depois da confirmação, entre normalmente com seu e-mail e senha.'
                         );
                       } else {
                         // Conta já ativa (fluxos administrativos): entra direto.
