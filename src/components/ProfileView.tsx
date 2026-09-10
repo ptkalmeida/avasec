@@ -835,8 +835,12 @@ export function ProfileView({
         <div className="mx-auto max-w-xl px-4 py-16 text-center animate-in fade-in duration-300">
           <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-8 space-y-3 shadow-3xs">
             <Lock className="h-10 w-10 text-amber-600 mx-auto" />
-            <h3 className="font-extrabold text-base">Esta funcionalidade está temporariamente indisponível.</h3>
-            <p className="text-xs text-slate-500">Estamos trabalhando em melhorias e atualizações para esta seção. Por favor, tente novamente mais tarde.</p>
+            {/*
+              Nao diz mais "temporariamente": recurso desligado por decisao de
+              produto pode ficar meses assim, e prometer volta breve e falso.
+            */}
+            <h3 className="font-extrabold text-base">Esta seção não está disponível nesta versão da plataforma.</h3>
+            <p className="text-xs text-slate-500">Ela não aparece no menu porque está desativada.</p>
             <button
               type="button"
               onClick={() => setCurrentTab('profile')}

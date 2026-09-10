@@ -95,3 +95,35 @@
   background-size: 16px 16px;
 }
 
+
+/*
+ * Movimento reduzido — respeitando a configuracao do sistema operacional.
+ *
+ * O portal tinha um brilho que segue o cursor, um icone em rotacao infinita e um
+ * anel tracejado girando por 40 segundos, e NENHUM deles era interrompido: nao
+ * havia uma unica `@media` neste arquivo. Para quem tem enxaqueca vestibular ou
+ * transtorno vestibular, movimento continuo e sintoma, nao enfeite — e a
+ * plataforma e de uma escola publica, sem escolha de onde estudar.
+ *
+ * `0.01ms` em vez de `none`: animacao com duracao zero as vezes nao dispara o
+ * evento `animationend`, e codigo que espera por ele travaria. Duracao minima
+ * remove o movimento e mantem o evento.
+ *
+ * `animation-iteration-count: 1` e o que de fato para o que gira para sempre —
+ * `animation-duration` sozinho so o deixa girar mais rapido.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+}

@@ -931,8 +931,16 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
         (!features.perfilBasico && activeTab === 'settings')) && (
         <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-[10px] p-8 text-center max-w-xl mx-auto my-12 shadow-sm space-y-3">
           <Lock className="h-10 w-10 text-amber-600 mx-auto" />
-          <h3 className="font-extrabold text-base">Esta funcionalidade está temporariamente indisponível.</h3>
-          <p className="text-xs text-slate-500">Estamos trabalhando em melhorias e atualizações para esta seção. Por favor, tente novamente mais tarde.</p>
+          {/*
+            Nao diz mais "temporariamente". Um recurso pode ficar meses
+            desligado por decisao de produto — o proprio features.ts diz que
+            webinar "nao entra nesta fase" — e prometer volta breve para quem
+            nunca vai ver a tela e informacao falsa. Quem chega aqui chegou por
+            link salvo ou endereco digitado: o que serve e saber o que aconteceu
+            e para onde ir.
+          */}
+          <h3 className="font-extrabold text-base">Esta seção não está disponível nesta versão da plataforma.</h3>
+          <p className="text-xs text-slate-500">Ela não aparece no menu porque está desativada. Use o menu para voltar.</p>
         </div>
       )}
 

@@ -1006,17 +1006,48 @@ ${html}
                   <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 animate-bounce">
                     <Archive className="h-7 w-7" />
                   </div>
-                  <h3 className="text-xl font-black text-slate-800">Vigência de Exibição Encerrada</h3>
+                  <h3 className="text-xl font-black text-slate-800">Este curso saiu do ar</h3>
+                  {/*
+                    O texto anterior dava TRES paragrafos sobre licenciamento e
+                    uma lista de "Protecao Juridica Ativa", e nao respondia
+                    nenhuma das tres perguntas de quem chega aqui: perdi meu
+                    progresso? ainda consigo o certificado? com quem falo?
+
+                    A lista tambem afirmava mais do que o sistema faz. NENHUMA
+                    linha do backend le `contractExpirationDate` — o bloqueio e
+                    so de tela. Prometer "download de anexos bloqueado" e
+                    "reproducao suspensa" como garantia juridica seria afirmar
+                    uma protecao que nao existe no servidor.
+                  */}
                   <p className="text-sm text-slate-600 leading-relaxed text-center">
-                    O contrato de licenciamento e exibição deste curso encerrou-se em <strong className="font-bold underline">{selectedCourse.contractExpirationDate}</strong>. 
-                    Por razões de conformidade legal e direitos autorais da coordenação, este material foi <strong>arquivado preventivamente</strong> e o acesso às aulas foi suspenso.
+                    A vigência de exibição terminou em{' '}
+                    <strong className="font-bold">{selectedCourse.contractExpirationDate}</strong>,
+                    e as aulas deixaram de ficar disponíveis.
                   </p>
-                  
-                  <div className="bg-white border border-amber-200 rounded-xl p-4 text-xs text-amber-900 text-left space-y-1">
-                    <strong className="block text-amber-950 font-bold uppercase text-[10px] tracking-wider mb-1">Proteção Jurídica Ativa:</strong>
-                    <p className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-700" />Reprodução de vídeos suspensa.</p>
-                    <p className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-700" />Download de anexos bloqueado de acordo com a vigência de exibição.</p>
-                    <p className="flex items-start gap-1.5"><Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-700" />Cadastro de novas presenças desativado.</p>
+
+                  <div className="bg-white border border-amber-200 rounded-xl p-4 text-[13px] text-slate-700 text-left space-y-2.5">
+                    <p className="flex items-start gap-2">
+                      <Check className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+                      <span>
+                        <strong>Seu progresso não foi perdido.</strong> As aulas concluídas e a sua
+                        frequência continuam registradas.
+                      </span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <Check className="h-4 w-4 mt-0.5 shrink-0 text-emerald-600" />
+                      <span>
+                        <strong>O certificado continua valendo.</strong> Se você já cumpriu os
+                        critérios, ele está em Meu Perfil; se já foi emitido, segue lá.
+                      </span>
+                    </p>
+                    <p className="flex items-start gap-2">
+                      <Archive className="h-4 w-4 mt-0.5 shrink-0 text-amber-700" />
+                      <span>
+                        <strong>Não é possível concluir aulas novas</strong> enquanto o curso
+                        estiver fora do ar. Se você precisa terminar o curso, fale com a
+                        coordenação pela Central de Ajuda.
+                      </span>
+                    </p>
                   </div>
 
                   <button
