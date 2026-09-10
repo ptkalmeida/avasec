@@ -23,6 +23,7 @@ import { CalendarioPage } from './components/pages/CalendarioPage';
 import { OrientacoesPage } from './components/pages/OrientacoesPage';
 import { DEFAULT_NEWS_ITEMS, NEWS_SEARCH_FIELDS } from './components/pages/NoticiasPage';
 import { pageField, pageItems, filterSiteItems } from './utils/sitePageContent';
+import { canalDeMensagensAberto } from './utils/canalDeMensagens';
 import { maskCpf, maskCep, maskCelular, isValidCpf, passwordProblem, PASSWORD_MIN_LENGTH } from './utils/cpf';
 import { 
   GraduationCap, User, Award, Video, CheckSquare,
@@ -966,7 +967,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <span className="hidden sm:inline">Página Inicial</span>
                 </button>
 
-                {features.mensagensDiretas && (activeUser.role === 'instructor' || (activeUser.role === 'student' && systemSettings.allowDirectMessages)) && (
+                {/*
+                  O sino exigia so `features.mensagensDiretas`, enquanto a aba de
+                  mensagens exige `forum && mensagensDiretas && allowDirectMessages`.
+                  Com `forum: false` — a configuracao de hoje — havia sino ativo e
+                  piscando levando a uma aba que nao existe, e a rolagem procurava
+                  `#chat-portal-section`, que so o painel do ALUNO renderiza.
+                  Agora sino e aba leem a mesma funcao.
+                */}
+                {canalDeMensagensAberto(activeUser.role, features, systemSettings) && (
                   <div className="relative">
                     {activeUser.role === 'instructor' ? (
                       unrepliedStudents.length > 0 ? (
@@ -1054,7 +1063,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 <button
                   onClick={handleLogout}
-                  className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
+                  className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
                   title="Sair do Portal e encerrar sessão"
                 >
                   <LogOut className="h-3.5 w-3.5 text-rose-500" />
@@ -1114,7 +1123,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <div className="flex items-center gap-2 animate-in fade-in transition-all">
                     <button
                       onClick={handleLogout}
-                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
+                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
                       title="Sair do Portal e encerrar sessão"
                     >
                       <LogOut className="h-3.5 w-3.5 text-rose-500" />
