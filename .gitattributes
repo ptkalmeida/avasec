@@ -4,3 +4,17 @@
 *.png binary
 *.jpg binary
 *.webp binary
+
+# Fim de linha do codigo-fonte: LF, em qualquer maquina.
+#
+# O Pint tem o fixer `line_ending` e exige LF. Com `core.autocrlf=true` — o
+# padrao de quem clona no Windows — o checkout entrega CRLF, e o `pint --test`
+# falha num arquivo que esta correto no repositorio: o blob ja e LF, e o
+# `git diff` vem vazio. Declarar aqui vale para todos os clones, em vez de cada
+# pessoa descobrir sozinha e converter o arquivo a mao.
+*.php text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.json text eol=lf
+*.md text eol=lf
