@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 
 /*
  * Trava da escada tipográfica (Blocos 3 e 4 do handoff).
@@ -13,9 +13,10 @@ import { join } from 'node:path';
  * JSX, não um comportamento em tempo de execução. Um teste de render não o
  * pegaria sem montar todas as telas.
  *
- * As superfícies ainda não convertidas estão listadas em `PENDENTES`, com a
- * contagem de hoje. Isso não é exceção silenciosa: se o número CAIR, o teste
- * pede que a lista seja atualizada, e se subir, ele acusa a regressão.
+ * Todas as superfícies de interface estão cobertas — o painel administrativo
+ * era a última e entrou em 11/09/2026. O teste de cobertura, no fim do arquivo,
+ * existe para que acrescentar uma tela nova e esquecê-la fora de `CONVERTIDAS`
+ * não passe despercebido: sem ele, os testes acima passariam sem cobrir nada.
  */
 
 const RAIZ = join(__dirname, '..', '..', 'src');
@@ -32,24 +33,22 @@ const CONVERTIDAS = [
   'components/LiveClassroom.tsx',
   'components/CourseForum.tsx',
   'components/ProfileView.tsx',
+  'components/AdminDashboard.tsx',
+  'components/admin',
 ];
 
-/**
- * Superfícies ainda no padrão antigo, com a contagem de hoje.
+/*
+ * Não há mais superfície pendente.
  *
- * O painel administrativo tem tratamento próprio por decisão do usuário
- * (10/09/2026): pode ganhar melhoria de navegação, mas não troca de cor nem
- * perde função. A tipografia dele entra numa rodada revisável sozinha.
+ * O painel administrativo era a última, com 479 ocorrências, e foi convertido
+ * em 11/09/2026 por decisão do usuário — tipografia, caixa alta e cinzas com
+ * contraste. A identidade dele NÃO mudou: a barra lateral `#0F172A` e o acento
+ * azul continuam, e nenhuma função saiu (ver ADR 15).
+ *
+ * Os cinzas do admin precisaram de tratamento por superfície: sobre a barra
+ * escura, `slate-500` dá 3,75:1 e `slate-400` dá 6,1:1 — o contrário do que
+ * vale na área clara. Uma regra única teria apagado um dos dois lados.
  */
-const PENDENTES: Record<string, number> = {
-  /*
-   * Subiu de 477 para 479 com os grupos e a gaveta do Bloco 6: são dois
-   * cabeçalhos de grupo em caixa alta (`uppercase`), que é o único lugar onde o
-   * handoff mantém caixa alta. O código novo respeita o piso de 12px — foi este
-   * teste que pegou o `text-[11px]` que eu havia escrito aqui.
-   */
-  'components/AdminDashboard.tsx': 479,
-};
 
 /** Remove comentário de bloco e de linha, para não confundir registro com defeito. */
 function semComentarios(texto: string): string {
@@ -215,19 +214,25 @@ describe('tokens de cor com papel declarado', () => {
   });
 });
 
-describe('as superfícies ainda não convertidas', () => {
-  it('não regridem enquanto esperam a vez', () => {
+describe('cobertura da escada', () => {
+  it('todas as superfícies de interface estão na lista de convertidas', () => {
     /*
-     * A contagem é o retrato de hoje. Se subir, alguém acrescentou texto
-     * abaixo do piso; se cair, a superfície começou a ser convertida e a
-     * lista precisa acompanhar — nos dois casos é bom o teste avisar.
+     * Guarda contra o caminho fácil: acrescentar uma tela nova e deixá-la fora
+     * de `CONVERTIDAS` faria os testes acima passarem sem cobrir nada.
      */
-    for (const [alvo, esperado] of Object.entries(PENDENTES)) {
-      const [{ texto }] = ler(alvo);
-      const total = (texto.match(/text-\[[0-9]+(?:\.[0-9]+)?px\]|\bfont-mono\b|\buppercase\b/g) ?? []).length;
+    const naRaiz = readdirSync(join(RAIZ, 'components'))
+      .filter((n) => n.endsWith('.tsx'))
+      .filter((n) => !['BackButton.tsx', 'CertificateTemplate.tsx'].includes(n));
 
-      expect(total, `${alvo} mudou de ${esperado} para ${total}`).toBe(esperado);
-    }
+    // `basename`, e não um separador escrito à mão: no Windows o caminho vem
+    // com `\`, e uma expressão só com `/` devolveria o caminho inteiro.
+    const cobertos = new Set(
+      CONVERTIDAS.flatMap((alvo) => arquivos(alvo).map((c) => basename(c)))
+    );
+
+    const descobertos = naRaiz.filter((n) => !cobertos.has(n));
+
+    expect(descobertos).toEqual([]);
   });
 });
 

@@ -64,7 +64,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
     return (
       <div className="space-y-5 text-left">
         <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-          <p className="text-xs text-slate-500">Carregando o conteúdo das páginas...</p>
+          <p className="text-xs text-escult-ink-2">Carregando o conteúdo das páginas...</p>
         </div>
       </div>
     );
@@ -146,7 +146,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
     <div className="space-y-5 text-left">
       <div className="space-y-1">
         <h2 className="text-lg font-black text-slate-900 font-serif">Gestão de Páginas do Site</h2>
-        <p className="text-xs text-slate-500 leading-relaxed max-w-3xl">
+        <p className="text-xs text-escult-ink-2 leading-relaxed max-w-3xl">
           Edite os textos das páginas públicas do portal. Escolha a página, ajuste os campos e
           clique em <strong>Salvar</strong> — a alteração aparece no site imediatamente. Se um
           campo ficar em branco, o site mostra o texto original de fábrica.
@@ -170,7 +170,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
               }`}
             >
               <span className="block text-xs font-black leading-snug">{pageSchema.label}</span>
-              <span className={`block text-[10px] mt-0.5 ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
+              <span className={`block text-apoio mt-0.5 ${isActive ? 'text-white/70' : 'text-escult-ink-3'}`}>
                 {itemCount} {pageSchema.itemsLabel.toLowerCase()}
               </span>
             </button>
@@ -184,14 +184,14 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
             <div className="space-y-0.5">
               <h3 className="text-sm font-black text-slate-900">{schema.label}</h3>
               {draft.updatedAt && (
-                <p className="text-[10px] text-slate-400 font-mono">
+                <p className="text-apoio text-escult-ink-2">
                   Última alteração em {new Date(draft.updatedAt).toLocaleString('pt-BR')}
                 </p>
               )}
             </div>
             <button
               onClick={() => onPreviewPage(selectedPage)}
-              className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-[#540D6E] hover:underline cursor-pointer"
+              className="flex items-center gap-1.5 text-sobretitulo uppercase text-[#540D6E] hover:underline cursor-pointer"
             >
               <ExternalLink className="h-3.5 w-3.5" />
               <span>Ver esta página no site</span>
@@ -200,10 +200,10 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
 
           {/* Cabeçalho da página */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-3xs">
-            <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">Topo da página</h4>
+            <h4 className="text-sobretitulo text-slate-800 uppercase">Topo da página</h4>
             {schema.header.map((field) => (
               <label key={field.key} className="block space-y-1.5">
-                <span className="text-[11px] font-bold text-slate-600 block">{field.label}</span>
+                <span className="text-rotulo font-bold text-slate-600 block">{field.label}</span>
                 {field.type === 'textarea' ? (
                   <textarea
                     value={headerValue(draft, field.key)}
@@ -228,15 +228,15 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
           {/* Lista de itens */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+              <h4 className="text-sobretitulo text-slate-800 uppercase">
                 {schema.itemsLabel}{' '}
-                <span className="text-slate-400 font-mono normal-case">
+                <span className="text-escult-ink-3 normal-case">
                   ({draft.items.length} de {schema.maxItems})
                 </span>
               </h4>
               <button
                 onClick={addItem}
-                className="flex items-center gap-1.5 rounded-xl bg-[#3BCEAC] hover:bg-teal-500 text-slate-900 px-3.5 py-2 text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer shadow-3xs"
+                className="flex items-center gap-1.5 rounded-xl bg-[#3BCEAC] hover:bg-teal-500 text-slate-900 px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs"
               >
                 <Plus className="h-3.5 w-3.5" />
                 <span>Adicionar</span>
@@ -245,7 +245,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
 
             {draft.items.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 text-center">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-escult-ink-2">
                   Nenhum item cadastrado. Clique em <strong>Adicionar</strong> para criar o primeiro.
                 </p>
               </div>
@@ -253,7 +253,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
               draft.items.map((item, index) => (
                 <div key={item.id} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 shadow-3xs">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                    <span className="text-[11px] font-black text-slate-500 font-mono">
+                    <span className="text-rotulo font-black text-escult-ink-2">
                       {index + 1}º de {draft.items.length}
                     </span>
                     <div className="flex items-center gap-1">
@@ -261,7 +261,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
                         onClick={() => moveItem(index, -1)}
                         disabled={index === 0}
                         title="Mover para cima"
-                        className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
+                        className="p-1.5 rounded-lg text-escult-ink-2 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
                       >
                         <ArrowUp className="h-4 w-4" />
                       </button>
@@ -269,7 +269,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
                         onClick={() => moveItem(index, 1)}
                         disabled={index === draft.items.length - 1}
                         title="Mover para baixo"
-                        className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
+                        className="p-1.5 rounded-lg text-escult-ink-2 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
                       >
                         <ArrowDown className="h-4 w-4" />
                       </button>
@@ -285,7 +285,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
 
                   {schema.item.map((field) => (
                     <label key={field.key} className="block space-y-1.5">
-                      <span className="text-[11px] font-bold text-slate-600 block">{field.label}</span>
+                      <span className="text-rotulo font-bold text-slate-600 block">{field.label}</span>
                       {field.type === 'textarea' ? (
                         <textarea
                           value={item[field.key] ?? ''}
@@ -330,7 +330,7 @@ export const SiteContentPanel: React.FC<SiteContentPanelProps> = ({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 rounded-xl bg-[#540D6E] hover:bg-purple-950 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-3 text-xs font-black uppercase tracking-widest transition-all cursor-pointer shadow-sm"
+              className="flex items-center gap-2 rounded-xl bg-[#540D6E] hover:bg-purple-950 disabled:opacity-60 disabled:cursor-not-allowed text-white px-6 py-3 text-sobretitulo uppercase transition-all cursor-pointer shadow-sm"
             >
               <Save className="h-4 w-4" />
               <span>{saving ? 'Salvando...' : 'Salvar e publicar'}</span>
