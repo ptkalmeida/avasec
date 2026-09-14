@@ -210,34 +210,10 @@ final class EnrollmentService
      */
     public function selfEnroll(string $courseId, array $requester): array
     {
-        if (! Course::query()->whereKey($courseId)->exists()) {
-            throw ApiException::notFound('Curso não encontrado.');
-        }
-
         $current = $this->ownEnrollment($requester);
-
-        if ($this->hasActivePenalty($current)) {
-            throw ApiException::forbidden('Você está em período de restrição temporária de nova matrícula por cancelamento tardio. Aguarde o fim da restrição ou solicite liberação à coordenação.');
-        }
-
         $extraCourseIds = $current->extraCourseIds ?? [];
-        if ($current?->enrolledCourseId === $courseId || in_array($courseId, $extraCourseIds, true)) {
-            throw new ApiException(409, 'CONFLICT', 'Você já está matriculado neste curso.');
-        }
 
-        // Curso concluído não aceita nova matrícula. O acesso ao conteúdo continua
-        // pelo modo revisão (vitalício), que não depende de matrícula ativa.
-        if (in_array($courseId, $current->completedCourseIds ?? [], true)) {
-            throw new ApiException(409, 'CONFLICT', 'Você já concluiu este curso. Ele continua disponível para revisão, mas não aceita nova matrícula.');
-        }
-
-        if ($current?->enrolledCourseId) {
-            // Segunda (ou mais) matrícula simultânea: só permitido com a flag global
-            // ligada E a permissão concedida pelo Admin Superior a este aluno.
-            if (config('features.matriculasMultiplas') !== true || $current->canMultiEnroll !== true) {
-                throw new ApiException(409, 'CONFLICT', 'Você já possui uma matrícula ativa. Conclua ou cancele o curso atual antes de iniciar outro.');
-            }
-
+        if ($this->modoDaNovaMatricula($current, $courseId) === 'extra') {
             $merged = array_merge($this->currentRest($current), [
                 'extraCourseIds' => array_values(array_unique([...$extraCourseIds, $courseId])),
             ]);
@@ -387,14 +363,44 @@ final class EnrollmentService
             throw new ApiException(409, 'CONFLICT', 'Matrícula pendente para este curso já registrada.');
         }
 
-        $admission = AdmissionRequest::query()->create([
-            'id' => $input['id'] ?? ('adm-'.$this->nowMs()),
-            'studentName' => Identity::displayName($userId, $requester),
-            'userId' => $userId,
-            'courseId' => $input['courseId'],
-            'status' => 'pending',
-            'submittedAt' => Fuso::agora()->format('d/m/Y'),
-        ]);
+        /*
+         * Aprovação automática (decisão da coordenação, 14/09/2026).
+         *
+         * A regra vive AQUI, no serviço, e não em esconder o botão na tela: sem
+         * isto os pedidos continuariam nascendo "pending" e ficariam presos para
+         * sempre, porque a fila que os resolvia deixou de ser exibida.
+         *
+         * As travas são as mesmas do caminho normal — de propósito. Automática
+         * quer dizer "sem espera humana", não "sem regra": quem já tem curso
+         * ativo, já concluiu aquele curso ou está em restrição continua sendo
+         * recusado, agora na hora e com a razão escrita, em vez de esperar por
+         * uma aprovação que ninguém mais vai dar.
+         */
+        $automatica = config('features.aprovacaoAutomaticaMatricula') === true;
+        $modo = 'principal';
+
+        if ($automatica) {
+            $atual = StudentEnrollment::query()->whereKey($userId)->first();
+            $modo = $this->modoDaNovaMatricula($atual, $input['courseId']);
+        }
+
+        $admission = DB::transaction(function () use ($input, $userId, $requester, $automatica, $modo) {
+            $admission = AdmissionRequest::query()->create([
+                'id' => $input['id'] ?? ('adm-'.$this->nowMs()),
+                'studentName' => Identity::displayName($userId, $requester),
+                'userId' => $userId,
+                'courseId' => $input['courseId'],
+                'status' => $automatica ? 'approved' : 'pending',
+                'submittedAt' => Fuso::agora()->format('d/m/Y'),
+            ]);
+
+            // Mesma transação: "aprovada" sem matrícula efetivada não pode existir.
+            if ($automatica) {
+                $this->efetivarAprovacao($admission, $modo);
+            }
+
+            return $admission;
+        });
 
         return $admission->toArray();
     }
@@ -416,21 +422,13 @@ final class EnrollmentService
             throw ApiException::validation('Status de matrícula inválido.');
         }
 
-        $studentUserId = $admission->userId;
-
         // Aprovação efetiva a matrícula na MESMA transação — nunca "aprovada" sem matricular.
-        $updated = DB::transaction(function () use ($admission, $status, $studentUserId) {
+        $updated = DB::transaction(function () use ($admission, $status) {
             $admission->status = $status;
             $admission->save();
 
             if ($status === 'approved') {
-                $current = StudentEnrollment::query()->whereKey($studentUserId)->first();
-                $merged = array_merge(self::EMPTY_ENROLLMENT, $this->currentRest($current), [
-                    'enrolledCourseId' => $admission->courseId,
-                    'enrolledAt' => CarbonImmutable::now()->toIso8601String(),
-                    'dropOutPenaltyUntil' => null,
-                ]);
-                $this->persistEnrollment($studentUserId, $admission->studentName, $merged);
+                $this->efetivarAprovacao($admission, 'principal');
             }
 
             return $admission;
@@ -461,6 +459,85 @@ final class EnrollmentService
     private function ownEnrollment(array $requester): ?StudentEnrollment
     {
         return Identity::applyOwnRows(StudentEnrollment::query(), $requester)->first();
+    }
+
+    /**
+     * As travas de TODA matrícula nova, num lugar só.
+     *
+     * Existe porque havia dois caminhos para matricular e apenas um tinha
+     * regra: `selfEnroll` validava cinco condições, e `updateAdmissionStatus`
+     * (o botão "Aprovar Acesso") não validava nenhuma — ele sobrescrevia
+     * `enrolledCourseId` direto. Com a aprovação automática ligada isso deixa
+     * de ser assimetria e vira dano: o aluno pede um curso novo e o sistema o
+     * tira, sem aviso e sem ninguém olhando, do curso em que ele já tem
+     * progresso e frequência.
+     *
+     * Devolve o modo da matrícula em vez de um booleano porque o resultado não
+     * é "pode ou não pode": é "entra como principal" ou "entra como simultânea"
+     * — e quem chama precisa saber qual, para gravar no campo certo.
+     *
+     * @return 'principal'|'extra'
+     */
+    private function modoDaNovaMatricula(?StudentEnrollment $current, string $courseId): string
+    {
+        if (! Course::query()->whereKey($courseId)->exists()) {
+            throw ApiException::notFound('Curso não encontrado.');
+        }
+
+        if ($this->hasActivePenalty($current)) {
+            throw ApiException::forbidden('Você está em período de restrição temporária de nova matrícula por cancelamento tardio. Aguarde o fim da restrição ou solicite liberação à coordenação.');
+        }
+
+        $extraCourseIds = $current->extraCourseIds ?? [];
+        if ($current?->enrolledCourseId === $courseId || in_array($courseId, $extraCourseIds, true)) {
+            throw new ApiException(409, 'CONFLICT', 'Você já está matriculado neste curso.');
+        }
+
+        // Curso concluído não aceita nova matrícula. O acesso ao conteúdo continua
+        // pelo modo revisão (vitalício), que não depende de matrícula ativa.
+        if (in_array($courseId, $current->completedCourseIds ?? [], true)) {
+            throw new ApiException(409, 'CONFLICT', 'Você já concluiu este curso. Ele continua disponível para revisão, mas não aceita nova matrícula.');
+        }
+
+        if ($current?->enrolledCourseId) {
+            // Segunda (ou mais) matrícula simultânea: só permitido com a flag global
+            // ligada E a permissão concedida pelo Admin Superior a este aluno.
+            if (config('features.matriculasMultiplas') !== true || $current->canMultiEnroll !== true) {
+                throw new ApiException(409, 'CONFLICT', 'Você já possui uma matrícula ativa. Conclua ou cancele o curso atual antes de iniciar outro.');
+            }
+
+            return 'extra';
+        }
+
+        return 'principal';
+    }
+
+    /**
+     * Efetiva a matrícula de uma solicitação aprovada.
+     *
+     * Separado de `updateAdmissionStatus` porque a aprovação automática precisa
+     * exatamente do mesmo efeito: "aprovada" sem matricular é um estado que não
+     * pode existir — o aluno veria acesso liberado na tela e nenhuma matrícula
+     * no registro.
+     */
+    private function efetivarAprovacao(AdmissionRequest $admission, string $modo): void
+    {
+        $current = StudentEnrollment::query()->whereKey($admission->userId)->first();
+
+        $merged = $modo === 'extra'
+            ? array_merge($this->currentRest($current), [
+                'extraCourseIds' => array_values(array_unique([
+                    ...($current->extraCourseIds ?? []),
+                    $admission->courseId,
+                ])),
+            ])
+            : array_merge(self::EMPTY_ENROLLMENT, $this->currentRest($current), [
+                'enrolledCourseId' => $admission->courseId,
+                'enrolledAt' => CarbonImmutable::now()->toIso8601String(),
+                'dropOutPenaltyUntil' => null,
+            ]);
+
+        $this->persistEnrollment($admission->userId, $admission->studentName, $merged);
     }
 
     private function hasActivePenalty(?StudentEnrollment $row): bool

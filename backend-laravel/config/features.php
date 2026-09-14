@@ -12,7 +12,12 @@ declare(strict_types=1);
 return [
     // Desativadas por padrão no MVP
     'forum' => false,
-    'atividadesPraticasAvancadas' => true,
+    // Desligada em 14/09/2026 por decisão de produto: a coordenação não vai usar
+    // exercícios práticos nesta fase. Nada foi removido — modelo, rotas, tela de
+    // entrega do aluno e área de correção do professor continuam no código e nos
+    // testes (ADR 12). Voltar ao ar é trocar este false por true, junto com o
+    // espelho em src/config/features.ts que o FeatureFlagParityTest confere.
+    'atividadesPraticasAvancadas' => false,
     'uploadArquivos' => true,
     'graficosAvancados' => false,
     'acompanhamentoParticipacao' => false,
@@ -28,6 +33,11 @@ return [
     'penalidadesCancelamento' => false,
     'mensagensDiretas' => true,
     'matriculasMultiplas' => true,
+    // Aprovação automática de matrícula (coordenação, 14/09/2026): a solicitação
+    // já nasce aprovada e matricula na mesma transação. As travas do caminho
+    // normal continuam valendo — automática é "sem espera humana", não "sem
+    // regra". Espelho em src/config/features.ts.
+    'aprovacaoAutomaticaMatricula' => true,
 
     // Ativadas por padrão no MVP
     'catalogoCursos' => true,

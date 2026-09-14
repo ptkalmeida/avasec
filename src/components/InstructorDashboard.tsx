@@ -135,6 +135,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     exercises: practicalExercises,
     courses,
     instructorId: activeUser.id,
+    aprovacaoAutomatica: features.aprovacaoAutomaticaMatricula,
   });
   const setSelectedCourseId = (courseId: string): void => {
     // Troca de curso vem da lista, que entrega ID; o endereco quer o slug.
@@ -2194,16 +2195,35 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               <p className="text-xs text-escult-ink-2 font-medium tracking-wide">Controle de admissão, matrículas e acompanhamento de turmas.</p>
             </div>
             
-            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2 flex items-center gap-3">
-              <Info className="h-4 w-4 text-amber-600" />
-              <p className="text-apoio text-amber-800 font-bold leading-tight">
-                Matrículas pendentes aguardam sua aprovação técnica antes da liberação de acesso.
-              </p>
-            </div>
+            {/*
+              O aviso muda com a regra, em vez de afirmar algo que deixou de ser
+              verdade. Dizer "aguardam sua aprovação" com a aprovação automática
+              ligada mandaria o professor procurar uma fila que não enche mais.
+            */}
+            {features.aprovacaoAutomaticaMatricula ? (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 flex items-center gap-3">
+                <Info className="h-4 w-4 text-escult-ink-2" />
+                <p className="text-apoio text-escult-ink-2 font-medium leading-tight">
+                  As matrículas são aprovadas automaticamente: o acesso é liberado no ato do pedido.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2 flex items-center gap-3">
+                <Info className="h-4 w-4 text-amber-600" />
+                <p className="text-apoio text-amber-800 font-bold leading-tight">
+                  Matrículas pendentes aguardam sua aprovação técnica antes da liberação de acesso.
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* 1. Pending Admission Requests */}
+          {/*
+            Uma coluna quando não há fila de aprovação: um grid de duas com
+            metade vazia faz a pessoa procurar o que deveria estar ali.
+          */}
+          <div className={`grid grid-cols-1 gap-8 ${features.aprovacaoAutomaticaMatricula ? '' : 'lg:grid-cols-2'}`}>
+            {/* 1. Pending Admission Requests — some com a aprovação automática. */}
+            {!features.aprovacaoAutomaticaMatricula && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-2">
@@ -2270,6 +2290,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 )}
               </div>
             </div>
+            )}
 
             {/* 2. Global Student Directory / Assignment */}
             <div className="space-y-4">
