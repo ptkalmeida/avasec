@@ -61,9 +61,27 @@ function AvasecLogo() {
         {/* Artistic curved nose sector */}
         <path d="M47 55 a6 6 0 0 1 12 0" fill="none" stroke="#1e293b" strokeWidth="4" strokeLinecap="round" />
       </svg>
-      <div className="leading-none text-left">
-        <span className="font-sans font-black text-2xl tracking-tighter text-[#540D6E] block">AVASEC</span>
-        <span className="text-sobretitulo uppercase text-escult-ink-2 block mt-0.5">Escola Estadual da Cultura</span>
+      {/*
+        O descritor quebrava em QUATRO linhas e saía do esquadro do cabeçalho.
+
+        A causa não era o texto: era o contêiner. O cabeçalho é um flex com
+        `justify-between`, e o bloco do logotipo não tinha `shrink-0` — então
+        menu, busca e os dois botões o comprimiam até sobrar largura de uma
+        palavra. Com `text-sobretitulo` (caixa alta e entreletra `0.12em`),
+        "ESCOLA ESTADUAL DA CULTURA" ocupa perto de 260px: espremido, viravam
+        quatro linhas desalinhadas do símbolo.
+
+        Duas linhas DELIBERADAS, com `whitespace-nowrap`, em vez de quebra por
+        acidente: a assinatura passa a ter largura previsível (~120px, próxima
+        da do logotipo "AVASEC") e o conjunto fica alinhado em qualquer largura.
+      */}
+      <div className="leading-tight text-left">
+        <span className="font-sans font-black text-2xl tracking-tight text-[#540D6E] block">AVASEC</span>
+        <span className="text-nota font-semibold uppercase tracking-[0.08em] text-escult-ink-2 mt-1 hidden whitespace-nowrap sm:block">
+          Escola Estadual
+          <br />
+          da Cultura
+        </span>
       </div>
     </div>
   );
@@ -833,15 +851,21 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       <header className="sticky top-0 z-40 bg-white border-b border-[#e4e1dc] shadow-3xs">
         <div className="mx-auto max-w-7xl px-4 h-[84px] md:px-6 flex items-center justify-between gap-4">
           
-          {/* Logo & Brand title */}
-          <div 
+          {/*
+            Logo & Brand title.
+
+            `shrink-0`: a assinatura da escola não é o que cede espaço quando o
+            cabeçalho aperta. Era ela a única peça compressível da barra, e por
+            isso o descritor se esmagava em quatro linhas fora do esquadro.
+          */}
+          <div
             onClick={() => {
               setCurrentView('landing');
               window.scrollTo({ top: 0, behavior: 'smooth' });
               speakText("Voltando para a Página Inicial.");
             }}
             title="Voltar ao Portal Inicial"
-            className="cursor-pointer hover:opacity-95 transition-all"
+            className="shrink-0 cursor-pointer hover:opacity-95 transition-all"
           >
             <AvasecLogo />
           </div>
@@ -869,8 +893,23 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               se faz o proximo passo honesto: abrir o catalogo JA FILTRADO
               naquele curso, escrevendo o titulo no filtro que o catalogo usa.
             */}
+            {/*
+              Busca a partir de 1280px, e não de 768px.
+
+              Medido no navegador em 1024: os filhos do cabeçalho somavam
+              1170px numa barra de 1009, e `document.scrollWidth` dava 1226 —
+              a PÁGINA inteira rolava na horizontal. O logotipo vinha
+              absorvendo o excesso por ser o único elemento compressível, e era
+              isso que o quebrava em quatro linhas fora do esquadro.
+
+              Entre os três candidatos a ceder espaço, a busca é o de menor
+              custo: o menu dá acesso a tudo que ela alcança, e nenhuma outra
+              tela manda usá-la. "Cadastre-se" foi descartado porque o modal de
+              login diz, com todas as letras, "feche esta janela e clique em
+              Cadastre-se" — escondê-lo quebraria essa instrução.
+            */}
             {isPublicPage && (
-              <div className="relative z-50 hidden md:block">
+              <div className="relative z-50 hidden xl:block">
                 <div className="flex items-center bg-[#f4f2ef] rounded-[10px] border border-[#e4e1dc] w-[230px] pl-3 pr-2 py-2.5 focus-within:border-[#540D6E] transition-colors">
                   <Search className="h-4 w-4 text-[#6b7385] shrink-0 mr-2" aria-hidden="true" />
                   <input
@@ -2027,74 +2066,6 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
         )}
       </main>
 
-      {/* 1. Official Bottom Accessibility Bar (Moved to footer area for a more discrete look) */}
-      <div className="bg-slate-950 text-escult-ink-claro py-4 px-4 md:px-6 border-t border-b border-slate-900 select-none">
-        {/* justify-end: o grupo é o único filho, então "between" o jogava para a
-            esquerda deixando metade da barra vazia. */}
-        <div className="mx-auto max-w-7xl flex flex-col sm:flex-row justify-center sm:justify-end items-center gap-4">
-          {/* Interactive Accessibility Settings Buttons */}
-          <div className="flex flex-wrap justify-center gap-4 items-center text-rotulo text-escult-ink-claro">
-            <button 
-              onClick={() => { setIsAccessibilityOpen(true); speakText("Janela de acessibilidade aberta"); }}
-              className="cursor-pointer hover:underline text-escult-ink-claro font-extrabold hover:text-teal-300 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
-              title="Ajustar tamanho da fonte, leitor e preferências"
-            >
-              <Settings className="w-3.5 h-3.5 text-teal-400 animate-spin" style={{ animationDuration: '8s' }} />
-              <span className="uppercase tracking-wide font-black">Acessibilidade</span>
-            </button>
-            
-            <button 
-              onClick={() => {
-                const next = !accessibilitySettings.highContrast;
-                updateAccessibilitySettings({ highContrast: next });
-                speakText(next ? "Alto contraste ativado" : "Alto contraste desativado");
-              }}
-              className={`cursor-pointer hover:underline font-extrabold flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5 ${accessibilitySettings.highContrast ? 'text-yellow-400 underline' : 'text-escult-ink-claro hover:text-yellow-400'}`}
-              title="Ativar/Desativar cores de alto contraste para baixa visão"
-            >
-              <Monitor className="w-3.5 h-3.5 text-yellow-400" />
-              <span className="uppercase tracking-wide font-black">Alto Contraste</span>
-            </button>
-            
-            <button 
-              onClick={() => { setIsSiteMapOpen(true); speakText("Mapa de seções do site aberto"); }}
-              className="cursor-pointer hover:underline text-escult-ink-claro font-extrabold hover:text-teal-300 flex items-center gap-1.5 transition-all bg-transparent border-0 outline-hidden py-1 px-2 rounded-md hover:bg-white/5"
-              title="Exibir mapa do site"
-            >
-              <BookOpen className="w-3.5 h-3.5 text-teal-400" />
-              <span className="uppercase tracking-wide font-black">Mapa do Site</span>
-            </button>
-
-            {/* Language Selector */}
-            <div className="flex items-center gap-2 border-l border-slate-800 pl-4 text-escult-ink-claro">
-              <button 
-                onClick={() => { setCurrentLang('pt'); speakText("Idioma alterado para Português"); }}
-                className={`uppercase text-sobretitulo transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'pt' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
-                title="Português (Brasil)"
-              >
-                PT-BR
-              </button>
-              <span className="text-slate-700">|</span>
-              <button 
-                onClick={() => { setCurrentLang('en'); speakText("Language changed to English"); }}
-                className={`uppercase text-sobretitulo transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'en' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
-                title="English"
-              >
-                EN
-              </button>
-              <span className="text-slate-700">|</span>
-              <button 
-                onClick={() => { setCurrentLang('es'); speakText("Idioma cambiado a Español"); }}
-                className={`uppercase text-sobretitulo transition-all cursor-pointer px-2 py-0.5 rounded ${currentLang === 'es' ? 'bg-teal-500 text-slate-950 font-black scale-105' : 'hover:text-slate-200 font-bold'}`}
-                title="Español"
-              >
-                ES
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/*
         Bloco 5 do handoff: o rodape era UMA linha de copyright.
 
@@ -2107,8 +2078,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
         Os alvos sao os mesmos de `PORTAL_PATHS`; nada aqui inventa destino.
       */}
       <footer className="bg-[#1d2432] text-[#c3c8d2] font-sans">
-        <div className="mx-auto max-w-7xl px-8 pt-14 pb-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-12">
+        {/* Alturas enxugadas: o rodapé é mapa do site, não seção de conteúdo. */}
+        <div className="mx-auto max-w-7xl px-8 pt-9 pb-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-x-10 gap-y-7">
 
             <div className="space-y-3">
               <strong className="block text-[22px] font-extrabold text-white tracking-tight">AVASEC</strong>
@@ -2163,10 +2135,89 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
           </div>
 
-          <div className="mt-12 pt-6 border-t border-[#313a4a]">
+          {/*
+            A barra de acessibilidade passou a viver AQUI, na linha do copyright.
+
+            Ela era uma faixa propria de `py-4` em `bg-slate-950`: uma TERCEIRA
+            cor de fundo espremida entre o conteudo e o rodape `#1d2432`, com
+            rotulos em caixa alta `font-black`, icones em teal e amarelo e uma
+            engrenagem em rotacao infinita. Pesava mais que o conteudo da pagina
+            — e barra de acessibilidade e ferramenta de apoio, nao anuncio.
+
+            Nenhuma funcao saiu: acessibilidade, alto contraste, mapa do site e
+            os tres idiomas continuam, agora em caixa mista, no `text-apoio` e no
+            mesmo cinza que o copyright ja usava (5,28:1 sobre `#1d2432`).
+          */}
+          <div className="mt-7 pt-4 border-t border-[#313a4a] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-apoio text-[#8b93a3]">
               © 2026 AVASEC — Escola Estadual da Cultura. Todos os direitos reservados.
             </p>
+
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-apoio text-[#8b93a3]">
+              <button
+                onClick={() => { setIsAccessibilityOpen(true); speakText('Janela de acessibilidade aberta'); }}
+                className="flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white hover:underline underline-offset-[3px]"
+                title="Ajustar tamanho da fonte, leitor e preferências"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                <span>Acessibilidade</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const next = !accessibilitySettings.highContrast;
+                  updateAccessibilitySettings({ highContrast: next });
+                  speakText(next ? 'Alto contraste ativado' : 'Alto contraste desativado');
+                }}
+                aria-pressed={accessibilitySettings.highContrast}
+                className={`flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white hover:underline underline-offset-[3px] ${
+                  accessibilitySettings.highContrast ? 'text-white underline' : ''
+                }`}
+                title="Ativar/Desativar cores de alto contraste para baixa visão"
+              >
+                <Monitor className="h-3.5 w-3.5" />
+                <span>Alto contraste</span>
+              </button>
+
+              <button
+                onClick={() => { setIsSiteMapOpen(true); speakText('Mapa de seções do site aberto'); }}
+                className="flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white hover:underline underline-offset-[3px]"
+                title="Exibir mapa do site"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span>Mapa do site</span>
+              </button>
+
+              {/*
+                Idioma e UMA escolha entre tres, nao tres acoes soltas: o `role`
+                diz isso a quem navega por leitor de tela, e `aria-current` marca
+                o que esta em uso — antes so a cor de fundo marcava, e cor
+                sozinha nao chega a quem nao a enxerga.
+              */}
+              <div
+                role="group"
+                aria-label="Idioma do portal"
+                className="flex items-center gap-3 border-l border-[#313a4a] pl-5"
+              >
+                {([
+                  { id: 'pt', rotulo: 'PT-BR', titulo: 'Português (Brasil)', fala: 'Idioma alterado para Português' },
+                  { id: 'en', rotulo: 'EN', titulo: 'English', fala: 'Language changed to English' },
+                  { id: 'es', rotulo: 'ES', titulo: 'Español', fala: 'Idioma cambiado a Español' },
+                ] as const).map((idioma) => (
+                  <button
+                    key={idioma.id}
+                    onClick={() => { setCurrentLang(idioma.id); speakText(idioma.fala); }}
+                    aria-current={currentLang === idioma.id ? 'true' : undefined}
+                    className={`cursor-pointer transition-colors underline-offset-[3px] hover:text-white hover:underline ${
+                      currentLang === idioma.id ? 'text-white font-semibold underline' : ''
+                    }`}
+                    title={idioma.titulo}
+                  >
+                    {idioma.rotulo}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </footer>
