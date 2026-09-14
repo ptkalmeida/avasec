@@ -172,3 +172,53 @@ describe('concordância do texto', () => {
     expect(textoDoItem({ ...item, quantidade: 3 })).toBe('3 matrículas aguardando aprovação');
   });
 });
+
+describe('aprovação automática esvazia a fila de matrículas', () => {
+  it('com aprovação automática, matrícula pendente NÃO entra na fila', () => {
+    /*
+     * Não basta confiar em "a lista chega vazia": `LMSContext` semeia três
+     * solicitações pendentes embutidas no código (Lucas Santana, Carolina
+     * Mendes, Ana Souza), de alunos que não existem no banco. Sem a trava pela
+     * regra, a fila anuncia trabalho fictício sempre que a hidratação não
+     * sobrescrever o estado inicial — e manda o professor procurar o que não
+     * existe.
+     */
+    const fila = filaDoInstrutor({
+      admissionRequests: [
+        { status: 'pending', courseId: 'c1' },
+        { status: 'pending', courseId: 'c2' },
+      ],
+      courses: CURSOS,
+      instructorId: EU,
+      aprovacaoAutomatica: true,
+    });
+
+    expect(fila).toEqual([]);
+  });
+
+  it('sem aprovação automática, a fila volta a contar', () => {
+    // O outro lado da regra: desligar a flag devolve a fila ao professor.
+    const fila = filaDoInstrutor({
+      admissionRequests: [{ status: 'pending', courseId: 'c1' }],
+      courses: CURSOS,
+      instructorId: EU,
+      aprovacaoAutomatica: false,
+    });
+
+    expect(fila.map((i) => i.id)).toEqual(['matriculas']);
+  });
+
+  it('a aprovação automática não interfere na correção de exercícios', () => {
+    // Travar demais é tão ruim quanto de menos: a flag é de matrícula.
+    const fila = filaDoInstrutor({
+      admissionRequests: [{ status: 'pending', courseId: 'c1' }],
+      exerciseSubmissions: [{ status: 'pending', exerciseId: 'e1' }],
+      exercises: EXERCICIOS,
+      courses: CURSOS,
+      instructorId: EU,
+      aprovacaoAutomatica: true,
+    });
+
+    expect(fila.map((i) => i.id)).toEqual(['exercicios']);
+  });
+});

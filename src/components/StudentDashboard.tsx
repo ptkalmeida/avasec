@@ -318,7 +318,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
    * avisaria.
    */
   const showAvaliacoes = destino.tela === 'avaliacoes' && selectedCourse !== null;
-  const showExercicios = destino.tela === 'exercicios' && selectedCourse !== null;
+  /*
+   * A flag também guarda a ROTA, não só o botão: `/aluno/curso/<slug>/exercicios`
+   * é endereço digitável e sobrevive em favorito. Sem isto, quem tivesse o link
+   * salvo continuaria abrindo a página inteira de entrega com o recurso
+   * desligado — e entregaria num endpoint que responde 404 FEATURE_DISABLED.
+   */
+  const showExercicios =
+    destino.tela === 'exercicios' && selectedCourse !== null && features.atividadesPraticasAvancadas;
   /** Avaliação que o endereço pede para abrir direto. */
   const avaliacaoInicial = destino.quizId;
 
@@ -818,9 +825,20 @@ ${html}
    * neste curso" — ocupando a coluna para dizer que não há nada a fazer.
    *
    * `practicalExercises` já chega sem os inativados: a API os exclui (ADR 12).
+   *
+   * A flag entra AQUI, e não só no JSX, por um motivo concreto: com
+   * `atividadesPraticasAvancadas: false` o `fetch` de `/api/exercises` é
+   * pulado, mas `practicalExercises` NÃO fica vazio — ele nasce do
+   * `localStorage` ou de uma lista embutida em `LMSContext` (`exercise-1`,
+   * "Análise de Heurísticas de Usabilidade"). Depender de `length > 0` para
+   * esconder o recurso deixava o aluno vendo exercício de dado embutido
+   * enquanto o professor e o admin já não viam a área para corrigi-lo.
    */
   const exerciciosDoCursoAberto = React.useMemo(
-    () => (selectedCourse ? exerciciosDoCurso(practicalExercises, selectedCourse.id) : []),
+    () =>
+      selectedCourse && features.atividadesPraticasAvancadas
+        ? exerciciosDoCurso(practicalExercises, selectedCourse.id)
+        : [],
     [practicalExercises, selectedCourse]
   );
 

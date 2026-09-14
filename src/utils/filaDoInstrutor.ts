@@ -70,6 +70,17 @@ export interface DadosDaFila {
   courses?: CursoDaFila[] | null;
   /** Quem está olhando. A fila é do trabalho DELE, não da escola inteira. */
   instructorId: string;
+  /**
+   * A aprovação de matrícula é automática?
+   *
+   * Quando é, não existe "matrícula aguardando aprovação" — e o item precisa
+   * sumir pela REGRA, não por a lista estar vazia. `LMSContext` semeia três
+   * solicitações pendentes embutidas no código (Lucas Santana, Carolina
+   * Mendes, Ana Souza), de alunos que não existem no banco: sem esta trava, a
+   * fila anuncia trabalho fictício sempre que a hidratação não sobrescrever o
+   * estado inicial.
+   */
+  aprovacaoAutomatica?: boolean;
 }
 
 /**
@@ -85,9 +96,11 @@ export function filaDoInstrutor(dados: DadosDaFila): ItemDaFila[] {
     cursos.filter((c) => c.instructorId === dados.instructorId).map((c) => c.id)
   );
 
-  const matriculas = (dados.admissionRequests ?? []).filter(
-    (r) => r.status === 'pending' && r.courseId !== undefined && meusCursos.has(r.courseId)
-  ).length;
+  const matriculas = dados.aprovacaoAutomatica === true
+    ? 0
+    : (dados.admissionRequests ?? []).filter(
+      (r) => r.status === 'pending' && r.courseId !== undefined && meusCursos.has(r.courseId)
+    ).length;
 
   const meusExercicios = new Set(
     (dados.exercises ?? [])

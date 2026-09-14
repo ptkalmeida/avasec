@@ -9,10 +9,25 @@ export const features = {
   forum: false,
   
   // Exercícios práticos e envio de atividades para correção (Tarefas avançadas)
-  // Ativado: o aluno tem página própria de exercícios do curso e o professor tem
-  // área de lançamento e correção. Com a flag em false a API responde 404 e a
-  // tela conversava só com o localStorage — nota lançada não saía do navegador.
-  atividadesPraticasAvancadas: true,
+  //
+  // Desligada em 14/09/2026 por decisão de produto: a coordenação não vai usar
+  // exercícios práticos nesta fase. Nada foi removido — o modelo, as rotas, a
+  // página de entrega do aluno, a área de lançamento e correção do professor e
+  // a seção do admin continuam no código e nos testes (ADR 12). Voltar ao ar é
+  // trocar este false por true, junto com o espelho em
+  // backend-laravel/config/features.php, que o FeatureFlagParityTest confere.
+  //
+  // Com ela desligada: /api/exercises e /api/exercise-submissions respondem 404
+  // FEATURE_DISABLED, o front não busca os dados na hidratação, o item
+  // "Exercícios Práticos" some do menu do admin, as sub-abas de exercício do
+  // professor não existem, a fila "A fazer" não conta entregas, e o aluno não
+  // vê o bloco nem alcança /aluno/curso/<slug>/exercicios.
+  //
+  // Atenção ao reativar: `practicalExercises` e `exerciseSubmissions` nascem do
+  // localStorage ou de uma lista embutida em `LMSContext` — eles NÃO ficam
+  // vazios com a flag desligada. Por isso o aluno é guardado pela flag, e não
+  // por "a lista está vazia".
+  atividadesPraticasAvancadas: false,
   
   // Upload de arquivos (como documentos, PDFs e comprovantes de matrícula)
   // Ativado: o backend agora salva os arquivos de verdade em /uploads (ver src/server/upload.ts).
@@ -71,6 +86,23 @@ export const features = {
   // Permite que o Admin Superior conceda a alunos específicos a possibilidade
   // de cursar mais de uma disciplina simultaneamente (por padrão, 1 por vez)
   matriculasMultiplas: true,
+
+  // Aprovação automática de matrícula (decisão da coordenação em 14/09/2026).
+  //
+  // Ligada: a solicitação já nasce aprovada e matricula o aluno na mesma
+  // transação, sem passar pela fila do professor. A tela "Solicitações de
+  // Matrícula" e o aviso de aprovação pendente somem, porque não haverá
+  // pendência — item de fila que nunca enche ensina a pessoa a ignorar a fila.
+  //
+  // As travas do caminho normal CONTINUAM valendo: quem já tem curso ativo, já
+  // concluiu aquele curso ou está em restrição por cancelamento é recusado na
+  // hora, com a razão escrita. Automática é "sem espera humana", não "sem
+  // regra" — sem isso o sistema tiraria o aluno do curso em que ele tem
+  // progresso só porque clicou em outro.
+  //
+  // Desligar devolve a fila de aprovação ao professor. Espelho em
+  // backend-laravel/config/features.php.
+  aprovacaoAutomaticaMatricula: true,
 
   // --- FUNCIONALIDADES ATIVADAS POR PADRÃO NO MVP ---
   
