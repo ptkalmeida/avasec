@@ -46,12 +46,45 @@ final class MensagensDiretasEscopoTest extends TestCase
     /** Instrutor que NÃO é responsável por curso nenhum. */
     private function instrutorSemCurso(): ?string
     {
-        $comCurso = DB::table('Course')->whereNotNull('instructorId')->pluck('instructorId')->all();
-        $u = DB::table('User')->where('role', 'instructor')->where('status', 'active')
-            ->whereNotIn('id', $comCurso === [] ? [''] : $comCurso)
-            ->first(['id', 'name', 'role']);
+        /*
+         * O instrutor é CRIADO aqui, e não procurado no banco.
+         *
+         * Antes este helper varria o banco de desenvolvimento atrás de um
+         * instrutor que por acaso não tivesse curso. Isso trouxe dois defeitos:
+         *
+         * 1. A consulta filtrava por `status = 'active'`, mas quem barra o
+         *    acesso é o `RequireActiveAccount`, que olha `inativadoEm`. Como
+         *    `DB::table` não aplica o escopo do SoftDeletes, ela escolhia um
+         *    instrutor INATIVADO, emitia token para ele e levava 403 "acesso
+         *    suspenso" — falha sem relação nenhuma com escopo de mensagens.
+         * 2. O único instrutor que satisfazia a busca era sobra de uma execução
+         *    anterior da própria suíte. Teste que depende de lixo deixado por
+         *    outro teste pula silenciosamente no dia em que alguém limpa o
+         *    banco — e some a cobertura de um limite de segurança.
+         *
+         * Criado pela rota real e desfeito pelo `DatabaseTransactions` no fim:
+         * a premissa fica garantida (instrutor recém-criado não conduz curso
+         * nenhum) e nada fica para trás.
+         */
+        $adminToken = $this->staffToken('admin');
+        $nome = 'Instrutor Sem Curso '.uniqid();
+        $res = $this->withHeader('Authorization', "Bearer {$adminToken}")->postJson('/api/auth/register', [
+            'name' => $nome,
+            'email' => 'inst-sem-curso-'.uniqid().'@example.com',
+            'password' => 'senha123456',
+            'role' => 'instructor',
+        ]);
+        $res->assertStatus(201);
+        $this->flushHeaders();
 
-        return $u === null ? null : Jwt::issue($u->id, $u->name, $u->role);
+        $id = $res->json('user.id');
+        $this->assertSame(
+            0,
+            DB::table('Course')->where('instructorId', $id)->count(),
+            'Instrutor recém-criado não pode conduzir curso — a premissa do teste caiu.'
+        );
+
+        return Jwt::issue($id, $nome, 'instructor');
     }
 
     private function enviar(string $token, string $texto): void
