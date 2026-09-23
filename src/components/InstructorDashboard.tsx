@@ -3,13 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BookOpen, Calendar, CheckCircle, Award, Video, Plus, Trash2, Edit3, Users,
   Globe, Clock, Grid, ChevronRight, Sparkles, Send, Info, Check, Link, Play, ArrowLeft,
   MessageSquare, CheckSquare, Bell, FileText, Layout, BarChart3, Archive, ShieldCheck, ExternalLink,
   ArrowUp, ArrowDown, Eye, EyeOff, File, Download, Upload, X, Lock, Pencil, FileCheck
-, AlertTriangle
+, AlertTriangle, Loader2
 } from 'lucide-react';
 import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
@@ -25,6 +25,7 @@ import { LiveClassroom } from './LiveClassroom';
 import { features } from '../config/features';
 import { toDatetimeLocalValue, formatScheduledAt, situacaoTransmissao } from '../utils/liveSchedule';
 import { parseLessonContent } from '../utils/lessonContent';
+import { motivoParaNaoVincular, textoDoEnvio, EnvioDeArquivo } from '../utils/vinculoDeDocumento';
 import { LessonContent } from './student/LessonContent';
 import { LessonContentEditor } from './instructor/LessonContentEditor';
 import { LessonManagePage } from './instructor/LessonManagePage';
@@ -333,6 +334,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [newDocUrl, setNewDocUrl] = useState('');
   const [newDocSize, setNewDocSize] = useState('1.2 MB');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [envioArquivo, setEnvioArquivo] = useState<EnvioDeArquivo>({ estado: 'nenhum' });
+  // Número do envio em curso. Resposta de um envio antigo (o autor trocou de
+  // arquivo antes de o primeiro terminar) é descartada em vez de gravar a URL
+  // errada por cima da certa.
+  const envioAtual = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
 
   // Create Live Session State
@@ -447,25 +453,41 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       setNewDocType('outro');
     }
 
+    // A URL anterior sai ANTES do envio: sem isto, trocar o arquivo A pelo B e
+    // clicar em Vincular durante o envio de B anexava o endereço de A com o
+    // título de B.
+    const meuEnvio = ++envioAtual.current;
+    setNewDocUrl('');
+    setEnvioArquivo({ estado: 'enviando' });
+
     // Envia o arquivo de verdade para o servidor (disco) em vez de embutir como base64.
+    // O erro fica no cartão do arquivo, não num toast que some: é o que o autor
+    // precisa ler quando o botão Vincular se recusa.
     try {
       const formData = new FormData();
       formData.append('file', file);
       const res = await authFetch('/api/upload?visibility=public', { method: 'POST', body: formData });
+      if (meuEnvio !== envioAtual.current) return;
       if (res.ok) {
         const data = await res.json();
+        if (meuEnvio !== envioAtual.current) return;
         setNewDocUrl(data.url);
+        setEnvioArquivo({ estado: 'enviado' });
       } else {
         const err = await res.json().catch(() => ({}));
-        showToast(err.error || 'Falha ao enviar o arquivo para o servidor.');
+        if (meuEnvio !== envioAtual.current) return;
+        setEnvioArquivo({ estado: 'falhou', erro: err.error || 'Falha ao enviar o arquivo para o servidor.' });
       }
     } catch (err) {
       console.error('Erro ao enviar arquivo:', err);
-      showToast('Servidor indisponível para envio de arquivos.');
+      if (meuEnvio !== envioAtual.current) return;
+      setEnvioArquivo({ estado: 'falhou', erro: 'Servidor indisponível para envio de arquivos.' });
     }
   };
 
   const handleClearFile = () => {
+    envioAtual.current++;
+    setEnvioArquivo({ estado: 'nenhum' });
     setUploadedFile(null);
     setNewDocTitle('');
     setNewDocUrl('');
@@ -474,8 +496,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   };
 
   const handleAddDocument = (lessonId: string) => {
-    if (!newDocTitle.trim() || !newDocUrl.trim()) {
-      showToast("Preencha o título e link ou selecione um arquivo!");
+    const motivo = motivoParaNaoVincular({ titulo: newDocTitle, url: newDocUrl, envio: envioArquivo });
+    if (motivo !== null) {
+      showToast(motivo);
       return;
     }
 
@@ -502,6 +525,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       setNewDocUrl('');
       setNewDocSize('1.2 MB');
       setUploadedFile(null);
+      setEnvioArquivo({ estado: 'nenhum' });
     }
   };
 
@@ -748,6 +772,30 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                     <div className="min-w-0">
                       <p className="font-bold text-slate-800 text-xs truncate">{uploadedFile.name}</p>
                       <p className="text-apoio text-teal-700 font-semibold">{newDocSize}</p>
+                      {envioArquivo.estado === 'enviando' && (
+                        <p className="mt-0.5 inline-flex items-center gap-1 text-apoio font-bold text-teal-700">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Enviando...
+                        </p>
+                      )}
+                      {envioArquivo.estado === 'enviado' && (
+                        <p className="mt-0.5 inline-flex items-center gap-1 text-apoio font-bold text-emerald-700">
+                          <CheckCircle className="h-3 w-3" /> Enviado
+                        </p>
+                      )}
+                      {envioArquivo.estado === 'falhou' && (
+                        <div className="mt-0.5 space-y-1">
+                          <p className="flex items-start gap-1 text-apoio font-bold text-red-700">
+                            <AlertTriangle className="h-3 w-3 shrink-0 mt-px" /> {envioArquivo.erro}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleFileChange(uploadedFile)}
+                            className="text-apoio font-bold text-teal-700 underline hover:text-teal-800 cursor-pointer"
+                          >
+                            Tentar de novo
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <button
@@ -845,9 +893,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Endereço URL do Conteúdo</label>
               <input
                 type="text"
-                placeholder={uploadedFile ? "Arquivo carregado localmente" : "https://exemplo.com/material-aula-1"}
+                placeholder={uploadedFile ? textoDoEnvio(envioArquivo) : "https://exemplo.com/material-aula-1"}
                 disabled={!!uploadedFile}
-                value={uploadedFile ? "Arquivo carregado localmente" : newDocUrl}
+                // "Arquivo carregado localmente" aparecia até com o envio falho, e era
+                // parte da confusão: o campo passa a dizer o estado real.
+                value={uploadedFile ? textoDoEnvio(envioArquivo) : newDocUrl}
                 onChange={(e) => setNewDocUrl(e.target.value)}
                 className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-escult-ink-3 disabled:opacity-50"
               />
@@ -857,10 +907,14 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               <button
                 type="button"
                 onClick={() => handleAddDocument(lesson.id)}
-                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-teal-950/5 flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+                // Durante o envio não há o que vincular: o clique antecipado era a
+                // outra metade da corrida entre dois arquivos.
+                disabled={envioArquivo.estado === 'enviando'}
+                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-teal-950/5 flex items-center justify-center gap-1.5 cursor-pointer text-xs disabled:bg-slate-300 disabled:cursor-not-allowed"
               >
-                <Plus className="h-4 w-4" />
-                <span>Vincular Documento</span>
+                {envioArquivo.estado === 'enviando'
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Enviando arquivo...</span></>
+                  : <><Plus className="h-4 w-4" /><span>Vincular Documento</span></>}
               </button>
             </div>
           </div>
