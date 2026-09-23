@@ -11,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -50,6 +51,31 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // 401/403 são o controle de acesso FUNCIONANDO (visitante deslogado numa rota
+        // protegida, perfil sem permissão), não falha de sistema. O registro padrão os
+        // gravava como ERROR com stack trace completo — ~45 linhas cada —, e o
+        // laravel.log crescia ~100 MB/dia (ver .ai/planejamento/08). Aqui viram
+        // WARNING, sem trace, com o caminho da requisição: o volume continua visível
+        // (tentativa de acesso indevido, cliente em laço) sem soterrar erro de verdade.
+        // `return false` interrompe só o registro padrão; a resposta HTTP é montada
+        // pelo render() abaixo e não muda. Qualquer outra exceção segue como ERROR.
+        $exceptions->report(function (ApiException $e): ?bool {
+            if ($e->status !== 401 && $e->status !== 403) {
+                return null;
+            }
+
+            $request = request();
+            Log::warning($e->getMessage(), [
+                'status' => $e->status,
+                'code' => $e->errorCode,
+                'method' => $request->method(),
+                'path' => $request->path(),
+                'ip' => $request->ip(),
+            ]);
+
+            return false;
+        });
 
         // Todas as respostas de erro sob /api/* seguem o contrato do Node:
         // { error: true, code, message } — nunca stack trace.

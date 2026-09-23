@@ -87,6 +87,10 @@ php artisan key:generate
 #   QUEUE_CONNECTION=sync
 #   UPLOADS_ROOT=/var/www/avasec/uploads   (pasta compartilhada, ver seção 5)
 #   UPLOAD_MAX_SIZE_MB=15
+#   LOG_CHANNEL=stack
+#   LOG_STACK=daily        (um arquivo por dia, nunca um laravel.log único crescendo)
+#   LOG_DAILY_DAYS=14      (retenção: arquivos mais antigos são descartados)
+#   LOG_LEVEL=warning      (em produção; debug só em desenvolvimento)
 
 php artisan config:cache
 php artisan route:cache
@@ -100,6 +104,13 @@ backend Node — ver `HARDENING.md`):
 - `APP_DEBUG=false` (nunca expor stack trace).
 - `BCRYPT_ROUNDS=10` — mudar isso invalida a comparação com hashes antigos só se você
   também mudar o algoritmo; manter em 10 preserva compatibilidade.
+- **Log com rotação** (`LOG_STACK=daily` + `LOG_DAILY_DAYS`). Com o canal `single`, o
+  `laravel.log` cresce sem limite: no ambiente de desenvolvimento chegou a 955 MB, a
+  ~100 MB por dia, com um único usuário testando. Disco cheio em produção derruba a
+  aplicação inteira. As negativas de acesso (401/403) já são gravadas como `warning`
+  sem stack trace (`bootstrap/app.php`), o que corta a maior parte do volume; a rotação
+  é a segunda barreira. Se preferir o `logrotate` do sistema, aponte-o para
+  `storage/logs/*.log` e mantenha `LOG_STACK=single`.
 
 ## 4. Build do frontend (React/Vite)
 
