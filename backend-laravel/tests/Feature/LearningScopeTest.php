@@ -134,6 +134,32 @@ final class LearningScopeTest extends TestCase
             ->assertJsonPath('courseId', 'course-1');
     }
 
+    public function test_student_can_post_in_forum_of_extra_course(): void
+    {
+        // Curso extra da matrícula múltipla é matrícula: CourseAccess::canAccess
+        // barrava com 403 porque não lia extraCourseIds.
+        config(['features.matriculasMultiplas' => true]);
+
+        $aluno = $this->makeStudent();
+        $auth = $this->auth($aluno['token']);
+        $principalId = $this->anotherSeededCourseId('course-1');
+
+        $this->withHeaders($this->auth($this->staffToken('admin')))
+            ->putJson('/api/enrollments/'.$aluno['id'], ['canMultiEnroll' => true])
+            ->assertOk();
+        $this->withHeaders($auth)
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $principalId])
+            ->assertOk();
+        $this->withHeaders($auth)
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => 'course-1'])
+            ->assertOk()
+            ->assertJsonPath('enrollment.extraCourseIds', ['course-1']);
+
+        $this->postJson('/api/forum', ['courseId' => 'course-1', 'text' => 'Dúvida no curso extra'], $auth)
+            ->assertStatus(201)
+            ->assertJsonPath('courseId', 'course-1');
+    }
+
     public function test_student_cannot_submit_quiz_of_course_they_do_not_attend(): void
     {
         $auth = $this->auth($this->makeStudent()['token']);

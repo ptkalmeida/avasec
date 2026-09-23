@@ -139,6 +139,61 @@ final class CourseCatalogVisibilityTest extends TestCase
         $this->assertSemMaterial($this->curso($catalogo, $outroId));
     }
 
+    /**
+     * Matrícula múltipla: o segundo curso vai para `extraCourseIds`, e o painel do
+     * aluno o abre como matrícula. CourseAccess não lia esse campo, então o curso
+     * extra chegava pela vitrine — aula em branco e nenhum anexo, com o documento
+     * íntegro no banco. Relatado em 23/09/2026 no curso de Portfólio.
+     */
+    public function test_student_gets_material_and_documents_of_extra_course(): void
+    {
+        config(['features.matriculasMultiplas' => true]);
+
+        // Curso extra: precisa ter aula com conteúdo E documento ativo, senão o
+        // teste passaria por vacuidade na metade que motivou a correção.
+        $extraId = DB::table('Course')
+            ->whereNull('inativadoEm')->where('status', 1)
+            ->whereIn('id', DB::table('Lesson')
+                ->whereNull('inativadoEm')
+                ->whereNotNull('content')->where('content', '!=', '')
+                ->whereIn('id', DB::table('LessonDocument')->whereNull('inativadoEm')->where('status', 1)->select('lessonId'))
+                ->select('courseId'))
+            ->value('id');
+        $this->assertNotNull($extraId, 'Seed sem curso com aula de conteúdo e documento — popular o MySQL de dev.');
+
+        $principalId = DB::table('Course')
+            ->whereNull('inativadoEm')->where('status', 1)
+            ->where('id', '!=', $extraId)
+            ->value('id');
+        $this->assertNotNull($principalId, 'Seed sem um segundo curso publicado.');
+
+        $aluno = $this->makeStudent();
+        $auth = $this->auth($aluno['token']);
+
+        $this->withHeaders($this->auth($this->staffToken('admin')))
+            ->putJson('/api/enrollments/'.$aluno['id'], ['canMultiEnroll' => true])
+            ->assertOk();
+        $this->withHeaders($auth)
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $principalId])
+            ->assertOk();
+        $this->withHeaders($auth)
+            ->postJson('/api/enrollments/self/enroll', ['courseId' => $extraId])
+            ->assertOk()
+            ->assertJsonPath('enrollment.extraCourseIds', [$extraId]);
+
+        $curso = $this->curso(
+            $this->getJson('/api/courses', $auth)->assertOk()->json(),
+            $extraId
+        );
+
+        $this->assertComMaterial($curso);
+        $documentos = array_merge(...array_map(
+            static fn (mixed $a): array => is_array($a) ? (array) ($a['documents'] ?? []) : [],
+            (array) ($curso['lessons'] ?? [])
+        ));
+        $this->assertNotEmpty($documentos, 'Aluno do curso extra ficou sem os documentos anexados.');
+    }
+
     public function test_admin_gets_everything(): void
     {
         $courseId = $this->courseIdWithContent();
