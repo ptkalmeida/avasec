@@ -201,7 +201,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       <div className={caixa}>
         <ZoneHeader
           icon={<Video className="h-3.5 w-3.5 text-teal-700" />}
-          title="Vídeo da aula"
+          title="Vídeo principal da aula"
           hint={temVideo ? 'O aluno vê o player no topo da aula.' : 'Sem vídeo: a aula abre como conteúdo de leitura.'}
           editing={zone === 'video'}
           onToggle={() => toggle('video')}
@@ -254,7 +254,14 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
 
         {zone === 'content' ? (
           <div className="p-4 space-y-3">
-            <LessonContentEditor value={content} onChange={setContent} onUpload={onUpload} />
+            <LessonContentEditor
+              value={content}
+              onChange={setContent}
+              onUpload={onUpload}
+              // O vídeo SALVO, que é o que o aluno vê no topo — base para o aviso
+              // de vídeo repetido no corpo da aula.
+              videoUrlDaAula={lesson.videoUrl || ''}
+            />
             <div className="flex justify-end">
               <button
                 type="button"

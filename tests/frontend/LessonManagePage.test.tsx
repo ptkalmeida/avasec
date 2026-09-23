@@ -49,7 +49,7 @@ describe('LessonManagePage', () => {
     montar();
 
     expect(screen.getByRole('button', { name: /editar identificação da aula/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /editar vídeo da aula/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /editar vídeo principal da aula/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /editar material didático/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /editar material de apoio/i })).toBeInTheDocument();
   });
