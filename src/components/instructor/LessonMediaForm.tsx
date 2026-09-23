@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useState } from 'react';
-import { Check, X, Upload, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, X, Upload, AlertCircle, CheckCircle2, Loader2, ImageOff } from 'lucide-react';
 import { ehLegenda, parseLessonContent, serializeLessonBlock } from '../../utils/lessonContent';
 import { parseVideoSource } from '../../utils/videoSource';
+import { safeUrl } from '../../utils/safeUrl';
 import { LessonContent } from '../student/LessonContent';
 
 /** Extensões aceitas: espelha a allowlist de config/uploads.php do backend. */
@@ -43,6 +44,21 @@ const formatarTamanho = (bytes: number): string =>
   bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 
 /**
+ * Libera a miniatura local. Checa a função pela mesma razão que a criação checa
+ * a sua: em ambiente sem object URL nenhuma miniatura local chega a existir.
+ */
+const liberarMiniatura = (url: string | null) => {
+  if (url !== null && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
+};
+
+/** "Evidência.png" -> "PNG". Sem extensão, não inventa: devolve "imagem". */
+const extensao = (nome: string): string => {
+  const ponto = nome.lastIndexOf('.');
+
+  return ponto > 0 && ponto < nome.length - 1 ? nome.slice(ponto + 1).toUpperCase() : 'imagem';
+};
+
+/**
  * Formulário de imagem e vídeo do corpo da aula, com dois pontos de entrada: o
  * menu "+" (criar) e o lápis (editar). Um só formulário para os dois casos, para
  * a validação da descrição e da legenda não existir em duplicata.
@@ -65,8 +81,32 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
   const [pesado, setPesado] = useState<string | null>(null);
   const inputArquivo = useRef<HTMLInputElement>(null);
 
+  // Conferência do arquivo: nome e miniatura de QUAL imagem subiu. O nome vem do
+  // próprio File (é o original, "Evidência.png"), não do servidor, que guarda um
+  // nome sorteado; assim não é preciso alargar o retorno de `uploadArquivo`.
+  const [arquivo, setArquivo] = useState<{ nome: string; detalhe: string } | null>(null);
+  const [miniatura, setMiniatura] = useState<string | null>(null);
+  const [miniaturaFalhou, setMiniaturaFalhou] = useState(false);
+  const miniaturaAtual = useRef<string | null>(null);
+
+  // Object URL segura o arquivo na memória até ser liberado: sem isto, cada troca
+  // de imagem e cada formulário fechado deixariam uma cópia para trás.
+  useEffect(() => () => liberarMiniatura(miniaturaAtual.current), []);
+
+  const trocarMiniatura = (proxima: string | null) => {
+    liberarMiniatura(miniaturaAtual.current);
+    miniaturaAtual.current = proxima;
+    setMiniatura(proxima);
+    setMiniaturaFalhou(false);
+  };
+
   const ehImagem = tipo === 'image';
   const videoReconhecido = ehImagem ? null : parseVideoSource(url.trim());
+
+  // Recém-enviada: miniatura do arquivo local, instantânea e sem rede. Bloco
+  // reaberto pelo lápis: não há File, só o endereço gravado — que passa pelo
+  // safeUrl como qualquer `src` de conteúdo autorado.
+  const srcMiniatura = miniatura ?? safeUrl(url);
 
   const enviarArquivo = async (file: File) => {
     if (onUpload === undefined) return;
@@ -83,7 +123,10 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
     }
     setUrl(r.url);
     // A descrição NUNCA é preenchida com o nome do arquivo: "IMG_20240712.jpg"
-    // lido em voz alta por um leitor de tela é ruído, não informação.
+    // lido em voz alta por um leitor de tela é ruído, não informação. O nome
+    // aparece só no cartão de conferência, para quem está escrevendo.
+    setArquivo({ nome: file.name, detalhe: `${formatarTamanho(file.size)} · ${extensao(file.name)}` });
+    trocarMiniatura(typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null);
   };
 
   const legendaLimpa = legenda.trim();
@@ -138,9 +181,39 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
             </p>
           )}
           {url !== '' && !enviando && (
-            <p className="mt-1.5 inline-flex items-center gap-1.5 text-apoio font-bold text-emerald-700">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Imagem enviada.
-            </p>
+            // O cartão confere QUAL arquivo; a prévia lá embaixo, que usa o
+            // endereço do servidor, confere que ele CHEGOU. Papéis diferentes.
+            <div className="mt-2 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50/50 p-2.5">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+                {srcMiniatura !== null && !miniaturaFalhou ? (
+                  <img
+                    data-testid="miniatura"
+                    src={srcMiniatura}
+                    // Decorativa: o nome ao lado já diz qual é a imagem.
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={() => setMiniaturaFalhou(true)}
+                  />
+                ) : (
+                  <ImageOff className="h-5 w-5 text-escult-ink-2" aria-hidden />
+                )}
+              </div>
+              <div className="min-w-0">
+                {arquivo !== null ? (
+                  <>
+                    <p className="truncate text-apoio font-bold text-slate-800" title={arquivo.nome}>{arquivo.nome}</p>
+                    <p className="text-apoio text-escult-ink-2">{arquivo.detalhe}</p>
+                  </>
+                ) : (
+                  // Bloco reaberto: o nome original está só no banco
+                  // (StoredFile.originalName) e nenhuma rota o devolve.
+                  <p className="text-apoio font-bold text-slate-800">Imagem atual da aula</p>
+                )}
+                <p className="mt-0.5 inline-flex items-center gap-1 text-apoio font-bold text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {arquivo !== null ? 'Imagem enviada' : 'Já está na aula'}
+                </p>
+              </div>
+            </div>
           )}
           {pesado !== null && (
             <p className="mt-1 flex items-start gap-1.5 text-apoio font-bold text-amber-700">

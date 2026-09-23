@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { useState } from 'react';
 import { LessonContentEditor } from '../../src/components/instructor/LessonContentEditor';
 
@@ -314,5 +314,130 @@ describe('LessonContentEditor — mídia no corpo da aula', () => {
     fireEvent.click(screen.getByRole('button', { name: /remover imagem/i }));
 
     expect(valor()).toBe('Um parágrafo.');
+  });
+});
+
+/**
+ * Conferência do arquivo (Caso 6): nome e miniatura de QUAL imagem subiu.
+ * O jsdom não implementa URL.createObjectURL; o stub devolve um endereço
+ * previsível por arquivo e o espião em revokeObjectURL trava a liberação de
+ * memória, que é o que não pode ser esquecido.
+ */
+describe('LessonContentEditor — conferência do arquivo enviado', () => {
+  const originais = { criar: URL.createObjectURL, liberar: URL.revokeObjectURL };
+  const criar = vi.fn((f: Blob) => `blob:${(f as File).name}`);
+  const liberar = vi.fn();
+
+  beforeEach(() => {
+    criar.mockClear();
+    liberar.mockClear();
+    URL.createObjectURL = criar as unknown as typeof URL.createObjectURL;
+    URL.revokeObjectURL = liberar;
+  });
+
+  afterEach(() => {
+    // Desmonta ANTES de restaurar: o cleanup global roda depois deste hook, e a
+    // limpeza da miniatura no unmount encontraria o revoke original — que no
+    // jsdom nem existe.
+    cleanup();
+    URL.createObjectURL = originais.criar;
+    URL.revokeObjectURL = originais.liberar;
+  });
+
+  const abrirImagem = () => {
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^imagem$/i }));
+  };
+
+  const enviar = (file: File) => {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+  };
+
+  const upload = () => vi.fn(async () => ({ ok: true, url: '/uploads/1790-abc.png' }));
+
+  it('o cartão mostra o nome original do arquivo, não o nome sorteado pelo servidor', async () => {
+    render(<Harness onUpload={upload()} />);
+
+    abrirImagem();
+    enviar(new File(['x'], 'Evidência.png', { type: 'image/png' }));
+
+    expect(await screen.findByText('Evidência.png')).toBeInTheDocument();
+    expect(screen.getByText(/· PNG$/)).toBeInTheDocument();
+    expect(screen.queryByText(/1790-abc/)).not.toBeInTheDocument();
+  });
+
+  it('a miniatura vem do arquivo local, sem baixar a imagem de novo', async () => {
+    render(<Harness onUpload={upload()} />);
+
+    abrirImagem();
+    enviar(new File(['x'], 'Evidência.png', { type: 'image/png' }));
+    await screen.findByText('Evidência.png');
+
+    expect(screen.getByTestId('miniatura')).toHaveAttribute('src', 'blob:Evidência.png');
+    expect(criar).toHaveBeenCalledTimes(1);
+  });
+
+  it('trocar a imagem substitui nome e miniatura e libera a miniatura anterior', async () => {
+    render(<Harness onUpload={upload()} />);
+
+    abrirImagem();
+    enviar(new File(['x'], 'primeira.png', { type: 'image/png' }));
+    await screen.findByText('primeira.png');
+    enviar(new File(['x'], 'segunda.jpg', { type: 'image/jpeg' }));
+    await screen.findByText('segunda.jpg');
+
+    expect(screen.queryByText('primeira.png')).not.toBeInTheDocument();
+    expect(screen.getByTestId('miniatura')).toHaveAttribute('src', 'blob:segunda.jpg');
+    expect(liberar).toHaveBeenCalledWith('blob:primeira.png');
+  });
+
+  it('fechar o formulário libera a miniatura da memória', async () => {
+    render(<Harness onUpload={upload()} />);
+
+    abrirImagem();
+    enviar(new File(['x'], 'Evidência.png', { type: 'image/png' }));
+    await screen.findByText('Evidência.png');
+    fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
+
+    expect(liberar).toHaveBeenCalledWith('blob:Evidência.png');
+  });
+
+  it('bloco reaberto pelo lápis mostra a miniatura do endereço gravado, sem nome', () => {
+    render(<Harness inicial={'![Um diagrama](/uploads/x.png)'} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /editar imagem/i }));
+
+    expect(screen.getByTestId('miniatura')).toHaveAttribute('src', '/uploads/x.png');
+    expect(screen.getByText('Imagem atual da aula')).toBeInTheDocument();
+    expect(criar).not.toHaveBeenCalled();
+  });
+
+  it('endereço recusado pelo safeUrl não vira miniatura quebrada', () => {
+    render(<Harness inicial={'![Inofensiva](javascript:location=name)'} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /editar imagem/i }));
+
+    expect(screen.queryByTestId('miniatura')).not.toBeInTheDocument();
+    expect(screen.getByText('Imagem atual da aula')).toBeInTheDocument();
+  });
+
+  it('miniatura que falha ao carregar dá lugar ao ícone, sem imagem quebrada', () => {
+    render(<Harness inicial={'![Um diagrama](/uploads/sumiu.png)'} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /editar imagem/i }));
+    fireEvent.error(screen.getByTestId('miniatura'));
+
+    expect(screen.queryByTestId('miniatura')).not.toBeInTheDocument();
+  });
+
+  it('o aviso de imagem pesada continua aparecendo junto do cartão', async () => {
+    render(<Harness onUpload={upload()} />);
+
+    abrirImagem();
+    enviar(new File([new Uint8Array(3 * 1024 * 1024)], 'grande.png', { type: 'image/png' }));
+
+    expect(await screen.findByText('grande.png')).toBeInTheDocument();
+    expect(screen.getByText(/esta imagem é pesada \(3\.0 MB\)/i)).toBeInTheDocument();
   });
 });
