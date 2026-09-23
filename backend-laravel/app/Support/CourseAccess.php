@@ -12,7 +12,8 @@ use App\Models\StudentEnrollment;
  * turma, ex.: chat da aula ao vivo). Vínculo por FK apenas (ADR 10):
  *  - admin: irrestrito;
  *  - instrutor: cursos que leciona (InstructorScope);
- *  - aluno: curso em que está matriculado, que já concluiu, ou com admissão aprovada.
+ *  - aluno: curso em que está matriculado (principal ou extra, na matrícula
+ *    múltipla), que já concluiu, ou com admissão aprovada.
  *
  * $requester = ['sub'=>id, 'name'=>..., 'role'=>...].
  */
@@ -50,8 +51,8 @@ final class CourseAccess
     }
 
     /**
-     * IDs dos cursos aos quais um aluno pertence (matrícula ativa + concluídos +
-     * admissões aprovadas).
+     * IDs dos cursos aos quais um aluno pertence (matrícula ativa, principal e
+     * extras + concluídos + admissões aprovadas).
      *
      * @return list<string>
      */
@@ -65,6 +66,15 @@ final class CourseAccess
                 $ids[] = $enrollment->enrolledCourseId;
             }
             foreach ((array) ($enrollment->completedCourseIds ?? []) as $courseId) {
+                if (is_string($courseId) && $courseId !== '') {
+                    $ids[] = $courseId;
+                }
+            }
+            // Matrícula múltipla: o EnrollmentService grava o segundo curso aqui e o
+            // painel do aluno o trata como matrícula. Sem esta leitura, o aluno abria
+            // o curso extra e recebia a versão sem material (semMaterial) — aula em
+            // branco, sem anexos — e ficava barrado em avaliação, fórum e chat.
+            foreach ((array) ($enrollment->extraCourseIds ?? []) as $courseId) {
                 if (is_string($courseId) && $courseId !== '') {
                     $ids[] = $courseId;
                 }
