@@ -6,13 +6,14 @@
 import React, { useState } from 'react';
 import {
   Pencil, Check, X, Trash2, Plus, HelpCircle, ChevronDown, ChevronUp,
-  Heading1, Heading2, AlignLeft, ListOrdered, List
+  Heading1, Heading2, AlignLeft, ListOrdered, List, Image as ImageIcon, Film
 } from 'lucide-react';
 import {
-  LessonBlock, parseLessonContent, serializeLessonBlock,
-  replaceLessonBlock, removeLessonBlock, insertLessonBlockAfter,
+  LessonBlock, LessonBlockRange, parseLessonContent, serializeLessonBlock,
+  replaceLessonBlock, removeLessonBlock, insertLessonBlockAt,
 } from '../../utils/lessonContent';
 import { LessonContent } from '../student/LessonContent';
+import { LessonMediaForm } from './LessonMediaForm';
 
 /** Linguagens que o bloco de código realmente realça (LessonCodeBlock). */
 const LINGUAGENS = [
@@ -43,6 +44,10 @@ const NOVOS_BLOCOS = [
   { kind: 'paragraph', label: 'Parágrafo', icon: AlignLeft, texto: 'Escreva o parágrafo aqui.' },
   { kind: 'orderedList', label: 'Lista numerada', icon: ListOrdered, texto: '1. Primeiro item\n2. Segundo item' },
   { kind: 'bulletList', label: 'Lista', icon: List, texto: '- Primeiro item\n- Segundo item' },
+  // Mídia não tem texto pronto: o arquivo ou o link só existem depois que o autor
+  // escolhe. `texto: null` faz o menu abrir o formulário em vez de inserir na hora.
+  { kind: 'image', label: 'Imagem', icon: ImageIcon, texto: null },
+  { kind: 'video', label: 'Vídeo', icon: Film, texto: null },
 ] as const;
 
 const ROTULO: Record<LessonBlock['kind'], string> = {
@@ -52,15 +57,77 @@ const ROTULO: Record<LessonBlock['kind'], string> = {
   orderedList: 'Lista numerada',
   bulletList: 'Lista',
   code: 'Bloco de código',
+  image: 'Imagem',
+  video: 'Vídeo',
 };
 
 interface LessonContentEditorProps {
   value: string;
   onChange: (next: string) => void;
+  /**
+   * Envio de arquivo — mesma assinatura de `uploadArquivo` do LMSContext. Vem por
+   * prop, e não por contexto, para o editor continuar montável em teste sem
+   * provider (o Harness usa `useState` puro) e para cada tela decidir se oferece
+   * envio. Sem ela, o bloco de imagem avisa que o envio não está disponível.
+   */
+  onUpload?: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
 }
 
 const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-apoio text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500';
 const rotuloCampo = 'block text-sobretitulo text-escult-ink-2 uppercase mb-1';
+
+/**
+ * Tipos entre os quais o trecho pode ser convertido. Código fica de fora: virar
+ * "lista" um trecho com indentação e cerca destruiria o código em vez de
+ * reaproveitá-lo, e quem edita aula não é quem escreve código (ver NOVOS_BLOCOS).
+ */
+const CONVERSIVEIS = ['section', 'subsection', 'paragraph', 'orderedList', 'bulletList'] as const;
+
+type TipoTexto = (typeof CONVERSIVEIS)[number];
+
+/** Uma linha por título/parágrafo/item — a forma comum a todos os conversíveis. */
+const linhasDoBloco = (block: LessonBlock): string => {
+  switch (block.kind) {
+    case 'section':
+    case 'subsection':
+    case 'paragraph':
+      return block.text;
+    case 'orderedList':
+    case 'bulletList':
+      return block.items.join('\n');
+    // Código e mídia não são "linhas de texto": não participam da conversão.
+    case 'code':
+    case 'image':
+    case 'video':
+      return '';
+  }
+};
+
+/** O trecho participa da troca de tipo? Mídia e código ficam de fora. */
+const ehConversivel = (kind: LessonBlock['kind']): kind is TipoTexto =>
+  (CONVERSIVEIS as readonly string[]).includes(kind);
+
+/**
+ * Monta o bloco do tipo escolhido a partir das linhas digitadas.
+ *
+ * Título é uma linha por natureza, então linhas soltas viram uma só; parágrafo
+ * preserva as quebras (cada linha vira um parágrafo); lista usa cada linha como
+ * item. `id` e `index` não participam da serialização — existem só para satisfazer
+ * o tipo, e o parser os recalcula na próxima leitura.
+ */
+const comoBloco = (kind: TipoTexto, partes: string[], range: LessonBlockRange): LessonBlock => {
+  switch (kind) {
+    case 'section':
+      return { kind, id: '', text: partes.join(' '), index: 0, range };
+    case 'subsection':
+      return { kind, id: '', text: partes.join(' '), range };
+    case 'paragraph':
+      return { kind, text: partes.join('\n'), range };
+    case 'orderedList':
+    case 'bulletList':
+      return { kind, items: partes, range };
+  }
+};
 
 /**
  * Formulário do bloco em edição. Cada tipo mostra só os campos que fazem
@@ -69,73 +136,120 @@ const rotuloCampo = 'block text-sobretitulo text-escult-ink-2 uppercase mb-1';
  */
 const BlockForm: React.FC<{
   block: LessonBlock;
+  onUpload?: LessonContentEditorProps['onUpload'];
+  onCancel: () => void;
+  onConfirm: (texto: string) => void;
+}> = ({ block, onUpload, onCancel, onConfirm }) => {
+  // Mídia tem formulário próprio (arquivo/link, descrição, legenda), e o mesmo
+  // componente serve ao menu "+" — assim a validação não existe em duplicata.
+  if (block.kind === 'image' || block.kind === 'video') {
+    return (
+      <LessonMediaForm
+        tipo={block.kind}
+        inicial={{
+          url: block.url,
+          texto: block.kind === 'image' ? block.alt : block.title,
+          caption: block.caption,
+        }}
+        onUpload={onUpload}
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+      />
+    );
+  }
+
+  return <BlockTextForm block={block} onCancel={onCancel} onConfirm={onConfirm} />;
+};
+
+/** Formulário dos trechos feitos de texto — inclui a troca de tipo. */
+const BlockTextForm: React.FC<{
+  block: LessonBlock;
   onCancel: () => void;
   onConfirm: (texto: string) => void;
 }> = ({ block, onCancel, onConfirm }) => {
-  const [texto, setTexto] = useState(
-    block.kind === 'section' || block.kind === 'subsection' || block.kind === 'paragraph' ? block.text : ''
-  );
-  const [itens, setItens] = useState(
-    block.kind === 'orderedList' || block.kind === 'bulletList' ? block.items.join('\n') : ''
-  );
+  // O tipo é editável: converter no lugar evita apagar o trecho e redigitá-lo só
+  // para trocar um parágrafo por seção.
+  const [kind, setKind] = useState<LessonBlock['kind']>(block.kind);
+  const [linhas, setLinhas] = useState(linhasDoBloco(block));
   const [codigo, setCodigo] = useState(block.kind === 'code' ? block.code : '');
   const [legenda, setLegenda] = useState(block.kind === 'code' ? (block.caption ?? '') : '');
   const [linguagem, setLinguagem] = useState(block.kind === 'code' ? (block.language ?? 'java') : 'java');
 
+  const partes = linhas.split('\n').map((l) => l.trim()).filter((l) => l !== '');
+  // Só o que é feito de linhas pode estar "vazio": exigir texto de uma imagem
+  // deixaria o botão Aplicar desabilitado para sempre.
+  const conversivel = ehConversivel(block.kind);
+  const vazio = conversivel && partes.length === 0;
+
+  const trocarTipo = (proximo: TipoTexto) => {
+    // Título mora num campo de uma linha: converter já juntando as quebras evita
+    // que o campo esconda texto que o autor tinha escrito.
+    if (proximo === 'section' || proximo === 'subsection') setLinhas(partes.join(' '));
+    setKind(proximo);
+  };
+
   const confirmar = () => {
-    switch (block.kind) {
-      case 'section':
-      case 'subsection':
-      case 'paragraph':
-        onConfirm(serializeLessonBlock({ ...block, text: texto.trim() }));
-        break;
-      case 'orderedList':
-      case 'bulletList':
-        onConfirm(serializeLessonBlock({
-          ...block,
-          items: itens.split('\n').map((i) => i.trim()).filter((i) => i !== ''),
-        }));
-        break;
-      case 'code':
-        onConfirm(serializeLessonBlock({
-          ...block,
-          language: linguagem,
-          caption: legenda.trim() === '' ? null : legenda.trim(),
-          code: codigo,
-        }));
-        break;
+    if (block.kind === 'code') {
+      onConfirm(serializeLessonBlock({
+        ...block,
+        language: linguagem,
+        caption: legenda.trim() === '' ? null : legenda.trim(),
+        code: codigo,
+      }));
+
+      return;
     }
+
+    // Trecho vazio não vira bloco: gravaria "## " e sujaria o conteúdo.
+    if (vazio || !ehConversivel(kind)) return;
+
+    onConfirm(serializeLessonBlock(comoBloco(kind, partes, block.range)));
   };
 
   return (
     <div className="rounded-xl border-2 border-teal-500/60 bg-teal-50/20 p-3 space-y-2.5">
-      <span className="text-sobretitulo uppercase text-teal-700">
-        Editando: {ROTULO[block.kind]}
-      </span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sobretitulo uppercase text-teal-700">
+          Editando: {ROTULO[block.kind]}
+        </span>
 
-      {(block.kind === 'section' || block.kind === 'subsection') && (
+        {conversivel && (
+          <label className="flex items-center gap-1.5">
+            <span className="text-sobretitulo uppercase text-escult-ink-2">Tipo</span>
+            <select
+              value={kind}
+              onChange={(e) => trocarTipo(e.target.value as TipoTexto)}
+              className="rounded-lg border border-slate-200 p-1.5 text-apoio font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+            >
+              {CONVERSIVEIS.map((k) => <option key={k} value={k}>{ROTULO[k]}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
+
+      {(kind === 'section' || kind === 'subsection') && (
         <div>
           <label className={rotuloCampo}>
-            {block.kind === 'section' ? 'Título da seção (entra no índice)' : 'Subtítulo'}
+            {kind === 'section' ? 'Título da seção (entra no índice)' : 'Subtítulo'}
           </label>
-          <input type="text" autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} className={`${campo} font-bold`} />
+          <input type="text" autoFocus value={linhas} onChange={(e) => setLinhas(e.target.value)} className={`${campo} font-bold`} />
         </div>
       )}
 
-      {block.kind === 'paragraph' && (
+      {kind === 'paragraph' && (
         <div>
           <label className={rotuloCampo}>Texto do parágrafo</label>
-          <textarea rows={4} autoFocus value={texto} onChange={(e) => setTexto(e.target.value)} className={campo} />
+          <textarea rows={4} autoFocus value={linhas} onChange={(e) => setLinhas(e.target.value)} className={campo} />
           <p className="mt-1 text-apoio text-escult-ink-2">
             Para destacar uma palavra, envolva com dois asteriscos: **assim**.
           </p>
         </div>
       )}
 
-      {(block.kind === 'orderedList' || block.kind === 'bulletList') && (
+      {(kind === 'orderedList' || kind === 'bulletList') && (
         <div>
           <label className={rotuloCampo}>Itens — um por linha</label>
-          <textarea rows={5} autoFocus value={itens} onChange={(e) => setItens(e.target.value)} className={`${campo} text-xs`} />
+          <textarea rows={5} autoFocus value={linhas} onChange={(e) => setLinhas(e.target.value)} className={`${campo} text-xs`} />
           <p className="mt-1 text-apoio text-escult-ink-2">
             A numeração é automática; não precisa escrever “1.” nem “-”.
           </p>
@@ -187,7 +301,9 @@ const BlockForm: React.FC<{
         <button
           type="button"
           onClick={confirmar}
-          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-500 px-3.5 py-1.5 text-sobretitulo uppercase text-white transition-colors cursor-pointer"
+          disabled={vazio}
+          title={vazio ? 'Escreva algo antes de aplicar' : undefined}
+          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-500 px-3.5 py-1.5 text-sobretitulo uppercase text-white transition-colors cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
           <Check className="h-3 w-3" /> Aplicar
         </button>
@@ -205,22 +321,50 @@ const BlockForm: React.FC<{
  * editar um bloco NÃO reescreve o resto do texto — indentação de código,
  * espaçamento e tudo o mais permanecem byte a byte.
  */
-export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value, onChange }) => {
+export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value, onChange, onUpload }) => {
   const [editando, setEditando] = useState<number | null>(null);
   const [adicionandoEm, setAdicionandoEm] = useState<number | null>(null);
+  /** Mídia sendo criada: em qual posição, e de que tipo. */
+  const [midiaNova, setMidiaNova] = useState<{ indice: number; tipo: 'image' | 'video' } | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
   const parsed = parseLessonContent(value);
 
   const adicionar = (indice: number, texto: string) => {
-    const alvo = indice < 0 ? null : parsed.blocks[indice]?.range ?? null;
-    onChange(insertLessonBlockAfter(value, alvo, texto));
+    // -1 é o menu do topo: o trecho novo entra ANTES de tudo, na posição 0.
+    // Para os demais, logo depois do bloco que o menu acompanha.
+    const bloco = indice < 0 ? null : parsed.blocks[indice];
+
+    // Índice fora da faixa é engano de programação, não pedido do autor: melhor
+    // não fazer nada do que despejar o trecho no fim da aula sem avisar.
+    if (indice >= 0 && bloco === undefined) {
+      setAdicionandoEm(null);
+
+      return;
+    }
+
+    onChange(insertLessonBlockAt(value, bloco === null ? 0 : bloco.range.end, texto));
     setAdicionandoEm(null);
+    setMidiaNova(null);
   };
 
   /** Menu "+" que aparece entre blocos. `indice` = -1 insere no começo. */
   const MenuAdicionar: React.FC<{ indice: number }> = ({ indice }) => {
     const aberto = adicionandoEm === indice;
+    const criandoMidia = midiaNova !== null && midiaNova.indice === indice;
+
+    if (criandoMidia) {
+      return (
+        <div className="py-1">
+          <LessonMediaForm
+            tipo={midiaNova.tipo}
+            onUpload={onUpload}
+            onCancel={() => setMidiaNova(null)}
+            onConfirm={(texto) => adicionar(indice, texto)}
+          />
+        </div>
+      );
+    }
 
     return (
       <div className="relative py-1">
@@ -234,7 +378,17 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                 <button
                   key={n.kind}
                   type="button"
-                  onClick={() => adicionar(indice, n.texto)}
+                  onClick={() => {
+                    // Mídia não tem texto pronto: abre o formulário e só insere
+                    // depois que o arquivo (ou o link) existir.
+                    if (n.texto === null) {
+                      setMidiaNova({ indice, tipo: n.kind === 'image' ? 'image' : 'video' });
+                      setAdicionandoEm(null);
+
+                      return;
+                    }
+                    adicionar(indice, n.texto);
+                  }}
                   className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-apoio font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
                 >
                   <n.icon className="h-3 w-3" /> {n.label}
@@ -297,12 +451,23 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
             <li>Clique em <strong>Adicionar</strong>, entre dois trechos, para inserir algo novo ali.</li>
             <li>A <strong>lixeira</strong> remove o trecho.</li>
             <li><strong>Seção</strong> numera a parte e cria o índice “Nesta aula”; <strong>Subtítulo</strong> separa assuntos dentro dela.</li>
+            <li>Ao editar um trecho, o campo <strong>Tipo</strong> converte o que já está escrito — uma lista numerada vira <strong>Seção</strong> sem redigitar o texto. Use isso quando os títulos estiverem saindo todos como “1.”: a Seção numera 1, 2, 3 pela aula inteira, mesmo com parágrafos no meio.</li>
+            <li><strong>Imagem</strong> põe uma figura no meio da aula, onde você clicar em Adicionar. A <strong>descrição é obrigatória</strong>: é o que o aluno recebe quando a imagem não carrega, e o que o leitor de tela lê em voz alta. A legenda (“Figura 1 - …”) aparece abaixo da figura.</li>
+            <li><strong>Vídeo</strong> encaixa um vídeo do YouTube no meio da explicação. O vídeo <em>principal</em> da aula continua no campo do topo desta página — este aqui é complemento.</li>
+            <li>Imagem enviada fica num endereço público: quem tiver o link abre o arquivo sem estar matriculado. <strong>Não use imagem para prova, gabarito ou dado pessoal.</strong></li>
           </ul>
         </div>
       )}
 
       <div className="rounded-xl border border-slate-200 bg-white p-4">
-        {parsed.blocks.length === 0 ? (
+        {parsed.blocks.length === 0 && midiaNova !== null ? (
+          <LessonMediaForm
+            tipo={midiaNova.tipo}
+            onUpload={onUpload}
+            onCancel={() => setMidiaNova(null)}
+            onConfirm={(texto) => { onChange(texto); setMidiaNova(null); }}
+          />
+        ) : parsed.blocks.length === 0 ? (
           <div className="py-6 text-center space-y-3">
             <p className="text-xs text-escult-ink-2 italic">Esta aula ainda não tem material escrito.</p>
             <div className="flex flex-wrap justify-center gap-1.5">
@@ -310,7 +475,14 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                 <button
                   key={n.kind}
                   type="button"
-                  onClick={() => onChange(n.texto)}
+                  onClick={() => {
+                    if (n.texto === null) {
+                      setMidiaNova({ indice: -1, tipo: n.kind === 'image' ? 'image' : 'video' });
+
+                      return;
+                    }
+                    onChange(n.texto);
+                  }}
                   className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-apoio font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
                 >
                   <Plus className="h-3 w-3" /> {n.label}
@@ -327,6 +499,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                 {editando === i ? (
                   <BlockForm
                     block={block}
+                    onUpload={onUpload}
                     onCancel={() => setEditando(null)}
                     onConfirm={(texto) => {
                       onChange(replaceLessonBlock(value, block.range, texto));

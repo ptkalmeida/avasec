@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useState } from 'react';
 import { LessonContentEditor } from '../../src/components/instructor/LessonContentEditor';
@@ -20,12 +20,15 @@ const CONTEUDO = [
 ].join('\n');
 
 /** Envolve o editor num estado real, como os formulários do instrutor fazem. */
-const Harness: React.FC<{ inicial?: string }> = ({ inicial = CONTEUDO }) => {
+const Harness: React.FC<{
+  inicial?: string;
+  onUpload?: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
+}> = ({ inicial = CONTEUDO, onUpload }) => {
   const [valor, setValor] = useState(inicial);
 
   return (
     <>
-      <LessonContentEditor value={valor} onChange={setValor} />
+      <LessonContentEditor value={valor} onChange={setValor} onUpload={onUpload} />
       <output data-testid="valor">{valor}</output>
     </>
   );
@@ -178,5 +181,138 @@ describe('LessonContentEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: /como funciona/i }));
 
     expect(screen.getByText(/entre dois trechos, para inserir/i)).toBeInTheDocument();
+  });
+});
+
+describe('LessonContentEditor — mídia no corpo da aula', () => {
+  const PNG = new File(['x'], 'diagrama.png', { type: 'image/png' });
+
+  /** Abre o primeiro menu "+" e escolhe um tipo pelo rótulo. */
+  const abrirMenu = (tipo: RegExp) => {
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: tipo }));
+  };
+
+  const enviar = (file: File) => {
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+  };
+
+  it('o menu Adicionar oferece Imagem e abre o formulário em vez de inserir texto', () => {
+    render(<Harness onUpload={vi.fn(async () => ({ ok: true, url: '/uploads/x.png' }))} />);
+    const antes = valor();
+
+    abrirMenu(/^imagem$/i);
+
+    expect(screen.getByText(/adicionar: imagem/i)).toBeInTheDocument();
+    // Nada foi inserido ainda: a imagem só existe depois do envio.
+    expect(valor()).toBe(antes);
+  });
+
+  it('envia o arquivo e grava o bloco de imagem no conteúdo', async () => {
+    const onUpload = vi.fn(async () => ({ ok: true, url: '/uploads/novo.png' }));
+    render(<Harness onUpload={onUpload} />);
+
+    abrirMenu(/^imagem$/i);
+    enviar(PNG);
+    await screen.findByText(/imagem enviada/i);
+
+    fireEvent.change(screen.getByPlaceholderText(/hierarquia das classes/i), {
+      target: { value: 'Diagrama das classes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    expect(onUpload).toHaveBeenCalledWith(PNG);
+    expect(valor()).toContain('![Diagrama das classes](/uploads/novo.png)');
+  });
+
+  it('não deixa aplicar enquanto a descrição estiver vazia', async () => {
+    render(<Harness onUpload={vi.fn(async () => ({ ok: true, url: '/uploads/x.png' }))} />);
+
+    abrirMenu(/^imagem$/i);
+    enviar(PNG);
+    await screen.findByText(/imagem enviada/i);
+
+    expect(screen.getByRole('button', { name: /aplicar/i })).toBeDisabled();
+  });
+
+  it('mostra a falha do envio sem perder o que já foi digitado', async () => {
+    render(<Harness onUpload={vi.fn(async () => ({ ok: false, error: 'Arquivo excede o tamanho máximo permitido.' }))} />);
+
+    abrirMenu(/^imagem$/i);
+    fireEvent.change(screen.getByPlaceholderText(/hierarquia das classes/i), {
+      target: { value: 'Minha descrição' },
+    });
+    enviar(PNG);
+
+    expect(await screen.findByText(/excede o tamanho máximo/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/hierarquia das classes/i)).toHaveValue('Minha descrição');
+  });
+
+  it('avisa quando a legenda não começa por Figura, Imagem ou Gráfico', async () => {
+    render(<Harness onUpload={vi.fn(async () => ({ ok: true, url: '/uploads/x.png' }))} />);
+
+    abrirMenu(/^imagem$/i);
+    enviar(PNG);
+    await screen.findByText(/imagem enviada/i);
+    fireEvent.change(screen.getByPlaceholderText(/hierarquia das classes/i), { target: { value: 'Um diagrama' } });
+    fireEvent.change(screen.getByPlaceholderText(/figura 1/i), { target: { value: 'o mapa do Brasil' } });
+
+    expect(screen.getByText(/comece a legenda por figura/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /aplicar/i })).toBeDisabled();
+  });
+
+  it('grava a legenda acima da imagem, para o parser associar as duas', async () => {
+    render(<Harness onUpload={vi.fn(async () => ({ ok: true, url: '/uploads/x.png' }))} />);
+
+    abrirMenu(/^imagem$/i);
+    enviar(PNG);
+    await screen.findByText(/imagem enviada/i);
+    fireEvent.change(screen.getByPlaceholderText(/hierarquia das classes/i), { target: { value: 'Um diagrama' } });
+    fireEvent.change(screen.getByPlaceholderText(/figura 1/i), { target: { value: 'Figura 1 - o diagrama' } });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    expect(valor()).toContain('Figura 1 - o diagrama\n![Um diagrama](/uploads/x.png)');
+  });
+
+  it('vídeo do corpo aceita link do YouTube e recusa endereço qualquer', () => {
+    render(<Harness />);
+
+    abrirMenu(/^vídeo$/i);
+    const campo = screen.getByPlaceholderText(/cole o link do youtube/i);
+
+    fireEvent.change(campo, { target: { value: 'https://exemplo.com/pagina' } });
+    expect(screen.getByText(/não reconhecemos esse link/i)).toBeInTheDocument();
+
+    fireEvent.change(campo, { target: { value: 'https://youtu.be/dQw4w9WgXcQ' } });
+    expect(screen.queryByText(/não reconhecemos esse link/i)).not.toBeInTheDocument();
+  });
+
+  it('sem envio de arquivo disponível, o formulário avisa em vez de travar', () => {
+    render(<Harness />);
+
+    abrirMenu(/^imagem$/i);
+
+    expect(screen.getByText(/envio de arquivos não está disponível/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /escolher imagem/i })).toBeDisabled();
+  });
+
+  it('o lápis do bloco de imagem abre o formulário preenchido, sem o seletor de Tipo', () => {
+    render(<Harness inicial={'Figura 1 - o diagrama\n![Um diagrama](/uploads/x.png)'} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /editar imagem/i }));
+
+    expect(screen.getByDisplayValue('Um diagrama')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Figura 1 - o diagrama')).toBeInTheDocument();
+    // Imagem não é conversível: converter em parágrafo jogaria o endereço fora.
+    expect(screen.queryByText('Tipo')).not.toBeInTheDocument();
+  });
+
+  it('a lixeira remove a imagem e a legenda de uma vez', () => {
+    render(<Harness inicial={'Um parágrafo.\n\nFigura 1 - o diagrama\n![Um diagrama](/uploads/x.png)'} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /remover imagem/i }));
+
+    expect(valor()).toBe('Um parágrafo.');
   });
 });

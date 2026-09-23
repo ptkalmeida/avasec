@@ -1736,6 +1736,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               updateLesson(selectedCourseId, managedLesson.id, { videoUrl });
               showToast(videoUrl === '' ? 'Vídeo removido da aula.' : 'Vídeo da aula atualizado!');
             }}
+            onUpload={uploadArquivo}
             onSaveContent={(content) => {
               if (!content) {
                 showToast('O material didático não pode ficar vazio.');
@@ -2452,7 +2453,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               <LessonVideoField value={lessonVideoUrl} onChange={setLessonVideoUrl} />
 
-              <LessonContentEditor value={lessonContent} onChange={setLessonContent} />
+              <LessonContentEditor value={lessonContent} onChange={setLessonContent} onUpload={uploadArquivo} />
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
