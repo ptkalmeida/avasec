@@ -35,7 +35,6 @@ import {
   abaDaSecao, secaoDaAba, caminhoInstrutor, parseInstrutor,
 } from '../router/instructorRoutes';
 import { AvaliacoesManagePanel } from './instructor/AvaliacoesManagePanel';
-import { DocumentosDisciplinaPage } from './instructor/DocumentosDisciplinaPage';
 import { courseMinAttendance } from '../config/constants';
 import { safeHref } from '../utils/safeUrl';
 import { cursoPorRef, refDoCurso, refEhCanonica } from '../utils/cursoRef';
@@ -240,13 +239,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   
   // Advanced Tools States
   const [isEditingCourse, setIsEditingCourse] = usarJanela('editar-curso');
-  /*
-   * Página de documentos da disciplina. Substitui o botão "Biblioteca Digital",
-   * que abria um modal só de cadastro, para o acervo GERAL da escola
-   * (`LibraryItem` não tem courseId) e atrás de uma flag desligada — então o que
-   * ele salvava ficava no localStorage.
-   */
-  const [showDocumentos, setShowDocumentos] = usarJanela('documentos');
   const [isCreatingWebinar, setIsCreatingWebinar] = useState(false);
 
   // Edit Course Meta
@@ -287,11 +279,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     .map(s => s.id);
 
   const handleBack = () => {
-    if (showDocumentos) {
-      // A página de documentos é um modo de tela cheia: o Voltar do topo tem de
-      // fechá-la antes de sair da gestão, senão o clique pula dois níveis.
-      setShowDocumentos(false);
-    } else if (isEditingCourse) {
+    if (isEditingCourse) {
       setIsEditingCourse(false);
     } else if (isCreatingCourse) {
       setIsCreatingCourse(false);
@@ -309,7 +297,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   };
 
   const getBackLabel = () => {
-    if (showDocumentos || isEditingCourse || isCreatingCourse || isCreatingLesson || isCreatingWebinar || isCreatingLive) {
+    if (isEditingCourse || isCreatingCourse || isCreatingLesson || isCreatingWebinar || isCreatingLive) {
       return "Voltar p/ Gestão";
     }
     if (activeDashboardTab !== 'general') {
@@ -942,8 +930,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     modo — e nao navega. Era o que o `handleBack` fazia junto com a navegacao, e
     e funcao que a trilha nao substitui.
   */
-  const modoAberto = showDocumentos || isEditingCourse || isCreatingCourse
-    || isCreatingLesson || isCreatingWebinar || isCreatingLive;
+  const modoAberto = isEditingCourse || isCreatingCourse || isCreatingLesson
+    || isCreatingWebinar || isCreatingLive;
 
   return (
     <>
@@ -1532,8 +1520,14 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             UMA disciplina, e sem curso escolhido ficava um título sozinho sobre
             nada. Se voltar a existir ferramenta global (Agendar Webinar era uma),
             ela sai desta guarda.
+
+            "Documentos da Disciplina" saiu daqui em 23/09/2026: a visão de todos
+            os anexos, com a contagem de aulas sem material, era redundante — cada
+            aula já anexa e remove o próprio material no bloco "Material de apoio"
+            (LessonManagePage). Com isso, a única ferramenta que resta é a de
+            webinar, e a seção segue a flag dela para não virar título sem nada.
           */}
-          {activeCourse && (
+          {activeCourse && features.eventosWebinars && (
           <section className="space-y-4">
             <h4 className="text-sobretitulo text-escult-ink-2 uppercase flex items-center gap-2 px-1">
               <Grid className="h-3.5 w-3.5" />
@@ -1541,28 +1535,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             </h4>
             
             <div className="grid grid-cols-1 gap-3">
-              {/*
-"Documentos da Disciplina" e de UM curso: abre o material das
-                aulas de `activeCourse`. Sem curso escolhido o botao levava a uma
-                pagina sem disciplina nenhuma — mesma regra de curso-primeiro que
-                vale para os submenus.
-              */}
-              {activeCourse && (
-              <button
-                onClick={() => setShowDocumentos(true)}
-                className="w-full p-4 rounded-2xl border border-slate-200 bg-white hover:border-teal-300 hover:shadow-sm transition-all text-left flex items-center gap-4 group cursor-pointer"
-              >
-                <div className="p-3 rounded-xl bg-teal-50 text-teal-700 group-hover:bg-teal-100 transition-colors">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <span className="block font-bold text-slate-900 text-xs">Documentos da Disciplina</span>
-                  <p className="text-apoio text-escult-ink-2 leading-tight mt-0.5">
-                    Material de todas as aulas em um lugar.
-                  </p>
-                </div>
-              </button>
-              )}
               {/* Agendar webinar depende da flag: sem ela as rotas /api/webinars
                   respondem 404 e o professor preencheria o formulário para
                   receber erro. Era o único ponto de webinar sem porteiro. */}
@@ -1659,21 +1631,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           */}
         </div>
       </div>
-      )}
-
-      {/* DOCUMENTOS DA DISCIPLINA — página, não modal. */}
-      {activeDashboardTab === 'general' && showDocumentos && activeCourse && (
-        <div className="animate-in fade-in duration-300">
-          <DocumentosDisciplinaPage
-            courseTitle={activeCourse.title}
-            lessons={activeCourse.lessons}
-            onSave={(lessonId, documents) => updateLesson(activeCourse.id, lessonId, { documents })}
-            onUpload={uploadArquivo}
-            confirmar={(pergunta) => window.confirm(pergunta)}
-            notify={showToast}
-            onBack={() => setShowDocumentos(false)}
-          />
-        </div>
       )}
 
       {/*
