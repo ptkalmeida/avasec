@@ -23,12 +23,13 @@ const CONTEUDO = [
 const Harness: React.FC<{
   inicial?: string;
   onUpload?: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
-}> = ({ inicial = CONTEUDO, onUpload }) => {
+  videoUrlDaAula?: string;
+}> = ({ inicial = CONTEUDO, onUpload, videoUrlDaAula }) => {
   const [valor, setValor] = useState(inicial);
 
   return (
     <>
-      <LessonContentEditor value={valor} onChange={setValor} onUpload={onUpload} />
+      <LessonContentEditor value={valor} onChange={setValor} onUpload={onUpload} videoUrlDaAula={videoUrlDaAula} />
       <output data-testid="valor">{valor}</output>
     </>
   );
@@ -439,5 +440,78 @@ describe('LessonContentEditor — conferência do arquivo enviado', () => {
 
     expect(await screen.findByText('grande.png')).toBeInTheDocument();
     expect(screen.getByText(/esta imagem é pesada \(3\.0 MB\)/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Papéis dos dois vídeos (Caso 5, Fase 4): o do topo é o principal, o do corpo é
+ * complemento. A comparação é pela fonte interpretada, não pelo texto do link.
+ */
+describe('LessonContentEditor — vídeo principal e vídeo complementar', () => {
+  const abrirVideo = () => {
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar/i })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /^vídeo$/i }));
+  };
+
+  const colar = (link: string) => {
+    fireEvent.change(screen.getByPlaceholderText(/cole o link do youtube/i), { target: { value: link } });
+  };
+
+  it('o formulário do corpo se apresenta como vídeo complementar', () => {
+    render(<Harness />);
+    abrirVideo();
+
+    expect(screen.getByText(/adicionar: vídeo complementar/i)).toBeInTheDocument();
+    expect(screen.getByText(/o vídeo principal da aula fica no campo do topo/i)).toBeInTheDocument();
+  });
+
+  it('avisa quando o vídeo do corpo é o mesmo do topo', () => {
+    render(<Harness videoUrlDaAula="https://youtu.be/dQw4w9WgXcQ" />);
+    abrirVideo();
+    colar('https://youtu.be/dQw4w9WgXcQ');
+
+    expect(screen.getByText(/este já é o vídeo principal da aula/i)).toBeInTheDocument();
+  });
+
+  it('reconhece o mesmo vídeo mesmo com formato de link diferente', () => {
+    render(<Harness videoUrlDaAula="https://www.youtube.com/watch?v=dQw4w9WgXcQ" />);
+    abrirVideo();
+    colar('https://youtu.be/dQw4w9WgXcQ');
+
+    expect(screen.getByText(/este já é o vídeo principal da aula/i)).toBeInTheDocument();
+  });
+
+  it('não avisa quando os vídeos são diferentes', () => {
+    render(<Harness videoUrlDaAula="https://youtu.be/dQw4w9WgXcQ" />);
+    abrirVideo();
+    colar('https://youtu.be/9bZkp7q19f0');
+
+    expect(screen.queryByText(/este já é o vídeo principal da aula/i)).not.toBeInTheDocument();
+  });
+
+  it('o aviso de repetição não impede aplicar', () => {
+    render(<Harness videoUrlDaAula="https://youtu.be/dQw4w9WgXcQ" />);
+    abrirVideo();
+    colar('https://youtu.be/dQw4w9WgXcQ');
+    fireEvent.change(screen.getByPlaceholderText(/demonstração do cadastro/i), { target: { value: 'Revisão' } });
+
+    expect(screen.getByRole('button', { name: /aplicar/i })).toBeEnabled();
+  });
+
+  it('sugere o campo do topo quando a aula ainda não tem vídeo principal', () => {
+    render(<Harness videoUrlDaAula="" />);
+    abrirVideo();
+    colar('https://youtu.be/dQw4w9WgXcQ');
+
+    expect(screen.getByText(/esta aula ainda não tem vídeo principal/i)).toBeInTheDocument();
+  });
+
+  it('sem saber o vídeo do topo, não opina', () => {
+    render(<Harness />);
+    abrirVideo();
+    colar('https://youtu.be/dQw4w9WgXcQ');
+
+    expect(screen.queryByText(/este já é o vídeo principal/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ainda não tem vídeo principal/i)).not.toBeInTheDocument();
   });
 });

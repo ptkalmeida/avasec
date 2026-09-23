@@ -71,6 +71,11 @@ interface LessonContentEditorProps {
    * envio. Sem ela, o bloco de imagem avisa que o envio não está disponível.
    */
   onUpload?: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
+  /**
+   * Vídeo principal da aula (o do topo). Serve para o bloco de vídeo do corpo
+   * avisar quando repete o mesmo vídeo. Ausente = a tela não sabe, e não avisa.
+   */
+  videoUrlDaAula?: string;
 }
 
 const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-apoio text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500';
@@ -137,9 +142,10 @@ const comoBloco = (kind: TipoTexto, partes: string[], range: LessonBlockRange): 
 const BlockForm: React.FC<{
   block: LessonBlock;
   onUpload?: LessonContentEditorProps['onUpload'];
+  videoUrlDaAula?: string;
   onCancel: () => void;
   onConfirm: (texto: string) => void;
-}> = ({ block, onUpload, onCancel, onConfirm }) => {
+}> = ({ block, onUpload, videoUrlDaAula, onCancel, onConfirm }) => {
   // Mídia tem formulário próprio (arquivo/link, descrição, legenda), e o mesmo
   // componente serve ao menu "+" — assim a validação não existe em duplicata.
   if (block.kind === 'image' || block.kind === 'video') {
@@ -152,6 +158,7 @@ const BlockForm: React.FC<{
           caption: block.caption,
         }}
         onUpload={onUpload}
+        videoUrlDaAula={videoUrlDaAula}
         onCancel={onCancel}
         onConfirm={onConfirm}
       />
@@ -321,7 +328,7 @@ const BlockTextForm: React.FC<{
  * editar um bloco NÃO reescreve o resto do texto — indentação de código,
  * espaçamento e tudo o mais permanecem byte a byte.
  */
-export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value, onChange, onUpload }) => {
+export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value, onChange, onUpload, videoUrlDaAula }) => {
   const [editando, setEditando] = useState<number | null>(null);
   const [adicionandoEm, setAdicionandoEm] = useState<number | null>(null);
   /** Mídia sendo criada: em qual posição, e de que tipo. */
@@ -359,6 +366,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
           <LessonMediaForm
             tipo={midiaNova.tipo}
             onUpload={onUpload}
+            videoUrlDaAula={videoUrlDaAula}
             onCancel={() => setMidiaNova(null)}
             onConfirm={(texto) => adicionar(indice, texto)}
           />
@@ -464,6 +472,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
           <LessonMediaForm
             tipo={midiaNova.tipo}
             onUpload={onUpload}
+            videoUrlDaAula={videoUrlDaAula}
             onCancel={() => setMidiaNova(null)}
             onConfirm={(texto) => { onChange(texto); setMidiaNova(null); }}
           />
@@ -500,6 +509,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                   <BlockForm
                     block={block}
                     onUpload={onUpload}
+                    videoUrlDaAula={videoUrlDaAula}
                     onCancel={() => setEditando(null)}
                     onConfirm={(texto) => {
                       onChange(replaceLessonBlock(value, block.range, texto));

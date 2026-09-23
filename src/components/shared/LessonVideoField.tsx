@@ -24,7 +24,7 @@ export const LessonVideoField: React.FC<LessonVideoFieldProps> = ({ value, onCha
     <div>
       <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1 flex items-center gap-1.5">
         <Youtube className="h-3.5 w-3.5 text-red-500" />
-        Vídeo da aula (opcional)
+        Vídeo principal da aula (opcional, abre no topo)
       </label>
       <p className="text-rotulo text-escult-ink-2 mb-2 leading-relaxed">
         Abra o vídeo no YouTube, copie o endereço que aparece na barra do navegador e cole aqui.

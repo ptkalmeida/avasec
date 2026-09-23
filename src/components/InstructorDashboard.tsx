@@ -2453,7 +2453,12 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
               <LessonVideoField value={lessonVideoUrl} onChange={setLessonVideoUrl} />
 
-              <LessonContentEditor value={lessonContent} onChange={setLessonContent} onUpload={uploadArquivo} />
+              <LessonContentEditor
+                value={lessonContent}
+                onChange={setLessonContent}
+                onUpload={uploadArquivo}
+                videoUrlDaAula={lessonVideoUrl}
+              />
             </div>
 
             <div className="mt-6 flex justify-end gap-2">

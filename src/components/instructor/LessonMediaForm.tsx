@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, X, Upload, AlertCircle, CheckCircle2, Loader2, ImageOff } from 'lucide-react';
 import { ehLegenda, parseLessonContent, serializeLessonBlock } from '../../utils/lessonContent';
-import { parseVideoSource } from '../../utils/videoSource';
+import { parseVideoSource, VideoSource } from '../../utils/videoSource';
 import { safeUrl } from '../../utils/safeUrl';
 import { LessonContent } from '../student/LessonContent';
 
@@ -35,6 +35,8 @@ interface LessonMediaFormProps {
   inicial?: MediaInicial;
   /** Mesma assinatura de `uploadArquivo` do LMSContext. */
   onUpload?: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
+  /** Vídeo principal (o do topo da aula). Ausente = a tela não sabe, e não avisa. */
+  videoUrlDaAula?: string;
   onCancel: () => void;
   /** Recebe o trecho JÁ serializado, pronto para entrar no conteúdo. */
   onConfirm: (texto: string) => void;
@@ -42,6 +44,14 @@ interface LessonMediaFormProps {
 
 const formatarTamanho = (bytes: number): string =>
   bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+/** Mesmo vídeo? YouTube compara pelo id; arquivo, pelo endereço. */
+const mesmaFonte = (a: VideoSource, b: VideoSource): boolean => {
+  if (a.provider === 'youtube' && b.provider === 'youtube') return a.videoId === b.videoId;
+  if (a.provider === 'file' && b.provider === 'file') return a.url === b.url;
+
+  return false;
+};
 
 /**
  * Libera a miniatura local. Checa a função pela mesma razão que a criação checa
@@ -71,7 +81,7 @@ const extensao = (nome: string): string => {
  * mp4/webm (config/uploads.php) e o ADR 08 define o YouTube como origem.
  */
 export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
-  tipo, inicial, onUpload, onCancel, onConfirm,
+  tipo, inicial, onUpload, videoUrlDaAula, onCancel, onConfirm,
 }) => {
   const [url, setUrl] = useState(inicial?.url ?? '');
   const [texto, setTexto] = useState(inicial?.texto ?? '');
@@ -102,6 +112,14 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
 
   const ehImagem = tipo === 'image';
   const videoReconhecido = ehImagem ? null : parseVideoSource(url.trim());
+
+  // Dois lugares para pôr vídeo confundem: o do topo (principal) e o do corpo
+  // (complemento). A comparação é pela fonte interpretada, não pelo texto do link
+  // — youtu.be/X e youtube.com/watch?v=X são o mesmo vídeo.
+  const topoInformado = videoUrlDaAula !== undefined;
+  const fonteDoTopo = topoInformado ? parseVideoSource(videoUrlDaAula.trim()) : null;
+  const repeteOTopo = videoReconhecido !== null && fonteDoTopo !== null && mesmaFonte(videoReconhecido, fonteDoTopo);
+  const aulaSemVideoPrincipal = topoInformado && fonteDoTopo === null;
 
   // Recém-enviada: miniatura do arquivo local, instantânea e sem rede. Bloco
   // reaberto pelo lápis: não há File, só o endereço gravado — que passa pelo
@@ -147,7 +165,7 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
   return (
     <div className="rounded-xl border-2 border-teal-500/60 bg-teal-50/20 p-3 space-y-2.5">
       <span className="text-sobretitulo uppercase text-teal-700">
-        {inicial ? 'Editando' : 'Adicionar'}: {ehImagem ? 'Imagem' : 'Vídeo'}
+        {inicial ? 'Editando' : 'Adicionar'}: {ehImagem ? 'Imagem' : 'Vídeo complementar'}
       </span>
 
       {ehImagem ? (
@@ -225,6 +243,10 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
       ) : (
         <div>
           <label className={rotuloCampo}>Link do vídeo no YouTube</label>
+          <p className="mb-1.5 text-apoio text-escult-ink-2">
+            Vídeo complementar, no meio da explicação. O vídeo principal da aula fica no campo do
+            topo desta página e abre antes do texto.
+          </p>
           <input
             type="text"
             inputMode="url"
@@ -240,6 +262,25 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
               <span>
                 Não reconhecemos esse link. Copie o endereço direto do vídeo no YouTube — ele
                 começa com https://www.youtube.com ou https://youtu.be.
+              </span>
+            </p>
+          )}
+          {/* Avisos, não bloqueios: quem escreve pode ter motivo para repetir. */}
+          {repeteOTopo && (
+            <p className="mt-1 flex items-start gap-1.5 text-apoio font-bold text-amber-700">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+              <span>
+                Este já é o vídeo principal da aula, no topo. Repetir aqui faz o aluno ver o mesmo
+                vídeo duas vezes.
+              </span>
+            </p>
+          )}
+          {videoReconhecido !== null && aulaSemVideoPrincipal && (
+            <p className="mt-1 flex items-start gap-1.5 text-apoio text-escult-ink-2">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+              <span>
+                Esta aula ainda não tem vídeo principal. Se este for o vídeo principal, use o campo
+                do topo da página — ele abre antes do texto.
               </span>
             </p>
           )}
