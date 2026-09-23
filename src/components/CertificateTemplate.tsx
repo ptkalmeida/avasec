@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { DocumentoImprimivel } from './shared/AreaDeImpressao';
 import { Award, Check, Download, Printer, ShieldCheck, X } from 'lucide-react';
 import { Certificate, DocumentTemplate } from '../types';
 import { downloadCertificatePdf } from '../utils/fileDownload';
@@ -26,7 +27,6 @@ const DEFAULT_TEMPLATE: Pick<DocumentTemplate, 'institutionName' | 'signatories'
 
 export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certificate, onClose }) => {
   const { getDocumentTemplate } = useLMS();
-  const printRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
@@ -41,11 +41,10 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
     return () => { cancelled = true; };
   }, [getDocumentTemplate]);
 
-  const handlePrint = () => {
-    if (printRef.current) {
-      window.print();
-    }
-  };
+  // O antigo `if (printRef.current)` era guarda morta — o certificado sempre
+  // existe enquanto o modal está aberto — e a ref não pode ficar no documento,
+  // que agora é renderizado duas vezes (tela e cópia de impressão).
+  const handlePrint = () => window.print();
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true);
@@ -62,32 +61,10 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-certificate, #printable-certificate * {
-            visibility: visible !important;
-          }
-          #printable-certificate {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            max-height: 100% !important;
-            border: 8px double #78350f !important;
-            background: #fffcf9 !important;
-            padding: 2.5rem !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            border-radius: 0.5rem !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-      `}</style>
+      {/* Impressão via DocumentoImprimivel (ver o certificado abaixo). A regra
+          antiga punha position: fixed no próprio certificado, repetido pelo
+          navegador em cada página. O PDF oficial continua sendo o do servidor
+          (ADR 09, botão "Baixar PDF"); esta é a impressão da prévia. */}
 
       <div className="relative my-8 w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl md:p-8 animate-in fade-in zoom-in-95 duration-200">
         
@@ -130,10 +107,9 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
           </div>
         </div>
 
-        {/* The Printable Certificate Design */}
+        {/* The Printable Certificate Design — na tela e, idêntico, na impressão */}
+        <DocumentoImprimivel>
         <div
-          ref={printRef}
-          id="printable-certificate"
           className="relative overflow-hidden rounded-xl border-12 border-double border-amber-800 bg-linear-to-b from-amber-50/50 to-orange-50/30 p-8 md:p-12 text-center shadow-inner"
           style={{ fontFamily: 'Georgia, serif' }}
         >
@@ -216,6 +192,7 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
             </div>
           </div>
         </div>
+        </DocumentoImprimivel>
 
         {/* Info footer */}
         <div className="mt-5 text-center text-xs text-slate-500">
