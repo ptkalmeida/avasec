@@ -15,6 +15,7 @@ import { CertificateTemplate } from './CertificateTemplate';
 import { EncerrarMatriculaPanel } from './student/EncerrarMatriculaPanel';
 import { aulasConcluidas, mediaProgresso, progressoPercent, registroDoAluno } from '../utils/courseProgress';
 import { downloadCertificatePdf } from '../utils/fileDownload';
+import { DocumentoImprimivel } from './shared/AreaDeImpressao';
 import type { Certificate } from '../types';
 
 interface ProfileViewProps {
@@ -1915,37 +1916,13 @@ export function ProfileView({
               if (e.target === e.currentTarget) setIsDossierOpen(false);
             }}
           >
-            <style>{`
-              @media print {
-                body * {
-                  visibility: hidden !important;
-                }
-                #printable-dossier, #printable-dossier * {
-                  visibility: visible !important;
-                }
-                #printable-dossier {
-                  position: absolute !important;
-                  left: 0 !important;
-                  top: 0 !important;
-                  width: 100% !important;
-                  background: #ffffff !important;
-                  color: #000000 !important;
-                  padding: 2.5rem !important;
-                  margin: 0 !important;
-                  box-shadow: none !important;
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                }
-                .no-print {
-                  display: none !important;
-                }
-              }
-            `}</style>
-
+            {/* A impressão é resolvida por DocumentoImprimivel, lá embaixo: a regra
+                antiga (visibility + overlay fixed) repetia a primeira página e
+                perdia o resto do histórico. Ver .ai/planejamento/09. */}
             <div className="relative my-8 w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl md:p-8 animate-in zoom-in-95 duration-200">
-              
-              {/* Upper actions panel (Hidden in Print) */}
-              <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-4 no-print">
+
+              {/* Upper actions panel — fica só na tela; não entra na cópia de impressão */}
+              <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-4">
                 <div className="flex items-center gap-2.5">
                   <div className="bg-escult-surface p-2.5 rounded-xl border border-escult-line flex items-center justify-center">
                     <FileText className="h-6 w-6 text-escult-purple" />
@@ -1980,9 +1957,9 @@ export function ProfileView({
                 </div>
               </div>
 
-              {/* Printable Document Sheet */}
-              <div 
-                id="printable-dossier" 
+              {/* Printable Document Sheet — na tela e, idêntica, na cópia de impressão */}
+              <DocumentoImprimivel>
+              <div
                 className="bg-white p-2 md:p-6 text-slate-800"
                 style={{ fontFamily: 'var(--font-sans), system-ui, sans-serif' }}
               >
@@ -2194,6 +2171,7 @@ export function ProfileView({
                 </div>
 
               </div>
+              </DocumentoImprimivel>
 
             </div>
           </div>
