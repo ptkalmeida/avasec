@@ -9,6 +9,7 @@ import { useLMS } from '../context/LMSContext';
 import { AbaAdmin, SubAbaRelatorio, caminhoAdmin, parseAdmin } from '../router/adminRoutes';
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
 import { downloadSubmissionFile, previewDocumentTemplatePdf } from '../utils/fileDownload';
+import { DocumentoImprimivel } from './shared/AreaDeImpressao';
 import { courseMinAttendance } from '../config/constants';
 import { gruposVisiveisDoAdmin, itemDoAdmin, itensVisiveisDoAdmin } from '../config/menuAdmin';
 import { isCourseExpired, StudentEnrollment, DocumentTemplate } from '../types';
@@ -4359,33 +4360,9 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
             if (e.target === e.currentTarget) setActiveDocViewer(null);
           }}
         >
-          <style>{`
-            @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              #printable-doc, #printable-doc * {
-                visibility: visible !important;
-              }
-              #printable-doc {
-                position: fixed !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                height: auto !important;
-                max-height: 100% !important;
-                padding: 2.5rem !important;
-                background: white !important;
-                box-shadow: none !important;
-                border: none !important;
-                margin: 0 !important;
-                border-radius: 0.5rem !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-            }
-          `}</style>
-
+          {/* Impressão via DocumentoImprimivel (ver a Área Imprimível abaixo). A
+              regra antiga punha position: fixed no próprio documento, e documento
+              com mais de uma página saía truncado. Ver .ai/planejamento/09. */}
           <div className="bg-white rounded-[10px] shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
             
             {/* Modal Top Controls */}
@@ -4423,8 +4400,9 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
               </div>
             </div>
 
-            {/* Dynamic Printable Area */}
-            <div className="p-8 bg-white text-slate-900 overflow-y-auto max-h-[70vh]" id="printable-doc">
+            {/* Dynamic Printable Area — na tela (com rolagem) e, sem recorte, na impressão */}
+            <DocumentoImprimivel>
+            <div className="p-8 bg-white text-slate-900 overflow-y-auto max-h-[70vh]">
               <div className="border border-slate-200 p-8 rounded-[10px] space-y-6 text-left relative overflow-hidden bg-slate-50/10">
                 
                 {/* Watermark design background */}
@@ -4591,6 +4569,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                 )}
               </div>
             </div>
+            </DocumentoImprimivel>
 
             {/* Modal Footer */}
             <div className="bg-slate-50 border-t border-slate-200 px-5 py-3 flex justify-end">
