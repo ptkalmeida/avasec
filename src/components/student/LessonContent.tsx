@@ -5,6 +5,8 @@
 
 import React, { Suspense } from 'react';
 import { LessonBlock } from '../../utils/lessonContent';
+import { LessonImage } from './LessonImage';
+import { VideoPlayer } from '../shared/VideoPlayer';
 
 // O realce de sintaxe (Prism + linguagens) pesa ~140kB e a maioria das aulas
 // não tem código — então o bloco só é baixado quando uma aula realmente usa.
@@ -29,6 +31,8 @@ const TONES = {
     subsection: 'text-teal-700',
     orderedMarker: 'marker:text-[#540D6E]',
     bulletMarker: 'marker:text-teal-700',
+    mediaFrame: 'border-slate-200 bg-slate-50',
+    mediaCaption: 'text-teal-700',
   },
   dark: {
     body: 'text-slate-300',
@@ -38,6 +42,8 @@ const TONES = {
     subsection: 'text-teal-400',
     orderedMarker: 'marker:text-purple-400',
     bulletMarker: 'marker:text-teal-400',
+    mediaFrame: 'border-slate-800 bg-slate-950',
+    mediaCaption: 'text-teal-400',
   },
 } as const;
 
@@ -131,6 +137,45 @@ export const LessonContent: React.FC<LessonContentProps> = ({ blocks, tone = 'li
               />
             </Suspense>
           );
+
+        case 'image':
+          return (
+            <LessonImage
+              key={`img-${i}`}
+              url={block.url}
+              alt={block.alt}
+              caption={block.caption}
+              frameClass={t.mediaFrame}
+              captionClass={t.mediaCaption}
+            />
+          );
+
+        case 'video':
+          return (
+            <figure key={`vid-${i}`} className="my-5 space-y-2">
+              {/* aspect-video fixa a caixa antes de o vídeo chegar: aqui não há
+                  salto de layout, ao contrário da imagem. */}
+              <div className="aspect-video w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
+                <VideoPlayer
+                  videoUrl={block.url}
+                  title={block.title === '' ? 'Vídeo da aula' : block.title}
+                  controls
+                />
+              </div>
+              {block.caption !== null && (
+                <figcaption className={`text-apoio font-bold ${t.mediaCaption}`}>{block.caption}</figcaption>
+              )}
+            </figure>
+          );
+
+        // Sem este ramo, um tipo de bloco novo sem `case` sairia daqui como
+        // `undefined` e sumiria da tela SEM erro de compilação — o `map` não
+        // declara retorno. O `never` transforma o esquecimento em erro de build.
+        default: {
+          const naoTratado: never = block;
+
+          return naoTratado;
+        }
       }
     })}
   </div>

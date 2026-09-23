@@ -12,7 +12,9 @@
  *   1. item         -> lista numerada
  *   - item          -> lista com marcador
  *   ```java         -> bloco de código (a linguagem é opcional)
- *   Código 1: algo  -> legenda, quando imediatamente antes de um bloco de código
+ *   ![descrição](/uploads/x.png) -> imagem (sozinha na linha)
+ *   @[título](https://youtu.be/x) -> vídeo embutido (sozinho na linha)
+ *   Figura 1: algo  -> legenda, quando imediatamente antes de código, imagem ou vídeo
  *   ```
  *
  * Não é Markdown completo — é este subconjunto, e nada aqui vira HTML: a
@@ -35,7 +37,12 @@ export type LessonBlock =
   | { kind: 'paragraph'; text: string; range: LessonBlockRange }
   | { kind: 'orderedList'; items: string[]; range: LessonBlockRange }
   | { kind: 'bulletList'; items: string[]; range: LessonBlockRange }
-  | { kind: 'code'; language: string | null; caption: string | null; code: string; range: LessonBlockRange };
+  | { kind: 'code'; language: string | null; caption: string | null; code: string; range: LessonBlockRange }
+  // `alt` é string, nunca null: o atributo é obrigatório no HTML e '' tem sentido
+  // próprio ("imagem decorativa"). Quem escreve é barrado no editor; a leitura é
+  // permissiva para o aluno nunca ver a marcação crua por descuido de autoria.
+  | { kind: 'image'; url: string; alt: string; caption: string | null; range: LessonBlockRange }
+  | { kind: 'video'; url: string; title: string; caption: string | null; range: LessonBlockRange };
 
 export interface LessonSection {
   id: string;
@@ -64,7 +71,29 @@ const slug = (text: string, fallback: number): string => {
 };
 
 /** Reconhece "Código 3: descrição" / "Figura 2 - descrição" como legenda. */
-const CAPTION = /^(?:c[óo]digo|figura|tabela|quadro|exemplo)\s*\d*\s*[:.–-]\s*.+/i;
+const CAPTION = /^(?:c[óo]digo|figura|imagem|gr[áa]fico|v[íi]deo|tabela|quadro|exemplo)\s*\d*\s*[:.–-]\s*.+/i;
+
+/**
+ * A linha serve de legenda? Exportado para o editor avisar quem digita uma legenda
+ * fora do padrão — que na releitura viraria parágrafo solto, não legenda.
+ * A regex em si não sai daqui: quem a conhece é o parser.
+ */
+export function ehLegenda(texto: string): boolean {
+  return CAPTION.test(texto.trim());
+}
+
+/**
+ * Mídia sozinha na linha. O primeiro caractere separa as duas famílias — `!` para
+ * imagem (Markdown padrão) e `@` para vídeo — então nenhuma das regex precisa saber
+ * da outra.
+ *
+ * A URL recusa espaço e parêntese de propósito: `UploadService` gera nomes
+ * "<timestamp>-<16 hex>.<ext>", nunca reaproveita o nome do cliente, e um endereço
+ * com espaço quebraria a releitura do que foi gravado. Linha que não casa segue
+ * virando parágrafo — falha visível é melhor que figura quebrada em silêncio.
+ */
+const IMAGE = /^!\[([^\]]*)\]\(([^()\s]+)\)$/;
+const VIDEO = /^@\[([^\]]*)\]\(([^()\s]+)\)$/;
 
 export function parseLessonContent(content: string): ParsedLesson {
   const blocks: LessonBlock[] = [];
@@ -161,13 +190,39 @@ export function parseLessonContent(content: string): ParsedLesson {
       continue;
     }
 
+    const image = line.match(IMAGE);
+    const video = line.match(VIDEO);
     const section = line.match(/^##\s+(?!#)(.*)$/);
     const subsection = line.match(/^###\s+(.*)$/);
     const numbered = line.match(/^\d+\.\s+(.*)$/);
     const bullet = line.match(/^[-*]\s+(.*)$/);
     const range = { start: lineStart[i], end: lineEnd(i) };
 
-    if (section) {
+    // A legenda pendente pertence à mídia, como já acontece no bloco de código:
+    // o range engloba as duas linhas, então o lápis e a lixeira levam o par junto.
+    const rangeComLegenda = pendingCaption !== null
+      ? { start: lineStart[pendingCaptionLine], end: lineEnd(i) }
+      : range;
+
+    if (image) {
+      flushLists();
+      blocks.push({
+        kind: 'image',
+        url: image[2],
+        alt: image[1],
+        caption: takeCaption(),
+        range: rangeComLegenda,
+      });
+    } else if (video) {
+      flushLists();
+      blocks.push({
+        kind: 'video',
+        url: video[2],
+        title: video[1],
+        caption: takeCaption(),
+        range: rangeComLegenda,
+      });
+    } else if (section) {
       flushLists();
       flushCaptionAsParagraph();
       sectionCount++;
@@ -237,8 +292,27 @@ export function serializeLessonBlock(block: LessonBlock): string {
 
       return block.caption === null ? corpo : `${block.caption}\n${corpo}`;
     }
+    case 'image':
+      return comLegenda(block.caption, `![${textoDeUmaLinha(block.alt)}](${block.url})`);
+    case 'video':
+      return comLegenda(block.caption, `@[${textoDeUmaLinha(block.title)}](${block.url})`);
   }
 }
+
+/**
+ * Colchete e quebra de linha na descrição impediriam a releitura do que foi
+ * gravado. O saneamento mora aqui, único ponto por onde todo texto passa, para a
+ * idempotência do ciclo parse -> serialize -> parse não depender de o chamador
+ * lembrar de limpar. O editor valida de novo, mas só para poder explicar o
+ * problema a quem escreve em vez de alterar o texto pelas costas.
+ */
+const textoDeUmaLinha = (texto: string): string =>
+  // Os espaços são colapsados depois da troca: "Figura [1]" viraria "Figura  1 ",
+  // com o buraco de cada colchete virando um espaço solto.
+  texto.replace(/[[\]\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+const comLegenda = (caption: string | null, corpo: string): string =>
+  caption === null ? corpo : `${caption}\n${corpo}`;
 
 /** Troca o trecho do bloco pelo texto novo, preservando o resto do conteúdo. */
 export function replaceLessonBlock(content: string, range: LessonBlockRange, replacement: string): string {
@@ -256,15 +330,28 @@ export function removeLessonBlock(content: string, range: LessonBlockRange): str
   return `${antes}${depois}`.replace(/^\n+/, '').replace(/\n{3,}/g, '\n\n').trimEnd();
 }
 
-/** Insere um bloco novo depois de `range` (ou no fim, quando não há bloco). */
-export function insertLessonBlockAfter(
-  content: string,
-  range: LessonBlockRange | null,
-  texto: string
-): string {
+/**
+ * Insere um bloco novo na posição indicada — índice de caractere no conteúdo,
+ * normalmente `range.end` do bloco que deve ficar acima, ou 0 para o começo.
+ *
+ * Recebe posição em vez de um bloco de referência de propósito. A versão anterior
+ * aceitava `null` como sentinela e os dois lados da fronteira o liam ao contrário:
+ * o editor mandava `null` querendo dizer "no começo" e esta função entendia "no
+ * fim", de modo que o trecho escolhido no topo da aula ia parar no rodapé. Sem
+ * sentinela não há como discordarem.
+ *
+ * A posição é limitada ao tamanho do conteúdo: índice inválido não estoura nem
+ * cria buraco no texto.
+ */
+export function insertLessonBlockAt(content: string, posicao: number, texto: string): string {
   if (content.trim() === '') return texto;
 
-  const posicao = range === null ? content.length : range.end;
+  const limite = Math.min(Math.max(Math.trunc(posicao), 0), content.length);
 
-  return `${content.slice(0, posicao)}\n\n${texto}${content.slice(posicao)}`;
+  // As quebras na emenda são refeitas em vez de somadas: inserir no começo com a
+  // fórmula antiga deixava o conteúdo abrindo com linhas em branco.
+  const antes = content.slice(0, limite).replace(/\n+$/, '');
+  const depois = content.slice(limite).replace(/^\n+/, '');
+
+  return [antes, texto, depois].filter((parte) => parte !== '').join('\n\n');
 }

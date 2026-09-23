@@ -27,6 +27,8 @@ interface LessonManagePageProps {
   onSaveHeader: (title: string, duration: string) => void;
   onSaveVideo: (videoUrl: string) => void;
   onSaveContent: (content: string) => void;
+  /** Envio de arquivo para as imagens do corpo da aula (`uploadArquivo`). */
+  onUpload?: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
   onToggleOptional: () => void;
   /** Lista + formulário de anexos, montados pelo painel (o estado de upload é dele). */
   documentsSlot: React.ReactNode;
@@ -73,7 +75,7 @@ const ZoneHeader: React.FC<{
  */
 export const LessonManagePage: React.FC<LessonManagePageProps> = ({
   lesson, courseTitle, courseCategory, totalLessons, onBack,
-  onSaveHeader, onSaveVideo, onSaveContent, onToggleOptional, documentsSlot,
+  onSaveHeader, onSaveVideo, onSaveContent, onToggleOptional, documentsSlot, onUpload,
 }) => {
   const [zone, setZone] = useState<Zone>(null);
 
@@ -252,7 +254,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
 
         {zone === 'content' ? (
           <div className="p-4 space-y-3">
-            <LessonContentEditor value={content} onChange={setContent} />
+            <LessonContentEditor value={content} onChange={setContent} onUpload={onUpload} />
             <div className="flex justify-end">
               <button
                 type="button"

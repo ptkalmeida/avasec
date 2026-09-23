@@ -4,7 +4,8 @@ import {
   serializeLessonBlock,
   replaceLessonBlock,
   removeLessonBlock,
-  insertLessonBlockAfter,
+  insertLessonBlockAt,
+  ehLegenda,
 } from '../../src/utils/lessonContent';
 
 describe('parseLessonContent', () => {
@@ -104,6 +105,11 @@ describe('ranges dos blocos', () => {
     'int a = 1;',
     '```',
     '',
+    'Figura 1 - o diagrama',
+    '![Diagrama das classes](/uploads/diagrama.png)',
+    '',
+    '@[Demonstração](https://youtu.be/abc123)',
+    '',
     '### Fim',
   ].join('\n');
 
@@ -153,12 +159,218 @@ describe('ranges dos blocos', () => {
   it('insere bloco novo depois do indicado', () => {
     const r = parseLessonContent(CONTEUDO);
 
-    const novo = insertLessonBlockAfter(CONTEUDO, r.blocks[0].range, '### Recém-criado');
+    const novo = insertLessonBlockAt(CONTEUDO, r.blocks[0].range.end, '### Recém-criado');
 
     expect(parseLessonContent(novo).blocks[1]).toMatchObject({ kind: 'subsection', text: 'Recém-criado' });
   });
 
   it('primeiro bloco de conteúdo vazio não vem com linhas sobrando', () => {
-    expect(insertLessonBlockAfter('', null, '## Começo')).toBe('## Começo');
+    expect(insertLessonBlockAt('', 0, '## Começo')).toBe('## Começo');
+  });
+
+  // O menu "+" do topo do editor pede posição 0. A versão anterior mandava um
+  // sentinela que esta função lia como "no fim", e o trecho escolhido no começo
+  // da aula ia parar no rodapé — caminho que nenhum teste cobria.
+  it('insere no COMEÇO quando a posição é 0 e já existe conteúdo', () => {
+    const novo = insertLessonBlockAt(CONTEUDO, 0, '## Abertura');
+    const blocos = parseLessonContent(novo).blocks;
+
+    expect(blocos[0]).toMatchObject({ kind: 'section', text: 'Abertura' });
+    expect(blocos).toHaveLength(parseLessonContent(CONTEUDO).blocks.length + 1);
+    expect(novo.startsWith('## Abertura')).toBe(true);
+    expect(novo).not.toMatch(/\n{3,}/);
+  });
+
+  it('insere no FIM quando a posição é o tamanho do conteúdo', () => {
+    const novo = insertLessonBlockAt(CONTEUDO, CONTEUDO.length, '## Encerramento');
+    const blocos = parseLessonContent(novo).blocks;
+
+    expect(blocos[blocos.length - 1]).toMatchObject({ kind: 'section', text: 'Encerramento' });
+    expect(novo).not.toMatch(/\n{3,}/);
+  });
+
+  it('posição fora da faixa é limitada, sem estourar nem furar o texto', () => {
+    const adiante = insertLessonBlockAt(CONTEUDO, CONTEUDO.length + 5000, '## Depois');
+    const atras = insertLessonBlockAt(CONTEUDO, -42, '## Antes');
+
+    expect(parseLessonContent(adiante).blocks.at(-1)).toMatchObject({ kind: 'section', text: 'Depois' });
+    expect(parseLessonContent(atras).blocks[0]).toMatchObject({ kind: 'section', text: 'Antes' });
+    expect(adiante).not.toMatch(/\n{3,}/);
+    expect(atras).not.toMatch(/\n{3,}/);
+  });
+
+  it('inserir no meio preserva os blocos vizinhos', () => {
+    const r = parseLessonContent(CONTEUDO);
+    const antes = r.blocks.length;
+
+    const novo = insertLessonBlockAt(CONTEUDO, r.blocks[1].range.end, '- item avulso');
+    const blocos = parseLessonContent(novo).blocks;
+
+    expect(blocos).toHaveLength(antes + 1);
+    expect(blocos[2]).toMatchObject({ kind: 'bulletList', items: ['item avulso'] });
+    expect(blocos[0]).toMatchObject({ kind: r.blocks[0].kind });
+    expect(blocos.at(-1)).toMatchObject({ kind: r.blocks.at(-1)!.kind });
+  });
+});
+
+/**
+ * Conversão de tipo — o editor troca o `kind` reaproveitando o texto já escrito.
+ * A regra do editor é "linhas": título vira uma linha só, parágrafo preserva as
+ * quebras e lista usa cada linha como item. Estes testes travam a serialização
+ * que sustenta essa conversão.
+ */
+describe('mídia no corpo da aula', () => {
+  it('reconhece imagem sozinha na linha, com descrição e endereço', () => {
+    const r = parseLessonContent('![Diagrama das classes](/uploads/x.png)');
+
+    expect(r.blocks[0]).toMatchObject({
+      kind: 'image', url: '/uploads/x.png', alt: 'Diagrama das classes', caption: null,
+    });
+  });
+
+  it('reconhece vídeo sozinho na linha sem colidir com a sintaxe de imagem', () => {
+    const r = parseLessonContent('@[Demonstração](https://youtu.be/abc123)\n\n![Foto](/uploads/f.png)');
+
+    expect(r.blocks[0]).toMatchObject({ kind: 'video', url: 'https://youtu.be/abc123', title: 'Demonstração' });
+    expect(r.blocks[1]).toMatchObject({ kind: 'image', url: '/uploads/f.png' });
+  });
+
+  // Descuido de autoria não pode virar marcação crua na tela do aluno: a leitura
+  // aceita, e é o editor que exige a descrição de quem escreve.
+  it('imagem sem descrição é lida com alt vazio', () => {
+    expect(parseLessonContent('![](/uploads/x.png)').blocks[0]).toMatchObject({ kind: 'image', alt: '' });
+  });
+
+  it('imagem sem endereço não vira bloco — o autor vê o erro no texto', () => {
+    expect(parseLessonContent('![Descrição]()').blocks[0]).toMatchObject({ kind: 'paragraph' });
+  });
+
+  it('linha com texto além da imagem continua sendo parágrafo', () => {
+    expect(parseLessonContent('Veja ![Foto](/uploads/x.png) aqui').blocks[0]).toMatchObject({ kind: 'paragraph' });
+  });
+
+  it('colchete dentro da descrição não quebra o conteúdo: a linha vira parágrafo', () => {
+    expect(parseLessonContent('![Figura [1] do livro](/uploads/x.png)').blocks[0]).toMatchObject({ kind: 'paragraph' });
+  });
+
+  it('imagem dentro de bloco de código continua sendo código', () => {
+    const r = parseLessonContent('```md\n![Foto](/uploads/x.png)\n```');
+
+    expect(r.blocks).toHaveLength(1);
+    expect(r.blocks[0]).toMatchObject({ kind: 'code', code: '![Foto](/uploads/x.png)' });
+  });
+
+  it('associa a legenda à imagem seguinte', () => {
+    const r = parseLessonContent('Figura 1 - o diagrama\n![Diagrama](/uploads/x.png)');
+
+    expect(r.blocks).toHaveLength(1);
+    expect(r.blocks[0]).toMatchObject({ kind: 'image', caption: 'Figura 1 - o diagrama' });
+  });
+
+  it('legenda de figura sem mídia embaixo continua virando parágrafo', () => {
+    const r = parseLessonContent('Figura 1 - sozinha\n\nUm parágrafo.');
+
+    expect(r.blocks[0]).toMatchObject({ kind: 'paragraph', text: 'Figura 1 - sozinha' });
+  });
+
+  it('o range da imagem inclui a legenda, para o lápis e a lixeira levarem as duas', () => {
+    const conteudo = 'Figura 1 - o diagrama\n![Diagrama](/uploads/x.png)';
+    const bloco = parseLessonContent(conteudo).blocks[0];
+
+    expect(conteudo.slice(bloco.range.start, bloco.range.end)).toBe(conteudo);
+  });
+
+  it('serializar e reler a mídia devolve o mesmo bloco, com e sem legenda', () => {
+    const casos = [
+      '![Diagrama](/uploads/x.png)',
+      'Figura 2: o fluxo\n![Fluxo](/uploads/y.png)',
+      '@[Aula gravada](https://youtu.be/abc123)',
+      'Vídeo 1 - a demonstração\n@[Demo](https://youtu.be/abc123)',
+    ];
+
+    for (const caso of casos) {
+      const bloco = parseLessonContent(caso).blocks[0];
+      expect(serializeLessonBlock(bloco)).toBe(caso);
+    }
+  });
+
+  it('serializar remove colchete da descrição, para a releitura não quebrar', () => {
+    const texto = serializeLessonBlock({
+      kind: 'image', url: '/uploads/x.png', alt: 'Figura [1] do livro', caption: null,
+      range: { start: 0, end: 0 },
+    });
+
+    expect(texto).toBe('![Figura 1 do livro](/uploads/x.png)');
+    expect(parseLessonContent(texto).blocks[0]).toMatchObject({ kind: 'image', alt: 'Figura 1 do livro' });
+  });
+
+  it('remover a imagem tira a legenda junto e não deixa buraco de linhas', () => {
+    const conteudo = 'Um parágrafo.\n\nFigura 1 - o diagrama\n![Diagrama](/uploads/x.png)\n\nOutro parágrafo.';
+    const imagem = parseLessonContent(conteudo).blocks.find((b) => b.kind === 'image')!;
+
+    const novo = removeLessonBlock(conteudo, imagem.range);
+
+    expect(novo).not.toContain('Figura 1');
+    expect(novo).not.toContain('/uploads/x.png');
+    expect(novo).not.toMatch(/\n{3,}/);
+    expect(parseLessonContent(novo).blocks).toHaveLength(2);
+  });
+
+  it('ehLegenda reconhece o padrão e recusa texto solto', () => {
+    expect(ehLegenda('Figura 1 - o diagrama')).toBe(true);
+    expect(ehLegenda('Imagem 2: o mapa')).toBe(true);
+    expect(ehLegenda('Vídeo 3 - a demonstração')).toBe(true);
+    expect(ehLegenda('o mapa do Brasil')).toBe(false);
+  });
+});
+
+describe('conversão de tipo de bloco', () => {
+  it('lista numerada de um item vira seção com o mesmo texto', () => {
+    const r = parseLessonContent('1. Abertura');
+    const lista = r.blocks[0];
+
+    expect(lista).toMatchObject({ kind: 'orderedList', items: ['Abertura'] });
+
+    const convertido = serializeLessonBlock({
+      kind: 'section', id: '', index: 0, text: 'Abertura', range: lista.range,
+    });
+
+    expect(convertido).toBe('## Abertura');
+    expect(parseLessonContent(convertido).blocks[0]).toMatchObject({ kind: 'section', text: 'Abertura' });
+  });
+
+  it('seções convertidas numeram 1, 2, 3 mesmo com parágrafos entre elas', () => {
+    const conteudo = '## Abertura\n\nUm parágrafo.\n\n## Para que serve\n\nOutro parágrafo.\n\n## Organização';
+    const r = parseLessonContent(conteudo);
+
+    expect(r.sections.filter((s) => s.level === 2).map((s) => s.index)).toEqual([1, 2, 3]);
+  });
+
+  it('parágrafo vira lista com uma linha por item', () => {
+    const convertido = serializeLessonBlock({
+      kind: 'bulletList', items: ['primeiro', 'segundo'], range: { start: 0, end: 0 },
+    });
+
+    expect(convertido).toBe('- primeiro\n- segundo');
+    expect(parseLessonContent(convertido).blocks[0]).toMatchObject({
+      kind: 'bulletList', items: ['primeiro', 'segundo'],
+    });
+  });
+
+  it('texto sobrevive à ida e volta entre subtítulo e lista', () => {
+    const range = { start: 0, end: 0 };
+    const texto = 'Clareza também conta';
+
+    // subtítulo -> lista
+    const comoLista = serializeLessonBlock({ kind: 'orderedList', items: [texto], range });
+    const lida = parseLessonContent(comoLista).blocks[0];
+
+    expect(lida).toMatchObject({ kind: 'orderedList', items: [texto] });
+
+    // lista -> subtítulo, juntando as linhas como o editor faz
+    const itens = lida.kind === 'orderedList' ? lida.items : [];
+    const devolta = serializeLessonBlock({ kind: 'subsection', id: '', text: itens.join(' '), range });
+
+    expect(devolta).toBe(`### ${texto}`);
   });
 });
