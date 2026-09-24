@@ -99,11 +99,13 @@ final class AuthService
     }
 
     /**
-     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string}  $input
+     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string,role?:string|null}  $input
      * @return array{token: string, user: PublicUser}
      */
     public function login(array $input): array
     {
+        $papel = $input['role'] ?? null;
+
         // Três identificadores possíveis (ADR 11): CPF é o do aluno; e-mail é o
         // de admin/gestor; `name` permanece para as contas demo internas.
         // A busca por CPF normaliza antes, para casar com o que está gravado.
@@ -112,7 +114,23 @@ final class AuthService
         } elseif (! empty($input['email'])) {
             $user = User::query()->where('email', $input['email'])->first();
         } else {
-            $user = User::query()->where('name', $input['name'] ?? '')->first();
+            /*
+             * Nome não é único: um aluno e um gestor podem ter o mesmo. Sem o
+             * papel, `first()` pegava qualquer um dos dois — e o cartão de
+             * Gestão chegou a autenticar um aluno. Com o papel, a busca já
+             * começa restrita a ele.
+             */
+            $porNome = User::query()->where('name', $input['name'] ?? '');
+            if ($papel !== null) {
+                $porNome->where('role', $papel);
+            }
+            $user = $porNome->first();
+        }
+
+        // Conta de outro papel que o pedido é tratada como inexistente: mesma
+        // mensagem genérica, sem contar tentativa contra a conta de outra pessoa.
+        if ($user !== null && $papel !== null && $user->role !== $papel) {
+            $user = null;
         }
 
         // Mensagem genérica sempre — nunca revela se o identificador existe.

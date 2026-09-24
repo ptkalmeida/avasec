@@ -6,6 +6,18 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser, PersonRef, DocumentTemplate, SitePageContent, SitePageSchema, SitePageKey, RegistrationDetails } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS, MOCK_IDS } from '../data/mockData';
+
+/** Gestores mostrados sem sessão de admin (a listagem real é só do admin). */
+const GESTORES_PADRAO: PersonRef[] = [{ id: MOCK_IDS.gestor, name: 'Gestor de Conteúdos' }];
+
+/**
+ * Lista de gestores para quem não é admin: o próprio gestor, quando é ele o
+ * logado; senão a lista padrão. Nunca a resposta de `/auth/users` para um
+ * gestor, que é a lista dos ALUNOS dele.
+ */
+export function gestoresSemListagem(sessao: { id: string; name: string; role: string } | null | undefined): PersonRef[] {
+  return sessao?.role === 'instructor' ? [{ id: sessao.id, name: sessao.name }] : GESTORES_PADRAO;
+}
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
 import { avaliacoesPendentes } from '../utils/certificadoElegivel';
@@ -70,7 +82,12 @@ interface LMSContextProps {
   activeUser: { id: string; name: string; role: 'student' | 'instructor' | 'admin' };
   authUser: AuthUser | null;
   /** Identificador aceita e-mail (staff), CPF (aluno) ou nome (contas demo). */
-  loginWithPassword: (identifier: string, password: string) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
+  /**
+   * `papel`: o do cartão clicado na tela de login. Quando vem, o servidor só
+   * aceita uma conta DESSE papel — o cartão de Gestão chegou a autenticar um
+   * aluno homônimo.
+   */
+  loginWithPassword: (identifier: string, password: string, papel?: 'student' | 'instructor' | 'admin') => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
   registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin', details?: RegistrationDetails) => Promise<{ ok: boolean; pending?: boolean; user?: AuthUser; error?: string }>;
   logoutAuth: () => void;
   changePassword: (newPassword: string, currentPassword?: string) => Promise<{ ok: boolean; error?: string }>;
@@ -305,7 +322,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Faz login contra o backend por nome (usado pelo seletor de perfil/PIN) ou e-mail (contém "@").
-  const loginWithPassword = async (identifier: string, password: string) => {
+  const loginWithPassword = async (identifier: string, password: string, papel?: 'student' | 'instructor' | 'admin') => {
     try {
       // Três identificadores (ADR 11): e-mail (admin/gestor), CPF (aluno) e
       // nome (contas demo internas). 11 dígitos = CPF.
@@ -318,6 +335,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } else {
         credentials = { name: identifier, password };
       }
+      if (papel !== undefined) credentials.role = papel;
 
       const res = await authFetch('/api/auth/login', {
         method: 'POST',
@@ -384,6 +402,8 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('ava_auth_token');
     setAuthUser(null);
+    // A lista de gestores é da sessão: não pode sobrar para a tela de login.
+    setProfessorsList(GESTORES_PADRAO);
   };
 
   const changePassword = async (newPassword: string, currentPassword?: string) => {
@@ -431,9 +451,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [authUser]
   );
 
-  const [professorsList, setProfessorsList] = useState<PersonRef[]>(() => {
-    return [{ id: MOCK_IDS.gestor, name: 'Gestor de Conteúdos' }];
-  });
+  const [professorsList, setProfessorsList] = useState<PersonRef[]>(GESTORES_PADRAO);
 
   const [studentsList, setStudentsList] = useState<{ id?: string; name: string; email: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[]>(() => {
     const defaultStudents = [
@@ -1483,7 +1501,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           authFetch('/api/security-logs'),
           authFetch('/api/system-settings'),
           authFetch('/api/auth/users?role=student'),
-          authFetch('/api/auth/users?role=instructor'),
+          /*
+            Só o ADMIN lista instrutores. Para um gestor, esta rota devolve os
+            ALUNOS dele (escopo do servidor, de propósito), e a resposta era
+            gravada como lista de gestores: um aluno aparecia na aba "Gestão"
+            da tela de login, e o cartão dele autenticava o aluno.
+          */
+          fetchIf(authUser?.role === 'admin', '/api/auth/users?role=instructor'),
           fetchIf(features.matricula, '/api/enrollments'),
           fetchIf(features.quizSimples, '/api/quizzes'),
           fetchIf(features.quizSimples, '/api/quiz-submissions'),
@@ -1510,9 +1534,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             municipio: u.municipio, uf: u.uf, areaInteresse: u.areaInteresse, dataCadastro: u.dataCadastro
           })));
         }
-        if (instructorsRes.ok) {
-          const { items: users } = await instructorsRes.json();
-          setProfessorsList(users.map((u: any) => ({ id: u.id, name: u.name })));
+        if (authUser?.role === 'admin') {
+          if (instructorsRes.ok) {
+            const { items: users } = await instructorsRes.json();
+            setProfessorsList(users.map((u: any) => ({ id: u.id, name: u.name })));
+          }
+        } else {
+          setProfessorsList(gestoresSemListagem(authUser));
         }
         if (enrollmentsRes.ok) setStudentEnrollments(await enrollmentsRes.json());
         if (quizzesRes.ok) setQuizzes(await quizzesRes.json());
