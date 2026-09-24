@@ -67,6 +67,7 @@ export function ProfileView({
     activeUser,
     updateUserName,
     loginWithPassword,
+    logoutAuth,
     changePassword,
     courses, 
     progress, 
@@ -377,7 +378,15 @@ export function ProfileView({
     }
 
     // Reautentica contra o backend para confirmar a senha atual (nada de comparação local em texto puro).
-    const verified = await loginWithPassword(activeUser.name, currentPasswordInput);
+    // Com o papel da sessão, e conferindo que a conta devolvida é A MESMA: por
+    // nome, sem papel, um homônimo de outro papel podia ser o autenticado — e a
+    // reconfirmação trocaria a sessão para a conta de outra pessoa.
+    const verified = await loginWithPassword(activeUser.name, currentPasswordInput, activeUser.role);
+    if (verified.ok && verified.user?.id !== activeUser.id) {
+      logoutAuth();
+      setProfileError('Não foi possível confirmar sua identidade. Entre novamente.');
+      return;
+    }
     if (!verified.ok) {
       setProfileError('A senha atual inserida está incorreta. Confirme os caracteres digitados.');
       speakText('Aviso: Senha incorreta.');

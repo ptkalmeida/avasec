@@ -631,12 +631,28 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     setIsPinVerifying(true);
 
     // Autentica de verdade contra o backend (bcrypt + JWT) — sem PINs fixos de fallback.
-    const result = await loginWithPassword(pendingLogin.name, senhaInput);
+    // O papel do cartão vai junto: o servidor só aceita uma conta desse papel.
+    const result = await loginWithPassword(pendingLogin.name, senhaInput, pendingLogin.role);
     setIsPinVerifying(false);
+
+    /*
+      Segunda trava, no cliente: conta de outro papel que o cartão clicado NUNCA
+      entra. O cartão de "Gestão" chegou a autenticar um aluno homônimo, e a
+      tela aceitava o papel devolvido. A sessão aberta por engano é encerrada
+      na hora, com a mesma mensagem genérica de senha errada.
+    */
+    if (result.ok && result.user && result.user.role !== pendingLogin.role) {
+      logoutAuth();
+      setSenhaErro('Usuário ou senha inválidos.');
+      setSenhaInput('');
+      senhaInputRef.current?.focus();
+      addSecurityLog('Tentativa Fracassada', `Papel da conta diferente do cartão (${pendingLogin.role}) para: ${pendingLogin.name}.`, 'FAILED');
+
+      return;
+    }
 
     if (result.ok && result.user) {
       setSenhaOk(true);
-      // Usa o papel retornado pelo servidor (autoritativo), não o do cartão clicado.
       const confirmedRole = result.user.role;
       setTimeout(() => {
         executeProfileLogin(pendingLogin.name, confirmedRole);

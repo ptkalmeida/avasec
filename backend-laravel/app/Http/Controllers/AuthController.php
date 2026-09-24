@@ -109,6 +109,10 @@ final class AuthController extends Controller
             'email' => ['sometimes', 'nullable', 'email', 'max:254'],
             'cpf' => ['sometimes', 'nullable', 'string', 'max:20'],
             'password' => ['required', 'string', 'min:1', 'max:128'],
+            // Papel do cartão clicado na tela de login ("Aluno", "Gestão",
+            // "Admin"). Quando vem, só uma conta DESSE papel entra: o cartão de
+            // Gestão chegou a autenticar um aluno homônimo.
+            'role' => ['sometimes', 'nullable', 'in:student,instructor,admin'],
         ]);
         if (empty($data['name']) && empty($data['email']) && empty($data['cpf'])) {
             throw ApiException::validation('Informe CPF, e-mail ou nome para login.');
@@ -128,6 +132,7 @@ final class AuthController extends Controller
                 'email' => $this->optionalString($data, 'email'),
                 'cpf' => $this->optionalString($data, 'cpf'),
                 'password' => $this->stringField($data, 'password'),
+                'role' => $this->optionalString($data, 'role'),
             ]);
         } catch (Throwable $err) {
             $this->audit->log($request, 'Tentativa Fracassada', "Falha de login para o identificador: {$identifier}.", 'FAILED');
