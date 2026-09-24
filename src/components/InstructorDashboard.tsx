@@ -15,6 +15,7 @@ import { useLMS, authFetch } from '../context/LMSContext';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { LessonVideoField } from './shared/LessonVideoField';
 import { Course, Lesson, LiveSession, isCourseExpired } from '../types';
+import { rotuloDoCursoGerido } from '../utils/rotuloDoCurso';
 import { textoDoTempoDaGrade } from '../utils/courseDuration';
 import { canalDeMensagensAberto } from '../utils/canalDeMensagens';
 import { filaDoInstrutor, textoDoItem } from '../utils/filaDoInstrutor';
@@ -1082,7 +1083,16 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             Curso ativo
           </label>
           {cursosQueGerencio.length === 0 ? (
-            <p className="text-corpo text-escult-ink mt-1">Nenhum curso sob a sua gestão.</p>
+            /*
+              Veio do seletor antigo ("Selecione o curso a gerenciar"), que saiu:
+              a lista e só dos cursos deste instrutor e pode estar vazia, e dizer
+              o que fazer e melhor que um seletor vazio.
+            */
+            <p className="text-corpo text-escult-ink mt-1">
+              Você ainda não tem curso sob sua responsabilidade. Use
+              <strong className="font-bold"> Cadastrar Novo Curso</strong> acima, ou
+              peça à coordenação para lhe atribuir um curso existente.
+            </p>
           ) : selectedCourseId === '' ? (
             <p className="text-corpo text-escult-ink mt-1">
               Escolha um curso para começar — grade, avaliações e alunos são sempre de um curso.
@@ -1103,7 +1113,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           >
             <option value="">Escolha um curso…</option>
             {cursosQueGerencio.map((curso) => (
-              <option key={curso.id} value={curso.id}>{curso.title}</option>
+              <option key={curso.id} value={curso.id}>{rotuloDoCursoGerido(curso)}</option>
             ))}
           </select>
         )}
@@ -1245,46 +1255,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         {/* Course details, lessons manager, webinar creator list */}
         <div className="lg:col-span-2 space-y-6 text-left">
           
-          {/* Active Course Selector block */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <label htmlFor="curso-a-gerenciar" className="block text-sobretitulo text-escult-ink-2 uppercase mb-2">
-              Selecione o Curso a Gerenciar
-            </label>
-            {cursosQueGerencio.length === 0 ? (
-              /*
-               * A lista passou a ser só dos cursos deste instrutor, então ela pode
-               * estar vazia — antes isso era impossível porque o seletor mostrava
-               * os cursos de todo mundo. Dizer o que fazer é melhor que um seletor
-               * vazio que não explica nada.
-               */
-              <p className="rounded-xl border border-dashed border-slate-250 bg-slate-50/60 p-4 text-center text-rotulo leading-relaxed text-escult-ink-2">
-                Você ainda não tem curso sob sua responsabilidade. Use
-                <strong className="font-bold text-slate-700"> Cadastrar Novo Curso</strong> acima, ou
-                peça à coordenação para lhe atribuir um curso existente.
-              </p>
-            ) : (
-              <select
-                id="curso-a-gerenciar"
-                value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-teal-500 transition-colors"
-              >
-                {/*
-                  Opção vazia enquanto não houve escolha: sem ela o navegador exibe
-                  o primeiro curso da lista enquanto o valor é '', e a pessoa lê
-                  como se aquele curso estivesse aberto — exatamente a confusão que
-                  a regra de curso-primeiro existe para acabar.
-                */}
-                {selectedCourseId === '' && <option value="">— Escolha um curso para gerenciar —</option>}
-                {cursosQueGerencio.map((c, idx) => (
-                  <option key={`${c.id}-${idx}`} value={c.id}>
-                    {isCourseExpired(c.contractExpirationDate) ? '[VIGÊNCIA ENCERRADA] ' : ''}{c.category} • {c.title}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
+          {/*
+            O seletor "Selecione o curso a gerenciar" saiu daqui: repetia o
+            "Curso ativo" do topo, ligado a mesma escolha. A categoria, a marca
+            de vigencia encerrada e o aviso de "nenhum curso" foram para la.
+          */}
           {activeCourse && (
             <div className="rounded-2xl border border-slate-250 bg-white p-6 shadow-xs space-y-6">
               
