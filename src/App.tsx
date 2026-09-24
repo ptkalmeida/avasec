@@ -24,6 +24,7 @@ import { OrientacoesPage } from './components/pages/OrientacoesPage';
 import { DEFAULT_NEWS_ITEMS, NEWS_SEARCH_FIELDS } from './components/pages/NoticiasPage';
 import { pageField, pageItems, filterSiteItems } from './utils/sitePageContent';
 import { canalDeMensagensAberto } from './utils/canalDeMensagens';
+import { origemDoPerfil, destinoDoVoltar, rotuloDoVoltar } from './utils/voltarParaOrigem';
 import { maskCpf, maskCep, maskCelular, isValidCpf, passwordProblem, PASSWORD_MIN_LENGTH } from './utils/cpf';
 import { 
   GraduationCap, User, Award, Video, CheckSquare,
@@ -191,7 +192,6 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, isUserLoggedIn, activeUser.role]);
-  const [previousView, setPreviousView] = useState<Exclude<PortalView, 'perfil'>>('landing');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   
   // Registration and external validator integration states
@@ -232,6 +232,35 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     no painel precisa cair nela, e nao na aba de dados pessoais.
   */
   const [perfilAbaInicial, setPerfilAbaInicial] = useState<'profile' | 'password' | 'certificates'>('profile');
+  /*
+    De onde o Perfil foi aberto, para o Voltar levar de volta para la — e nao
+    para a raiz do painel, que obrigava o aluno a achar de novo o curso e a
+    aula em que estava. Ver utils/voltarParaOrigem.
+  */
+  const [perfilOrigem, setPerfilOrigem] = useState<string | null>(null);
+  /*
+    Ultimo endereco do painel em que a pessoa esteve. "Ambiente de Estudos" e
+    "Gestao", no cabecalho do portal, levavam sempre para a raiz do painel —
+    quem saia de uma aula para ver uma noticia voltava para a escolha de curso.
+  */
+  const [ultimoPainel, setUltimoPainel] = useState<string | null>(null);
+  useEffect(() => {
+    // Sair da conta apaga a volta: o proximo login nao herda o painel de outra pessoa.
+    if (!isUserLoggedIn) {
+      setUltimoPainel(null);
+    } else if (ehCaminhoAutenticado(location.pathname)) {
+      setUltimoPainel(`${location.pathname}${location.search}`);
+    }
+  }, [location.pathname, location.search, isUserLoggedIn]);
+  const voltarAoPainel = (): void => {
+    navigate(destinoDoVoltar(ultimoPainel, isUserLoggedIn ? activeUser.role : null, raizDoPapel(activeUser.role)));
+  };
+  const abrirPerfil = (aba: 'profile' | 'password' | 'certificates'): void => {
+    // Clicar em "Perfil" estando no Perfil nao apaga o caminho de volta.
+    if (currentView !== 'perfil') setPerfilOrigem(origemDoPerfil(location.pathname, location.search));
+    setPerfilAbaInicial(aba);
+    setCurrentView('perfil');
+  };
 
   // PIN Verification Flow Security States
   const [pendingLogin, setPendingLogin] = useState<{ name: string; role: 'student' | 'instructor' | 'admin' } | null>(null);
@@ -1111,8 +1140,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 <div 
                   onClick={() => {
-                    setPreviousView(currentView);
-                    setCurrentView('perfil');
+                    abrirPerfil('profile');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                     speakText("Carregando o seu perfil.");
                   }}
@@ -1143,8 +1171,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       title={isUserLoggedIn ? "Visualizar meu Perfil" : "Identidade Aluno/Professor"}
                       onClick={() => {
                         if (isUserLoggedIn) {
-                          setPreviousView(currentView === 'perfil' ? previousView : currentView);
-                          setCurrentView('perfil');
+                          abrirPerfil('profile');
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                           speakText("Carregando o seu perfil.");
                         } else {
@@ -1171,7 +1198,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     {activeUser.role === 'student' ? (
                       <button 
                         onClick={() => {
-                          setCurrentView('active_app');
+                          voltarAoPainel();
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                           speakText("Acessando o seu Ambiente de Estudos.");
                         }}
@@ -1185,7 +1212,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     ) : (
                       <button 
                         onClick={() => {
-                          setCurrentView('active_app');
+                          voltarAoPainel();
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                           if (activeUser.role === 'admin') {
                             speakText("Acessando a sua Gestão da Plataforma.");
@@ -1708,12 +1735,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           /* NEW PROFILE VIEW */
           <ProfileView
             abaInicial={perfilAbaInicial}
+            rotuloVoltar={rotuloDoVoltar(perfilOrigem)}
             onBack={() => {
-              if (isUserLoggedIn) {
-                setCurrentView('active_app');
-              } else {
-                setCurrentView('landing');
-              }
+              const raiz = isUserLoggedIn ? raizDoPapel(activeUser.role) : pathFromView('landing');
+              navigate(destinoDoVoltar(perfilOrigem, isUserLoggedIn ? activeUser.role : null, raiz));
             }}
             onLogout={handleLogout}
             speakText={speakText}
@@ -2040,13 +2065,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             {activeUser.role === 'student' && (
               <StudentDashboard
                 onBackToLanding={() => setCurrentView('landing')}
-                onNavigateToProfile={() => { setPerfilAbaInicial('profile'); setCurrentView('perfil'); }}
-                /*
-"Certificados" na navegacao do aluno abre o Perfil JA na aba
-                  deles. E o mesmo destino de `/aluno/certificados`, que era
-                  rota sem tela e caia no bloco "secao nao disponivel".
-                */
-                onNavigateToCertificates={() => { setPerfilAbaInicial('certificates'); setCurrentView('perfil'); }}
+                onNavigateToProfile={() => abrirPerfil('profile')}
                 speakText={speakText}
               />
             )}

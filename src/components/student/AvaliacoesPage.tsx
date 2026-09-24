@@ -80,9 +80,11 @@ export const percentual = (acertos: number, total: number): number =>
 const ProvaEmAndamento: React.FC<{
   quiz: Quiz;
   onSair: () => void;
+  /** Texto do botão de saída no resultado — diz para onde ele leva. */
+  rotuloSair: string;
   onSubmit: AvaliacoesPageProps['onSubmit'];
   notify: (m: string) => void;
-}> = ({ quiz, onSair, onSubmit, notify }) => {
+}> = ({ quiz, onSair, rotuloSair, onSubmit, notify }) => {
   const [idx, setIdx] = React.useState(0);
   const [respostas, setRespostas] = React.useState<Record<string, number>>({});
   const [respondidas, setRespondidas] = React.useState<Record<string, boolean>>({});
@@ -255,7 +257,7 @@ const ProvaEmAndamento: React.FC<{
             onClick={onSair}
             className="cursor-pointer rounded-xl bg-slate-900 px-6 py-3 text-xs font-bold text-white transition-all hover:bg-slate-800"
           >
-            Voltar às avaliações
+            {rotuloSair}
           </button>
         </div>
       </div>
@@ -506,6 +508,23 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
     setEmAndamentoLocal(id);
   };
 
+  /*
+    Sair da prova volta para ONDE ELA FOI ABERTA. O card do curso abre a prova
+    direto, e a saída levava para a lista de avaliações — uma tela que o aluno
+    nunca tinha visto, e da qual precisava de mais um clique para voltar ao
+    curso. Só quem escolheu a prova NA LISTA volta para a lista.
+  */
+  const [veioDaLista, setVeioDaLista] = React.useState(false);
+  const sairDaProva = (): void => {
+    if (veioDaLista) {
+      setEmAndamento(null);
+
+      return;
+    }
+    onBack();
+  };
+  const rotuloSairDaProva = veioDaLista ? 'Voltar às avaliações' : 'Voltar ao curso';
+
   const quiz = doCurso.find((q) => q.id === emAndamento);
   const aprovadas = doCurso.filter((q) => tentativaVigente(submissions, q.id, userId)?.passed).length;
 
@@ -513,11 +532,11 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
     <div className="mx-auto w-full max-w-3xl space-y-6 text-left">
       <button
         type="button"
-        onClick={quiz ? () => setEmAndamento(null) : onBack}
+        onClick={quiz ? sairDaProva : onBack}
         className="inline-flex cursor-pointer items-center gap-1.5 text-sobretitulo uppercase text-escult-ink-2 hover:text-slate-800"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        {quiz ? 'Voltar às avaliações' : 'Voltar ao curso'}
+        {quiz ? rotuloSairDaProva : 'Voltar ao curso'}
       </button>
 
       <header className="space-y-3 rounded-2xl border border-amber-100 bg-amber-50/25 p-5">
@@ -558,7 +577,8 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
           <ProvaEmAndamento
             key={quiz.id}
             quiz={quiz}
-            onSair={() => setEmAndamento(null)}
+            onSair={sairDaProva}
+            rotuloSair={rotuloSairDaProva}
             onSubmit={onSubmit}
             notify={notify}
           />
@@ -631,7 +651,7 @@ export const AvaliacoesPage: React.FC<AvaliacoesPageProps> = ({
                   )}
                   <button
                     type="button"
-                    onClick={() => setEmAndamento(q.id)}
+                    onClick={() => { setVeioDaLista(true); setEmAndamento(q.id); }}
                     className={`cursor-pointer rounded-xl px-4 py-2 text-sobretitulo font-black uppercase tracking-wider transition-all ${
                       tentativa
                         ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-100'

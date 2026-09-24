@@ -999,7 +999,12 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     */}
     <Breadcrumb
       rotuloInicio="Painel do Instrutor"
-      onHome={() => setActiveDashboardTab('general')}
+      /*
+        Vai para a escolha de curso. `setActiveDashboardTab('general')` mantinha
+        o curso do endereço e caía na Gestão dele — o mesmo destino do degrau do
+        curso, e clique sem efeito quando já se estava lá.
+      */
+      onHome={() => navigate(RAIZ_INSTRUTOR)}
       items={trilhaDoInstrutor(destino, cursoDoEndereco?.title).map((degrau) => ({
         rotulo: degrau.rotulo,
         onClick: degrau.secao === undefined

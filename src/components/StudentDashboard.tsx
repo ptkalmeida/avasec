@@ -34,6 +34,8 @@ import { Course, Lesson, LiveSession, isCourseExpired } from '../types';
 import { LiveClassroom } from './LiveClassroom';
 import { CourseForum } from './CourseForum';
 import { StudentLibraryPanel } from './student/StudentLibraryPanel';
+import { ProfileView } from './ProfileView';
+import { rotuloDoVoltar } from '../utils/voltarParaOrigem';
 import { ExerciciosPraticosPage } from './student/ExerciciosPraticosPage';
 import { AvaliacoesPage } from './student/AvaliacoesPage';
 import { StudentEventsPanel } from './student/StudentEventsPanel';
@@ -67,22 +69,35 @@ import { tentativaVigente, textoDaTentativa } from '../utils/quizAttempts';
  * aulas basta. As aulas vem de `aulasEmOrdem`, ordenadas por `order`.
  */
 
+const CHAVE_ORIGEM_DA_ABA = 'avasec:aluno:origem-da-aba';
+
+/** Origem das abas do painel guardada na sessão; só vale endereço do aluno. */
+function lerOrigemDaAba(): string | null {
+  try {
+    const valor = sessionStorage.getItem(CHAVE_ORIGEM_DA_ABA);
+    return valor !== null && (valor === RAIZ_ALUNO || valor.startsWith(`${RAIZ_ALUNO}/`) || valor.startsWith(`${RAIZ_ALUNO}?`))
+      ? valor
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function gravarOrigemDaAba(valor: string): void {
+  try {
+    sessionStorage.setItem(CHAVE_ORIGEM_DA_ABA, valor);
+  } catch {
+    // Sem armazenamento (janela privada, bloqueio): a volta vale só nesta tela.
+  }
+}
+
 interface StudentDashboardProps {
   onBackToLanding?: () => void;
   onNavigateToProfile?: () => void;
-  /**
-   * Abre o Perfil já na aba de certificados.
-   *
-   * Os certificados vivem numa sub-aba do Perfil, sem endereço próprio, e
-   * `/aluno/certificados` — rota real, com rótulo na trilha — caía no bloco
-   * "esta seção não está disponível". A entrada da navegação leva ao lugar
-   * onde eles realmente estão, em vez de a uma tela que não existe.
-   */
-  onNavigateToCertificates?: () => void;
   speakText: (text: string) => void;
 }
 
-export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLanding, onNavigateToProfile, onNavigateToCertificates, speakText }) => {
+export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLanding, onNavigateToProfile, speakText }) => {
   const {
     courses,
     progress,
@@ -354,11 +369,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   };
 
   const abrirLugar = (lugar: LugarDoAluno): void => {
-    if (lugar.id === 'certificados') {
-      onNavigateToCertificates?.();
-      return;
-    }
-
     if (lugar.id === 'curso') {
       /*
         Vai para o curso ATIVO. Com matricula multipla concedida
@@ -376,16 +386,25 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
   };
 
   /*
-    `/aluno/certificados` existia como rota e nao tinha tela: mostrava o bloco
-"esta secao nao esta disponivel". Agora resolve para onde os certificados de
-    fato estao, em vez de dar erro a quem salvou o endereco.
+    De onde a aba do painel (Certificados, Biblioteca, Documentos...) foi
+    aberta. O Voltar dessas abas ia sempre para a aba "Painel" — quem estava
+    numa aula e abria a Biblioteca voltava para a lista de cursos. Guarda o
+    ultimo endereco que NAO e aba (curso, aula, avaliacoes, o proprio Painel),
+    e passar de uma aba para outra nao apaga a volta. Ver utils/voltarParaOrigem.
   */
+  /*
+    Guardada na sessao da aba do navegador, e nao so em memoria: ir ao Perfil
+    desmonta o painel, e na volta a Biblioteca ja nao saberia de qual aula veio.
+  */
+  const origemDaAba = React.useRef<string | null>(lerOrigemDaAba());
   useEffect(() => {
-    if (destino.tela === 'painel' && destino.aba === 'certificates') {
-      onNavigateToCertificates?.();
+    if (destino.tela !== 'painel' || destino.aba === 'general') {
+      origemDaAba.current = `${location.pathname}${location.search}`;
+      gravarOrigemDaAba(origemDaAba.current);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [destino.tela, destino.aba]);
+  }, [location.pathname, location.search, destino.tela, destino.aba]);
+  const voltarDaAba = (): void => { navigate(origemDaAba.current ?? RAIZ_ALUNO); };
+  const rotuloVoltarDaAba = rotuloDoVoltar(origemDaAba.current, 'Voltar ao Meu Painel de Estudos');
 
   const setSelectedCourse = (curso: Course | null): void => {
     irPara(curso === null
@@ -886,7 +905,18 @@ ${html}
         rotulo: degrau.rotulo,
         onClick: degrau.destino === undefined
           ? undefined
-          : () => irPara({ tela: degrau.destino!.tela, aba: degrau.destino!.aba }),
+          /*
+            Zera o que é da tela de baixo. `irPara` parte do destino atual, e o
+            `quizId` sobrevivia: o degrau "Avaliações", clicado no meio da prova,
+            remontava o endereço DA PROVA e não saía do lugar.
+          */
+          : () => irPara({
+            tela: degrau.destino!.tela,
+            aba: degrau.destino!.aba,
+            quizId: null,
+            lessonId: null,
+            sessionId: null,
+          }),
       }))}
     />
 
@@ -1271,11 +1301,16 @@ ${html}
 
                     {certificates.find((cert) => cert.courseId === selectedCourse.id && cert.userId === activeUser.id) && (
                       <button
+                        /*
+                          Abre a aba Certificados do painel. Ia para o Perfil, na
+                          aba de dados pessoais — o certificado nem estava na tela,
+                          e o Voltar não trazia de volta ao curso.
+                        */
                         onClick={() => {
-                          speakText("Seu certificado está disponível no seu Perfil.");
-                          onNavigateToProfile?.();
+                          speakText("Abrindo seus certificados.");
+                          setActiveDashboardTab('certificates');
                         }}
-                        title="Abre o certificado no seu perfil"
+                        title="Abre seus certificados"
                         className="shrink-0 rounded-lg border border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-800 font-bold text-xs px-3.5 py-2 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
                       >
                         <Award className="h-3.5 w-3.5" />
@@ -2838,11 +2873,11 @@ ${html}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4">
           <div className="text-left mb-2">
             <button
-              onClick={() => setActiveDashboardTab('general')}
+              onClick={voltarDaAba}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Voltar ao Meu Painel de Estudos</span>
+              <span>{rotuloVoltarDaAba}</span>
             </button>
           </div>
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs text-left max-w-2xl">
@@ -2925,19 +2960,31 @@ ${html}
             </div>
           </div>
         </div>
+      ) : activeDashboardTab === 'certificates' ? (
+        /*
+          Os certificados dentro do painel, com a barra de navegacao na tela.
+          A tela e a mesma do Perfil (sub-aba de certificados), e o Voltar dela
+          leva para onde o aluno estava.
+        */
+        <ProfileView
+          abaInicial="certificates"
+          onBack={voltarDaAba}
+          rotuloVoltar={rotuloVoltarDaAba}
+          speakText={speakText}
+        />
       ) : activeDashboardTab === 'library' ? (
-        <StudentLibraryPanel onBack={() => setActiveDashboardTab('general')} />
+        <StudentLibraryPanel onBack={voltarDaAba} rotuloVoltar={rotuloVoltarDaAba} />
       ) : features.eventosWebinars && activeDashboardTab === 'events' ? (
-        <StudentEventsPanel onBack={() => setActiveDashboardTab('general')} />
+        <StudentEventsPanel onBack={voltarDaAba} rotuloVoltar={rotuloVoltarDaAba} />
       ) : activeDashboardTab === 'faq' ? (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 text-left max-w-4xl mx-auto">
           <div className="text-left mb-2">
             <button
-              onClick={() => setActiveDashboardTab('general')}
+              onClick={voltarDaAba}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Voltar ao Meu Painel de Estudos</span>
+              <span>{rotuloVoltarDaAba}</span>
             </button>
           </div>
           <div>
@@ -3087,11 +3134,11 @@ ${html}
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6 text-left max-w-4xl mx-auto">
           <div className="text-left mb-2">
             <button
-              onClick={() => setActiveDashboardTab('general')}
+              onClick={voltarDaAba}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Voltar ao Meu Painel de Estudos</span>
+              <span>{rotuloVoltarDaAba}</span>
             </button>
           </div>
            <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-xs">
@@ -3284,11 +3331,11 @@ ${html}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="text-left">
               <button
-                onClick={() => setActiveDashboardTab('general')}
+                onClick={voltarDaAba}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Voltar ao Meu Painel de Estudos</span>
+                <span>{rotuloVoltarDaAba}</span>
               </button>
             </div>
             <div className="flex justify-end">
