@@ -355,3 +355,52 @@ export function insertLessonBlockAt(content: string, posicao: number, texto: str
 
   return [antes, texto, depois].filter((parte) => parte !== '').join('\n\n');
 }
+
+/**
+ * Troca um trecho de lugar com o vizinho de cima (`-1`) ou de baixo (`1`).
+ *
+ * Trabalha sobre os `range`s, trocando só o texto dos dois trechos — o resto do
+ * conteúdo não é reescrito. A legenda anda junto porque já está dentro do
+ * `range` da figura ou do código.
+ *
+ * A emenda entre os dois vira linha em branco: dois trechos colados por uma
+ * quebra só ("### Título\nParágrafo") podiam, trocados de ordem, se fundir num
+ * trecho só na releitura.
+ *
+ * Devolve o conteúdo INALTERADO quando a troca não é possível ou mudaria o
+ * texto além da ordem — ponta da lista, índice inválido, ou um parágrafo que,
+ * posto logo acima de uma figura, seria lido como legenda dela ("Exemplo: …").
+ * Quem chama compara com o original para saber se moveu.
+ */
+export function moveLessonBlock(content: string, indice: number, direcao: -1 | 1): string {
+  const { blocks } = parseLessonContent(content);
+  const alvo = indice + direcao;
+  if (!Number.isInteger(indice) || indice < 0 || indice >= blocks.length || alvo < 0 || alvo >= blocks.length) {
+    return content;
+  }
+
+  const [primeiro, segundo] = direcao === -1 ? [blocks[alvo], blocks[indice]] : [blocks[indice], blocks[alvo]];
+  const entre = content.slice(primeiro.range.end, segundo.range.start);
+  // Entre dois trechos vizinhos só há espaço em branco; se houver outra coisa,
+  // os ranges não são o que parecem e trocar estragaria o texto.
+  if (entre.trim() !== '') return content;
+
+  const textoPrimeiro = content.slice(primeiro.range.start, primeiro.range.end);
+  const textoSegundo = content.slice(segundo.range.start, segundo.range.end);
+  const novo = content.slice(0, primeiro.range.start)
+    + textoSegundo
+    + (/\n\s*\n/.test(entre) ? entre : '\n\n')
+    + textoPrimeiro
+    + content.slice(segundo.range.end);
+
+  // A troca só vale se, relido, o conteúdo tem os mesmos trechos na nova ordem.
+  const antes = blocks.map(serializeLessonBlock);
+  const depois = parseLessonContent(novo).blocks.map(serializeLessonBlock);
+  const esperado = [...antes];
+  [esperado[indice], esperado[alvo]] = [esperado[alvo], esperado[indice]];
+  if (depois.length !== esperado.length || depois.some((texto, i) => texto !== esperado[i])) {
+    return content;
+  }
+
+  return novo;
+}
