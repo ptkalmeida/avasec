@@ -56,6 +56,12 @@ export function abasVisiveisDoAluno(
   const s = systemSettings ?? {};
 
   const abas: DashboardTab[] = ['general'];
+  /*
+    Certificados e aba do painel, como a Biblioteca. Antes abria o Perfil, fora
+    do painel: a barra de navegacao sumia e o Voltar nao sabia de onde o aluno
+    tinha vindo.
+  */
+  if (f.certificados !== false) abas.push('certificates');
 
   if (f.solicitacoesAcademicas === true) abas.push('documents');
   // A condicao do canal vive em `canalDeMensagens`, e nao aqui: o sino do
@@ -106,9 +112,7 @@ export interface LugarDoAluno {
   /**
    * Aba do painel que o lugar abre.
    *
-   * Ausente em `curso` (que abre a tela do curso, fora da lista de abas) e em
-   * `certificados` (que hoje vive numa sub-aba do Perfil — ver o comentário em
-   * `StudentDashboard`).
+   * Ausente só em `curso`, que abre a tela do curso, fora da lista de abas.
    */
   aba?: DashboardTab;
 }
@@ -147,8 +151,8 @@ export function lugaresDoAluno(
 
   // Certificado é documento acadêmico: o lugar existe mesmo antes de haver um
   // emitido, porque é onde se acompanha o que falta para emitir.
-  if (f.certificados !== false) {
-    lugares.push({ id: 'certificados', rotulo: 'Certificados' });
+  if (visiveis.includes('certificates')) {
+    lugares.push({ id: 'certificados', rotulo: 'Certificados', aba: 'certificates' });
   }
 
   if (visiveis.includes('documents')) lugares.push({ id: 'documentos', rotulo: 'Documentos', aba: 'documents' });

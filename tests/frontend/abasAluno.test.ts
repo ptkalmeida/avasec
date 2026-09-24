@@ -27,7 +27,7 @@ describe('desligar mensagens NÃO derruba a navegação do aluno', () => {
     const abas = abasVisiveisDoAluno({ ...TUDO, mensagensDiretas: false }, ADMIN_PERMITE);
 
     expect(abas).not.toContain('messages');
-    expect(abas).toEqual(['general', 'documents', 'library', 'events', 'faq', 'settings']);
+    expect(abas).toEqual(['general', 'certificates', 'documents', 'library', 'events', 'faq', 'settings']);
   });
 
   it('o ADMIN desligando mensagens nas Configurações também tira só a aba', () => {
@@ -48,7 +48,7 @@ describe('desligar mensagens NÃO derruba a navegação do aluno', () => {
 
   it('nenhuma aba além de Mensagens depende de mensagens', () => {
     // Varre as duas chaves e confere que só `messages` reage a elas.
-    const semMensagem = ['general', 'documents', 'library', 'events', 'faq', 'settings'] as const;
+    const semMensagem = ['general', 'certificates', 'documents', 'library', 'events', 'faq', 'settings'] as const;
 
     for (const combinacao of [
       { f: { mensagensDiretas: false }, s: { allowDirectMessages: true } },
@@ -85,16 +85,18 @@ describe('mensagens exige as duas autorizações', () => {
 });
 
 describe('a barra nunca fica vazia', () => {
-  it('sem flag nenhuma, o aluno ainda tem o painel e a ajuda', () => {
+  it('sem flag nenhuma, o aluno ainda tem o painel, os certificados e a ajuda', () => {
     // `general` e `faq` não têm flag: é decisão, e não esquecimento.
-    expect(abasVisiveisDoAluno({}, {})).toEqual(['general', 'faq']);
-    expect(abasVisiveisDoAluno(null, null)).toEqual(['general', 'faq']);
+    // Certificados só some com a flag DESLIGADA explicitamente — é documento
+    // acadêmico, e o lugar existe mesmo antes de haver um emitido.
+    expect(abasVisiveisDoAluno({}, {})).toEqual(['general', 'certificates', 'faq']);
+    expect(abasVisiveisDoAluno(null, null)).toEqual(['general', 'certificates', 'faq']);
   });
 
   it('a ordem é estável', () => {
     // A barra não pode reordenar entre renders: a pessoa aprende a posição.
     expect(abasVisiveisDoAluno(TUDO, ADMIN_PERMITE)).toEqual([
-      'general', 'documents', 'messages', 'library', 'events', 'faq', 'settings',
+      'general', 'certificates', 'documents', 'messages', 'library', 'events', 'faq', 'settings',
     ]);
   });
 });
@@ -131,18 +133,20 @@ describe('Bloco 6: lugar e ação deixam de ser a mesma coisa', () => {
 
   it('Certificados é um lugar da navegação, e não um card escondido', () => {
     /*
-     * Antes: `/aluno/certificados` era rota real, tinha rótulo na trilha e
-     * nenhuma tela — caía no bloco "esta seção não está disponível", porque
-     * `certificates` não está entre as abas visíveis.
+     * Certificados é aba do painel, como a Biblioteca. Antes abria o Perfil,
+     * fora do painel: a barra de navegação sumia e o Voltar levava para a
+     * escolha de curso em vez de devolver o aluno ao curso de onde saiu.
      */
     expect(lugaresDoAluno(TUDO, ADMIN_PERMITE, COM_CURSO).map((l) => l.id)).toContain('certificados');
-    expect(abaVisivelParaAluno('certificates', TUDO, ADMIN_PERMITE)).toBe(false);
+    expect(abaVisivelParaAluno('certificates', TUDO, ADMIN_PERMITE)).toBe(true);
   });
 
   it('com a flag de certificados desligada, o lugar não aparece', () => {
     const lugares = lugaresDoAluno({ ...TUDO, certificados: false }, ADMIN_PERMITE, COM_CURSO);
 
     expect(lugares.map((l) => l.id)).not.toContain('certificados');
+    // E o endereço salvo cai no aviso de seção desligada, não numa tela vazia.
+    expect(abaVisivelParaAluno('certificates', { ...TUDO, certificados: false }, ADMIN_PERMITE)).toBe(false);
   });
 
   it('Biblioteca continua alcançável — ela está LIGADA hoje', () => {
@@ -166,9 +170,9 @@ describe('Bloco 6: lugar e ação deixam de ser a mesma coisa', () => {
     expect(porId.biblioteca).toBe('library');
     expect(porId.mensagens).toBe('messages');
     expect(porId.eventos).toBe('events');
-    // Curso e certificados não são abas do painel.
+    expect(porId.certificados).toBe('certificates');
+    // Curso não é aba do painel: abre a tela do curso.
     expect(porId.curso).toBeUndefined();
-    expect(porId.certificados).toBeUndefined();
   });
 
   it('a navegação não oscila entre três e sete itens por causa de mensagens', () => {

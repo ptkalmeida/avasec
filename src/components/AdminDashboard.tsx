@@ -115,6 +115,9 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   const setActiveTab = (aba: AbaAdmin): void => {
     // Trocar de seção limpa a ficha aberta: ela pertence à seção Alunos.
     irPara({ aba, alunoId: null });
+    // E a lista de alunos aberta num curso pertence à seção Cursos: sem isto, o
+    // Voltar do topo seguia "fechando" uma lista que não estava mais na tela.
+    setExpandedCourseStudentsId(null);
   };
   const [selectedBiBase, setSelectedBiBase] = useState<'alunos' | 'cursos' | 'matriculas' | 'progresso' | 'certificados'>('alunos');
 
@@ -243,9 +246,17 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
   const [showCoursePickerModal, setShowCoursePickerModal] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
+  /*
+    O Voltar do topo fecha o que está aberto NA SEÇÃO ATUAL, e só então sai.
+    Antes: com a ficha de um aluno aberta ele saía direto para o portal, e a
+    lista de alunos de um curso (que fica em Cursos) se anunciava como
+    "Gestão de Alunos".
+  */
   const handleBack = () => {
     if (activeDocViewer) {
       setActiveDocViewer(null);
+    } else if (activeStudentProfile) {
+      setActiveStudentProfile(null);
     } else if (expandedCourseStudentsId) {
       setExpandedCourseStudentsId(null);
     } else if (onBackToLanding) {
@@ -255,7 +266,8 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
 
   const getBackLabel = () => {
     if (activeDocViewer) return "Fechar Documento";
-    if (expandedCourseStudentsId) return "Voltar p/ Gestão de Alunos";
+    if (activeStudentProfile) return "Voltar p/ Alunos";
+    if (expandedCourseStudentsId) return "Voltar p/ Cursos";
     return "Sair p/ Portal";
   };
 

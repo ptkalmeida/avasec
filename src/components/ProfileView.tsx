@@ -7,7 +7,10 @@ import {
   Lock, Key, Fingerprint, ShieldAlert, Camera, Upload, X, Printer, ShieldCheck, LogOut,
   Download, Calendar, PlayCircle, CheckCircle, Info, ArrowRight, AlertTriangle
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useLMS } from '../context/LMSContext';
+import { caminhoAluno } from '../router/studentRoutes';
+import { refDoCurso } from '../utils/cursoRef';
 import { features } from '../config/features';
 import { courseMinAttendance, DROPOUT_PENALTY_FREE_DAYS } from '../config/constants';
 import { demoProfiles } from '../dev/demoProfiles';
@@ -30,6 +33,12 @@ interface ProfileViewProps {
    * Perfil na aba de dados obrigaria a procurar.
    */
   abaInicial?: 'profile' | 'password' | 'certificates';
+  /**
+   * Texto do Voltar que sai do Perfil — diz para onde ele leva ("Voltar ao
+   * curso", "Voltar à aula"...). Quem decide é o App, que sabe de onde o
+   * Perfil foi aberto (utils/voltarParaOrigem).
+   */
+  rotuloVoltar?: string;
 }
 
 // Atalho de troca rápida de perfil (SOMENTE em dev). Faz um login REAL com o PIN do
@@ -51,7 +60,8 @@ export function ProfileView({
   onBack,
   speakText,
   onLogout,
-  abaInicial
+  abaInicial,
+  rotuloVoltar = 'Voltar ao Painel',
 }: ProfileViewProps) {
   const {
     activeUser,
@@ -115,6 +125,15 @@ export function ProfileView({
   
   // State to manage showing the main Profile view, the password change view, or Certificados
   const [currentTab, setCurrentTab] = useState<'profile' | 'password' | 'certificates'>(abaInicial ?? 'profile');
+
+  /*
+    A sub-aba em que o Perfil ABRIU volta para onde a pessoa estava, não para
+    os dados do Perfil. Quem clicou em "Certificados" dentro de um curso quer o
+    curso de volta; o "Voltar ao Meu Perfil" só faz sentido para quem entrou
+    nos certificados a partir do próprio Perfil.
+  */
+  const abriuNestaAba = (aba: 'password' | 'certificates'): boolean => abaInicial === aba;
+  const navigate = useNavigate();
 
   // Certificados — antes vivia como aba do painel do aluno; agora único lugar é o Perfil.
   const [activeCertificatesTab, setActiveCertificatesTab] = useState<'available' | 'in_progress' | 'validation'>('available');
@@ -441,15 +460,20 @@ export function ProfileView({
           <button
             type="button"
             onClick={() => {
+              setIsResetSuccess(false);
+              if (abriuNestaAba('password')) {
+                speakText(`${rotuloVoltar}.`);
+                onBack();
+                return;
+              }
               speakText("Voltando para as configurações de perfil.");
               setCurrentTab('profile');
-              setIsResetSuccess(false);
             }}
             className="group flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-all bg-white border border-slate-200 px-4 py-2 rounded-xl cursor-pointer shadow-3xs"
-            title="Retornar ao perfil"
+            title={abriuNestaAba('password') ? rotuloVoltar : 'Retornar ao perfil'}
           >
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            <span>Voltar ao Meu Perfil</span>
+            <span>{abriuNestaAba('password') ? rotuloVoltar : 'Voltar ao Meu Perfil'}</span>
           </button>
 
           <div className="flex items-center gap-2">
@@ -879,11 +903,19 @@ export function ProfileView({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
           <button
             type="button"
-            onClick={() => { speakText("Voltando para o perfil."); setCurrentTab('profile'); }}
+            onClick={() => {
+              if (abriuNestaAba('certificates')) {
+                speakText(`${rotuloVoltar}.`);
+                onBack();
+                return;
+              }
+              speakText("Voltando para o perfil.");
+              setCurrentTab('profile');
+            }}
             className="group flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-all bg-white border border-slate-200 px-4 py-2 rounded-xl cursor-pointer shadow-3xs"
           >
             <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-            <span>Voltar ao Meu Perfil</span>
+            <span>{abriuNestaAba('certificates') ? rotuloVoltar : 'Voltar ao Meu Perfil'}</span>
           </button>
         </div>
 
@@ -1068,7 +1100,15 @@ export function ProfileView({
                     </div>
                     <div className="flex items-center shrink-0">
                       <button
-                        onClick={() => { speakText("Retornando ao painel de estudos."); onBack(); }}
+                        /*
+                          Vai para O CURSO, que é o que o botão promete. Chamava
+                          `onBack`, e o Voltar agora leva para onde a pessoa
+                          estava — que pode ser a Biblioteca ou uma página do portal.
+                        */
+                        onClick={() => {
+                          speakText("Abrindo o curso.");
+                          navigate(caminhoAluno({ tela: 'curso', cursoRef: refDoCurso(activeEnrolledCourse) }));
+                        }}
                         className="bg-slate-900 hover:bg-slate-800 text-white text-sobretitulo uppercase px-5 py-2.5 rounded-xl transition-all shadow-xs flex items-center justify-center gap-2 w-full md:w-auto cursor-pointer"
                       >
                         <PlayCircle className="h-4 w-4" />
@@ -1180,23 +1220,21 @@ export function ProfileView({
       {/* Upper header section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <button
+          /*
+            Disparava o evento `reset-dashboard`, que mandava o painel do aluno
+            para a raiz. Saiu: o Voltar agora leva para onde a pessoa estava
+            (curso, aula, aba), e quem decide o destino é o App.
+          */
+          type="button"
           onClick={() => {
-            let resetEvent;
-            try {
-              resetEvent = new Event('reset-dashboard');
-            } catch (e) {
-              resetEvent = document.createEvent('Event');
-              resetEvent.initEvent('reset-dashboard', true, true);
-            }
-            window.dispatchEvent(resetEvent);
-            speakText("Voltando para o painel anterior.");
+            speakText(`${rotuloVoltar}.`);
             onBack();
           }}
           className="group flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-all bg-white border border-slate-200 px-4 py-2 rounded-xl cursor-pointer shadow-3xs"
-          title="Retornar"
+          title={rotuloVoltar}
         >
           <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
-          <span>Voltar ao Painel</span>
+          <span>{rotuloVoltar}</span>
         </button>
 
         <div 

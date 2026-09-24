@@ -154,6 +154,30 @@ describe('AvaliacoesPage', () => {
     expect(screen.getByText('Questão 1 de 2')).toBeInTheDocument();
   });
 
+  /*
+   * Sair da prova volta para onde ela foi aberta. O card do curso abre a prova
+   * direto; a saída levava para a lista de avaliações, que o aluno nunca tinha
+   * visto, e dali era mais um clique até o curso.
+   */
+  it('prova aberta pelo card do curso: o Voltar volta ao curso', async () => {
+    const { onBack } = renderPage({ quizzes: [quiz('q1'), quiz('q2')], quizInicial: 'q2' });
+
+    await userEvent.click(screen.getByRole('button', { name: /voltar ao curso/i }));
+
+    expect(onBack).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /voltar às avaliações/i })).toBeNull();
+  });
+
+  it('prova escolhida na lista: o Voltar volta à lista', async () => {
+    const { onBack } = renderPage({ quizzes: [quiz('q1')] });
+    await userEvent.click(screen.getByRole('button', { name: /começar/i }));
+
+    await userEvent.click(screen.getByRole('button', { name: /voltar às avaliações/i }));
+
+    expect(onBack).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /começar/i })).toBeInTheDocument();
+  });
+
   it('ignora quizInicial que não é deste curso', () => {
     renderPage({ quizzes: [quiz('q1')], quizInicial: 'inexistente' });
 

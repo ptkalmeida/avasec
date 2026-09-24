@@ -4,9 +4,11 @@ import { useLMS } from '../../context/LMSContext';
 
 interface StudentEventsPanelProps {
   onBack: () => void;
+  /** Texto do Voltar, dizendo para onde ele leva (curso, aula, Painel). */
+  rotuloVoltar?: string;
 }
 
-export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack }) => {
+export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack, rotuloVoltar = 'Voltar ao Meu Painel de Estudos' }) => {
   const { webinarEvents } = useLMS();
 
   return (
@@ -17,7 +19,7 @@ export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack }
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 transition-all cursor-pointer text-sobretitulo uppercase border border-slate-200/65"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          <span>Voltar ao Meu Painel de Estudos</span>
+          <span>{rotuloVoltar}</span>
         </button>
       </div>
       <div className="flex items-center justify-between">
