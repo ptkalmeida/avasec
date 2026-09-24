@@ -6,6 +6,7 @@ import {
   removeLessonBlock,
   insertLessonBlockAt,
   ehLegenda,
+  moveLessonBlock,
 } from '../../src/utils/lessonContent';
 
 describe('parseLessonContent', () => {
@@ -372,5 +373,76 @@ describe('conversão de tipo de bloco', () => {
     const devolta = serializeLessonBlock({ kind: 'subsection', id: '', text: itens.join(' '), range });
 
     expect(devolta).toBe(`### ${texto}`);
+  });
+});
+
+/*
+ * Subir e descer trecho por trecho no editor. A troca mexe só no texto dos dois
+ * trechos vizinhos; se relida mudaria mais do que a ordem, não acontece.
+ */
+describe('moveLessonBlock', () => {
+  const tipos = (conteudo: string) => parseLessonContent(conteudo).blocks.map((b) => b.kind);
+
+  const AULA = [
+    '### Estruturando o seu AVA',
+    'A arquitetura de informação organiza os conteúdos.',
+    '',
+    '- Card Sorting',
+    '- Sitemaps',
+    '',
+    'Figura 1 - Organograma',
+    '![organograma](/uploads/org.png)',
+  ].join('\n');
+
+  it('sobe a figura, com a legenda junto', () => {
+    const novo = moveLessonBlock(AULA, 3, -1);
+
+    expect(tipos(novo)).toEqual(['subsection', 'paragraph', 'image', 'bulletList']);
+    const figura = parseLessonContent(novo).blocks[2];
+    expect(figura).toMatchObject({ kind: 'image', caption: 'Figura 1 - Organograma', alt: 'organograma' });
+  });
+
+  it('desce um trecho', () => {
+    expect(tipos(moveLessonBlock(AULA, 0, 1))).toEqual(['paragraph', 'subsection', 'bulletList', 'image']);
+  });
+
+  it('trechos colados por uma quebra só não se fundem ao trocar', () => {
+    // Título e parágrafo colados por uma quebra só: sem a linha em branco na
+    // emenda, o parágrafo acima do título poderia engolir a linha do título.
+    const novo = moveLessonBlock(AULA, 0, 1);
+
+    expect(novo.startsWith('A arquitetura de informação organiza os conteúdos.\n\n### Estruturando o seu AVA')).toBe(true);
+  });
+
+  it('nas pontas e com índice inválido não faz nada', () => {
+    expect(moveLessonBlock(AULA, 0, -1)).toBe(AULA);
+    expect(moveLessonBlock(AULA, 3, 1)).toBe(AULA);
+    expect(moveLessonBlock(AULA, 9, -1)).toBe(AULA);
+    expect(moveLessonBlock(AULA, -1, 1)).toBe(AULA);
+    expect(moveLessonBlock('', 0, 1)).toBe('');
+  });
+
+  it('não perde texto: subir e descer de volta devolve a mesma aula', () => {
+    const idaEVolta = moveLessonBlock(moveLessonBlock(AULA, 2, 1), 3, -1);
+
+    expect(parseLessonContent(idaEVolta).blocks.map(serializeLessonBlock))
+      .toEqual(parseLessonContent(AULA).blocks.map(serializeLessonBlock));
+  });
+
+  it('seções trocam de lugar e renumeram pela nova ordem', () => {
+    const conteudo = '## Primeira\n\nTexto um.\n\n## Segunda';
+    const novo = moveLessonBlock(conteudo, 2, -1);
+
+    const secoes = parseLessonContent(novo).sections;
+    expect(secoes.map((sec) => [sec.text, sec.index])).toEqual([['Primeira', 1], ['Segunda', 2]]);
+    expect(parseLessonContent(novo).blocks.map((b) => b.kind)).toEqual(['section', 'section', 'paragraph']);
+  });
+
+  it('recusa a troca que transformaria um parágrafo em legenda da figura', () => {
+    // "Exemplo: ..." logo acima de uma figura é lido como legenda dela: o
+    // parágrafo sumiria como trecho. Melhor não mover que mudar o texto.
+    const conteudo = 'Exemplo: veja o fluxo abaixo.\n\nOutro parágrafo.\n\n![fluxo](/uploads/f.png)';
+
+    expect(moveLessonBlock(conteudo, 0, 1)).toBe(conteudo);
   });
 });

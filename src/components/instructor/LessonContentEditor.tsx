@@ -3,14 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  Pencil, Check, X, Trash2, Plus, HelpCircle, ChevronDown, ChevronUp,
+  Pencil, Check, X, Trash2, Plus, HelpCircle, ChevronDown, ChevronUp, ArrowUp, ArrowDown,
   Heading1, Heading2, AlignLeft, ListOrdered, List, Image as ImageIcon, Film
 } from 'lucide-react';
 import {
   LessonBlock, LessonBlockRange, parseLessonContent, serializeLessonBlock,
-  replaceLessonBlock, removeLessonBlock, insertLessonBlockAt,
+  replaceLessonBlock, removeLessonBlock, insertLessonBlockAt, moveLessonBlock,
 } from '../../utils/lessonContent';
 import { LessonContent } from '../student/LessonContent';
 import { LessonMediaForm } from './LessonMediaForm';
@@ -337,6 +337,41 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
 
   const parsed = parseLessonContent(value);
 
+  /*
+    Subir e descer trecho por trecho. Depois de mover, o trecho fica destacado
+    um instante e o foco vai para o mesmo botão no lugar novo — sem isso quem
+    usa teclado perderia o ponto (o trecho é remontado) e quem usa mouse não
+    veria para onde ele foi.
+  */
+  const [movido, setMovido] = useState<{ indice: number; direcao: -1 | 1 } | null>(null);
+  const [avisoMover, setAvisoMover] = useState<string | null>(null);
+  const listaRef = useRef<HTMLDivElement>(null);
+
+  const mover = (indice: number, direcao: -1 | 1): void => {
+    const novo = moveLessonBlock(value, indice, direcao);
+    if (novo === value) {
+      setAvisoMover('Este trecho não pode ir para lá sem mudar o texto (por exemplo, um parágrafo que viraria legenda da figura). Mova o outro trecho, ou edite este.');
+      return;
+    }
+    setAvisoMover(null);
+    setEditando(null);
+    setAdicionandoEm(null);
+    onChange(novo);
+    setMovido({ indice: indice + direcao, direcao });
+  };
+
+  useEffect(() => {
+    if (movido === null) return;
+    const bloco = listaRef.current?.querySelector<HTMLElement>(`[data-bloco="${movido.indice}"]`);
+    // Na ponta o botão da mesma direção some; aí o foco vai para o outro.
+    const botao = bloco?.querySelector<HTMLButtonElement>(`[data-mover="${movido.direcao}"]`)
+      ?? bloco?.querySelector<HTMLButtonElement>('[data-mover]');
+    botao?.focus();
+    const t = window.setTimeout(() => setMovido(null), 1200);
+
+    return () => window.clearTimeout(t);
+  }, [movido]);
+
   const adicionar = (indice: number, texto: string) => {
     // -1 é o menu do topo: o trecho novo entra ANTES de tudo, na posição 0.
     // Para os demais, logo depois do bloco que o menu acompanha.
@@ -458,6 +493,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
             <li>Passe o mouse sobre um trecho e clique no <strong>lápis</strong> para editá-lo.</li>
             <li>Clique em <strong>Adicionar</strong>, entre dois trechos, para inserir algo novo ali.</li>
             <li>A <strong>lixeira</strong> remove o trecho.</li>
+            <li>As <strong>setas ↑ e ↓</strong> sobem e descem o trecho uma posição. Figura e código levam a legenda junto. A nova ordem só vale depois de <strong>Salvar material</strong>.</li>
             <li><strong>Seção</strong> numera a parte e cria o índice “Nesta aula”; <strong>Subtítulo</strong> separa assuntos dentro dela.</li>
             <li>Ao editar um trecho, o campo <strong>Tipo</strong> converte o que já está escrito — uma lista numerada vira <strong>Seção</strong> sem redigitar o texto. Use isso quando os títulos estiverem saindo todos como “1.”: a Seção numera 1, 2, 3 pela aula inteira, mesmo com parágrafos no meio.</li>
             <li><strong>Imagem</strong> põe uma figura no meio da aula, onde você clicar em Adicionar. A <strong>descrição é obrigatória</strong>: é o que o aluno recebe quando a imagem não carrega, e o que o leitor de tela lê em voz alta. A legenda (“Figura 1 - …”) aparece abaixo da figura.</li>
@@ -503,8 +539,15 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
           <>
             <MenuAdicionar indice={-1} />
 
+            {avisoMover !== null && (
+              <p role="status" className="my-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-apoio text-amber-900">
+                {avisoMover}
+              </p>
+            )}
+
+            <div ref={listaRef}>
             {parsed.blocks.map((block, i) => (
-              <div key={`${block.kind}-${block.range.start}`}>
+              <div key={`${block.kind}-${block.range.start}`} data-bloco={i}>
                 {editando === i ? (
                   <BlockForm
                     block={block}
@@ -517,9 +560,35 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                     }}
                   />
                 ) : (
-                  <div className="group relative rounded-xl px-3 py-1 transition-colors hover:bg-slate-50/80">
+                  <div className={`group relative rounded-xl px-3 py-1 transition-colors hover:bg-slate-50/80 ${
+                    movido?.indice === i ? 'bg-teal-50 ring-1 ring-teal-300' : ''
+                  }`}>
                     {/* Controles do bloco: aparecem no hover e no foco por teclado. */}
                     <div className="absolute right-1.5 top-1.5 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                      {i > 0 && (
+                        <button
+                          type="button"
+                          data-mover="-1"
+                          onClick={() => mover(i, -1)}
+                          aria-label={`Subir ${ROTULO[block.kind].toLowerCase()}`}
+                          title="Subir este trecho"
+                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                        >
+                          <ArrowUp className="h-3 w-3" />
+                        </button>
+                      )}
+                      {i < parsed.blocks.length - 1 && (
+                        <button
+                          type="button"
+                          data-mover="1"
+                          onClick={() => mover(i, 1)}
+                          aria-label={`Descer ${ROTULO[block.kind].toLowerCase()}`}
+                          title="Descer este trecho"
+                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                        >
+                          <ArrowDown className="h-3 w-3" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => { setEditando(i); setAdicionandoEm(null); }}
@@ -548,6 +617,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                 <MenuAdicionar indice={i} />
               </div>
             ))}
+            </div>
           </>
         )}
       </div>

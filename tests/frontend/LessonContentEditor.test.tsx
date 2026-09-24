@@ -38,6 +38,41 @@ const Harness: React.FC<{
 const valor = () => screen.getByTestId('valor').textContent ?? '';
 
 describe('LessonContentEditor', () => {
+  it('sobe e desce trecho por trecho, sem seta na ponta', () => {
+    render(<Harness />);
+
+    // Primeiro trecho não sobe; último não desce.
+    expect(screen.queryByRole('button', { name: 'Subir seção' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Descer bloco de código' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Subir bloco de código' }));
+
+    // O código subiu com a legenda, acima da lista numerada.
+    const texto = valor();
+    expect(texto.indexOf('Código 1: exemplo:')).toBeLessThan(texto.indexOf('1. Baixa Fidelidade'));
+    expect(texto.indexOf('Código 1: exemplo:')).toBeGreaterThan(texto.indexOf('### Tipos de Wireframe'));
+  });
+
+  it('depois de mover, o foco fica no botão do trecho no lugar novo', () => {
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Descer parágrafo' }));
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Descer parágrafo' }));
+    expect(valor().indexOf('### Tipos de Wireframe')).toBeLessThan(valor().indexOf('Os wireframes servem'));
+  });
+
+  it('avisa, sem mexer no texto, quando a troca mudaria o conteúdo', () => {
+    render(<Harness inicial={'Exemplo: veja o fluxo abaixo.\n\nOutro parágrafo.\n\n![fluxo](/uploads/f.png)'} />);
+    const antes = valor();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Descer parágrafo' })[0]);
+
+    expect(valor()).toBe(antes);
+    // `getByText`, não `getByRole('status')`: o <output> do Harness também é status.
+    expect(screen.getByText(/não pode ir para lá/i)).toHaveAttribute('role', 'status');
+  });
+
   it('mostra a aula como o aluno vê, num card só, sem área de marcação', () => {
     render(<Harness />);
 
