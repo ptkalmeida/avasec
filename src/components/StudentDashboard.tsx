@@ -44,6 +44,7 @@ import { parseLessonContent } from '../utils/lessonContent';
 import { parseVideoSource } from '../utils/videoSource';
 import { LessonContent } from './student/LessonContent';
 import { LessonIndex } from './student/LessonIndex';
+import { useForaDaTela } from '../hooks/useForaDaTela';
 import { safeHref } from '../utils/safeUrl';
 import { sanitizeNoteHtml, escapeHtml } from '../utils/noteHtml';
 import { formatScheduledAt, dataCurta, horaCurta, transmissoesDoDia, situacaoTransmissao, encerradaPorTempo } from '../utils/liveSchedule';
@@ -609,6 +610,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   // Student private notebook states
   const [activeTab, setActiveTab] = useState<'teoria' | 'anotacao' | 'suporte' | 'forum'>('teoria');
+  /*
+    Título grande da aula e se ele já saiu da tela. O cabeçalho fixo só mostra
+    o título depois disso — antes, a aula abria com o mesmo título duas vezes.
+    72px: altura do cabeçalho fixo, que cobre o alto da tela.
+  */
+  const [tituloDaAulaRef, tituloDaAulaForaDaTela] = useForaDaTela<HTMLDivElement>(activeLesson?.id, 72);
   
   // Auto-switch away from disabled tabs
   useEffect(() => {
@@ -1375,11 +1382,12 @@ ${html}
                             <span className="sm:hidden">Voltar</span>
                           </button>
 
+                          {/* Título só depois que o título grande sai da tela, ao
+                              rolar; o "Aula X de Y" fica só embaixo do título grande. */}
                           <div className="min-w-0 flex-1 text-center hidden md:block">
-                            <p className="text-rotulo font-bold text-slate-700 truncate">{activeLesson.title}</p>
-                            <span className="text-apoio text-escult-ink-2">
-                              Aula {activeLesson.order} de {selectedCourse.lessons.length}
-                            </span>
+                            {tituloDaAulaForaDaTela && (
+                              <p className="text-rotulo font-bold text-slate-700 truncate">{activeLesson.title}</p>
+                            )}
                           </div>
 
                           <div className="shrink-0">
@@ -1406,30 +1414,29 @@ ${html}
                         </div>
                       )}
 
-                      {/* Aula sem vídeo: abre com o título e a natureza do
-                          conteúdo, em vez de um player vazio. */}
-                      {!lessonHasVideo && (
-                        <div className="w-full max-w-3xl mx-auto text-left space-y-2 pt-1">
+                      {/* O título da aula, UMA vez, com a posição e a duração.
+                          Aula sem vídeo abre com ele (e com a natureza do conteúdo),
+                          em vez de um player vazio; aula com vídeo o traz logo abaixo
+                          do vídeo. Era o terceiro lugar que dizia "Aula X de Y". */}
+                      <div ref={tituloDaAulaRef} className="w-full max-w-3xl mx-auto text-left space-y-2 pt-1">
+                        {!lessonHasVideo && (
                           <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 border border-teal-150 text-teal-800 text-sobretitulo uppercase px-2.5 py-1">
                             <FileText className="h-3 w-3" />
                             Conteúdo de leitura
                           </span>
-                          <h2 className="text-lg md:text-2xl font-black text-slate-900 font-serif leading-tight">
-                            {activeLesson.title}
-                          </h2>
-                          <p className="text-rotulo text-escult-ink-3">
-                            Aula {activeLesson.order} de {selectedCourse.lessons.length}
-                            {activeLesson.duration ? ` • ${activeLesson.duration} de leitura` : ''}
-                          </p>
-                        </div>
-                      )}
+                        )}
+                        <h2 className="text-lg md:text-2xl font-black text-slate-900 font-serif leading-tight">
+                          {activeLesson.title}
+                        </h2>
+                        <p className="text-rotulo text-escult-ink-3">
+                          Aula {activeLesson.order} de {selectedCourse.lessons.length}
+                          {activeLesson.duration ? ` • ${activeLesson.duration}${lessonHasVideo ? '' : ' de leitura'}` : ''}
+                        </p>
+                      </div>
 
                       {/* Controles da aula. A navegação entre aulas vive só no rodapé
                           da aula (um par de botões, não dois fazendo a mesma coisa). */}
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/65 flex items-center justify-between gap-4 w-full max-w-3xl mx-auto">
-                        <span className="hidden sm:inline text-apoio text-escult-ink-2 select-none">
-                          Aula {activeLesson.order} de {selectedCourse.lessons.length}
-                        </span>
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/65 flex items-center justify-end gap-4 w-full max-w-3xl mx-auto">
 
                         {/*
                           ESTADO primeiro, ação depois.
