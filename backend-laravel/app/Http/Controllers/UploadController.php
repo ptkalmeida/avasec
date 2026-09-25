@@ -10,6 +10,7 @@ use App\Services\UploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class UploadController extends Controller
 {
@@ -30,12 +31,13 @@ final class UploadController extends Controller
         return response()->json($result, 201);
     }
 
-    public function download(Request $request, string $id): BinaryFileResponse
+    public function download(Request $request, string $id): StreamedResponse
     {
         $resolved = $this->uploads->resolveForDownload($id, $this->requester($request));
 
         // 'attachment' força download — arquivo de terceiros nunca é renderizado no app.
-        return response()->download($resolved['path'], $resolved['originalName'], [
+        // Pelo disco, não pelo caminho: vale igual para o disco local e para o S3/MinIO.
+        return $resolved['disco']->download($resolved['chave'], $resolved['originalName'], [
             'Content-Type' => $resolved['mime'],
         ]);
     }

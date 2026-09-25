@@ -10,7 +10,9 @@ use App\Support\CourseAccess;
 use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
 use finfo;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Upload de arquivos — espelha src/server/upload.ts. Valida a extensão e confere os
@@ -53,12 +55,10 @@ final class UploadService
 
         // Nome gerado no servidor — fecha path traversal / sobrescrita.
         $safeName = CarbonImmutable::now()->getTimestampMs().'-'.bin2hex(random_bytes(8)).'.'.$ext;
-        $targetDir = $this->dir($visibility);
-        if (! is_dir($targetDir)) {
-            mkdir($targetDir, 0o755, true);
-        }
-        file_put_contents($targetDir.DIRECTORY_SEPARATOR.$safeName, $contents);
-        @chmod($targetDir.DIRECTORY_SEPARATOR.$safeName, 0o644);
+        // Pelo Laravel Filesystem (Norma TI-SECEC C.5.2): o disco cria a pasta que
+        // faltar e aplica a permissão da visibilidade. Com `throw` ligado no disco,
+        // falha de escrita vira exceção, e nada é registrado sem o arquivo existir.
+        $this->disco($visibility)->put($safeName, $contents);
 
         StoredFile::query()->create([
             'id' => $safeName,
@@ -80,8 +80,12 @@ final class UploadService
      * Resolve caminho físico de um arquivo para download autorizado, aplicando as mesmas
      * regras do Node (anti-traversal, existência, autorização por dono/staff).
      *
+     * Devolve o DISCO e a CHAVE, não um caminho físico: o controlador baixa pelo
+     * disco, o que funciona igual com o disco local de hoje e com o S3/MinIO de
+     * amanhã (Norma TI-SECEC C.5.2).
+     *
      * @param  array{sub:string,name:string,role:string}  $requester
-     * @return array{path:string, mime:string, originalName:string}
+     * @return array{disco:FilesystemAdapter, chave:string, mime:string, originalName:string}
      */
     public function resolveForDownload(string $id, array $requester): array
     {
@@ -98,8 +102,8 @@ final class UploadService
             throw ApiException::forbidden('Você não tem permissão para acessar este arquivo.');
         }
 
-        $path = $this->dir($record->visibility).DIRECTORY_SEPARATOR.$record->id;
-        if (! is_file($path)) {
+        $disco = $this->disco($record->visibility);
+        if (! $disco->fileExists($record->id)) {
             throw ApiException::notFound('Arquivo não encontrado no armazenamento.');
         }
 
@@ -107,7 +111,8 @@ final class UploadService
         $mime = config("uploads.mime_by_ext.$ext", 'application/octet-stream');
 
         return [
-            'path' => $path,
+            'disco' => $disco,
+            'chave' => $record->id,
             'mime' => is_string($mime) ? $mime : 'application/octet-stream',
             'originalName' => $record->originalName,
         ];
@@ -163,10 +168,17 @@ final class UploadService
             throw ApiException::notFound('Arquivo não encontrado.');
         }
 
-        $path = $this->dir('public').DIRECTORY_SEPARATOR.$filename;
-        if (! is_file($path)) {
+        /*
+         * O público continua sendo servido pelo CAMINHO do disco local: é o que
+         * mantém o Range (o <video> avança no arquivo) e o 304 do cache. Com o
+         * MinIO, arquivo público passa a sair do próprio storage ou por URL
+         * temporária — muda a forma de servir, não a regra (plano 11, item F3).
+         */
+        $disco = $this->disco('public');
+        if (! $disco->fileExists($filename)) {
             throw ApiException::notFound('Arquivo não encontrado.');
         }
+        $path = $disco->path($filename);
 
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         $mime = config("uploads.mime_by_ext.$ext", 'application/octet-stream');
@@ -177,10 +189,17 @@ final class UploadService
         ];
     }
 
-    private function dir(string $visibility): string
+    /** Disco de cada visibilidade (config/filesystems.php). */
+    public static function nomeDoDisco(string $visibility): string
     {
-        $root = config('uploads.root');
+        return $visibility === 'private' ? 'privado' : 'publico';
+    }
 
-        return rtrim(is_string($root) ? $root : '', '/\\').DIRECTORY_SEPARATOR.($visibility === 'private' ? 'private' : 'public');
+    private function disco(string $visibility): FilesystemAdapter
+    {
+        $disco = Storage::disk(self::nomeDoDisco($visibility));
+        assert($disco instanceof FilesystemAdapter);
+
+        return $disco;
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File as Files;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\GeneratesCpf;
 use Tests\TestCase;
 
@@ -29,7 +30,12 @@ final class UploadTest extends TestCase
     {
         parent::setUp();
         $this->tmpRoot = storage_path('framework/testing/uploads-'.uniqid());
-        config(['uploads.root' => $this->tmpRoot]);
+        // Os discos de upload (config/filesystems.php) apontam para a pasta temporária:
+        // o teste nunca grava na pasta real de uploads.
+        config([
+            'filesystems.disks.publico.root' => $this->tmpRoot.DIRECTORY_SEPARATOR.'public',
+            'filesystems.disks.privado.root' => $this->tmpRoot.DIRECTORY_SEPARATOR.'private',
+        ]);
     }
 
     protected function tearDown(): void
@@ -98,6 +104,26 @@ final class UploadTest extends TestCase
         $name = basename($response->json('url'));
         $this->assertFileExists($this->tmpRoot.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.$name);
         $this->assertDatabaseHas('StoredFile', ['id' => $name, 'visibility' => 'public']);
+    }
+
+    public function test_cada_visibilidade_grava_no_seu_disco_do_laravel_filesystem(): void
+    {
+        // Norma TI-SECEC C.5.2: o arquivo passa pelo Laravel Filesystem. É isto que
+        // deixa a troca para MinIO ser só de configuração do disco.
+        Storage::fake('publico');
+        Storage::fake('privado');
+        $auth = ['Authorization' => 'Bearer '.$this->studentToken(), 'Accept' => 'application/json'];
+
+        $publico = $this->post('/api/upload', ['file' => $this->realPng('capa.png')], $auth)->assertStatus(201);
+        $privado = $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth)->assertStatus(201);
+
+        $nomePublico = basename((string) $publico->json('url'));
+        $nomePrivado = basename((string) $privado->json('url'));
+        Storage::disk('publico')->assertExists($nomePublico);
+        Storage::disk('privado')->assertExists($nomePrivado);
+        // E nunca no disco da outra visibilidade.
+        Storage::disk('publico')->assertMissing($nomePrivado);
+        Storage::disk('privado')->assertMissing($nomePublico);
     }
 
     public function test_public_file_is_served_statically_without_auth(): void
