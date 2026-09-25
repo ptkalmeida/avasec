@@ -35,6 +35,9 @@ export default defineConfig(() => {
       proxy: {
         '/api': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
         '/uploads': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
+        // Saúde e página de status (Norma TI-SECEC, C.8) moram no Laravel, fora de /api.
+        '/health': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
+        '/sistema': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
       },
     },
   };
