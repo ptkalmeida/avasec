@@ -57,23 +57,34 @@ final class SaudeTest extends TestCase
             ->assertJsonPath('verificacoes.banco', 'indisponivel');
     }
 
-    public function test_ready_503_quando_o_armazenamento_nao_existe(): void
+    public function test_ready_503_quando_o_armazenamento_nao_aceita_escrita(): void
     {
-        config(['uploads.root' => sys_get_temp_dir().DIRECTORY_SEPARATOR.'nao-existe-'.uniqid()]);
+        // Raiz "dentro" de um ARQUIVO: nenhuma pasta pode ser criada ali, em
+        // qualquer sistema operacional.
+        $arquivo = tempnam(sys_get_temp_dir(), 'nao-e-pasta');
+        config(['filesystems.disks.privado.root' => $arquivo.DIRECTORY_SEPARATOR.'private']);
 
         $this->get('/health/ready')
             ->assertStatus(503)
             ->assertJsonPath('verificacoes.armazenamento', 'indisponivel');
+
+        @unlink((string) $arquivo);
     }
 
     public function test_ready_nao_acusa_pasta_privada_que_ainda_nao_foi_criada(): void
     {
-        // Instalação nova: `private` nasce no primeiro envio privado.
+        // Instalação nova: `private` nasce no primeiro envio privado — e a
+        // verificação não pode deixar sonda para trás.
         $raiz = sys_get_temp_dir().DIRECTORY_SEPARATOR.'uploads-'.uniqid();
-        mkdir($raiz.DIRECTORY_SEPARATOR.'public', 0o755, true);
-        config(['uploads.root' => $raiz]);
+        config([
+            'filesystems.disks.publico.root' => $raiz.DIRECTORY_SEPARATOR.'public',
+            'filesystems.disks.privado.root' => $raiz.DIRECTORY_SEPARATOR.'private',
+        ]);
 
         $this->get('/health/ready')->assertOk();
+
+        $this->assertFileDoesNotExist($raiz.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.'.verificacao-de-saude');
+        $this->assertFileDoesNotExist($raiz.DIRECTORY_SEPARATOR.'private'.DIRECTORY_SEPARATOR.'.verificacao-de-saude');
     }
 
     public function test_status_mostra_cada_componente_em_linguagem_simples(): void

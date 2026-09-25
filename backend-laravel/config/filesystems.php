@@ -30,6 +30,33 @@ return [
 
     'disks' => [
 
+        /*
+        | Arquivos enviados pelo AVASEC (Norma TI-SECEC C.5.2 e C.5.3): tudo passa
+        | pelo Laravel Filesystem, nunca por file_put_contents. Hoje os dois discos são
+        | locais e apontam para as MESMAS pastas de antes (UPLOADS_ROOT/public e
+        | /private) — nenhum arquivo mudou de lugar, nenhuma URL mudou. No dia do
+        | MinIO, troca-se o driver para `s3` aqui e migram-se os objetos; a regra
+        | de negócio não muda (plano 11, item F3).
+        |
+        | `publico`: servido sem autenticação em /uploads/<nome> (imagens de aula,
+        | material de apoio). `privado`: só por download autorizado (entregas).
+        */
+        'publico' => [
+            'driver' => 'local',
+            'root' => rtrim((string) env('UPLOADS_ROOT', base_path('..'.DIRECTORY_SEPARATOR.'uploads')), '/\\').DIRECTORY_SEPARATOR.'public',
+            'visibility' => 'public',
+            'throw' => true,
+            'report' => false,
+        ],
+
+        'privado' => [
+            'driver' => 'local',
+            'root' => rtrim((string) env('UPLOADS_ROOT', base_path('..'.DIRECTORY_SEPARATOR.'uploads')), '/\\').DIRECTORY_SEPARATOR.'private',
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),

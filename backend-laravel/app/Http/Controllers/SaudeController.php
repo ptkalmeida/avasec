@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Services\UploadService;
 use App\Support\Fuso;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
@@ -30,6 +32,9 @@ use Throwable;
  */
 final class SaudeController extends Controller
 {
+    /** Arquivo gravado e removido a cada verificação do armazenamento. */
+    private const SONDA = '.verificacao-de-saude';
+
     public function live(): JsonResponse
     {
         return $this->semCache(response()->json(['status' => 'ok']));
@@ -86,25 +91,24 @@ final class SaudeController extends Controller
     }
 
     /**
-     * As pastas de upload aceitam escrita. Pasta que ainda não existe conta como
-     * pronta se a raiz for gravável: o envio a cria na primeira vez, e uma
-     * instalação nova não pode nascer "indisponível" por isso.
+     * Os discos de upload aceitam escrita: grava e remove um arquivo-sonda em
+     * cada um. Pelo disco, e não pela pasta, para a verificação continuar valendo
+     * quando o driver virar S3/MinIO. O disco cria a pasta que faltar, então uma
+     * instalação nova não nasce "indisponível" por ainda não ter a pasta privada.
      */
     private function armazenamentoGravavel(): bool
     {
-        $raiz = config('uploads.root');
-        if (! is_string($raiz) || $raiz === '' || ! is_dir($raiz) || ! is_writable($raiz)) {
+        try {
+            foreach (['public', 'private'] as $visibilidade) {
+                $disco = Storage::disk(UploadService::nomeDoDisco($visibilidade));
+                $disco->put(self::SONDA, 'ok');
+                $disco->delete(self::SONDA);
+            }
+
+            return true;
+        } catch (Throwable) {
             return false;
         }
-
-        foreach (['public', 'private'] as $pasta) {
-            $caminho = rtrim($raiz, '/\\').DIRECTORY_SEPARATOR.$pasta;
-            if (is_dir($caminho) && ! is_writable($caminho)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /**
