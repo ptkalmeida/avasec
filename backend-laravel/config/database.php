@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Str;
 use Pdo\Mysql;
 
 return [
@@ -149,7 +148,9 @@ return [
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug((string) env('APP_NAME', 'laravel')).'-database-'),
+            // Namespace da Norma TI-SECEC (C.4.3): secec:<aplicacao>:<ambiente>:<finalidade>.
+            // HML e PRD nunca compartilham prefixo. Sem efeito enquanto não houver Redis.
+            'prefix' => env('REDIS_PREFIX', 'secec:ava:'.env('APP_ENV', 'local').':'),
             'persistent' => env('REDIS_PERSISTENT', false),
         ],
 

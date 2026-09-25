@@ -91,6 +91,8 @@ php artisan key:generate
 #   LOG_STACK=daily        (um arquivo por dia, nunca um laravel.log único crescendo)
 #   LOG_DAILY_DAYS=14      (retenção: arquivos mais antigos são descartados)
 #   LOG_LEVEL=warning      (em produção; debug só em desenvolvimento)
+#   Em container (Norma TI-SECEC C.7.2): LOG_STACK=stderr_json e LOG_APLICACAO=ava —
+#   uma linha JSON por registro, com app e env, coletada pelo Grafana Alloy.
 
 php artisan config:cache
 php artisan route:cache
@@ -202,6 +204,21 @@ server {
         }
     }
 
+    # Saúde e página de status (Norma TI-SECEC C.8) moram no Laravel, fora de /api.
+    # Sem estes blocos, o fallback do SPA abaixo devolveria o index.html do React
+    # com status 200 — e o monitor acharia que está tudo bem com o banco fora.
+    location ~ ^/(health/(live|ready)|sistema/status)$ {
+        root /var/www/avasec/backend-laravel/public;
+        try_files $uri /index.php?$query_string;
+
+        location ~ \.php$ {
+            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+        }
+    }
+
     # SPA fallback: qualquer rota que não seja arquivo real cai no index.html do React.
     location / {
         try_files $uri $uri/ /index.html;
@@ -251,6 +268,8 @@ qualquer outro serviço padrão do Linux.
 
 - [ ] `curl https://seu-dominio.com/` retorna o HTML do React.
 - [ ] `curl https://seu-dominio.com/api/health-laravel` retorna `{"status":"ok","database":"ok"}`.
+- [ ] `curl -i https://seu-dominio.com/health/ready` retorna **JSON** com status 200 (se vier
+      HTML do React, o Nginx está sem o bloco de saúde) e `/sistema/status` abre a página.
 - [ ] Login funciona no navegador e o cookie `ava_session` aparece como HttpOnly/Secure
       (inspecionar em DevTools → Application → Cookies).
 - [ ] Upload de um arquivo público funciona e a URL retornada carrega via `/uploads/...`.
@@ -274,8 +293,14 @@ Nginx/Laravel para a versão anterior.
 - **`POST /api/dev/reset`** (reset do banco para o seed, só em dev): ferramenta do
   Node/Prisma, não migrada — não faz parte da API de produção. Se precisar do
   equivalente em Laravel, criar um `php artisan db:seed --class=...` dedicado.
-- **Redis para rate limiting em cluster**: se um dia rodar múltiplas instâncias de
-  PHP-FPM atrás de um load balancer, o rate limiter baseado em cache `file` deixa de
-  ser preciso — trocar para `CACHE_STORE=redis` nesse cenário.
+- **Redis** (Norma TI-SECEC C.4): com mais de uma instância atrás do balanceador, o
+  limite de tentativas de login em cache `file` deixa de ser compartilhado. A troca é
+  só de configuração — `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`, `REDIS_PREFIX` no
+  padrão `secec:ava:<ambiente>:` (já é o padrão do código) e `CACHE_PREFIX=cache:`. Ver
+  `.env.example`. Sessão em Redis não se aplica: não há sessão no servidor (JWT).
+- **Plano de implantação vs. Protocolo TI-SECEC**: este guia descreve um VPS com
+  PHP-FPM. A norma pede Docker, imagem versionada no Harbor e a mesma imagem de HML
+  para PRD (C.11, F.4). A reescrita deste guia está no plano futuro
+  (`.ai/planejamento/11`, item F9) e depende da topologia definida pela TI.
 - **Serviço de vídeo dedicado**: continua fora do escopo do backend (Cloudflare
   Stream/Bunny), como já documentado desde o início do projeto.
