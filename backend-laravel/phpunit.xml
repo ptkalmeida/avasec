@@ -23,6 +23,9 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- Testes não escrevem no log de desenvolvimento: provocam centenas de 401/403
+             de propósito e inchavam o storage/logs (doc 08). Quem testa log usa Log::spy(). -->
+        <env name="LOG_CHANNEL" value="descartado"/>
         <!-- Os testes batem no MESMO MySQL do dev (schema é do Prisma; não há migration
              Laravel). Exige o container Docker de pé (npm run db:up), igual aos testes do Node.
              Testes de escrita usam a trait DatabaseTransactions para reverter e não poluir. -->
