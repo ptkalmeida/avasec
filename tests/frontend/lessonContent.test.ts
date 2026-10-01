@@ -446,3 +446,104 @@ describe('moveLessonBlock', () => {
     expect(moveLessonBlock(conteudo, 0, 1)).toBe(conteudo);
   });
 });
+
+/*
+ * Tamanho e alinhamento (decisão humana de 28/09/2026). O marcador `{...}` é lista
+ * fechada: fora dela a linha fica como texto, com as chaves à vista.
+ */
+describe('formatação de parágrafo e subtítulo', () => {
+  it('lê alinhamento e tamanho do parágrafo, e tira o marcador do texto', () => {
+    const linha = '{centro grande} Texto de abertura.';
+    const [bloco] = parseLessonContent(linha).blocks;
+
+    // O range cobre a linha inteira, marcador incluído: editar o trecho troca os dois.
+    expect(bloco).toEqual({
+      kind: 'paragraph',
+      text: 'Texto de abertura.',
+      alinhamento: 'centro',
+      tamanho: 'grande',
+      range: { start: 0, end: linha.length },
+    });
+  });
+
+  it('aceita as palavras em qualquer ordem', () => {
+    expect(parseLessonContent('{muito-grande justificado} Texto.').blocks[0])
+      .toMatchObject({ kind: 'paragraph', text: 'Texto.', tamanho: 'muito-grande', alinhamento: 'justificado' });
+  });
+
+  it('parágrafo sem marcador continua sem formatação', () => {
+    const [bloco] = parseLessonContent('Texto comum.').blocks;
+
+    expect(bloco).not.toHaveProperty('tamanho');
+    expect(bloco).not.toHaveProperty('alinhamento');
+  });
+
+  it.each([
+    ['palavra desconhecida', '{negrito} Texto.'],
+    ['dois tamanhos', '{grande pequeno} Texto.'],
+    ['dois alinhamentos', '{centro direita} Texto.'],
+    ['marcador vazio', '{} Texto.'],
+    ['sem espaço antes do texto', '{centro}Texto.'],
+    ['estilo livre', '{color:red} Texto.'],
+  ])('marcador inválido (%s) fica como texto, sem sumir', (_caso, linha) => {
+    const [bloco] = parseLessonContent(linha).blocks;
+
+    expect(bloco).toMatchObject({ kind: 'paragraph', text: linha });
+    expect(bloco).not.toHaveProperty('tamanho');
+    expect(bloco).not.toHaveProperty('alinhamento');
+  });
+
+  it('subtítulo aceita só alinhamento, e índice e âncora usam o texto limpo', () => {
+    const r = parseLessonContent('### {direita} Referências');
+
+    expect(r.blocks[0]).toMatchObject({ kind: 'subsection', id: 'referencias', text: 'Referências', alinhamento: 'direita' });
+    expect(r.sections).toEqual([{ id: 'referencias', text: 'Referências', level: 3 }]);
+  });
+
+  it('tamanho no subtítulo invalida o marcador — a hierarquia não é do autor', () => {
+    expect(parseLessonContent('### {grande} Referências').blocks[0])
+      .toMatchObject({ kind: 'subsection', text: '{grande} Referências' });
+  });
+
+  it('linha formatada é parágrafo, nunca legenda da mídia seguinte', () => {
+    const r = parseLessonContent('{centro} Figura 1: fluxo\n![fluxo](/uploads/f.png)');
+
+    expect(r.blocks[0]).toMatchObject({ kind: 'paragraph', text: 'Figura 1: fluxo', alinhamento: 'centro' });
+    expect(r.blocks[1]).toMatchObject({ kind: 'image', caption: null });
+  });
+
+  it('grava o marcador só quando há formatação — o padrão não é escrito', () => {
+    const range = { start: 0, end: 0 };
+
+    expect(serializeLessonBlock({ kind: 'paragraph', text: 'A.', tamanho: 'normal', alinhamento: 'esquerda', range })).toBe('A.');
+    expect(serializeLessonBlock({ kind: 'paragraph', text: 'A.', alinhamento: 'centro', range })).toBe('{centro} A.');
+    expect(serializeLessonBlock({ kind: 'paragraph', text: 'A.', tamanho: 'pequeno', alinhamento: 'direita', range }))
+      .toBe('{direita pequeno} A.');
+    expect(serializeLessonBlock({ kind: 'subsection', id: '', text: 'T', alinhamento: 'centro', range })).toBe('### {centro} T');
+    expect(serializeLessonBlock({ kind: 'subsection', id: '', text: 'T', range })).toBe('### T');
+  });
+
+  it('parágrafo de várias linhas leva o marcador em cada uma', () => {
+    const texto = serializeLessonBlock({
+      kind: 'paragraph', text: 'Primeira.\nSegunda.', alinhamento: 'centro', range: { start: 0, end: 0 },
+    });
+
+    expect(texto).toBe('{centro} Primeira.\n{centro} Segunda.');
+    expect(parseLessonContent(texto).blocks.map((b) => b.kind === 'paragraph' && b.alinhamento))
+      .toEqual(['centro', 'centro']);
+  });
+
+  it('ciclo ler → gravar → ler preserva texto e formatação', () => {
+    const original = '### {justificado} Sub\n\n{direita muito-grande} Parágrafo.';
+    const regravado = parseLessonContent(original).blocks.map(serializeLessonBlock).join('\n\n');
+
+    expect(regravado).toBe(original);
+  });
+
+  it('aula antiga sem marcador regrava byte a byte', () => {
+    const antigo = '### O que é UX Design?\n\nUX trata da **experiência**.\n\nOutro parágrafo.';
+    const regravado = parseLessonContent(antigo).blocks.map(serializeLessonBlock).join('\n\n');
+
+    expect(regravado).toBe(antigo);
+  });
+});

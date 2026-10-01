@@ -15,6 +15,8 @@
  *   ![descrição](/uploads/x.png) -> imagem (sozinha na linha)
  *   @[título](https://youtu.be/x) -> vídeo embutido (sozinho na linha)
  *   Figura 1: algo  -> legenda, quando imediatamente antes de código, imagem ou vídeo
+ *   {centro grande} texto -> parágrafo com alinhamento e/ou tamanho
+ *   ### {direita} Subtítulo -> subtítulo alinhado (tamanho do subtítulo é fixo)
  *   ```
  *
  * Não é Markdown completo — é este subconjunto, e nada aqui vira HTML: a
@@ -31,10 +33,32 @@ export interface LessonBlockRange {
   end: number;
 }
 
+/*
+ * Formatação escolhida pelo autor (decisão humana de 28/09/2026, que reverte em
+ * parte a de 22/09: a fonte segue fixa, tamanho e alinhamento passam a ser dele).
+ *
+ * Os valores são uma lista FECHADA, e quem os traduz em aparência é o render, com
+ * as classes do design system. O texto nunca carrega estilo, então nada aqui vira
+ * HTML nem CSS — o motivo de segurança da decisão de 22/09 continua de pé.
+ *
+ * O valor padrão não é gravado: parágrafo sem formatação continua sendo o mesmo
+ * texto de antes, byte a byte, e as aulas já publicadas não mudam de leitura.
+ */
+export const TAMANHOS_TEXTO = ['pequeno', 'normal', 'grande', 'muito-grande'] as const;
+export type TamanhoTexto = (typeof TAMANHOS_TEXTO)[number];
+
+export const ALINHAMENTOS_TEXTO = ['esquerda', 'centro', 'direita', 'justificado'] as const;
+export type AlinhamentoTexto = (typeof ALINHAMENTOS_TEXTO)[number];
+
+export const TAMANHO_PADRAO: TamanhoTexto = 'normal';
+export const ALINHAMENTO_PADRAO: AlinhamentoTexto = 'esquerda';
+
 export type LessonBlock =
   | { kind: 'section'; id: string; text: string; index: number; range: LessonBlockRange }
-  | { kind: 'subsection'; id: string; text: string; range: LessonBlockRange }
-  | { kind: 'paragraph'; text: string; range: LessonBlockRange }
+  // Ausente = padrão. Opcional para o bloco sem formatação continuar com a forma
+  // de sempre, inclusive nos testes que comparam blocos.
+  | { kind: 'subsection'; id: string; text: string; alinhamento?: AlinhamentoTexto; range: LessonBlockRange }
+  | { kind: 'paragraph'; text: string; tamanho?: TamanhoTexto; alinhamento?: AlinhamentoTexto; range: LessonBlockRange }
   | { kind: 'orderedList'; items: string[]; range: LessonBlockRange }
   | { kind: 'bulletList'; items: string[]; range: LessonBlockRange }
   | { kind: 'code'; language: string | null; caption: string | null; code: string; range: LessonBlockRange }
@@ -94,6 +118,55 @@ export function ehLegenda(texto: string): boolean {
  */
 const IMAGE = /^!\[([^\]]*)\]\(([^()\s]+)\)$/;
 const VIDEO = /^@\[([^\]]*)\]\(([^()\s]+)\)$/;
+
+/** `{centro grande} texto`: marcador no início, separado do texto por espaço. */
+const FORMATO = /^\{([a-z -]+)\}\s+(\S.*)$/;
+
+interface Formato {
+  tamanho?: TamanhoTexto;
+  alinhamento?: AlinhamentoTexto;
+}
+
+const ehTamanho = (v: string): v is TamanhoTexto => (TAMANHOS_TEXTO as readonly string[]).includes(v);
+const ehAlinhamento = (v: string): v is AlinhamentoTexto => (ALINHAMENTOS_TEXTO as readonly string[]).includes(v);
+
+/**
+ * Lê o marcador de formatação do começo da linha. Devolve null — e a linha segue
+ * como texto comum, com as chaves à vista — quando o marcador não é válido:
+ * palavra desconhecida, dois tamanhos, dois alinhamentos, ou tamanho num lugar
+ * que não aceita tamanho. Falha visível é melhor que formatação adivinhada.
+ */
+function lerFormato(linha: string, aceitaTamanho: boolean): (Formato & { texto: string }) | null {
+  const m = linha.match(FORMATO);
+  if (!m) return null;
+
+  const formato: Formato = {};
+  for (const palavra of m[1].split(' ').filter((p) => p !== '')) {
+    if (ehTamanho(palavra) && aceitaTamanho && formato.tamanho === undefined) {
+      formato.tamanho = palavra;
+    } else if (ehAlinhamento(palavra) && formato.alinhamento === undefined) {
+      formato.alinhamento = palavra;
+    } else {
+      return null;
+    }
+  }
+
+  // O padrão não é gravado; lido, some, para o bloco ter uma forma só.
+  if (formato.tamanho === TAMANHO_PADRAO) delete formato.tamanho;
+  if (formato.alinhamento === ALINHAMENTO_PADRAO) delete formato.alinhamento;
+
+  return { ...formato, texto: m[2] };
+}
+
+/** Marcador a gravar na frente do texto; vazio quando tudo é o padrão. */
+function marcadorDeFormato({ tamanho, alinhamento }: Formato): string {
+  const palavras = [
+    alinhamento !== undefined && alinhamento !== ALINHAMENTO_PADRAO ? alinhamento : null,
+    tamanho !== undefined && tamanho !== TAMANHO_PADRAO ? tamanho : null,
+  ].filter((p): p is AlinhamentoTexto | TamanhoTexto => p !== null);
+
+  return palavras.length === 0 ? '' : `{${palavras.join(' ')}} `;
+}
 
 export function parseLessonContent(content: string): ParsedLesson {
   const blocks: LessonBlock[] = [];
@@ -232,9 +305,19 @@ export function parseLessonContent(content: string): ParsedLesson {
     } else if (subsection) {
       flushLists();
       flushCaptionAsParagraph();
-      const id = slug(subsection[1], anchorCount++);
-      blocks.push({ kind: 'subsection', id, text: subsection[1], range });
-      sections.push({ id, text: subsection[1], level: 3 });
+      // Subtítulo aceita só alinhamento: o tamanho é o que o distingue do
+      // parágrafo na hierarquia da aula. O índice e a âncora usam o texto limpo.
+      const formato = lerFormato(subsection[1], false);
+      const text = formato?.texto ?? subsection[1];
+      const id = slug(text, anchorCount++);
+      blocks.push({
+        kind: 'subsection',
+        id,
+        text,
+        ...(formato?.alinhamento !== undefined && { alinhamento: formato.alinhamento }),
+        range,
+      });
+      sections.push({ id, text, level: 3 });
     } else if (numbered) {
       flushCaptionAsParagraph();
       if (bullets.length > 0) flushLists();
@@ -249,9 +332,15 @@ export function parseLessonContent(content: string): ParsedLesson {
       bullets.push(bullet[1]);
     } else {
       flushLists();
+      const formato = lerFormato(line, true);
       // Uma legenda só vale como legenda se um bloco de código vier depois;
-      // senão ela cai como parágrafo normal na próxima decisão.
-      if (CAPTION.test(line)) {
+      // senão ela cai como parágrafo normal na próxima decisão. Linha formatada
+      // é parágrafo por escolha do autor — nunca é lida como legenda.
+      if (formato !== null) {
+        flushCaptionAsParagraph();
+        const { texto, ...estilo } = formato;
+        blocks.push({ kind: 'paragraph', text: texto, ...estilo, range });
+      } else if (CAPTION.test(line)) {
         flushCaptionAsParagraph();
         pendingCaption = line;
         pendingCaptionLine = i;
@@ -278,9 +367,14 @@ export function serializeLessonBlock(block: LessonBlock): string {
     case 'section':
       return `## ${block.text}`;
     case 'subsection':
-      return `### ${block.text}`;
-    case 'paragraph':
-      return block.text;
+      return `### ${marcadorDeFormato({ alinhamento: block.alinhamento })}${block.text}`;
+    case 'paragraph': {
+      // Cada linha do texto vira um parágrafo na releitura, então o marcador vai
+      // em todas — senão só a primeira sairia formatada.
+      const marcador = marcadorDeFormato(block);
+
+      return block.text.split('\n').map((linha) => `${marcador}${linha}`).join('\n');
+    }
     case 'orderedList':
       return block.items.map((item, i) => `${i + 1}. ${item}`).join('\n');
     case 'bulletList':

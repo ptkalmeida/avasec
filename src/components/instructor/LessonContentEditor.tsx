@@ -6,11 +6,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Pencil, Check, X, Trash2, Plus, HelpCircle, ChevronDown, ChevronUp, ArrowUp, ArrowDown,
-  Heading1, Heading2, AlignLeft, ListOrdered, List, Image as ImageIcon, Film
+  Heading1, Heading2, AlignLeft, AlignCenter, AlignRight, AlignJustify, ListOrdered, List,
+  Image as ImageIcon, Film
 } from 'lucide-react';
 import {
   LessonBlock, LessonBlockRange, parseLessonContent, serializeLessonBlock,
   replaceLessonBlock, removeLessonBlock, insertLessonBlockAt, moveLessonBlock,
+  TAMANHOS_TEXTO, ALINHAMENTOS_TEXTO, TAMANHO_PADRAO, ALINHAMENTO_PADRAO,
+  TamanhoTexto, AlinhamentoTexto,
 } from '../../utils/lessonContent';
 import { LessonContent } from '../student/LessonContent';
 import { LessonMediaForm } from './LessonMediaForm';
@@ -119,15 +122,23 @@ const ehConversivel = (kind: LessonBlock['kind']): kind is TipoTexto =>
  * preserva as quebras (cada linha vira um parágrafo); lista usa cada linha como
  * item. `id` e `index` não participam da serialização — existem só para satisfazer
  * o tipo, e o parser os recalcula na próxima leitura.
+ *
+ * A formatação vai só para quem a aceita: subtítulo leva o alinhamento, parágrafo
+ * leva os dois. Converter para seção ou lista a descarta, porque ali ela não existe.
  */
-const comoBloco = (kind: TipoTexto, partes: string[], range: LessonBlockRange): LessonBlock => {
+const comoBloco = (
+  kind: TipoTexto,
+  partes: string[],
+  range: LessonBlockRange,
+  formato: { tamanho: TamanhoTexto; alinhamento: AlinhamentoTexto },
+): LessonBlock => {
   switch (kind) {
     case 'section':
       return { kind, id: '', text: partes.join(' '), index: 0, range };
     case 'subsection':
-      return { kind, id: '', text: partes.join(' '), range };
+      return { kind, id: '', text: partes.join(' '), alinhamento: formato.alinhamento, range };
     case 'paragraph':
-      return { kind, text: partes.join('\n'), range };
+      return { kind, text: partes.join('\n'), tamanho: formato.tamanho, alinhamento: formato.alinhamento, range };
     case 'orderedList':
     case 'bulletList':
       return { kind, items: partes, range };
@@ -168,6 +179,74 @@ const BlockForm: React.FC<{
   return <BlockTextForm block={block} onCancel={onCancel} onConfirm={onConfirm} />;
 };
 
+const ROTULO_TAMANHO: Record<TamanhoTexto, string> = {
+  pequeno: 'Pequeno',
+  normal: 'Normal',
+  grande: 'Grande',
+  'muito-grande': 'Muito grande',
+};
+
+const ALINHAMENTO_UI: Record<AlinhamentoTexto, { rotulo: string; icon: React.ElementType }> = {
+  esquerda: { rotulo: 'À esquerda', icon: AlignLeft },
+  centro: { rotulo: 'Centralizado', icon: AlignCenter },
+  direita: { rotulo: 'À direita', icon: AlignRight },
+  justificado: { rotulo: 'Justificado', icon: AlignJustify },
+};
+
+/**
+ * Tamanho e alinhamento do trecho. A fonte não entra: é a do design system, igual
+ * em toda aula. O subtítulo recebe só o alinhamento — o tamanho dele é o que o
+ * separa do parágrafo na hierarquia.
+ */
+const FormatoTexto: React.FC<{
+  comTamanho: boolean;
+  tamanho: TamanhoTexto;
+  alinhamento: AlinhamentoTexto;
+  onTamanho: (t: TamanhoTexto) => void;
+  onAlinhamento: (a: AlinhamentoTexto) => void;
+}> = ({ comTamanho, tamanho, alinhamento, onTamanho, onAlinhamento }) => (
+  <div className="flex flex-wrap items-end gap-3">
+    {comTamanho && (
+      <label className="flex flex-col">
+        <span className={rotuloCampo}>Tamanho</span>
+        <select
+          value={tamanho}
+          onChange={(e) => onTamanho(e.target.value as TamanhoTexto)}
+          className="rounded-lg border border-slate-200 p-1.5 text-apoio font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+        >
+          {TAMANHOS_TEXTO.map((t) => <option key={t} value={t}>{ROTULO_TAMANHO[t]}</option>)}
+        </select>
+      </label>
+    )}
+
+    <fieldset>
+      <legend className={rotuloCampo}>Alinhamento</legend>
+      <div className="flex rounded-lg border border-slate-200 bg-white p-0.5">
+        {ALINHAMENTOS_TEXTO.map((a) => {
+          const { rotulo, icon: Icone } = ALINHAMENTO_UI[a];
+          const ativo = a === alinhamento;
+
+          return (
+            <button
+              key={a}
+              type="button"
+              onClick={() => onAlinhamento(a)}
+              aria-pressed={ativo}
+              aria-label={rotulo}
+              title={rotulo}
+              className={`rounded-md p-1.5 transition-colors cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-teal-500/30 ${
+                ativo ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <Icone className="h-4 w-4" />
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  </div>
+);
+
 /** Formulário dos trechos feitos de texto — inclui a troca de tipo. */
 const BlockTextForm: React.FC<{
   block: LessonBlock;
@@ -181,8 +260,23 @@ const BlockTextForm: React.FC<{
   const [codigo, setCodigo] = useState(block.kind === 'code' ? block.code : '');
   const [legenda, setLegenda] = useState(block.kind === 'code' ? (block.caption ?? '') : '');
   const [linguagem, setLinguagem] = useState(block.kind === 'code' ? (block.language ?? 'java') : 'java');
+  // Guardados mesmo quando o tipo atual não os usa: quem troca parágrafo por
+  // lista e volta não perde o que tinha escolhido.
+  const [tamanho, setTamanho] = useState<TamanhoTexto>(
+    block.kind === 'paragraph' ? (block.tamanho ?? TAMANHO_PADRAO) : TAMANHO_PADRAO,
+  );
+  const [alinhamento, setAlinhamento] = useState<AlinhamentoTexto>(
+    block.kind === 'paragraph' || block.kind === 'subsection'
+      ? (block.alinhamento ?? ALINHAMENTO_PADRAO)
+      : ALINHAMENTO_PADRAO,
+  );
 
   const partes = linhas.split('\n').map((l) => l.trim()).filter((l) => l !== '');
+  const formatavel = kind === 'paragraph' || kind === 'subsection';
+  // Prévia só quando há o que ver de diferente: com tudo no padrão, o campo de
+  // texto já mostra o trecho como ele vai sair.
+  const formatado = alinhamento !== ALINHAMENTO_PADRAO
+    || (kind === 'paragraph' && tamanho !== TAMANHO_PADRAO);
   // Só o que é feito de linhas pode estar "vazio": exigir texto de uma imagem
   // deixaria o botão Aplicar desabilitado para sempre.
   const conversivel = ehConversivel(block.kind);
@@ -210,7 +304,7 @@ const BlockTextForm: React.FC<{
     // Trecho vazio não vira bloco: gravaria "## " e sujaria o conteúdo.
     if (vazio || !ehConversivel(kind)) return;
 
-    onConfirm(serializeLessonBlock(comoBloco(kind, partes, block.range)));
+    onConfirm(serializeLessonBlock(comoBloco(kind, partes, block.range, { tamanho, alinhamento })));
   };
 
   return (
@@ -250,6 +344,35 @@ const BlockTextForm: React.FC<{
           <p className="mt-1 text-apoio text-escult-ink-2">
             Para destacar uma palavra, envolva com dois asteriscos: **assim**.
           </p>
+        </div>
+      )}
+
+      {formatavel && (
+        <FormatoTexto
+          comTamanho={kind === 'paragraph'}
+          tamanho={tamanho}
+          alinhamento={alinhamento}
+          onTamanho={setTamanho}
+          onAlinhamento={setAlinhamento}
+        />
+      )}
+
+      {formatavel && alinhamento === 'justificado' && (
+        <p className="text-apoio text-escult-ink-2">
+          Em tela de celular, o justificado pode abrir espaços entre as palavras.
+        </p>
+      )}
+
+      {formatavel && formatado && partes.length > 0 && ehConversivel(kind) && (
+        <div>
+          <span className={rotuloCampo}>Prévia (é assim que o aluno vai ver)</span>
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <LessonContent
+              blocks={parseLessonContent(
+                serializeLessonBlock(comoBloco(kind, partes, block.range, { tamanho, alinhamento })),
+              ).blocks}
+            />
+          </div>
         </div>
       )}
 
