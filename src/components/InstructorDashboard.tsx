@@ -2210,10 +2210,14 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           </div>
 
           {/*
-            Uma coluna quando não há fila de aprovação: um grid de duas com
-            metade vazia faz a pessoa procurar o que deveria estar ali.
+            O "Diretório Global de Alunos" saiu daqui em 28/09/2026. O seletor
+            "Matricular em..." só mostrava um aviso de sucesso — não chamava o
+            servidor —, e a lista não era global: o gestor recebe apenas os alunos
+            que já estão nos cursos dele (AuthService::listStudentsForInstructor).
+            A matrícula é do próprio aluno, com aprovação automática. Sem a
+            segunda coluna, o grid tem uma só.
           */}
-          <div className={`grid grid-cols-1 gap-8 ${features.aprovacaoAutomaticaMatricula ? '' : 'lg:grid-cols-2'}`}>
+          <div className="grid grid-cols-1 gap-8">
             {/* 1. Pending Admission Requests — some com a aprovação automática. */}
             {!features.aprovacaoAutomaticaMatricula && (
             <div className="space-y-4">
@@ -2284,53 +2288,6 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             </div>
             )}
 
-            {/* 2. Global Student Directory / Assignment */}
-            <div className="space-y-4">
-              <h3 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-2">
-                <Users className="h-4 w-4 text-[#540D6E]" />
-                <span>Diretório Global de Alunos (Inseridos pelo Admin)</span>
-              </h3>
-              
-              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-3xs space-y-4">
-                <p className="text-rotulo text-escult-ink-2 leading-relaxed italic">
-                  Abaixo estão os alunos registrados no sistema pelo Administrador Super. Você pode matriculá-los diretamente em qualquer uma de suas disciplinas.
-                </p>
-
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 scrollbar-thin">
-                  {studentsList.map((student, idx) => (
-                    <div key={idx} className="p-3 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 bg-slate-200 rounded-lg flex items-center justify-center text-slate-600 text-xs font-bold">
-                          {student.name.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="text-xs font-bold text-slate-800">{student.name}</p>
-                          <p className="text-apoio text-escult-ink-2">{student.email}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <select 
-                          className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-apoio font-bold text-slate-700 focus:ring-1 focus:ring-teal-500 outline-none cursor-pointer"
-                          onChange={(e) => {
-                            if (e.target.value) {
-                              const courseTitle = courses.find(c => c.id === e.target.value)?.title;
-                              showToast(`${student.name} matriculado em ${courseTitle}!`);
-                              e.target.value = "";
-                            }
-                          }}
-                        >
-                          <option value="">Matricular em...</option>
-                          {courses.filter(c => c.instructorId === activeUser.id).map(c => (
-                            <option key={`${c.id}-${idx}`} value={c.id}>{c.title}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
