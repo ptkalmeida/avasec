@@ -64,7 +64,7 @@ export const PageShell: React.FC<PageShellProps> = ({
             gera classe para tamanho nao declarado): o titulo ficava em 24px em
             qualquer largura de tela, e ninguem via erro nenhum.
           */}
-          <h1 className="text-secao md:text-pagina font-semibold text-escult-ink tracking-tight font-serif">
+          <h1 className="text-secao md:text-pagina font-semibold text-escult-ink tracking-tight font-titulo">
             {title}
           </h1>
           {description && (

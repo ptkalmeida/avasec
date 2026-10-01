@@ -38,8 +38,8 @@ interface CalendarioPageProps {
 /** Faixa colorida à esquerda do card — decoração cíclica, não é campo editável. */
 const FAIXAS = [
   'border-l-4 border-l-escult-purple',
-  'border-l-4 border-l-[#3BCEAC]',
-  'border-l-4 border-l-[#EE4266]',
+  'border-l-4 border-l-escult-ciano',
+  'border-l-4 border-l-escult-purple-dark',
 ];
 
 const EventoCard: React.FC<{
@@ -102,7 +102,7 @@ const EventoCard: React.FC<{
           target="_blank"
           rel="noreferrer noopener"
           onClick={onAcessarSala}
-          className="text-sobretitulo uppercase text-escult-purple hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
+          className="text-sobretitulo uppercase text-escult-purple hover:text-escult-purple-dark flex items-center gap-1 cursor-pointer shrink-0"
         >
           <span>Acessar sala</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -110,7 +110,7 @@ const EventoCard: React.FC<{
       ) : (
         <button
           onClick={onParticipar}
-          className="text-sobretitulo uppercase text-escult-purple hover:text-purple-950 flex items-center gap-1 cursor-pointer shrink-0"
+          className="text-sobretitulo uppercase text-escult-purple hover:text-escult-purple-dark flex items-center gap-1 cursor-pointer shrink-0"
         >
           <span>{isUserLoggedIn ? 'Ir ao painel' : 'Participar'}</span>
           <ExternalLink className="h-3.5 w-3.5" />

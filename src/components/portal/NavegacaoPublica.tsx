@@ -65,7 +65,7 @@ export const NavegacaoPublica: React.FC<NavegacaoPublicaProps> = ({ view, irPara
                 `aria-hidden` porque quem usa leitor de tela recebe a mesma
                 informacao por `aria-current`, e nao por uma bolinha.
               */}
-              {estaAtiva && <span className="h-1.5 w-1.5 rounded-full bg-[#EE4266]" aria-hidden="true" />}
+              {estaAtiva && <span className="h-1.5 w-1.5 rounded-full bg-[#EE4266] ava:bg-escult-purple" aria-hidden="true" />}
             </button>
           );
         }
@@ -83,7 +83,7 @@ export const NavegacaoPublica: React.FC<NavegacaoPublicaProps> = ({ view, irPara
               className="px-4 py-2.5 rounded-[10px] text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5"
             >
               <span>{entrada.rotulo}</span>
-              {estaAtiva && <span className="h-1.5 w-1.5 rounded-full bg-[#EE4266]" aria-hidden="true" />}
+              {estaAtiva && <span className="h-1.5 w-1.5 rounded-full bg-[#EE4266] ava:bg-escult-purple" aria-hidden="true" />}
               <ChevronDown
                 className={`h-4 w-4 text-[#6b7385] transition-transform ${estaAberto ? 'rotate-180' : ''}`}
                 aria-hidden="true"

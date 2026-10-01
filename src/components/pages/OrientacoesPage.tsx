@@ -60,7 +60,7 @@ export const OrientacoesPage: React.FC<OrientacoesPageProps> = ({ content }) => 
             <span className="text-sobretitulo text-escult-red-acao-hover uppercase bg-rose-50 border border-rose-100 rounded-md px-2 py-0.5 inline-block">
               Diretriz {ROMANOS[index] ?? index + 1}
             </span>
-            <h4 className="text-sm font-bold text-slate-900 font-serif">{o.title}</h4>
+            <h4 className="text-sm font-bold text-slate-900 font-titulo">{o.title}</h4>
             <p className="text-rotulo text-escult-ink-2 leading-relaxed">{o.description}</p>
           </div>
         ))}

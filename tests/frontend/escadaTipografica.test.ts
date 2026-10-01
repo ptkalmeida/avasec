@@ -252,6 +252,8 @@ describe('estrutura de cabeçalhos', () => {
   it('a página inicial também tem um <h1>', () => {
     const app = readFileSync(join(RAIZ, 'App.tsx'), 'utf-8');
 
-    expect(app).toMatch(/<h1[^>]*font-serif/);
+    // `font-titulo` e o token de titulo desde o redesenho do portal
+    // (planejamento 12); antes era `font-serif`. A verificacao e a mesma.
+    expect(app).toMatch(/<h1[^>]*font-titulo/);
   });
 });

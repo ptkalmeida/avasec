@@ -39,6 +39,22 @@
   --color-escult-purple-dark: #42095a;
 
   /*
+   * Ciano do redesenho (planejamento 12), medido na referencia aprovada.
+   * `escult-ciano` (#07AEBC) e barra de progresso e enfeite: branco sobre ele
+   * da 2,70:1, entao ele NAO carrega texto. `escult-ciano-texto` (#007C86) e o
+   * que carrega: branco sobre ele 4,97:1, e ele sobre branco o mesmo.
+   */
+  --color-escult-ciano: #07AEBC;
+  --color-escult-ciano-texto: #007C86;
+
+  /*
+   * Fonte de titulo, com papel declarado em vez de familia. Fora do tema do
+   * portal continua a Playfair de sempre; dentro de `.tema-ava` vira a Inter
+   * pesada da referencia. `font-serif` nao e redefinido para o nome nao mentir.
+   */
+  --font-titulo: "Playfair Display", Georgia, serif;
+
+  /*
    * Vermelho: DUAS entradas, porque uma nao serve para as duas coisas.
    *
    * `escult-red` (#EE4266) e o indicador e o enfeite. Branco sobre ele da
@@ -144,6 +160,50 @@
   --color-teal-150: color-mix(in oklab, var(--color-teal-100), var(--color-teal-200));
   --color-teal-650: color-mix(in oklab, var(--color-teal-600), var(--color-teal-700));
   --color-teal-850: color-mix(in oklab, var(--color-teal-800), var(--color-teal-900));
+}
+
+/*
+ * Tema do portal publico (planejamento 12, etapa 2).
+ *
+ * O cabecalho e o rodape do App.tsx sao os mesmos para todos os perfis,
+ * inclusive no painel do admin, que NAO pode mudar. Por isso a aparencia nova
+ * nao troca o valor global dos tokens: ela os redefine so dentro de
+ * `.tema-ava`, que o App.tsx poe na raiz fora do painel e do perfil. As
+ * utilidades do Tailwind 4 leem `var(--color-...)`, entao tudo dentro muda e
+ * tudo fora fica como estava.
+ *
+ * Onde muda estrutura, e nao so cor (rodape escuro que fica branco), a classe
+ * nova vai com a variante `ava:`, que so vale dentro do tema. O admin continua
+ * recebendo exatamente as classes de antes.
+ */
+@custom-variant ava (&:where(.tema-ava, .tema-ava *));
+
+.tema-ava {
+  --color-escult-purple: #5B24D2;
+  --color-escult-blue: #5B24D2;
+  --color-escult-purple-dark: #4A1CB0;
+  --font-titulo: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* A Inter so parece "sans pesada" com peso alto e entreletra fechada; a
+   Playfair usava semibold. Fica aqui, e nao em cada titulo, para o titulo do
+   admin (Playfair) nao herdar o peso. */
+.tema-ava .font-titulo {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * Linha de assinatura: fio violeta -> ciano com dois losangos no fim, como na
+ * referencia. E enfeite — `aria-hidden` no componente — e some no alto
+ * contraste, onde um gradiente fino so atrapalha.
+ */
+.linha-assinatura {
+  background: linear-gradient(90deg, var(--color-escult-purple), #80D7EF);
+}
+
+.high-contrast-active .linha-assinatura-wrap {
+  display: none !important;
 }
 
 /* Custom styles mimicking Brazilian cultural/creative sector styling */
