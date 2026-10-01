@@ -1862,12 +1862,10 @@ ${html}
                           );
                         })()}
                       </nav>
-
-                      {/* O efeito colateral fica ESCRITO. Botão que muda registro
-                          acadêmico em silêncio é a origem da próxima reclamação. */}
-                      <p className="w-full max-w-3xl mx-auto text-apoio text-escult-ink-2 text-right leading-normal">
-                        Avançar marca esta aula como concluída e conta para a sua frequência.
-                      </p>
+                      {/* O aviso "Avançar marca esta aula como concluída e conta
+                          para a sua frequência" saiu a pedido da coordenação
+                          (01/10/2026). O efeito segue dito no `title` do botão
+                          "Próxima aula". */}
                     </div>
                   ) : (
                     /* Initial Welcome course billboard if no active lesson selected */
