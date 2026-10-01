@@ -77,7 +77,7 @@ function AvasecLogo() {
         da do logotipo "AVASEC") e o conjunto fica alinhado em qualquer largura.
       */}
       <div className="leading-tight text-left">
-        <span className="font-sans font-black text-2xl tracking-tight text-[#540D6E] block">AVASEC</span>
+        <span className="font-sans font-black text-2xl tracking-tight text-escult-purple block">AVASEC</span>
         <span className="text-nota font-semibold uppercase tracking-[0.08em] text-escult-ink-2 mt-1 hidden whitespace-nowrap sm:block">
           Escola Estadual
           <br />
@@ -430,7 +430,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       category: 'Economia Criativa & IA',
       instructor: 'Gestor de Conteúdos',
       iconType: 'mic',
-      iconBg: 'bg-[#540D6E]',
+      iconBg: 'bg-escult-purple',
       image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=500&auto=format&fit=crop&q=60',
       description: 'Aprenda a aplicar ferramentas de Inteligência Artificial generativa no fomento, roteirização e design de projetos de artes integradas.'
     },
@@ -439,7 +439,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       category: 'Áreas Técnicas',
       instructor: 'Gestor de Conteúdos',
       iconType: 'video',
-      iconBg: 'bg-[#540D6E]',
+      iconBg: 'bg-escult-purple',
       image: 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=500&auto=format&fit=crop&q=60',
       description: 'Da captação de áudio e iluminação até as técnicas de edição e publicação. Um guia prático para criadores independentes.'
     },
@@ -466,7 +466,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       category: 'Economia Criativa & IA',
       instructor: 'Gestor de Conteúdos',
       iconType: 'mic',
-      iconBg: 'bg-[#540D6E]',
+      iconBg: 'bg-escult-purple',
       image: 'https://images.unsplash.com/photo-1559028006-448665bd7c7f?w=500&auto=format&fit=crop&q=60',
       description: 'Aprenda do zero ao avançado como planejar, estruturar e prototipar sistemas complexos utilizando as melhores práticas do Figma, Design Systems e testes de usabilidade.'
     },
@@ -475,7 +475,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       category: 'Áreas Técnicas',
       instructor: 'Gestor de Conteúdos',
       iconType: 'video',
-      iconBg: 'bg-[#540D6E]',
+      iconBg: 'bg-escult-purple',
       image: 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?w=500&auto=format&fit=crop&q=60',
       description: 'Técnicas de composição, luz natural e pós-produção para registrar acervos, monumentos e manifestações culturais com qualidade profissional.'
     },
@@ -493,7 +493,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
       category: 'Economia Criativa & IA',
       instructor: 'Gestor de Conteúdos',
       iconType: 'columns',
-      iconBg: 'bg-[#540D6E]',
+      iconBg: 'bg-escult-purple',
       image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=500&auto=format&fit=crop&q=60',
       description: 'Do plano de negócios à precificação: como transformar talento artístico e cultural em iniciativas sustentáveis e escaláveis.'
     },
@@ -774,7 +774,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                neste codigo: 'text-slate-300' e TEXTO em 37 lugares e
                'bg-slate-900' e FUNDO em 84. Mapear "tom claro = fundo" inverteria
                os dois e apagaria o texto.
-            2. Ha 337 cores arbitrarias ('bg-[#540D6E]'), que sao valor literal e
+            2. Ha 337 cores arbitrarias ('bg-escult-purple'), que sao valor literal e
                nao passam por token nenhum.
 
             Por isso o fundo e o texto ainda precisam de uma regra ampla — mas
@@ -955,7 +955,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             */}
             {isPublicPage && (
               <div className="relative z-50 hidden xl:block">
-                <div className="flex items-center bg-[#f4f2ef] rounded-[10px] border border-[#e4e1dc] w-[230px] pl-3 pr-2 py-2.5 focus-within:border-[#540D6E] transition-colors">
+                <div className="flex items-center bg-[#f4f2ef] rounded-[10px] border border-[#e4e1dc] w-[230px] pl-3 pr-2 py-2.5 focus-within:border-escult-purple transition-colors">
                   <Search className="h-4 w-4 text-[#6b7385] shrink-0 mr-2" aria-hidden="true" />
                   <input
                     type="text"
@@ -988,7 +988,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                     {matchedCourses.length > 0 && (
                       <div className="space-y-1.5">
-                        <span className="text-apoio font-semibold text-[#540D6E] block">Cursos ({matchedCourses.length})</span>
+                        <span className="text-apoio font-semibold text-escult-purple block">Cursos ({matchedCourses.length})</span>
                         {matchedCourses.map((c, i) => (
                           <button
                             key={i}
@@ -999,7 +999,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             }}
                             className="w-full text-left hover:bg-[#f4f2ef] p-2 rounded-[10px] transition-all cursor-pointer flex items-center gap-2"
                           >
-                            <div className="h-8 w-8 rounded-lg bg-[#540D6E]/5 text-[#540D6E] text-xs font-bold font-serif flex items-center justify-center shrink-0">C</div>
+                            <div className="h-8 w-8 rounded-lg bg-escult-purple/5 text-escult-purple text-xs font-bold font-serif flex items-center justify-center shrink-0">C</div>
                             <div className="min-w-0">
                               <span className="block text-apoio font-semibold text-[#1d2432] truncate leading-snug">{c.title}</span>
                               <span className="block text-apoio text-[#6b7385] truncate">{c.category}</span>
@@ -1047,7 +1047,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-650 px-3 py-2 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs"
                   title="Ir para a Página Inicial do Portal"
                 >
-                  <Home className="h-3.5 w-3.5 text-[#540D6E]" />
+                  <Home className="h-3.5 w-3.5 text-escult-purple" />
                   <span className="hidden sm:inline">Página Inicial</span>
                 </button>
 
@@ -1075,9 +1075,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                               const chatSection = document.getElementById('chat-portal-section');
                               if (chatSection) {
                                 chatSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                chatSection.classList.add('ring-4', 'ring-[#540D6E]/30');
+                                chatSection.classList.add('ring-4', 'ring-escult-purple/30');
                                 setTimeout(() => {
-                                  chatSection.classList.remove('ring-4', 'ring-[#540D6E]/30');
+                                  chatSection.classList.remove('ring-4', 'ring-escult-purple/30');
                                 }, 2500);
                               }
                             }, 150);
@@ -1103,9 +1103,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                               const chatSection = document.getElementById('chat-portal-section');
                               if (chatSection) {
                                 chatSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                chatSection.classList.add('ring-4', 'ring-[#540D6E]/20');
+                                chatSection.classList.add('ring-4', 'ring-escult-purple/20');
                                 setTimeout(() => {
-                                  chatSection.classList.remove('ring-4', 'ring-[#540D6E]/20');
+                                  chatSection.classList.remove('ring-4', 'ring-escult-purple/20');
                                 }, 2500);
                               }
                             }, 150);
@@ -1165,7 +1165,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 >
                   <div className="text-right">
                     <span className="block text-xs font-bold text-slate-800 leading-none">{activeUser.name}</span>
-                    <span className="text-apoio text-[#540D6E] font-bold block mt-0.5">
+                    <span className="text-apoio text-escult-purple font-bold block mt-0.5">
                       {activeUser.role === 'student' && 'Aluno Credenciado'}
                       {activeUser.role === 'instructor' && 'Gestor de Conteúdos'}
                       {activeUser.role === 'admin' && 'Moderação Coordenação'}
@@ -1258,7 +1258,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     */}
                     <button
                       onClick={() => setIsLoginModalOpen(true)}
-                      className="rounded-[10px] bg-[#540D6E] hover:bg-[#42095a] text-white px-[22px] py-3 text-rotulo font-semibold transition-all cursor-pointer whitespace-nowrap"
+                      className="rounded-[10px] bg-escult-purple hover:bg-[#42095a] text-white px-[22px] py-3 text-rotulo font-semibold transition-all cursor-pointer whitespace-nowrap"
                     >
                       Entrar
                     </button>
@@ -1267,7 +1267,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         setIsRegisterModalOpen(true);
                         speakText("Portal de direcionamento e validação de cadastro externo aberto.");
                       }}
-                      className="rounded-[10px] border border-[#540D6E] bg-white hover:bg-[#f4f2ef] text-[#540D6E] px-[18px] py-3 text-rotulo font-semibold transition-all cursor-pointer whitespace-nowrap hidden sm:block"
+                      className="rounded-[10px] border border-escult-purple bg-white hover:bg-[#f4f2ef] text-escult-purple px-[18px] py-3 text-rotulo font-semibold transition-all cursor-pointer whitespace-nowrap hidden sm:block"
                     >
                       Cadastre-se
                     </button>
@@ -1280,7 +1280,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             {isPublicPage && (
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="lg:hidden p-2 text-slate-650 hover:text-[#540D6E] hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0 ml-1"
+                className="lg:hidden p-2 text-slate-650 hover:text-escult-purple hover:bg-slate-100 rounded-lg transition-colors cursor-pointer shrink-0 ml-1"
                 aria-label="Abrir menu de navegação"
                 title="Menu de Seções"
               >
@@ -1388,7 +1388,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               onMouseMove={handleHeroMouseMove}
               onMouseEnter={() => { if (!movimentoReduzido) setIsMouseInHero(true); }}
               onMouseLeave={() => setIsMouseInHero(false)}
-              className="bg-[#540D6E] text-white py-14 lg:py-24 relative overflow-hidden flex flex-col items-center"
+              className="bg-escult-purple text-white py-14 lg:py-24 relative overflow-hidden flex flex-col items-center"
             >
               {/* Ambient Mouse-following background glow */}
               <motion.div
@@ -1494,7 +1494,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="mx-auto max-w-7xl animate-in fade-in duration-200">
                   <div className="bg-white rounded-3xl border border-slate-250/75 p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="space-y-4 text-left w-full">
-                      <div className="inline-flex items-center gap-2 rounded-full bg-[#540D6E]/10 border border-[#540D6E]/20 text-[#540D6E] text-sobretitulo uppercase px-3 py-1">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-escult-purple/10 border border-escult-purple/20 text-escult-purple text-sobretitulo uppercase px-3 py-1">
                         <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                         <span>Sua Área de Estudos</span>
                       </div>
@@ -1519,12 +1519,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-150 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
                               <div className="space-y-1">
                                 <span className="text-sobretitulo uppercase text-escult-ink-2 block">CURSO ATIVO</span>
-                                <strong className="text-sm font-bold text-[#540D6E] block font-serif">{activeCourse.title}</strong>
+                                <strong className="text-sm font-bold text-escult-purple block font-serif">{activeCourse.title}</strong>
                                 <span className="text-xs text-escult-ink-2 block">Ministrado por: Prof. {activeCourse.instructorName}</span>
                               </div>
                               <button 
                                 onClick={() => { setCurrentView('active_app'); speakText(`Iniciando estudos no curso ${activeCourse.title}`); }}
-                                className="w-full sm:w-auto shrink-0 bg-[#540D6E] hover:bg-purple-950 text-white text-sobretitulo uppercase py-2.5 px-5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                                className="w-full sm:w-auto shrink-0 bg-escult-purple hover:bg-purple-950 text-white text-sobretitulo uppercase py-2.5 px-5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                               >
                                 <span>Continuar Aula</span>
                                 <ArrowRight className="h-4 w-4" />
@@ -1537,7 +1537,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                               <p>Você não tem nenhuma matrícula ativa de curso no momento. Explore nosso catálogo e matricule-se!</p>
                               <button 
                                 onClick={() => goToPage('cursos', "Cursos disponíveis")}
-                                className="shrink-0 text-sobretitulo uppercase text-[#540D6E] hover:underline"
+                                className="shrink-0 text-sobretitulo uppercase text-escult-purple hover:underline"
                               >
                                 <span className="inline-flex items-center gap-1">Ver Cursos <ArrowRight className="h-3 w-3" /></span>
                               </button>
@@ -1549,13 +1549,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                     <div className="grid grid-cols-2 gap-4 w-full md:w-80 shrink-0">
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
-                        <strong className="text-2xl font-black text-[#540D6E] block">
+                        <strong className="text-2xl font-black text-escult-purple block">
                           {studentEnrollments[activeUser.id]?.completedCourseIds?.length || 0}
                         </strong>
                         <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Cursos Concluídos</span>
                       </div>
                       <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
-                        <strong className="text-2xl font-black text-[#540D6E] block">
+                        <strong className="text-2xl font-black text-escult-purple block">
                           {certificates.filter(c => c.userId === activeUser.id).length || 0}
                         </strong>
                         <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Certificados Emitidos</span>
@@ -1576,7 +1576,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <h3 className="text-3xl font-black text-slate-900 tracking-tight font-serif flex items-center gap-1.5">
                       <span>AVASEC em dados</span>
                     </h3>
-                    <div className="h-1.5 w-12 bg-[#540D6E] rounded-full" />
+                    <div className="h-1.5 w-12 bg-escult-purple rounded-full" />
                   </div>
 
                   <p className="text-xs md:text-[13px] text-escult-ink-2 leading-relaxed">
@@ -1585,19 +1585,19 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                   <div className="grid grid-cols-2 gap-6 pt-4">
                     <div className="p-5 bg-escult-surface border border-escult-line rounded-2xl">
-                      <strong className="text-3xl font-black text-[#540D6E] block">188K</strong>
+                      <strong className="text-3xl font-black text-escult-purple block">188K</strong>
                       <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Estudantes cadastrados</span>
                     </div>
                     <div className="p-5 bg-green-50/50 border border-green-100 rounded-2xl">
-                      <strong className="text-3xl font-black text-[#540D6E] block">300K</strong>
+                      <strong className="text-3xl font-black text-escult-purple block">300K</strong>
                       <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Inscrições nos cursos</span>
                     </div>
                     <div className="p-5 bg-red-50/50 border border-red-100 rounded-2xl">
-                      <strong className="text-3xl font-black text-[#540D6E] block">66K</strong>
+                      <strong className="text-3xl font-black text-escult-purple block">66K</strong>
                       <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Mil concluintes</span>
                     </div>
                     <div className="p-5 bg-amber-50/50 border border-amber-100 rounded-2xl">
-                      <strong className="text-3xl font-black text-[#540D6E] block">4M+</strong>
+                      <strong className="text-3xl font-black text-escult-purple block">4M+</strong>
                       <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Visitas à plataforma</span>
                     </div>
                   </div>
@@ -1663,7 +1663,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     placeholder="Sugira um tema ou trilha..."
                     value={suggestedCourseName}
                     onChange={(e) => setSuggestedCourseName(e.target.value)}
-                    className="bg-white/90 border border-amber-500/30 text-slate-900 rounded-lg px-4.5 py-2.5 text-corpo focus:outline-none focus:ring-2 focus:ring-[#540D6E]"
+                    className="bg-white/90 border border-amber-500/30 text-slate-900 rounded-lg px-4.5 py-2.5 text-corpo focus:outline-none focus:ring-2 focus:ring-escult-purple"
                   />
                   <button 
                     type="submit"
@@ -1853,11 +1853,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   placeholder="Ex: CERT-JOAO-123 ou João Silva..."
                   value={certQuery}
                   onChange={(e) => setCertQuery(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-250 text-slate-850 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#540D6E] placeholder-slate-400"
+                  className="flex-1 bg-slate-50 border border-slate-250 text-slate-850 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-escult-purple placeholder-slate-400"
                 />
                 <button
                   type="submit"
-                  className="rounded-xl bg-[#540D6E] hover:bg-purple-950 text-white text-sobretitulo px-5 py-2.5 uppercase transition-all shadow-xs cursor-pointer shrink-0"
+                  className="rounded-xl bg-escult-purple hover:bg-purple-950 text-white text-sobretitulo px-5 py-2.5 uppercase transition-all shadow-xs cursor-pointer shrink-0"
                 >
                   Verificar
                 </button>
@@ -1972,7 +1972,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               */}
 
               <div className="text-left space-y-1 border-b border-slate-200 pb-6">
-                <span className="text-sobretitulo text-[#540D6E] uppercase block">Catálogo</span>
+                <span className="text-sobretitulo text-escult-purple uppercase block">Catálogo</span>
                 <h2 className="text-2xl md:text-secao font-semibold text-escult-ink tracking-tight font-serif">Cursos Disponíveis</h2>
                 <p className="text-apoio text-escult-ink-2 leading-relaxed max-w-2xl">
                   Conheça os cursos oferecidos pela Escola Estadual da Cultura. Use os filtros para encontrar por área ou por nome.
@@ -1989,7 +1989,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     onChange={(e) => setCourseSearch(e.target.value)}
                     placeholder="Buscar curso pelo nome..."
                     aria-label="Buscar curso"
-                    className="w-full bg-white border border-slate-200 focus:ring-2 focus:ring-[#540D6E]/15 focus:border-[#540D6E] focus:outline-none rounded-xl py-2.5 pl-10 pr-4 text-xs font-medium text-slate-800 shadow-3xs"
+                    className="w-full bg-white border border-slate-200 focus:ring-2 focus:ring-escult-purple/15 focus:border-escult-purple focus:outline-none rounded-xl py-2.5 pl-10 pr-4 text-xs font-medium text-slate-800 shadow-3xs"
                   />
                 </div>
 
@@ -2000,7 +2000,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       onClick={() => setCourseCategory(cat)}
                       className={`px-3.5 py-1.5 rounded-full text-sobretitulo uppercase transition-all cursor-pointer border ${
                         courseCategory === cat
-                          ? 'bg-[#540D6E] text-white border-transparent'
+                          ? 'bg-escult-purple text-white border-transparent'
                           : 'bg-white text-escult-ink-2 border-slate-200 hover:text-slate-800 hover:border-slate-300'
                       }`}
                     >
@@ -2014,11 +2014,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
                 {filteredCourses.length === 0 ? (
                   <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-slate-50 shadow-3xs">
-                    <h4 className="text-[#540D6E] font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
+                    <h4 className="text-escult-purple font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
                     <p className="text-escult-ink-2 text-xs leading-relaxed max-w-md mx-auto">Nenhum curso encontrado com os filtros atuais.</p>
                     <button
                       onClick={() => { setCourseSearch(''); setCourseCategory('all'); }}
-                      className="mt-4 px-4 py-2 bg-[#540D6E] text-white text-sobretitulo rounded-xl hover:bg-purple-950 transition-colors uppercase cursor-pointer font-sans"
+                      className="mt-4 px-4 py-2 bg-escult-purple text-white text-sobretitulo rounded-xl hover:bg-purple-950 transition-colors uppercase cursor-pointer font-sans"
                     >
                       Limpar Filtros
                     </button>
@@ -2027,7 +2027,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   filteredCourses.map((course, idx) => (
                     <div
                       key={`${course.title}-${idx}`}
-                      className="bg-white rounded-2xl border border-slate-200 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md hover:border-[#540D6E]"
+                      className="bg-white rounded-2xl border border-slate-200 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md hover:border-escult-purple"
                     >
                       <div className="h-44 overflow-hidden relative bg-slate-800">
                         <img
@@ -2063,7 +2063,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                         <button
                           onClick={() => setIsLoginModalOpen(true)}
-                          className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-[#540D6E] hover:text-white transition-all text-slate-600 border border-slate-150 text-sobretitulo uppercase cursor-pointer flex items-center justify-center gap-1"
+                          className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-escult-purple hover:text-white transition-all text-slate-600 border border-slate-150 text-sobretitulo uppercase cursor-pointer flex items-center justify-center gap-1"
                         >
                           <span>Inscrever-se</span>
                           <ArrowRight className="h-3 w-3" />
@@ -2474,7 +2474,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       <button
                         key={entry.view}
                         onClick={() => { setIsSiteMapOpen(false); goToPage(entry.view, entry.spoken); }}
-                        className="text-left py-1 hover:text-[#540D6E] transition-colors hover:underline block cursor-pointer bg-transparent border-0 outline-hidden font-bold"
+                        className="text-left py-1 hover:text-escult-purple transition-colors hover:underline block cursor-pointer bg-transparent border-0 outline-hidden font-bold"
                       >
                         • {entry.label}
                       </button>
@@ -2485,14 +2485,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 {/* Segment 2: Simulation Areas */}
                 <div className="bg-slate-50 p-4 rounded-xl space-y-3">
                   <strong className="text-sobretitulo uppercase text-slate-700 flex items-center gap-1.5 border-b border-slate-200 pb-1.5">
-                    <ShieldCheck className="h-4 w-4 text-[#540D6E]" />
+                    <ShieldCheck className="h-4 w-4 text-escult-purple" />
                     <span>Acesso ao Portal Acadêmico (AVA)</span>
                   </strong>
                   
                   <div className="flex flex-col gap-2 text-xs">
                     <button 
                       onClick={() => { setIsSiteMapOpen(false); handleProfileLogin('João Silva', 'student'); speakText("Acesso de Aluno Homologado"); }}
-                      className="text-left py-1.5 px-2 hover:bg-escult-surface rounded text-[#540D6E] transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
+                      className="text-left py-1.5 px-2 hover:bg-escult-surface rounded text-escult-purple transition-all font-black flex items-center justify-between bg-transparent border border-transparent cursor-pointer"
                     >
                       <span>• Dashboard do Aluno</span>
                       <span className="text-sobretitulo bg-escult-surface text-escult-purple px-1.5 py-0.2 rounded uppercase">Mapeado</span>
@@ -2555,7 +2555,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               {/* Title Section */}
               <div className="space-y-1">
                 <h3 className="font-extrabold text-[#111] text-base font-serif flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-[#540D6E]" />
+                  <ShieldCheck className="h-5 w-5 text-escult-purple" />
                   <span>Portal de Conexão Acadêmica</span>
                 </h3>
                 <p className="text-rotulo text-escult-ink-3">Escolha uma identidade acadêmica simulada para acessar e avaliar as ferramentas de dashboards:</p>
@@ -2567,7 +2567,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   onClick={() => setLoginRoleTab('student')}
                   className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                     loginRoleTab === 'student'
-                      ? 'bg-[#540D6E] text-white shadow-3xs'
+                      ? 'bg-escult-purple text-white shadow-3xs'
                       : 'text-escult-ink-2 hover:text-slate-700'
                   }`}
                 >
@@ -2577,7 +2577,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   onClick={() => setLoginRoleTab('instructor')}
                   className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                     loginRoleTab === 'instructor'
-                      ? 'bg-[#540D6E] text-white shadow-2xs'
+                      ? 'bg-escult-purple text-white shadow-2xs'
                       : 'text-escult-ink-2 hover:text-slate-700'
                   }`}
                 >
@@ -2587,7 +2587,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   onClick={() => setLoginRoleTab('admin')}
                   className={`py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
                     loginRoleTab === 'admin'
-                      ? 'bg-[#540D6E] text-white shadow-2xs'
+                      ? 'bg-escult-purple text-white shadow-2xs'
                       : 'text-escult-ink-2 hover:text-slate-700'
                   }`}
                 >
@@ -2618,7 +2618,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         value={studentLoginCpf}
                         onChange={(e) => { setStudentLoginCpf(maskCpf(e.target.value)); setStudentLoginError(null); }}
                         placeholder="000.000.000-00"
-                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                       />
                     </div>
 
@@ -2631,7 +2631,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         value={studentLoginPassword}
                         onChange={(e) => { setStudentLoginPassword(e.target.value); setStudentLoginError(null); }}
                         placeholder="Sua senha de acesso"
-                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                        className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                       />
                     </div>
 
@@ -2644,7 +2644,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <button
                       type="submit"
                       disabled={isStudentLoggingIn}
-                      className="w-full rounded-xl bg-[#540D6E] hover:bg-purple-950 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sobretitulo px-5 py-3 uppercase transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full rounded-xl bg-escult-purple hover:bg-purple-950 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sobretitulo px-5 py-3 uppercase transition-all shadow-xs cursor-pointer flex items-center justify-center gap-2"
                     >
                       <span>{isStudentLoggingIn ? 'Verificando...' : 'Entrar'}</span>
                       {!isStudentLoggingIn && <ArrowRight className="h-3.5 w-3.5" />}
@@ -2677,7 +2677,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                               <span className="text-apoio text-escult-ink-2 block font-sans">Gestor de Conteúdos</span>
                             </div>
                           </div>
-                          <span className="rounded-lg bg-white border border-slate-200 text-slate-650 text-sobretitulo px-3 py-1.5 uppercase group-hover:bg-[#540D6E] group-hover:text-white transition-all flex items-center gap-1">
+                          <span className="rounded-lg bg-white border border-slate-200 text-slate-650 text-sobretitulo px-3 py-1.5 uppercase group-hover:bg-escult-purple group-hover:text-white transition-all flex items-center gap-1">
                             <span>Acessar</span>
                             <ArrowRight className="h-3 w-3" />
                           </span>
@@ -2765,24 +2765,24 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
               {/* Title Section */}
               <div className="space-y-1.5 pr-6 mb-5">
-                <span className="text-sobretitulo uppercase bg-[#540D6E]/10 text-[#540D6E] px-2 py-0.5 rounded-md w-fit block">
+                <span className="text-sobretitulo uppercase bg-escult-purple/10 text-escult-purple px-2 py-0.5 rounded-md w-fit block">
                   Célula de Integração Governamental
                 </span>
                 <h3 className="font-extrabold text-[#111] text-base sm:text-lg flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-[#540D6E]" />
+                  <ShieldCheck className="h-5 w-5 text-escult-purple" />
                   <span>Integração de Cadastro • AVASEC</span>
                 </h3>
                 <p className="text-xs text-escult-ink-2 leading-relaxed">
-                  Conforme solicitado: Você será direcionado para outro site externo onde irá se cadastrar. Preencha seus dados lá e, após validados, esse mesmo cadastro será homologado e usado de forma integrada no <strong className="text-[#540D6E] font-bold">AVASEC</strong> como sua credencial oficial de estudos.
+                  Conforme solicitado: Você será direcionado para outro site externo onde irá se cadastrar. Preencha seus dados lá e, após validados, esse mesmo cadastro será homologado e usado de forma integrada no <strong className="text-escult-purple font-bold">AVASEC</strong> como sua credencial oficial de estudos.
                 </p>
               </div>
 
               {validationStep === 'idle' && (
                 <div className="space-y-5">
                   {/* Passo 1 block */}
-                  <div className="relative border border-slate-200 hover:border-[#540D6E]/35 rounded-2xl p-4 bg-slate-50/50 hover:bg-white transition-all space-y-3">
+                  <div className="relative border border-slate-200 hover:border-escult-purple/35 rounded-2xl p-4 bg-slate-50/50 hover:bg-white transition-all space-y-3">
                     <div className="flex items-start gap-3">
-                      <div className="h-7 w-7 rounded-lg bg-[#540D6E]/5 text-[#540D6E] flex items-center justify-center text-sobretitulo uppercase">
+                      <div className="h-7 w-7 rounded-lg bg-escult-purple/5 text-escult-purple flex items-center justify-center text-sobretitulo uppercase">
                         01
                       </div>
                       <div className="space-y-1 flex-1">
@@ -2802,7 +2802,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           setIsExternalLinkClicked(true);
                           speakText("Redirecionando para o Portal Externo de Inscrição.");
                         }}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#540D6E]/5 hover:bg-[#540D6E]/10 text-[#540D6E] border border-[#540D6E]/15 px-3 py-1.5 text-sobretitulo uppercase transition-all cursor-pointer no-underline"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-escult-purple/5 hover:bg-escult-purple/10 text-escult-purple border border-escult-purple/15 px-3 py-1.5 text-sobretitulo uppercase transition-all cursor-pointer no-underline"
                         id="lnk-external-cadastro"
                       >
                         <span>Ir para o Portal de Cadastro</span>
@@ -2821,7 +2821,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-4">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-2">
                       <div className="flex items-start gap-3">
-                        <div className="h-7 w-7 rounded-lg bg-[#540D6E]/5 text-[#540D6E] flex items-center justify-center text-sobretitulo uppercase">
+                        <div className="h-7 w-7 rounded-lg bg-escult-purple/5 text-escult-purple flex items-center justify-center text-sobretitulo uppercase">
                           02
                         </div>
                         <div className="space-y-1">
@@ -2839,7 +2839,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationStep('idle');
                             speakText("Voltando para o passo inicial de consulta externa.");
                           }}
-                          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 text-escult-ink-2 hover:text-[#540D6E] transition-all text-sobretitulo uppercase cursor-pointer border border-slate-200 group"
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-50 text-escult-ink-2 hover:text-escult-purple transition-all text-sobretitulo uppercase cursor-pointer border border-slate-200 group"
                         >
                           <ArrowLeft className="h-3 w-3 group-hover:-translate-x-0.5 transition-transform" />
                           <span>Mudar Método</span>
@@ -2859,7 +2859,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationError(null);
                           }}
                           placeholder="Ex: João Silva da Silva"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-name"
                         />
                       </div>
@@ -2879,7 +2879,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationError(null);
                           }}
                           placeholder="000.000.000-00"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-cpf"
                         />
                       </div>
@@ -2891,7 +2891,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           value={registerNomeSocial}
                           onChange={(e) => setRegisterNomeSocial(e.target.value)}
                           placeholder="Como prefere ser chamado(a)"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-nome-social"
                         />
                       </div>
@@ -2903,7 +2903,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           value={registerIdentidade}
                           onChange={(e) => setRegisterIdentidade(e.target.value)}
                           placeholder="00.000.000-0"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-identidade"
                         />
                       </div>
@@ -2916,7 +2916,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           value={registerCelular}
                           onChange={(e) => setRegisterCelular(maskCelular(e.target.value))}
                           placeholder="(00) 00000-0000"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-celular"
                         />
                       </div>
@@ -2932,7 +2932,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationError(null);
                           }}
                           placeholder="00000-000"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-cep"
                         />
                       </div>
@@ -2944,7 +2944,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           value={registerEndereco}
                           onChange={(e) => setRegisterEndereco(e.target.value)}
                           placeholder="Rua, número, complemento e bairro"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-endereco"
                         />
                       </div>
@@ -2960,7 +2960,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationError(null);
                           }}
                           placeholder="seu.email@lms.edu"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-email"
                         />
                       </div>
@@ -2980,7 +2980,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             setValidationError(null);
                           }}
                           placeholder="Ex: cultura2026"
-                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-[#540D6E] focus:ring-1 focus:ring-[#540D6E] transition-all bg-slate-50/20 text-slate-800"
+                          className="w-full text-xs border border-slate-200 rounded-xl px-3 py-2.5 focus:border-escult-purple focus:ring-1 focus:ring-escult-purple transition-all bg-slate-50/20 text-slate-800"
                           id="inp-register-password"
                         />
                       </div>
@@ -3038,7 +3038,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           }
                         }, 120);
                       }}
-                      className="w-full rounded-xl bg-[#540D6E] hover:bg-[#340845] text-white text-sobretitulo py-3.5 uppercase transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 border-none"
+                      className="w-full rounded-xl bg-escult-purple hover:bg-[#340845] text-white text-sobretitulo py-3.5 uppercase transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 border-none"
                       id="btn-trigger-validation"
                     >
                       <ShieldCheck className="h-4.5 w-4.5" />
@@ -3052,8 +3052,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               {(validationStep === 'matching' || validationStep === 'verifying' || validationStep === 'syncing') && (
                 <div className="py-12 flex flex-col items-center justify-center text-center space-y-6">
                   <div className="relative h-20 w-20 flex items-center justify-center">
-                    <div className="absolute inset-0 rounded-full border-4 border-slate-100 border-t-[#540D6E] animate-spin" />
-                    <Fingerprint className="h-10 w-10 text-[#540D6E] animate-pulse" />
+                    <div className="absolute inset-0 rounded-full border-4 border-slate-100 border-t-escult-purple animate-spin" />
+                    <Fingerprint className="h-10 w-10 text-escult-purple animate-pulse" />
                   </div>
 
                   <div className="space-y-1.5 max-w-sm">
@@ -3073,7 +3073,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                       <div 
                         style={{ width: `${validationProgress}%` }}
-                        className="h-full bg-gradient-to-r from-teal-400 via-indigo-500 to-[#540D6E] transition-all duration-100"
+                        className="h-full bg-gradient-to-r from-teal-400 via-indigo-500 to-escult-purple transition-all duration-100"
                       />
                     </div>
                     <span className="text-apoio text-escult-ink-2 font-bold block">{validationProgress}% CONCLUÍDO</span>
@@ -3093,13 +3093,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       Integração Sincronizada!
                     </h4>
                     <p className="text-rotulo text-escult-ink-2 leading-relaxed">
-                      Seu cadastro foi homologado externamente. Use a senha numérica <span className="font-bold text-[#540D6E]">{registerPassword}</span> para reconectores futuros.
+                      Seu cadastro foi homologado externamente. Use a senha numérica <span className="font-bold text-escult-purple">{registerPassword}</span> para reconectores futuros.
                     </p>
                   </div>
 
                   {/* Summary Box */}
                   <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left space-y-2 max-w-md">
-                    <span className="text-sobretitulo uppercase text-[#540D6E] block border-b border-slate-150 pb-1.5">
+                    <span className="text-sobretitulo uppercase text-escult-purple block border-b border-slate-150 pb-1.5">
                       Ficha de Aluno no AVASEC
                     </span>
                     <div className="grid grid-cols-2 gap-2 text-apoio text-slate-600 leading-relaxed">
@@ -3161,7 +3161,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       setValidationProgress(0);
                       setIsExternalLinkClicked(false);
                     }}
-                    className="w-full rounded-xl bg-slate-950 hover:bg-[#540D6E] text-white text-sobretitulo py-3.5 uppercase transition-all cursor-pointer shadow-md border-none"
+                    className="w-full rounded-xl bg-slate-950 hover:bg-escult-purple text-white text-sobretitulo py-3.5 uppercase transition-all cursor-pointer shadow-md border-none"
                     id="btn-finish-integration"
                   >
                     Ingressar no Meu Painel de Estudos
@@ -3211,7 +3211,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     ? 'bg-amber-100 text-amber-800' 
                     : pendingLogin.role === 'instructor' 
                       ? 'bg-emerald-50 text-emerald-700' 
-                      : 'bg-[#540D6E]/10 text-[#540D6E]'
+                      : 'bg-escult-purple/10 text-escult-purple'
                 }`}>
                   {pendingLogin.name.charAt(0)}
                 </div>
@@ -3286,7 +3286,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 disabled={senhaOk || senhaInput === '' || isPinVerifying}
                 className={`w-full rounded-xl py-2.5 text-sobretitulo uppercase shadow-3xs transition-all active:scale-[0.99] ${
                   senhaInput !== '' && !senhaOk && !isPinVerifying
-                    ? 'cursor-pointer bg-[#540D6E] text-white hover:bg-[#6e118f]'
+                    ? 'cursor-pointer bg-escult-purple text-white hover:bg-[#6e118f]'
                     : 'pointer-events-none border border-slate-200 bg-slate-100 text-slate-350'
                 }`}
               >

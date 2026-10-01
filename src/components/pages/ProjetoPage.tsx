@@ -72,7 +72,7 @@ export const ProjetoPage: React.FC<ProjetoPageProps> = ({ content }) => {
           <div className="space-y-4 pt-2">
             {items.map((p, index) => (
               <div key={p.id} className="flex gap-3.5">
-                <div className="h-6.5 w-6.5 rounded-full bg-[#540D6E]/10 flex items-center justify-center text-[#540D6E] text-xs font-black shrink-0 mt-0.5">
+                <div className="h-6.5 w-6.5 rounded-full bg-escult-purple/10 flex items-center justify-center text-escult-purple text-xs font-black shrink-0 mt-0.5">
                   {index + 1}
                 </div>
                 <div className="space-y-0.5">
