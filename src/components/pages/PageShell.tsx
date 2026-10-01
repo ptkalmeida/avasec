@@ -34,7 +34,7 @@ export const PageShell: React.FC<PageShellProps> = ({
   eyebrow,
   title,
   description,
-  accent = '#540D6E',
+  accent = 'var(--color-escult-purple)',
   align = 'left',
   background = 'bg-white',
   children,
