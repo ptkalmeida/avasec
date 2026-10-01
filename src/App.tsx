@@ -40,6 +40,7 @@ import { features } from './config/features';
 import { NavegacaoPublica } from './components/portal/NavegacaoPublica';
 import { MENU_PUBLICO } from './config/menuPublico';
 import { Breadcrumb } from './components/shared/Breadcrumb';
+import { LinhaAssinatura } from './components/shared/LinhaAssinatura';
 import { demoProfiles } from './dev/demoProfiles';
 // @ts-ignore
 
@@ -758,8 +759,16 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
    * grupos — e a regra de qual delas acende em cada pagina, que e testada.
    */
 
+  /*
+   * Tema do portal (planejamento 12): vale nas paginas publicas e fica de fora
+   * do painel de cada perfil e do Perfil, que o admin tambem usa. O admin nao
+   * muda; aluno e instrutor mudam em fase propria, de uma vez, para o painel
+   * nao ficar metade em cada paleta.
+   */
+  const temaPortal = currentView !== 'active_app' && currentView !== 'perfil';
+
   return (
-    <div className={`min-h-screen bg-white flex flex-col justify-between text-slate-800 font-sans selection:bg-slate-900 selection:text-white transition-colors duration-300 ${accessibilitySettings.highContrast ? 'high-contrast-active' : ''} ${textSizeMultiplier !== 1.0 ? 'text-scaled-active' : ''}`}>
+    <div className={`min-h-screen bg-white flex flex-col justify-between text-slate-800 font-sans selection:bg-slate-900 selection:text-white transition-colors duration-300 ${temaPortal ? 'tema-ava' : ''} ${accessibilitySettings.highContrast ? 'high-contrast-active' : ''} ${textSizeMultiplier !== 1.0 ? 'text-scaled-active' : ''}`}>
       
       {/* Dynamic Style Injections for High Contrast and Text Scaler */}
       {accessibilitySettings.highContrast && (
@@ -894,6 +903,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
         o menu de 15px sem aperto.
       */}
       <header className="sticky top-0 z-40 bg-white border-b border-[#e4e1dc] shadow-3xs">
+        {/* Assinatura do portal: so dentro do tema, o painel do admin nao a recebe. */}
+        <div className="hidden ava:block mx-auto max-w-7xl px-4 md:px-6 pt-2">
+          <LinhaAssinatura />
+        </div>
         <div className="mx-auto max-w-7xl px-4 h-[84px] md:px-6 flex items-center justify-between gap-4">
           
           {/*
@@ -999,7 +1012,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             }}
                             className="w-full text-left hover:bg-[#f4f2ef] p-2 rounded-[10px] transition-all cursor-pointer flex items-center gap-2"
                           >
-                            <div className="h-8 w-8 rounded-lg bg-escult-purple/5 text-escult-purple text-xs font-bold font-serif flex items-center justify-center shrink-0">C</div>
+                            <div className="h-8 w-8 rounded-lg bg-escult-purple/5 text-escult-purple text-xs font-bold font-titulo flex items-center justify-center shrink-0">C</div>
                             <div className="min-w-0">
                               <span className="block text-apoio font-semibold text-[#1d2432] truncate leading-snug">{c.title}</span>
                               <span className="block text-apoio text-[#6b7385] truncate">{c.category}</span>
@@ -1011,7 +1024,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                     {matchedNews.length > 0 && (
                       <div className="space-y-1.5 pt-2 border-t border-[#e4e1dc]">
-                        <span className="text-apoio font-semibold text-[#EE4266] block">Notícias ({matchedNews.length})</span>
+                        <span className="text-apoio font-semibold text-[#EE4266] ava:text-escult-purple block">Notícias ({matchedNews.length})</span>
                         {matchedNews.map((n, i) => (
                           <button
                             key={i}
@@ -1021,7 +1034,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             }}
                             className="w-full text-left hover:bg-[#f4f2ef] p-2 rounded-[10px] transition-all cursor-pointer flex items-center gap-2"
                           >
-                            <div className="h-8 w-8 rounded-lg bg-[#EE4266]/5 text-[#EE4266] text-xs font-bold font-serif flex items-center justify-center shrink-0">N</div>
+                            <div className="h-8 w-8 rounded-lg bg-[#EE4266]/5 text-[#EE4266] ava:bg-escult-purple/5 ava:text-escult-purple text-xs font-bold font-titulo flex items-center justify-center shrink-0">N</div>
                             <div className="min-w-0">
                               <span className="block text-apoio font-semibold text-[#1d2432] truncate leading-snug">{n.title}</span>
                               <span className="block text-apoio text-[#6b7385] truncate">{n.tag}</span>
@@ -1218,10 +1231,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                           speakText("Acessando o seu Ambiente de Estudos.");
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-white ava:hover:bg-escult-purple/5 ava:text-escult-purple ava:border-escult-purple px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title="Ir para seu Ambiente de Estudos"
                       >
-                        <BookOpen className="h-4 w-4 text-slate-900 shrink-0" />
+                        <BookOpen className="h-4 w-4 text-slate-900 ava:text-escult-purple shrink-0" />
                         <span className="hidden sm:inline">Ambiente de Estudos</span>
                         <span className="inline sm:hidden">Estudos</span>
                       </button>
@@ -1236,10 +1249,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             speakText("Acessando a sua Gestão de Cursos.");
                           }
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-white ava:hover:bg-escult-purple/5 ava:text-escult-purple ava:border-escult-purple px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title={activeUser.role === 'admin' ? "Acessar Coordenação / Gestão da Plataforma" : "Acessar Gestão de Cursos e Conteúdos"}
                       >
-                        <GraduationCap className="h-4 w-4 text-slate-900 shrink-0" />
+                        <GraduationCap className="h-4 w-4 text-slate-900 ava:text-escult-purple shrink-0" />
                         <span className="hidden sm:inline">
                           {activeUser.role === 'admin' ? "Gestão da Plataforma" : "Gestão de Cursos/Alunos"}
                         </span>
@@ -1258,7 +1271,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     */}
                     <button
                       onClick={() => setIsLoginModalOpen(true)}
-                      className="rounded-[10px] bg-escult-purple hover:bg-[#42095a] text-white px-[22px] py-3 text-rotulo font-semibold transition-all cursor-pointer whitespace-nowrap"
+                      className="rounded-[10px] bg-escult-purple hover:bg-escult-purple-dark text-white px-[22px] py-3 text-rotulo font-semibold transition-all cursor-pointer whitespace-nowrap"
                     >
                       Entrar
                     </button>
@@ -1381,14 +1394,18 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           /* COMPLETE 9-SECTION LANDING PAGE */
           <div className="animate-in fade-in duration-300">
             
-            {/* HERO SECTION 1 & 2: Epic Cultural Banner & Character Geometric Graphics (Image 1 & 2) */}
+            {/*
+              Heroi no desenho do redesenho (planejamento 12): superficie branca,
+              titulo escuro com o destaque em violeta, botao cheio violeta. Os
+              textos, os dois botoes e o que eles fazem sao os de antes.
+            */}
             <section 
               id="hero-section" 
               ref={heroRef}
               onMouseMove={handleHeroMouseMove}
               onMouseEnter={() => { if (!movimentoReduzido) setIsMouseInHero(true); }}
               onMouseLeave={() => setIsMouseInHero(false)}
-              className="bg-escult-purple text-white py-14 lg:py-24 relative overflow-hidden flex flex-col items-center"
+              className="bg-white text-escult-ink py-14 lg:py-20 relative overflow-hidden flex flex-col items-center"
             >
               {/* Ambient Mouse-following background glow */}
               <motion.div
@@ -1400,65 +1417,61 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 }}
                 transition={{ type: 'spring', damping: 35, stiffness: 100, mass: 0.6 }}
               >
-                <div className="h-80 w-80 -translate-x-1/2 -translate-y-1/2 bg-[#FFD23F]/12 rounded-full blur-3xl" />
+                <div className="h-80 w-80 -translate-x-1/2 -translate-y-1/2 bg-escult-purple/[0.07] rounded-full blur-3xl" />
               </motion.div>
 
-              {/* Decorative design layers */}
-              <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white/[0.04] rounded-full filter blur-3xl pointer-events-none" />
-              <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#FFD23F]/[0.05] rounded-full filter blur-2xl pointer-events-none" />
-              
               <div className="mx-auto max-w-7xl px-4 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center text-left w-full">
                 
                 {/* Hero Left Content */}
                 <div className="lg:col-span-7 space-y-6 relative z-10">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-white/10 border border-white/20 text-[#FFD23F] text-sobretitulo uppercase px-3.5 py-1.5">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-escult-purple/5 border border-escult-purple/15 text-escult-purple text-sobretitulo uppercase px-3.5 py-1.5">
                     <Sparkles className="h-3 w-3 animate-spin duration-1000" />
                     <span>{translations[currentLang].heroBadge}</span>
                   </div>
 
-                  <h1 className="text-3xl md:text-5xl lg:text-[54px] font-semibold tracking-tight leading-[1.08] font-serif">
+                  <h1 className="text-3xl md:text-5xl lg:text-[54px] tracking-tight leading-[1.08] font-titulo text-escult-ink">
                     Escola Estadual da Cultura <br className="hidden sm:inline" />
-                    <span className="text-[#FFD23F]">Ambiente Virtual de Aprendizagem (AVASEC)</span>
+                    <span className="text-escult-purple">Ambiente Virtual de Aprendizagem (AVASEC)</span>
                   </h1>
 
-                  <p className="text-slate-100 text-sm md:text-base leading-relaxed max-w-2xl">
+                  <p className="text-escult-ink-2 text-sm md:text-base leading-relaxed max-w-2xl">
                     A AVASEC é o portal de capacitação e qualificação profissional da Escola Estadual da Cultura. Oferecemos cursos livres e de excelência em Cultura, Gestão Cultural, Economia Criativa e Linguagens Artísticas com certificação digital homologada.
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     <button 
                       onClick={() => goToPage('cursos', translations[currentLang].btnDiscover)}
-                      className="rounded-full bg-escult-red-acao hover:bg-escult-red-acao-hover text-white px-7 py-3 text-sobretitulo uppercase transition-all cursor-pointer flex items-center justify-center gap-2 group shadow-lg"
+                      className="rounded-[10px] bg-escult-purple hover:bg-escult-purple-dark text-white px-7 py-3 text-sobretitulo uppercase transition-all cursor-pointer flex items-center justify-center gap-2 group shadow-sm"
                     >
                       <span>{translations[currentLang].btnDiscover}</span>
                       <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </button>
                     <button 
                       onClick={() => { setIsLoginModalOpen(true); speakText(translations[currentLang].btnStart); }}
-                      className="rounded-full border-2 border-[#FFD23F] bg-transparent hover:bg-[#FFD23F]/10 text-white px-7 py-3 text-sobretitulo uppercase transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md"
+                      className="rounded-[10px] border border-escult-purple bg-white hover:bg-escult-purple/5 text-escult-purple px-7 py-3 text-sobretitulo uppercase transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <Star className="h-4 w-4 text-[#FFD23F] fill-[#FFD23F]" />
+                      <Star className="h-4 w-4 text-escult-purple" />
                       <span>{translations[currentLang].btnStart}</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Hero Right Content: High-fidelity image and custom abstract vector graphics wrapper (Image 2) */}
+                {/* Hero Right Content: composicao geometrica, sem foto (ver nota abaixo) */}
                 <div className="lg:col-span-5 relative flex items-center justify-center">
-                  <div className="relative w-80 h-80 sm:w-96 sm:h-96 shrink-0 z-10 flex items-center justify-center">
+                  <div className="relative w-72 h-72 sm:w-96 sm:h-96 shrink-0 z-10 flex items-center justify-center">
                     
-                    {/* Creative colorful concentric vectors matching AVASEC artwork */}
-                    <div className="absolute top-4 left-4 w-full h-full border-4 border-[#3BCEAC]/30 rounded-full pointer-events-none" />
-                    <div className="absolute -bottom-2 -right-2 w-[110%] h-[110%] border-2 border-dashed border-[#FFD23F]/25 rounded-full pointer-events-none animate-spin" style={{ animationDuration: '40s' }} />
+                    {/* Aneis finos violeta e ciano: o mesmo par da linha de assinatura. */}
+                    <div className="absolute inset-0 border-2 border-escult-purple/15 rounded-full pointer-events-none" />
+                    <div className="absolute -inset-3 border border-dashed border-escult-ciano/40 rounded-full pointer-events-none animate-spin" style={{ animationDuration: '40s' }} />
                     
-                    {/* Multicolored shape geometries surrounding head */}
-                    <div className="absolute -top-6 -left-6 w-24 h-24 rounded-full bg-[#FFD23F] opacity-85 z-20 flex items-center justify-center text-slate-900 text-sobretitulo uppercase shadow-md">
+                    {/* Os tres selos, agora etiquetas: o circulo de 96px cortava "Criatividade". */}
+                    <div className="absolute top-2 -left-2 sm:-left-6 z-20 rounded-full bg-white border border-escult-purple/25 text-escult-purple text-sobretitulo uppercase px-3.5 py-1.5 shadow-sm">
                       ✦ Criatividade
                     </div>
-                    <div className="absolute -bottom-4 right-10 w-20 h-20 rounded-xl bg-escult-red-acao opacity-85 z-20 flex items-center justify-center text-white text-sobretitulo uppercase rotate-12 shadow-md">
+                    <div className="absolute bottom-4 right-0 sm:right-4 z-20 rounded-full bg-escult-purple text-white text-sobretitulo uppercase px-3.5 py-1.5 shadow-sm">
                       ▲ Inovação
                     </div>
-                    <div className="absolute -right-6 top-1/4 w-16 h-16 rounded-full bg-[#3BCEAC] opacity-90 z-20 flex items-center justify-center text-escult-ink text-apoio rotate-45 shadow-md">
+                    <div className="absolute -right-2 sm:-right-6 top-1/4 z-20 rounded-full bg-white border border-escult-ciano-texto/30 text-escult-ciano-texto text-apoio font-semibold px-3 py-1 shadow-sm">
                       ● Arte
                     </div>
 
@@ -1472,12 +1485,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       de estudantes que nao sao desta escola seria outra afirmacao
                       falsa, do mesmo tipo que a que acabou de sair.
                     */}
-                    <div className="w-72 h-72 sm:w-85 sm:h-85 rounded-full border-8 border-white shadow-2xl relative z-10 bg-slate-900 flex flex-col items-center justify-center gap-3 text-center px-10">
-                      <GraduationCap className="h-16 w-16 text-[#FFD23F]" aria-hidden="true" />
-                      <span className="text-white font-serif text-lg leading-tight">
+                    <div className="w-60 h-60 sm:w-80 sm:h-80 rounded-full bg-white border border-escult-line shadow-xl relative z-10 flex flex-col items-center justify-center gap-3 text-center px-10">
+                      <div className="h-16 w-16 rounded-2xl bg-escult-purple/[0.08] flex items-center justify-center">
+                        <GraduationCap className="h-9 w-9 text-escult-purple" aria-hidden="true" />
+                      </div>
+                      <span className="text-escult-ink font-titulo text-lg leading-tight">
                         Educação pública, gratuita e de qualidade
                       </span>
-                      <span className="text-escult-ink-claro text-nota">
+                      <span className="text-escult-ink-2 text-nota">
                         Escola Estadual da Cultura
                       </span>
                     </div>
@@ -1495,12 +1510,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <div className="bg-white rounded-3xl border border-slate-250/75 p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
                     <div className="space-y-4 text-left w-full">
                       <div className="inline-flex items-center gap-2 rounded-full bg-escult-purple/10 border border-escult-purple/20 text-escult-purple text-sobretitulo uppercase px-3 py-1">
-                        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="h-2 w-2 rounded-full bg-escult-ciano animate-pulse" />
                         <span>Sua Área de Estudos</span>
                       </div>
                       
                       <div className="space-y-1">
-                        <h3 className="text-xl md:text-2xl font-black text-slate-900 font-serif">
+                        <h3 className="text-xl md:text-2xl text-escult-ink font-titulo">
                           Olá, {activeUser.name}!
                         </h3>
                         <p className="text-xs text-escult-ink-2 max-w-2xl">
@@ -1519,12 +1534,12 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-150 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
                               <div className="space-y-1">
                                 <span className="text-sobretitulo uppercase text-escult-ink-2 block">CURSO ATIVO</span>
-                                <strong className="text-sm font-bold text-escult-purple block font-serif">{activeCourse.title}</strong>
+                                <strong className="text-sm text-escult-purple block font-titulo">{activeCourse.title}</strong>
                                 <span className="text-xs text-escult-ink-2 block">Ministrado por: Prof. {activeCourse.instructorName}</span>
                               </div>
                               <button 
                                 onClick={() => { setCurrentView('active_app'); speakText(`Iniciando estudos no curso ${activeCourse.title}`); }}
-                                className="w-full sm:w-auto shrink-0 bg-escult-purple hover:bg-purple-950 text-white text-sobretitulo uppercase py-2.5 px-5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                                className="w-full sm:w-auto shrink-0 bg-escult-purple hover:bg-escult-purple-dark text-white text-sobretitulo uppercase py-2.5 px-5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                               >
                                 <span>Continuar Aula</span>
                                 <ArrowRight className="h-4 w-4" />
@@ -1533,7 +1548,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           );
                         } else {
                           return (
-                            <div className="p-4 bg-yellow-50 rounded-2xl border border-yellow-200/60 mt-2 text-xs text-slate-650 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="p-4 bg-escult-purple/5 rounded-2xl border border-escult-purple/15 mt-2 text-xs text-escult-ink-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                               <p>Você não tem nenhuma matrícula ativa de curso no momento. Explore nosso catálogo e matricule-se!</p>
                               <button 
                                 onClick={() => goToPage('cursos', "Cursos disponíveis")}
@@ -1573,10 +1588,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 {/* Stats Text & Indicators (Left) */}
                 <div className="lg:col-span-6 space-y-6 text-left">
                   <div className="space-y-2">
-                    <h3 className="text-3xl font-black text-slate-900 tracking-tight font-serif flex items-center gap-1.5">
+                    <h3 className="text-3xl text-escult-ink tracking-tight font-titulo flex items-center gap-1.5">
                       <span>AVASEC em dados</span>
                     </h3>
-                    <div className="h-1.5 w-12 bg-escult-purple rounded-full" />
+                    <div className="linha-assinatura h-1 w-12 rounded-full" aria-hidden="true" />
                   </div>
 
                   <p className="text-xs md:text-[13px] text-escult-ink-2 leading-relaxed">
@@ -1584,19 +1599,19 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   </p>
 
                   <div className="grid grid-cols-2 gap-6 pt-4">
-                    <div className="p-5 bg-escult-surface border border-escult-line rounded-2xl">
+                    <div className="p-5 bg-white border border-escult-line rounded-2xl shadow-3xs">
                       <strong className="text-3xl font-black text-escult-purple block">188K</strong>
                       <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Estudantes cadastrados</span>
                     </div>
-                    <div className="p-5 bg-green-50/50 border border-green-100 rounded-2xl">
+                    <div className="p-5 bg-white border border-escult-line rounded-2xl shadow-3xs">
                       <strong className="text-3xl font-black text-escult-purple block">300K</strong>
                       <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Inscrições nos cursos</span>
                     </div>
-                    <div className="p-5 bg-red-50/50 border border-red-100 rounded-2xl">
+                    <div className="p-5 bg-white border border-escult-line rounded-2xl shadow-3xs">
                       <strong className="text-3xl font-black text-escult-purple block">66K</strong>
                       <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Mil concluintes</span>
                     </div>
-                    <div className="p-5 bg-amber-50/50 border border-amber-100 rounded-2xl">
+                    <div className="p-5 bg-white border border-escult-line rounded-2xl shadow-3xs">
                       <strong className="text-3xl font-black text-escult-purple block">4M+</strong>
                       <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Visitas à plataforma</span>
                     </div>
@@ -1605,20 +1620,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 {/* Arts Showcase (Right) featuring traditional circus performer and graphic alignments */}
                 <div className="lg:col-span-6 relative flex justify-center items-center">
-                  <div className="relative w-full max-w-md h-96 bg-slate-50 rounded-3xl overflow-hidden border border-slate-200/60 p-6 flex flex-col justify-end">
+                  <div className="relative w-full max-w-md h-96 bg-escult-purple/[0.04] rounded-3xl overflow-hidden border border-escult-line p-6 flex flex-col justify-end">
                     
-                    {/* Abstract colorful design backgrounds replicating the image */}
-                    <div className="absolute top-10 left-10 w-28 h-28 rounded-full bg-[#FFD23F] opacity-90 mix-blend-multiply filter blur-xs pointer-events-none" />
-                    <div className="absolute top-4 right-10 w-24 h-24 rounded-full bg-[#3BCEAC] opacity-80 mix-blend-multiply filter blur-3xs pointer-events-none" />
-                    
-                    {/* Rainbow arc representation */}
-                    <svg className="absolute right-0 bottom-0 w-48 h-48 opacity-20 pointer-events-none" viewBox="0 0 100 100">
-                      <circle cx="100" cy="100" r="80" fill="none" stroke="#EE4266" strokeWidth="12" />
-                      <circle cx="100" cy="100" r="60" fill="none" stroke="#FFD23F" strokeWidth="12" />
-                      <circle cx="100" cy="100" r="40" fill="none" stroke="#3BCEAC" strokeWidth="12" />
-                      <circle cx="100" cy="100" r="20" fill="none" stroke="#540D6E" strokeWidth="12" />
-                    </svg>
-
                     {/* Grayscale/colored performer image simulating theater circus characters */}
                     <div className="absolute inset-0 flex items-center justify-center p-4">
                       <img 
@@ -1630,7 +1633,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     </div>
 
                     <div className="bg-slate-900/90 text-white p-4.5 rounded-2xl relative z-10 text-left space-y-1">
-                      <span className="text-sobretitulo uppercase text-[#FFD23F]">Patrimônio Vivo</span>
+                      <span className="text-sobretitulo uppercase text-escult-ciano">Patrimônio Vivo</span>
                       <strong className="text-xs font-bold block">Fazer Artístico Decolonial</strong>
                       <p className="text-apoio text-slate-300">Oficinas ministradas de maneira autônoma com apoio das comunidades locais e certificadas em nossa rede.</p>
                     </div>
@@ -1643,10 +1646,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
 
             {/* SUGGESTION BANNER & MEMORIAL SECTION: Celebrating Solano Trindade (Image 7) */}
-            <section className="bg-escult-surface border-y border-escult-line py-4 px-4 text-center">
+            <section className="bg-escult-purple/[0.04] border-y border-escult-line py-4 px-4 text-center">
               <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 font-sans py-2">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-[#FFD23F] text-escult-ink flex items-center justify-center shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-escult-purple/10 text-escult-purple flex items-center justify-center shrink-0">
                     <HelpCircle className="h-5 w-5" />
                   </div>
                   <div className="text-left leading-tight">
@@ -1663,7 +1666,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     placeholder="Sugira um tema ou trilha..."
                     value={suggestedCourseName}
                     onChange={(e) => setSuggestedCourseName(e.target.value)}
-                    className="bg-white/90 border border-amber-500/30 text-slate-900 rounded-lg px-4.5 py-2.5 text-corpo focus:outline-none focus:ring-2 focus:ring-escult-purple"
+                    className="min-w-0 flex-1 md:flex-none bg-white border border-escult-line text-escult-ink rounded-lg px-4.5 py-2.5 text-corpo focus:outline-none focus:ring-2 focus:ring-escult-purple"
                   />
                   <button 
                     type="submit"
@@ -1689,17 +1692,17 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               da concepcao pedagogica. Isso tambem corrige o defeito de rotulo:
               antes o botao prometia um assunto e entregava outro.
             */}
-            <section id="quem-somos" className="bg-[#111622] text-white py-16 px-4">
+            <section id="quem-somos" className="bg-white text-escult-ink py-16 px-4">
               <div className="mx-auto max-w-4xl space-y-8 text-left">
 
                 <div className="space-y-2 text-center">
-                  <span className="text-sobretitulo text-[#FFD23F] uppercase block">Nossa concepção</span>
-                  <h2 className="text-3xl md:text-secao font-semibold tracking-tight font-serif text-[#FFD23F]">A educação que orienta esta escola</h2>
-                  <p className="text-escult-ink-claro font-sans tracking-wide text-nota">Escola Estadual da Cultura</p>
-                  <div className="h-1 w-20 bg-[#EE4266] mt-2 mx-auto" />
+                  <span className="text-sobretitulo text-escult-purple uppercase block">Nossa concepção</span>
+                  <h2 className="text-3xl md:text-secao tracking-tight font-titulo text-escult-ink">A educação que orienta esta escola</h2>
+                  <p className="text-escult-ink-2 font-sans tracking-wide text-nota">Escola Estadual da Cultura</p>
+                  <div className="linha-assinatura h-1 w-20 mt-2 mx-auto rounded-full" aria-hidden="true" />
                 </div>
 
-                <p className="text-slate-300 text-xs md:text-[12.5px] leading-relaxed max-w-2xl mx-auto text-center">
+                <p className="text-escult-ink-2 text-xs md:text-[12.5px] leading-relaxed max-w-2xl mx-auto text-center">
                   Ensinar é uma prática que começa pelo que o estudante já sabe. Nesta escola,
                   arte, cultura e economia criativa são o caminho para desenvolver leitura crítica
                   da realidade, autonomia e capacidade de transformar o próprio contexto — dentro e
@@ -1708,25 +1711,25 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2">
                   <div className="space-y-1.5">
-                    <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-sobretitulo text-white uppercase block">Centrada em quem aprende</strong>
-                    <p className="text-escult-ink-claro text-apoio leading-relaxed">
+                    <span className="text-escult-ciano text-xs block" aria-hidden="true">●</span>
+                    <strong className="text-sobretitulo text-escult-ink uppercase block">Centrada em quem aprende</strong>
+                    <p className="text-escult-ink-2 text-apoio leading-relaxed">
                       O processo parte do respeito e da bagagem que cada estudante já traz consigo.
                     </p>
                   </div>
 
                   <div className="space-y-1.5">
-                    <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-sobretitulo text-white uppercase block">Diálogo, não transmissão</strong>
-                    <p className="text-escult-ink-claro text-apoio leading-relaxed">
+                    <span className="text-escult-ciano text-xs block" aria-hidden="true">●</span>
+                    <strong className="text-sobretitulo text-escult-ink uppercase block">Diálogo, não transmissão</strong>
+                    <p className="text-escult-ink-2 text-apoio leading-relaxed">
                       Aprender é via de mão dupla: quem ensina também aprende com a turma.
                     </p>
                   </div>
 
                   <div className="space-y-1.5">
-                    <span className="text-[#EE4266] text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-sobretitulo text-white uppercase block">Leitura crítica</strong>
-                    <p className="text-escult-ink-claro text-apoio leading-relaxed">
+                    <span className="text-escult-ciano text-xs block" aria-hidden="true">●</span>
+                    <strong className="text-sobretitulo text-escult-ink uppercase block">Leitura crítica</strong>
+                    <p className="text-escult-ink-2 text-apoio leading-relaxed">
                       Educar para a autonomia e a cidadania ativa, com reflexão sobre a realidade.
                     </p>
                   </div>
@@ -1735,9 +1738,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="pt-2 flex justify-center">
                   <button
                     onClick={() => goToPage('o-projeto', "O Projeto")}
-                    className="rounded-full border border-white hover:bg-white hover:text-slate-950 text-white px-6 py-2.5 text-sobretitulo uppercase transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                    className="rounded-[10px] border border-escult-purple hover:bg-escult-purple hover:text-white text-escult-purple px-6 py-2.5 text-sobretitulo uppercase transition-all cursor-pointer flex items-center gap-2 shadow-sm"
                   >
-                    <BookOpen className="h-4 w-4 text-[#FFD23F]" aria-hidden="true" />
+                    <BookOpen className="h-4 w-4" aria-hidden="true" />
                     <span>Conheça o projeto</span>
                   </button>
                 </div>
@@ -1806,8 +1809,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             {/* Left Column: Guidelines */}
             <div className="lg:col-span-6 space-y-6 text-left">
               <div className="bg-white p-6.5 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
-                <h4 className="text-base font-extrabold text-slate-900 font-serif flex items-center gap-2">
-                  <Award className="h-5 w-5 text-[#EE4266]" />
+                <h4 className="text-base font-extrabold text-slate-900 font-titulo flex items-center gap-2">
+                  <Award className="h-5 w-5 text-escult-purple" />
                   <span>{pageField(certContent, 'criteriaTitle', 'Orientações de Aprovação & Emissão')}</span>
                 </h4>
                 <p className="text-xs text-escult-ink-2 leading-relaxed">
@@ -1817,7 +1820,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="space-y-4 pt-2">
                   {certCriteria.map((criterio) => (
                     <div key={criterio.id} className="flex gap-3 items-start">
-                      <CheckCircle className="h-4.5 w-4.5 text-[#3BCEAC] shrink-0 mt-0.5" />
+                      <CheckCircle className="h-4.5 w-4.5 text-escult-ciano-texto shrink-0 mt-0.5" />
                       <div className="text-xs">
                         <strong className="text-slate-800 block">{criterio.title}</strong>
                         <span className="text-escult-ink-2 text-rotulo leading-normal block">{criterio.description}</span>
@@ -1827,8 +1830,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </div>
               </div>
 
-              <div className="bg-[#FFD23F]/10 border border-[#FFD23F]/30 p-5 rounded-2xl flex gap-3.5 items-start">
-                <Info className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="bg-escult-purple/5 border border-escult-purple/15 p-5 rounded-2xl flex gap-3.5 items-start">
+                <Info className="h-5 w-5 text-escult-purple shrink-0 mt-0.5" />
                 <p className="text-rotulo text-slate-700 leading-relaxed">
                   {pageField(certContent, 'noticeText', 'Validação por Terceiros: Qualquer instituição pública ou parceira pode validar os certificados emitidos utilizando o nosso autenticador ao lado com o código de registro ou nome completo.')}
                 </p>
@@ -1838,8 +1841,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             {/* Right Column: Autenticador form */}
             <div className="lg:col-span-6 bg-white p-6.5 rounded-3xl border border-slate-200 shadow-2xs space-y-6 text-left">
               <div className="space-y-1.5">
-                <h4 className="text-base font-extrabold text-slate-900 font-serif flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-[#3BCEAC]" />
+                <h4 className="text-base font-extrabold text-slate-900 font-titulo flex items-center gap-2">
+                  <ShieldCheck className="h-5 w-5 text-escult-ciano-texto" />
                   <span>{pageField(certContent, 'authenticatorTitle', 'Autenticador de Certificados')}</span>
                 </h4>
                 <p className="text-xs text-escult-ink-2">
@@ -1853,11 +1856,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   placeholder="Ex: CERT-JOAO-123 ou João Silva..."
                   value={certQuery}
                   onChange={(e) => setCertQuery(e.target.value)}
-                  className="flex-1 bg-slate-50 border border-slate-250 text-slate-850 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-escult-purple placeholder-slate-400"
+                  className="flex-1 min-w-0 bg-slate-50 border border-slate-250 text-slate-850 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-escult-purple placeholder-slate-400"
                 />
                 <button
                   type="submit"
-                  className="rounded-xl bg-escult-purple hover:bg-purple-950 text-white text-sobretitulo px-5 py-2.5 uppercase transition-all shadow-xs cursor-pointer shrink-0"
+                  className="rounded-xl bg-escult-purple hover:bg-escult-purple-dark text-white text-sobretitulo px-5 py-2.5 uppercase transition-all shadow-xs cursor-pointer shrink-0"
                 >
                   Verificar
                 </button>
@@ -1973,7 +1976,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
               <div className="text-left space-y-1 border-b border-slate-200 pb-6">
                 <span className="text-sobretitulo text-escult-purple uppercase block">Catálogo</span>
-                <h2 className="text-2xl md:text-secao font-semibold text-escult-ink tracking-tight font-serif">Cursos Disponíveis</h2>
+                <h2 className="text-2xl md:text-secao text-escult-ink tracking-tight font-titulo">Cursos Disponíveis</h2>
                 <p className="text-apoio text-escult-ink-2 leading-relaxed max-w-2xl">
                   Conheça os cursos oferecidos pela Escola Estadual da Cultura. Use os filtros para encontrar por área ou por nome.
                 </p>
@@ -2018,7 +2021,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     <p className="text-escult-ink-2 text-xs leading-relaxed max-w-md mx-auto">Nenhum curso encontrado com os filtros atuais.</p>
                     <button
                       onClick={() => { setCourseSearch(''); setCourseCategory('all'); }}
-                      className="mt-4 px-4 py-2 bg-escult-purple text-white text-sobretitulo rounded-xl hover:bg-purple-950 transition-colors uppercase cursor-pointer font-sans"
+                      className="mt-4 px-4 py-2 bg-escult-purple text-white text-sobretitulo rounded-xl hover:bg-escult-purple-dark transition-colors uppercase cursor-pointer font-sans"
                     >
                       Limpar Filtros
                     </button>
@@ -2039,10 +2042,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
 
                         <div className="absolute top-4 right-4 h-11 w-11 rounded-xl bg-slate-900/90 text-white flex items-center justify-center shadow-md">
-                          {course.iconType === 'mic' && <Award className="h-5 w-5 text-[#FFD23F]" />}
-                          {course.iconType === 'video' && <Video className="h-5 w-5 text-[#FFD23F]" />}
-                          {course.iconType === 'building' && <Play className="h-5 w-5 text-[#FFD23F] translate-x-[1px]" />}
-                          {course.iconType === 'columns' && <BookOpen className="h-5 w-5 text-[#FFD23F]" />}
+                          {course.iconType === 'mic' && <Award className="h-5 w-5 text-escult-ciano" />}
+                          {course.iconType === 'video' && <Video className="h-5 w-5 text-escult-ciano" />}
+                          {course.iconType === 'building' && <Play className="h-5 w-5 text-escult-ciano translate-x-[1px]" />}
+                          {course.iconType === 'columns' && <BookOpen className="h-5 w-5 text-escult-ciano" />}
                         </div>
 
                         <span className="absolute bottom-3 left-3 text-sobretitulo uppercase bg-white/10 backdrop-blur-md text-white border border-white/20 py-0.8 px-2 rounded-md">
@@ -2052,7 +2055,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                       <div className="p-4.5 space-y-3 flex-1 flex flex-col justify-between">
                         <div className="space-y-1.5">
-                          <h4 className="text-xs font-bold text-slate-900 leading-snug transition-colors line-clamp-2 h-9 font-serif">
+                          <h4 className="text-xs font-bold text-slate-900 leading-snug transition-colors line-clamp-2 h-9 font-titulo">
                             {course.title}
                           </h4>
                           <p className="text-apoio text-escult-ink-2 font-semibold">Tutorado por: Prof. {course.instructor}</p>
@@ -2112,14 +2115,17 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
         Os alvos sao os mesmos de `PORTAL_PATHS`; nada aqui inventa destino.
       */}
-      <footer className="bg-[#1d2432] text-[#c3c8d2] font-sans">
+      <footer className="bg-[#1d2432] text-[#c3c8d2] ava:bg-white ava:text-escult-ink-2 font-sans">
+        <div className="hidden ava:block mx-auto max-w-7xl px-8 pt-6">
+          <LinhaAssinatura />
+        </div>
         {/* Alturas enxugadas: o rodapé é mapa do site, não seção de conteúdo. */}
         <div className="mx-auto max-w-7xl px-8 pt-9 pb-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-x-10 gap-y-7">
 
             <div className="space-y-3">
-              <strong className="block text-[22px] font-extrabold text-white tracking-tight">AVASEC</strong>
-              <p className="text-rotulo leading-relaxed text-[#c3c8d2] max-w-xs">
+              <strong className="block text-[22px] font-extrabold text-white ava:text-escult-ink tracking-tight">AVASEC</strong>
+              <p className="text-rotulo leading-relaxed text-[#c3c8d2] ava:text-escult-ink-2 max-w-xs">
                 Ambiente virtual de aprendizagem da Escola Estadual da Cultura.
               </p>
             </div>
@@ -2152,13 +2158,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               },
             ].map((coluna) => (
               <nav key={coluna.titulo} aria-label={coluna.titulo} className="space-y-3">
-                <strong className="block text-rotulo font-semibold text-white">{coluna.titulo}</strong>
+                <strong className="block text-rotulo font-semibold text-white ava:text-escult-ink">{coluna.titulo}</strong>
                 <ul className="space-y-2">
                   {coluna.itens.map((item) => (
                     <li key={item.rotulo}>
                       <button
                         onClick={item.acao}
-                        className="text-rotulo text-[#c3c8d2] hover:text-white hover:underline underline-offset-[3px] transition-colors cursor-pointer text-left"
+                        className="text-rotulo text-[#c3c8d2] ava:text-escult-ink-2 hover:text-white ava:hover:text-escult-purple hover:underline underline-offset-[3px] transition-colors cursor-pointer text-left"
                       >
                         {item.rotulo}
                       </button>
@@ -2183,15 +2189,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             os tres idiomas continuam, agora em caixa mista, no `text-apoio` e no
             mesmo cinza que o copyright ja usava (5,28:1 sobre `#1d2432`).
           */}
-          <div className="mt-7 pt-4 border-t border-[#313a4a] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-apoio text-[#8b93a3]">
+          <div className="mt-7 pt-4 border-t border-[#313a4a] ava:border-escult-line flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-apoio text-[#8b93a3] ava:text-escult-ink-2">
               © 2026 AVASEC — Escola Estadual da Cultura. Todos os direitos reservados.
             </p>
 
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-apoio text-[#8b93a3]">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-apoio text-[#8b93a3] ava:text-escult-ink-2">
               <button
                 onClick={() => { setIsAccessibilityOpen(true); speakText('Janela de acessibilidade aberta'); }}
-                className="flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white hover:underline underline-offset-[3px]"
+                className="flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white ava:hover:text-escult-purple hover:underline underline-offset-[3px]"
                 title="Ajustar tamanho da fonte, leitor e preferências"
               >
                 <Settings className="h-3.5 w-3.5" />
@@ -2205,8 +2211,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   speakText(next ? 'Alto contraste ativado' : 'Alto contraste desativado');
                 }}
                 aria-pressed={accessibilitySettings.highContrast}
-                className={`flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white hover:underline underline-offset-[3px] ${
-                  accessibilitySettings.highContrast ? 'text-white underline' : ''
+                className={`flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white ava:hover:text-escult-purple hover:underline underline-offset-[3px] ${
+                  accessibilitySettings.highContrast ? 'text-white underline ava:text-escult-purple' : ''
                 }`}
                 title="Ativar/Desativar cores de alto contraste para baixa visão"
               >
@@ -2216,7 +2222,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
               <button
                 onClick={() => { setIsSiteMapOpen(true); speakText('Mapa de seções do site aberto'); }}
-                className="flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white hover:underline underline-offset-[3px]"
+                className="flex items-center gap-1.5 cursor-pointer transition-colors hover:text-white ava:hover:text-escult-purple hover:underline underline-offset-[3px]"
                 title="Exibir mapa do site"
               >
                 <BookOpen className="h-3.5 w-3.5" />
@@ -2232,7 +2238,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div
                 role="group"
                 aria-label="Idioma do portal"
-                className="flex items-center gap-3 border-l border-[#313a4a] pl-5"
+                className="flex items-center gap-3 border-l border-[#313a4a] ava:border-escult-line pl-5"
               >
                 {([
                   { id: 'pt', rotulo: 'PT-BR', titulo: 'Português (Brasil)', fala: 'Idioma alterado para Português' },
@@ -2243,8 +2249,8 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     key={idioma.id}
                     onClick={() => { setCurrentLang(idioma.id); speakText(idioma.fala); }}
                     aria-current={currentLang === idioma.id ? 'true' : undefined}
-                    className={`cursor-pointer transition-colors underline-offset-[3px] hover:text-white hover:underline ${
-                      currentLang === idioma.id ? 'text-white font-semibold underline' : ''
+                    className={`cursor-pointer transition-colors underline-offset-[3px] hover:text-white ava:hover:text-escult-purple hover:underline ${
+                      currentLang === idioma.id ? 'text-white font-semibold underline ava:text-escult-purple' : ''
                     }`}
                     title={idioma.titulo}
                   >
@@ -2282,7 +2288,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
                   <span className="text-sobretitulo uppercase bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md w-fit block">PREFERÊNCIAS</span>
-                  <h3 className="font-black text-slate-900 text-lg font-serif flex items-center gap-2">
+                  <h3 className="font-black text-slate-900 text-lg font-titulo flex items-center gap-2">
                     <Settings className="h-5 w-5 text-teal-700" />
                     <span>Painel de Acessibilidade da Escola</span>
                   </h3>
@@ -2435,7 +2441,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
                   <span className="text-sobretitulo uppercase bg-escult-surface text-escult-purple px-2 py-0.5 rounded-md w-fit block">NAVEGAÇÃO COMPLETA</span>
-                  <h3 className="font-black text-slate-900 text-sm md:text-base font-serif flex items-center gap-2">
+                  <h3 className="font-black text-slate-900 text-sm md:text-base font-titulo flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-escult-purple" />
                     <span>Mapa do Site — Escola Estadual da Cultura</span>
                   </h3>
@@ -2554,7 +2560,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
               {/* Title Section */}
               <div className="space-y-1">
-                <h3 className="font-extrabold text-[#111] text-base font-serif flex items-center gap-2">
+                <h3 className="font-extrabold text-[#111] text-base font-titulo flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-escult-purple" />
                   <span>Portal de Conexão Acadêmica</span>
                 </h3>

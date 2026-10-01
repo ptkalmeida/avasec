@@ -35,9 +35,9 @@ const DEFAULT_ITEMS: SitePageItem[] = [
 
 /** Ícone e cor são decoração cíclica — não são campos editáveis. */
 const DECORACOES = [
-  { icon: Video, accent: '#540D6E' },
-  { icon: Users, accent: '#3BCEAC' },
-  { icon: Award, accent: '#EE4266' }
+  { icon: Video, accent: 'var(--color-escult-purple)' },
+  { icon: Users, accent: 'var(--color-escult-ciano-texto)' },
+  { icon: Award, accent: 'var(--color-escult-purple-dark)' }
 ];
 
 export const AvaPage: React.FC<AvaPageProps> = ({ content }) => {
@@ -61,11 +61,11 @@ export const AvaPage: React.FC<AvaPageProps> = ({ content }) => {
             >
               <div
                 className="h-12 w-12 rounded-2xl flex items-center justify-center"
-                style={{ backgroundColor: `${deco.accent}1a`, color: deco.accent }}
+                style={{ backgroundColor: `color-mix(in srgb, ${deco.accent} 10%, transparent)`, color: deco.accent }}
               >
                 <Icon className="h-6 w-6" />
               </div>
-              <h4 className="text-lg font-extrabold text-slate-900 font-serif">{item.title}</h4>
+              <h4 className="text-lg font-extrabold text-slate-900 font-titulo">{item.title}</h4>
               <p className="text-xs text-escult-ink-2 leading-relaxed">{item.description}</p>
             </div>
           );

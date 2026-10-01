@@ -67,16 +67,15 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
   const goNext = () => setActiveIndex((prev) => (prev + 1) % allNews.length);
 
   /*
-   * `accent` colore o sobretitulo. #EE4266 e cor de indicador, nao de
-   * texto: da 3,58:1 sobre este fundo. #d62f52 e o mesmo vermelho na
-   * versao que alcanca o piso de 4,5:1.
+   * O sobretitulo usa o `accent` padrao do PageShell (o violeta do tema).
+   * Antes era o vermelho #d62f52; no redesenho (planejamento 12) o vermelho
+   * saiu de titulo e sobretitulo e ficou para erro e alerta.
    */
   return (
     <PageShell
       eyebrow={pageField(content, 'eyebrow', 'Destaques Letivos')}
       title={pageField(content, 'title', 'Notícias & Novidades')}
       description={pageField(content, 'description', 'Acompanhe os informativos, aberturas de turma e novidades do Portal AVASEC.')}
-      accent="#d62f52"
       background="bg-slate-50"
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -102,7 +101,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
         {displayedNews.length === 0 ? (
           <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-white shadow-3xs">
-            <h4 className="text-[#EE4266] font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
+            <h4 className="text-escult-purple font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
             <p className="text-escult-ink-2 text-xs leading-relaxed max-w-md mx-auto">
               Nenhuma notícia coincide com a sua busca por "
               <strong className="text-slate-800 font-bold">{searchQuery}</strong>".
@@ -122,7 +121,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
               <div
                 key={news.id}
                 className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden shadow-2xs hover:shadow-md flex flex-col justify-between ${
-                  isFocus ? 'border-[#EE4266] ring-1 ring-[#EE4266]' : 'border-slate-200'
+                  isFocus ? 'border-escult-purple ring-1 ring-escult-purple' : 'border-slate-200'
                 }`}
               >
                 {news.image && (
@@ -144,7 +143,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <span className="text-apoio text-escult-ink-2 font-bold block">{news.date}</span>
-                    <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 h-9 font-serif">
+                    <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 h-9 font-titulo">
                       {news.title}
                     </h4>
                     <p className="text-apoio text-escult-ink-2 leading-relaxed line-clamp-3">
