@@ -4,7 +4,7 @@
  */
 
 import React, { Suspense } from 'react';
-import { LessonBlock } from '../../utils/lessonContent';
+import { LessonBlock, TamanhoTexto, AlinhamentoTexto } from '../../utils/lessonContent';
 import { LessonImage } from './LessonImage';
 import { VideoPlayer } from '../shared/VideoPlayer';
 
@@ -22,6 +22,28 @@ const CodeFallback: React.FC = () => (
 );
 
 /** Paletas por contexto: aula do aluno (claro) e prévia do instrutor (escuro). */
+/*
+ * Formatação do autor traduzida em classes do design system — o conteúdo só diz
+ * QUAL opção, nunca o estilo. Os tamanhos são tokens da escala (index.css), e o
+ * menor deles é o piso de 12px travado em escadaTipografica.test.ts. O "normal" é
+ * o `text-apoio` que o corpo da aula já herda.
+ */
+export const CLASSE_TAMANHO: Record<TamanhoTexto, string> = {
+  pequeno: 'text-nota',
+  normal: '',
+  grande: 'text-corpo',
+  'muito-grande': 'text-cartao',
+};
+
+// Justificado hifeniza: sem isso, em coluna estreita, o texto abre buracos entre
+// as palavras. A hifenização segue o `lang="pt-BR"` do documento.
+export const CLASSE_ALINHAMENTO: Record<AlinhamentoTexto, string> = {
+  esquerda: '',
+  centro: 'text-center',
+  direita: 'text-right',
+  justificado: 'text-justify hyphens-auto',
+};
+
 const TONES = {
   light: {
     body: 'text-slate-700',
@@ -96,7 +118,7 @@ export const LessonContent: React.FC<LessonContentProps> = ({ blocks, tone = 'li
             <h4
               key={`ss-${i}`}
               id={block.id}
-              className={`scroll-mt-28 mt-7 mb-2.5 text-sm font-extrabold ${t.subsection}`}
+              className={`scroll-mt-28 mt-7 mb-2.5 text-sm font-extrabold ${t.subsection} ${CLASSE_ALINHAMENTO[block.alinhamento ?? 'esquerda']}`}
             >
               {renderInline(block.text, `ss-${i}`, t.strong)}
             </h4>
@@ -104,7 +126,10 @@ export const LessonContent: React.FC<LessonContentProps> = ({ blocks, tone = 'li
 
         case 'paragraph':
           return (
-            <p key={`p-${i}`} className="mb-3.5">
+            <p
+              key={`p-${i}`}
+              className={`mb-3.5 ${CLASSE_TAMANHO[block.tamanho ?? 'normal']} ${CLASSE_ALINHAMENTO[block.alinhamento ?? 'esquerda']}`}
+            >
               {renderInline(block.text, `p-${i}`, t.strong)}
             </p>
           );

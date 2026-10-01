@@ -550,3 +550,71 @@ describe('LessonContentEditor — vídeo principal e vídeo complementar', () =>
     expect(screen.queryByText(/ainda não tem vídeo principal/i)).not.toBeInTheDocument();
   });
 });
+
+describe('LessonContentEditor — tamanho e alinhamento', () => {
+  it('grava alinhamento e tamanho do parágrafo escolhidos no formulário', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar parágrafo' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Centralizado' }));
+    fireEvent.change(screen.getByLabelText('Tamanho'), { target: { value: 'grande' } });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    expect(valor()).toContain('{centro grande} Os wireframes servem para validar a estrutura do layout.');
+    // O resto da aula não é tocado.
+    expect(valor()).toContain('```java\nint a = 1;\n```');
+  });
+
+  it('abre com a formatação que já estava gravada', () => {
+    render(<Harness inicial="{direita pequeno} Nota final." />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar parágrafo' }));
+
+    expect(screen.getByRole('button', { name: 'À direita' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('Tamanho')).toHaveValue('pequeno');
+    // O autor edita o texto, não o marcador.
+    expect(screen.getByDisplayValue('Nota final.')).toBeInTheDocument();
+  });
+
+  it('voltar tudo ao padrão tira o marcador do texto', () => {
+    render(<Harness inicial="{centro grande} Texto." />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar parágrafo' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'À esquerda' }));
+    fireEvent.change(screen.getByLabelText('Tamanho'), { target: { value: 'normal' } });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    expect(valor()).toBe('Texto.');
+  });
+
+  it('subtítulo oferece só alinhamento', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar subtítulo' }));
+
+    expect(screen.queryByLabelText('Tamanho')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Centralizado' }));
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    expect(valor()).toContain('### {centro} Tipos de Wireframe');
+  });
+
+  it('mostra a prévia só quando há formatação, e avisa no justificado', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar parágrafo' }));
+
+    expect(screen.queryByText(/Prévia/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Justificado' }));
+
+    expect(screen.getByText(/Prévia/)).toBeInTheDocument();
+    expect(screen.getByText(/justificado pode abrir espaços/)).toBeInTheDocument();
+  });
+
+  it('converter para lista descarta a formatação', () => {
+    render(<Harness inicial="{centro} Item único." />);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar parágrafo' }));
+
+    fireEvent.change(screen.getByRole('combobox', { name: /tipo/i }), { target: { value: 'bulletList' } });
+    fireEvent.click(screen.getByRole('button', { name: /aplicar/i }));
+
+    expect(valor()).toBe('- Item único.');
+  });
+});

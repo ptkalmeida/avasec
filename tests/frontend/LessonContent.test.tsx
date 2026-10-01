@@ -159,3 +159,33 @@ describe('LessonContent — mídia no corpo da aula', () => {
     expect(screen.getByText('Figura 1 - o diagrama').className).toContain('text-teal-400');
   });
 });
+
+describe('LessonContent — tamanho e alinhamento do autor', () => {
+  it('traduz a opção do parágrafo em classes do design system', () => {
+    renderContent('{centro muito-grande} Abertura.\n\n{justificado pequeno} Nota.');
+
+    expect(screen.getByText('Abertura.')).toHaveClass('text-center', 'text-cartao');
+    expect(screen.getByText('Nota.')).toHaveClass('text-justify', 'hyphens-auto', 'text-nota');
+  });
+
+  it('alinha o subtítulo sem mudar o tamanho dele', () => {
+    renderContent('### {direita} Referências');
+
+    const titulo = screen.getByRole('heading', { name: 'Referências' });
+    expect(titulo).toHaveClass('text-right', 'text-sm');
+  });
+
+  it('parágrafo sem marcador sai como sempre saiu', () => {
+    renderContent('Texto comum.');
+
+    const p = screen.getByText('Texto comum.');
+    expect(p.className).not.toMatch(/text-(center|right|justify|nota|corpo|cartao)\b/);
+  });
+
+  it('o marcador nunca aparece para o aluno; o inválido aparece como texto', () => {
+    renderContent('{centro} Visível.\n\n{vermelho} Literal.');
+
+    expect(screen.queryByText(/\{centro\}/)).not.toBeInTheDocument();
+    expect(screen.getByText('{vermelho} Literal.')).toBeInTheDocument();
+  });
+});
