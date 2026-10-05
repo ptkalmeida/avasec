@@ -49,18 +49,17 @@ export const OrientacoesPage: React.FC<OrientacoesPageProps> = ({ content }) => 
       title={pageField(content, 'title', 'Orientações Gerais')}
       description={pageField(content, 'description', 'Consulte as orientações e diretrizes de como interagir com o AVA da Escola Estadual da Cultura e garanta uma experiência de aprendizado transformadora.')}
       align="center"
-      background="bg-ava-acao/5"
     >
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 text-left">
         {items.map((o, index) => (
           <div
             key={o.id}
-            className="bg-white rounded-2xl p-5 border border-slate-200 shadow-3xs hover:shadow-xs transition-all space-y-3"
+            className="bg-white rounded-2xl p-5 border border-ava-borda shadow-3xs hover:shadow-md transition-all space-y-3"
           >
-            <span className="text-sobretitulo text-escult-red-acao-hover uppercase bg-rose-50 border border-rose-100 rounded-md px-2 py-0.5 inline-block">
+            <span className="text-sobretitulo text-ava-tinta uppercase bg-ava-icone-fundo rounded-full px-3 py-1 inline-block">
               Diretriz {ROMANOS[index] ?? index + 1}
             </span>
-            <h4 className="text-sm font-bold text-slate-900 font-titulo">{o.title}</h4>
+            <h4 className="text-cartao text-ava-tinta font-titulo">{o.title}</h4>
             <p className="text-rotulo text-escult-ink-2 leading-relaxed">{o.description}</p>
           </div>
         ))}

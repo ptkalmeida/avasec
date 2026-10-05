@@ -33,12 +33,11 @@ const DEFAULT_ITEMS: SitePageItem[] = [
   }
 ];
 
-/** Ícone e cor são decoração cíclica — não são campos editáveis. */
-const DECORACOES = [
-  { icon: Video, accent: 'var(--color-ava-acao)' },
-  { icon: Users, accent: 'var(--color-ava-ciano-texto)' },
-  { icon: Award, accent: 'var(--color-ava-acao-escuro)' }
-];
+/**
+ * Ícone é decoração cíclica — não é campo editável. A cor saiu daqui: nos
+ * cartões da tela 05 (planejamento 13) o ícone é sempre azul num círculo claro.
+ */
+const ICONES = [Video, Users, Award];
 
 export const AvaPage: React.FC<AvaPageProps> = ({ content }) => {
   const items = pageItems(content, DEFAULT_ITEMS);
@@ -52,21 +51,17 @@ export const AvaPage: React.FC<AvaPageProps> = ({ content }) => {
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {items.map((item, index) => {
-          const deco = DECORACOES[index % DECORACOES.length];
-          const Icon = deco.icon;
+          const Icon = ICONES[index % ICONES.length];
           return (
             <div
               key={item.id}
-              className="bg-slate-50 rounded-3xl p-6.5 border border-slate-200/60 hover:shadow-lg transition-all space-y-4 text-left"
+              className="bg-white rounded-2xl p-6.5 border border-ava-borda shadow-3xs hover:shadow-md transition-all space-y-4 text-left"
             >
-              <div
-                className="h-12 w-12 rounded-2xl flex items-center justify-center"
-                style={{ backgroundColor: `color-mix(in srgb, ${deco.accent} 10%, transparent)`, color: deco.accent }}
-              >
-                <Icon className="h-6 w-6" />
+              <div className="h-14 w-14 rounded-full bg-ava-icone-fundo text-ava-acao flex items-center justify-center">
+                <Icon className="h-6 w-6" aria-hidden="true" />
               </div>
-              <h4 className="text-lg font-extrabold text-slate-900 font-titulo">{item.title}</h4>
-              <p className="text-xs text-escult-ink-2 leading-relaxed">{item.description}</p>
+              <h4 className="text-cartao text-ava-tinta font-titulo">{item.title}</h4>
+              <p className="text-apoio text-escult-ink-2 leading-relaxed">{item.description}</p>
             </div>
           );
         })}

@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { PageShell } from './PageShell';
 import { SitePageContent, SitePageItem } from '../../types';
 import { pageField, pageItems } from '../../utils/sitePageContent';
@@ -49,21 +50,20 @@ export const DuvidasPage: React.FC<DuvidasPageProps> = ({ content }) => {
       title={pageField(content, 'title', 'Dúvidas Frequentes')}
       description={pageField(content, 'description', 'Tem dúvidas sobre como utilizar o Portal AVA? Acesse nosso FAQ rápido:')}
       align="center"
-      accent="var(--color-ava-acao)"
     >
-      <div className="space-y-3.5 max-w-2xl mx-auto text-left">
+      <div className="space-y-3 max-w-3xl mx-auto text-left">
         {items.map((faq) => (
-          <div key={faq.id} className="border border-slate-200/70 rounded-2xl bg-slate-50/30 transition-all">
+          <div key={faq.id} className="border border-ava-borda rounded-xl bg-white transition-all">
             <button
               onClick={() => toggle(faq.id)}
               aria-expanded={expandedId === faq.id}
-              className="w-full flex justify-between items-center gap-3 p-4.5 text-xs font-black text-slate-800 hover:text-ava-acao text-left cursor-pointer"
+              className="w-full flex justify-between items-center gap-3 px-5 py-4 text-rotulo font-bold text-ava-tinta hover:text-ava-acao text-left cursor-pointer rounded-xl"
             >
               <span>{faq.question}</span>
-              <span className="text-ava-acao text-xs shrink-0">{expandedId === faq.id ? '▲' : '▼'}</span>
+              <ChevronDown className={`h-5 w-5 text-ava-acao shrink-0 transition-transform ${expandedId === faq.id ? 'rotate-180' : ''}`} aria-hidden="true" />
             </button>
             {expandedId === faq.id && (
-              <div className="p-4.5 pt-0 border-t border-slate-100 text-xs text-escult-ink-2 leading-relaxed animate-in fade-in duration-200">
+              <div className="px-5 pb-4 pt-3 border-t border-ava-borda text-apoio text-escult-ink-2 leading-relaxed animate-in fade-in duration-200">
                 {faq.answer}
               </div>
             )}

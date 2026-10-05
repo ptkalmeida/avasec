@@ -10,8 +10,6 @@ interface PageShellProps {
   eyebrow: string;
   title: string;
   description?: string;
-  /** Cor institucional usada no sobretítulo e na barra de destaque. */
-  accent?: string;
   align?: 'left' | 'center';
   /** Classe utilitária de fundo da página inteira. */
   background?: string;
@@ -34,27 +32,35 @@ export const PageShell: React.FC<PageShellProps> = ({
   eyebrow,
   title,
   description,
-  accent = 'var(--color-ava-acao)',
   align = 'left',
   background = 'bg-white',
   children,
 }) => {
   const isCentered = align === 'center';
 
+  /*
+   * Topo das telas 05 e 06 da skill ava-frontend-redesign (planejamento 13):
+   * faixa clara, sobretitulo com filete dourado, titulo marinho e a
+   * composicao geometrica a direita (so em tela larga, onde ha espaco sem
+   * cobrir o texto). A barra colorida embaixo do titulo e o `accent` sairam:
+   * a cor do sobretitulo passou a ser uma so no portal.
+   */
   return (
-    <div className={`${background} min-h-[70vh] py-10 px-4 animate-in fade-in duration-300`}>
-      <div className="mx-auto max-w-7xl space-y-8">
+    <div className={`${background} min-h-[70vh] animate-in fade-in duration-300`}>
+      <section className="relative overflow-hidden border-b border-ava-borda bg-gradient-to-b from-white to-ava-faixa/60 px-4 py-10 md:py-14">
+        <div aria-hidden="true" className="hidden xl:block absolute right-24 top-8 h-40 w-20 rounded-r-full bg-ava-marinho" />
+        <div aria-hidden="true" className="hidden xl:block absolute right-[11.5rem] top-16 h-20 w-10 rounded-l-full bg-ava-dourado" />
+        <div aria-hidden="true" className="hidden xl:block absolute right-8 top-6 h-16 w-16 bg-ava-rosa" />
+        <div aria-hidden="true" className="hidden xl:block absolute right-10 bottom-8 h-20 w-20 bg-ava-acao" />
+
         <div
-          className={`space-y-2 border-b border-slate-200 pb-6 ${
-            isCentered ? 'text-center max-w-3xl mx-auto' : 'text-left'
+          className={`relative mx-auto max-w-7xl space-y-3 ${
+            isCentered ? 'text-center' : 'text-left'
           }`}
         >
-          <span
-            className="text-sobretitulo uppercase block"
-            style={{ color: accent }}
-          >
+          <p className="filete text-sobretitulo uppercase text-ava-tinta">
             {eyebrow}
-          </span>
+          </p>
           {/*
             <h1>, e nao <h3>: este e o titulo DA pagina. As nove paginas
             institucionais nao tinham nenhum <h1> — para quem navega por
@@ -64,7 +70,7 @@ export const PageShell: React.FC<PageShellProps> = ({
             gera classe para tamanho nao declarado): o titulo ficava em 24px em
             qualquer largura de tela, e ninguem via erro nenhum.
           */}
-          <h1 className="text-secao md:text-pagina font-semibold text-escult-ink tracking-tight font-titulo">
+          <h1 className={`text-secao md:text-pagina text-ava-tinta tracking-tight font-titulo break-words ${isCentered ? 'max-w-3xl mx-auto' : 'max-w-3xl'}`}>
             {title}
           </h1>
           {description && (
@@ -76,12 +82,10 @@ export const PageShell: React.FC<PageShellProps> = ({
               {description}
             </p>
           )}
-          <div
-            className={`h-1.5 w-16 rounded-full ${isCentered ? 'mx-auto' : ''}`}
-            style={{ backgroundColor: accent }}
-          />
         </div>
+      </section>
 
+      <div className="mx-auto max-w-7xl px-4 py-10 space-y-8">
         {children}
       </div>
     </div>

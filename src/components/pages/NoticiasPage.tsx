@@ -76,21 +76,20 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
       eyebrow={pageField(content, 'eyebrow', 'Destaques Letivos')}
       title={pageField(content, 'title', 'Notícias & Novidades')}
       description={pageField(content, 'description', 'Acompanhe os informativos, aberturas de turma e novidades do Portal AVASEC.')}
-      background="bg-slate-50"
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <span className="text-apoio text-escult-ink-2 font-bold">Portal de Notícias AVASEC</span>
+        <span className="filete text-sobretitulo uppercase text-ava-tinta">Portal de Notícias AVASEC</span>
         <div className="flex gap-1.5">
           <button
             onClick={goPrev}
-            className="h-9 w-9 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-colors shadow-3xs cursor-pointer"
+            className="h-10 w-10 rounded-full bg-white border border-ava-borda hover:bg-ava-faixa flex items-center justify-center text-ava-acao transition-colors shadow-3xs cursor-pointer"
             title="Anterior"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button
             onClick={goNext}
-            className="h-9 w-9 rounded-full bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition-colors shadow-3xs cursor-pointer"
+            className="h-10 w-10 rounded-full bg-white border border-ava-borda hover:bg-ava-faixa flex items-center justify-center text-ava-acao transition-colors shadow-3xs cursor-pointer"
             title="Próximo"
           >
             <ChevronRight className="h-5 w-5" />
@@ -100,15 +99,15 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
         {displayedNews.length === 0 ? (
-          <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-white shadow-3xs">
-            <h4 className="text-ava-acao font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
-            <p className="text-escult-ink-2 text-xs leading-relaxed max-w-md mx-auto">
+          <div className="col-span-full rounded-2xl border border-dashed border-ava-borda p-12 text-center bg-ava-faixa/50">
+            <h4 className="text-ava-tinta font-titulo text-cartao mb-2">Sem Resultados</h4>
+            <p className="text-escult-ink-2 text-apoio leading-relaxed max-w-md mx-auto">
               Nenhuma notícia coincide com a sua busca por "
-              <strong className="text-slate-800 font-bold">{searchQuery}</strong>".
+              <strong className="text-ava-tinta font-bold">{searchQuery}</strong>".
             </p>
             <button
               onClick={onClearSearch}
-              className="mt-4 px-4 py-2 bg-escult-red-acao text-white text-sobretitulo rounded-xl hover:bg-escult-red-acao-hover transition-colors uppercase cursor-pointer font-sans"
+              className="mt-4 px-5 py-2.5 bg-ava-acao text-white text-rotulo font-semibold rounded-[10px] hover:bg-ava-acao-escuro transition-colors cursor-pointer font-sans"
             >
               Limpar Filtro de Busca
             </button>
@@ -121,7 +120,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
               <div
                 key={news.id}
                 className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden shadow-2xs hover:shadow-md flex flex-col justify-between ${
-                  isFocus ? 'border-ava-acao ring-1 ring-ava-acao' : 'border-slate-200'
+                  isFocus ? 'border-ava-acao ring-1 ring-ava-acao' : 'border-ava-borda'
                 }`}
               >
                 {news.image && (
@@ -129,11 +128,11 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
                     <img
                       src={news.image}
                       alt={news.title}
-                      className="w-full h-full object-cover filter contrast-110 sepia-[5%] hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                       referrerPolicy="no-referrer"
                     />
                     {news.tag && (
-                      <div className="absolute top-3 left-3 bg-escult-red-acao text-white text-sobretitulo uppercase px-2 py-0.5 rounded">
+                      <div className="absolute top-3 left-3 bg-white text-ava-acao text-nota font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full shadow-sm max-w-[calc(100%-1.5rem)] truncate">
                         {news.tag}
                       </div>
                     )}
@@ -143,7 +142,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
                 <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
                   <div className="space-y-2">
                     <span className="text-apoio text-escult-ink-2 font-bold block">{news.date}</span>
-                    <h4 className="text-xs font-bold text-slate-900 leading-snug line-clamp-2 h-9 font-titulo">
+                    <h4 className="text-cartao text-ava-tinta leading-snug line-clamp-2 font-titulo">
                       {news.title}
                     </h4>
                     <p className="text-apoio text-escult-ink-2 leading-relaxed line-clamp-3">
@@ -153,7 +152,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
 
                   <button
                     onClick={onRequireLogin}
-                    className="w-full text-center py-2.5 rounded-xl bg-slate-50 hover:bg-slate-900 hover:text-white transition-colors text-slate-650 border border-slate-150 text-sobretitulo uppercase cursor-pointer"
+                    className="w-full text-center py-2.5 rounded-[10px] bg-white hover:bg-ava-acao hover:text-white transition-colors text-ava-acao border border-ava-acao text-rotulo font-semibold cursor-pointer"
                   >
                     Ler Mais Informações
                   </button>
