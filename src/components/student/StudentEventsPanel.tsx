@@ -33,7 +33,7 @@ export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack, 
           <div key={`${event.id}-${idx}`} className="bg-white border border-slate-200 rounded-3xl overflow-hidden hover:shadow-xl transition-all group flex flex-col sm:flex-row">
             <div className="sm:w-40 h-40 sm:h-full relative shrink-0 overflow-hidden">
               <img src={event.image} alt={event.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" referrerPolicy="no-referrer" />
-              <div className="absolute inset-0 bg-[#540D6E]/20" />
+              <div className="absolute inset-0 bg-ava-acao/20" />
             </div>
             <div className="p-6 flex-1 flex flex-col justify-between">
               <div>
@@ -44,7 +44,7 @@ export const StudentEventsPanel: React.FC<StudentEventsPanelProps> = ({ onBack, 
                 <h4 className="font-black text-lg text-slate-900 leading-tight mb-2">{event.title}</h4>
                 <p className="text-xs text-escult-ink-2 leading-relaxed line-clamp-2">{event.description}</p>
               </div>
-              <button className="mt-4 w-full bg-[#540D6E] hover:bg-slate-900 text-white py-2.5 rounded-xl text-sobretitulo uppercase transition-all cursor-pointer">
+              <button className="mt-4 w-full bg-ava-acao hover:bg-slate-900 text-white py-2.5 rounded-xl text-sobretitulo uppercase transition-all cursor-pointer">
                 Realizar Inscrição
               </button>
             </div>

@@ -62,7 +62,7 @@ export const LessonIndex: React.FC<LessonIndexProps> = ({ sections, onNavigate }
                   }`}
                 >
                   {section.level === 2 && section.index !== undefined && (
-                    <span className="text-[#540D6E] mr-1.5">{section.index}.</span>
+                    <span className="text-ava-acao mr-1.5">{section.index}.</span>
                   )}
                   {section.text}
                 </button>
