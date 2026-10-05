@@ -5,7 +5,7 @@ import { parseVideoSource } from '../../src/utils/videoSource';
 // um caso aqui, replicar lá (mesmo pacto de features.ts ↔ features.php).
 
 const CANONICAL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
-const EMBED = 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0&rel=0&modestbranding=1';
+const EMBED = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=0&rel=0&modestbranding=1';
 
 describe('parseVideoSource — URLs do YouTube canonicalizam para watch', () => {
   const cases: [string, string][] = [

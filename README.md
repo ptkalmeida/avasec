@@ -8,12 +8,38 @@ AVASEC ("Escola da Cultura") é uma plataforma completa de Ambiente Virtual de A
 
 O frontend é construído em **React + Vite + TypeScript**, consumindo uma API REST em **Laravel + MySQL**, com autenticação JWT em cookie HttpOnly e uma camada de segurança completa (rate limiting, RBAC, validação, auditoria e feature flags no servidor).
 
+## Stack e versões
+
+Versões **efetivamente em uso**, lidas de `composer.lock`, `package-lock.json` e do ambiente de
+desenvolvimento. Exigência da Norma Técnica TI-SECEC (C.1.2): toda troca de versão atualiza esta
+tabela e o Documento de Arquitetura no mesmo ciclo da mudança.
+
+| Camada | Tecnologia | Versão |
+|---|---|---|
+| Backend | PHP | 8.4.5 (mínimo exigido: 8.3) |
+| | Laravel | 13.21.1 |
+| | firebase/php-jwt (sessão em JWT) | 7.1.0 |
+| Banco | MySQL (imagem `mysql:8.0`) | 8.0.46 |
+| Frontend | React / React DOM | 19.2.7 |
+| | React Router | 7.18.3 |
+| | TypeScript | 5.8.3 |
+| | Vite | 6.4.3 |
+| | Tailwind CSS | 4.3.0 |
+| Ferramentas | Node.js / npm | 22.22.3 / 10.9.8 |
+| | Docker (MySQL de desenvolvimento) | Docker Compose |
+| Qualidade | PHPUnit | 12.5.31 |
+| | PHPStan / Larastan (nível 9) | 2.2.5 / 3.10.0 |
+| | Laravel Pint | 1.29.3 |
+| | Vitest / Testing Library | 3.2.7 / 16.3.2 |
+
+Papel de cada tecnologia, e as bibliotecas de apoio: [TECNOLOGIAS.md](TECNOLOGIAS.md).
+
 ## Requisitos do Sistema
 
 ### Software
 
 - Node.js 20+ (recomendado 22 LTS)
-- PHP 8.2+ (recomendado 8.4)
+- PHP 8.3+ (recomendado 8.4; `composer.json` exige `^8.3`)
 - Composer
 - MySQL 8 (via Docker ou instalação local)
 - Docker e Docker Compose (para subir o MySQL local)
@@ -98,6 +124,14 @@ npm run build
 ```
 
 Em produção, o Nginx serve o SPA (`dist/`) e faz proxy de `/api` para o PHP-FPM. Detalhes completos em `DEPLOY_LARAVEL.md`.
+
+## Verificação de saúde
+
+| Endereço | Para quê |
+|---|---|
+| `/health/live` | a aplicação está de pé (não consulta dependências) |
+| `/health/ready` | pode receber requisições: banco e armazenamento de arquivos respondem (503 se não) |
+| `/sistema/status` | página pública, em linguagem simples, com o estado de cada componente |
 
 ## Perfis de Usuário
 
@@ -217,6 +251,9 @@ Altere a porta do Vite em `vite.config.ts` ou a porta do Laravel ao subir com `n
 **Upload rejeitado**
 Confirme se o tipo de arquivo está na allowlist configurada no backend e se o tamanho não excede `UPLOAD_MAX_SIZE_MB`.
 
+**`npm` abre o seletor de aplicativo no Windows**
+Rode o `npm` pelo Git Bash. O passo a passo, com as armadilhas já encontradas neste ambiente, está em `.claude/skills/rodar-avasec/SKILL.md`.
+
 ## Documentação Adicional
 
 - `DOCUMENTATION.md` — documentação técnica e funcional detalhada do estado atual do código
@@ -224,4 +261,6 @@ Confirme se o tipo de arquivo está na allowlist configurada no backend e se o t
 - `HARDENING.md` — medidas de reforço de segurança
 - `MIGRACAO_LARAVEL.md` — histórico da migração do backend Node para Laravel
 - `DEPLOY_LARAVEL.md` — guia de deploy em produção
-
+- `AGENTS.md` — regras obrigatórias para qualquer agente de IA neste repositório
+- `docs/adr/` — decisões de arquitetura (ex.: ADR 12, nada é apagado)
+- `docs/security-audit/` — auditoria de segurança

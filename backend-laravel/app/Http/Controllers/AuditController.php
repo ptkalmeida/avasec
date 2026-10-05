@@ -44,8 +44,10 @@ final class AuditController extends Controller
             ? ['name' => $authUser['name'] !== '' ? $authUser['name'] : 'Visitante Anônimo', 'role' => $authUser['role'] !== '' ? $authUser['role'] : 'anonymous']
             : ['name' => 'Visitante Anônimo', 'role' => 'anonymous'];
 
-        $forwarded = $request->header('X-Forwarded-For');
-        $ip = is_string($forwarded) && $forwarded !== '' ? trim(explode(',', $forwarded)[0]) : ($request->ip() ?? 'desconhecido');
+        // NUNCA ler X-Forwarded-For do header cru: qualquer cliente poderia forjar o IP
+        // gravado na auditoria. $request->ip() só honra o XFF vindo de um proxy confiável
+        // (TrustProxies em bootstrap/app.php) — mesma regra de AuditLogger::clientIp().
+        $ip = $request->ip() ?? 'desconhecido';
 
         $event = $this->audit->recordClientEvent([
             'action' => $this->stringField($data, 'action'),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Rules\SafeUrlRule;
 use App\Services\CatalogService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,7 +39,7 @@ final class LibraryController extends Controller
             'type' => ['required', 'in:pdf,video,link'],
             'category' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:2000'],
-            'url' => ['required', 'string', 'max:2000'],
+            'url' => ['required', 'string', 'max:2000', new SafeUrlRule],
         ]);
 
     }

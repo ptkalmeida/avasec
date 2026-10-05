@@ -6,8 +6,8 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\AcademicRequest;
+use App\Support\Fuso;
 use App\Support\Identity;
-use Carbon\CarbonImmutable;
 
 /**
  * Solicitações acadêmicas ("justificativas") — espelha src/server/services/requestService.ts.
@@ -47,7 +47,7 @@ final class RequestService
             'description' => $input['description'],
             'courseTitle' => $input['courseTitle'] ?? null,
             'status' => 'pending',
-            'submittedAt' => CarbonImmutable::now()->format('d/m/Y'),
+            'submittedAt' => Fuso::agora()->format('d/m/Y'),
         ])->toArray();
     }
 

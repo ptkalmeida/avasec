@@ -105,15 +105,31 @@ final class Etapa5Test extends TestCase
     {
         $this->getJson('/api/system-settings')->assertOk();
         $this->putJson('/api/system-settings', ['tema' => 'x'], $this->auth($this->token('student')))->assertStatus(403);
-        $this->putJson('/api/system-settings', ['testFlag' => true], $this->auth($this->token('admin')))
-            ->assertOk()->assertJsonPath('testFlag', true);
+        // Chave real: estas configurações são públicas por contrato, e chave arbitrária
+        // deixou de ser aceita (ver SettingsService::ALLOWED_KEYS). O objeto deste teste
+        // é a autorização, não a liberdade de formato.
+        $this->putJson('/api/system-settings', ['allowGlobalChat' => true], $this->auth($this->token('admin')))
+            ->assertOk()->assertJsonPath('allowGlobalChat', true);
+    }
+
+    // Chave fora da lista é recusada na ESCRITA: o GET desta rota é público, então
+    // qualquer campo gravado aqui nasce visível a visitante anônimo.
+    public function test_settings_rejects_unknown_key(): void
+    {
+        $this->putJson('/api/system-settings', ['smtpPassword' => 'segredo'], $this->auth($this->token('admin')))
+            ->assertStatus(400);
+
+        $this->getJson('/api/system-settings')->assertOk()->assertJsonMissingPath('smtpPassword');
     }
 
     // ---------- Learning ----------
 
-    public function test_quizzes_list_is_public_array(): void
+    public function test_quizzes_list_requires_authentication(): void
     {
-        $res = $this->getJson('/api/quizzes');
+        // Segurança: o gabarito (correctOptionIndex) não pode ser raspado anonimamente.
+        $this->getJson('/api/quizzes')->assertStatus(401);
+
+        $res = $this->getJson('/api/quizzes', $this->auth($this->token('student')));
         $res->assertOk();
         $this->assertIsArray($res->json());
     }

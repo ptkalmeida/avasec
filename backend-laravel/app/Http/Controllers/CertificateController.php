@@ -80,8 +80,24 @@ final class CertificateController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->certificates->deleteCertificate($id);
-        $this->audit->log($request, 'Exclusão de Certificado', "Certificado {$id} removido.", 'WARNING');
+        // Quem e por quê. A chamada antiga passava só o id, então a linha ficava
+        // com `inativadoPor` e `motivoInativacao` nulos e a auditoria só sabia
+        // dizer que ALGUÉM revogou — que é metade do que ela existe para
+        // responder. O motivo é opcional no corpo por compatibilidade com quem
+        // já chama a rota.
+        $data = $this->validateInput($request, [
+            'motivo' => ['sometimes', 'nullable', 'string', 'max:500'],
+        ]);
+        $motivo = $this->optionalString($data, 'motivo');
+        $requester = $this->requester($request);
+
+        $this->certificates->deleteCertificate($id, $requester['sub'], $motivo);
+        $this->audit->log(
+            $request,
+            'Revogação de Certificado',
+            "Certificado {$id} revogado".($motivo === null ? '.' : ": {$motivo}"),
+            'WARNING'
+        );
 
         return response()->json(['success' => true]);
     }

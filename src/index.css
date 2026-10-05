@@ -1,17 +1,242 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..950;1,400..950&family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..950;1,400..950&family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+/*
+ * Duas familias, e nao quatro.
+ *
+ * O @import baixava tambem Space Grotesk e JetBrains Mono. A Space Grotesk era
+ * declarada em `--font-display` e **nenhuma classe a usava**: a fonte era
+ * transferida em toda visita e aplicada a zero elementos. A JetBrains Mono
+ * aparecia em sobretitulo, numero de indicador, rotulo e data — lugares onde
+ * monoespacada nao informa nada, so estreita o texto.
+ *
+ * `--font-mono` continua existindo, apontando para a monoespacada do sistema:
+ * em `LessonCodeBlock` ha um <pre> com codigo de aula, e ali a largura fixa
+ * carrega informacao (indentacao, e distinguir `l` de `1` de `I`). Manter o
+ * token sem baixar webfont preserva esse caso e economiza a transferencia.
+ *
+ * `--font-display` foi removido em vez de reapontado: um token de titulo que
+ * ninguem usa reaparece como "fonte de titulo" na cabeca de quem le, e volta a
+ * ser aplicado por engano. Titulo usa `font-serif` (Playfair), que e o que o
+ * codigo ja faz.
+ */
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk", sans-serif;
   --font-serif: "Playfair Display", Georgia, serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Paleta institucional. `escult-blue` e roxo: o nome nasceu errado e esta em
+     centenas de classes; `escult-purple` e o mesmo valor com o nome certo, para
+     o codigo novo. Nao ha dois roxos — ha dois nomes para um. */
   --color-escult-blue: #540D6E;
+  --color-escult-purple: #540D6E;
   --color-escult-green: #3BCEAC;
   --color-escult-yellow: #FFD23F;
   --color-escult-red: #EE4266;
   --color-escult-dark: #111622;
+
+  /* Estados de foco/hover das duas cores de acao. */
+  --color-escult-purple-dark: #42095a;
+
+  /*
+   * Tokens do portal, com nome de PAPEL (planejamento 13). Fora de `.tema-ava`
+   * valem exatamente as cores de antes do redesenho -- e isso que mantem o
+   * painel do admin identico, porque cabecalho, rodape e menu sao os mesmos
+   * componentes. Os valores do portal ficam em `.tema-ava`, mais abaixo.
+   *
+   * `ava-acao` e botao, link e estado ativo. `ava-tinta` e titulo.
+   * `ava-ciano` e enfeite e indicador: NAO carrega texto (2,88:1 sobre
+   * branco). `ava-ciano-texto` e o que carrega (4,97:1).
+   */
+  --color-ava-acao: #540D6E;
+  --color-ava-acao-escuro: #42095a;
+  --color-ava-tinta: #1d2432;
+  --color-ava-ciano: #07AEBC;
+  --color-ava-ciano-texto: #007C86;
+
+  /*
+   * Cores so do portal, medidas nas telas aprovadas da skill
+   * ava-frontend-redesign (planejamento 13, aprovado em 05/10/2026). Nao tem
+   * valor "de antes": so aparecem em pagina do portal ou atras de `ava:`.
+   * `ava-dourado` e filete e marcador -- 1,75:1 sobre branco, nunca texto.
+   */
+  --color-ava-marinho: #003070;
+  --color-ava-dourado: #FCB814;
+  --color-ava-rosa: #D0005C;
+  --color-ava-faixa: #ECF4FC;
+  --color-ava-icone-fundo: #E8F0FC;
+  --color-ava-borda: #E4E8F0;
+  --color-ava-linha: #C8ECF8;
+
+  /*
+   * Fonte de titulo, com papel declarado em vez de familia. Fora do tema do
+   * portal continua a Playfair de sempre; dentro de `.tema-ava` vira a Inter
+   * pesada da referencia. `font-serif` nao e redefinido para o nome nao mentir.
+   */
+  --font-titulo: "Playfair Display", Georgia, serif;
+
+  /*
+   * Vermelho: DUAS entradas, porque uma nao serve para as duas coisas.
+   *
+   * `escult-red` (#EE4266) e o indicador e o enfeite. Branco sobre ele da
+   * 3,75:1 — abaixo do piso de 4,5:1 —, entao ele NAO carrega texto.
+   * `escult-red-acao` (#d62f52) e o fundo da acao principal: branco sobre ele
+   * da 4,79:1. O hover desce mais (6,37:1) em vez de subir, para o estado de
+   * foco nunca perder contraste.
+   */
+  --color-escult-red-acao: #d62f52;
+  --color-escult-red-acao-hover: #b52443;
+
+  /*
+   * Texto sobre superficie escura ou saturada.
+   *
+   * Os cinzas `ink-*` sao calibrados para fundo BRANCO: `ink-2` sobre a secao
+   * quase preta (#111622) da 2,38:1, e sobre o roxo do heroi 1,66:1. Este e o
+   * neutro do outro lado — 10,77:1 sobre o escuro e 7,54:1 sobre o roxo.
+   */
+  --color-escult-ink-claro: #c3c8d2;
+
+  /*
+   * Neutros com papel declarado.
+   *
+   * O portal usava `slate-400` (#94a3b8) em nome de professor e em rotulo:
+   * ~2,6:1 sobre branco, abaixo do piso de 4,5:1 do WCAG AA. `ink-3` e o cinza
+   * mais claro admissivel, e so a partir de 15px — abaixo disso use `ink-2`.
+   */
+  --color-escult-ink: #1d2432;
+  --color-escult-ink-2: #4a5468;
+  --color-escult-ink-3: #6b7385;
+  --color-escult-line: #e4e1dc;
+  --color-escult-surface: #f4f2ef;
+
+  /*
+   * Escada tipografica.
+   *
+   * Havia 799 ocorrencias de texto entre 9px e 11px, quase sempre com
+   * `font-light`. Nomear o papel em vez do numero e o que impede a escada de
+   * ser reinventada a cada tela: `text-corpo` nao tem como virar 10px sem
+   * alguem editar este arquivo.
+   *
+   * `--text-nota` (12px) e o PISO, para nota de rodape e aviso legal. Nao
+   * existe token menor de proposito.
+   */
+  --text-nota: 0.75rem;
+  --text-nota--line-height: 1.5;
+  --text-apoio: 0.875rem;
+  --text-apoio--line-height: 1.5;
+  --text-rotulo: 0.9375rem;
+  --text-rotulo--line-height: 1.4;
+  --text-corpo: 1rem;
+  --text-corpo--line-height: 1.65;
+  --text-cartao: 1.1875rem;
+  --text-cartao--line-height: 1.35;
+  --text-secao: 2.25rem;
+  --text-secao--line-height: 1.15;
+  --text-pagina: 2.625rem;
+  --text-pagina--line-height: 1.1;
+
+  /* Sobretitulo e o unico lugar onde caixa alta continua: palavra curta, com
+     entreletra aberta, nunca em titulo nem em rotulo de navegacao. */
+  --text-sobretitulo: 0.875rem;
+  --text-sobretitulo--line-height: 1.2;
+  --text-sobretitulo--letter-spacing: 0.12em;
+  --text-sobretitulo--font-weight: 600;
+}
+
+/* Tons intermediarios usados pela interface (ex.: border-slate-150). O Tailwind
+   define a escala em passos de 100: sem estas declaracoes a classe nao existia e
+   a cor simplesmente NAO era aplicada — bordas herdavam currentColor e textos
+   herdavam a cor do pai. Cada tom e a media dos dois vizinhos oficiais, que era
+   a intencao de quem escreveu. */
+@theme {
+  --color-amber-150: color-mix(in oklab, var(--color-amber-100), var(--color-amber-200));
+  --color-amber-250: color-mix(in oklab, var(--color-amber-200), var(--color-amber-300));
+  --color-amber-550: color-mix(in oklab, var(--color-amber-500), var(--color-amber-600));
+  --color-amber-750: color-mix(in oklab, var(--color-amber-700), var(--color-amber-800));
+  --color-amber-850: color-mix(in oklab, var(--color-amber-800), var(--color-amber-900));
+  --color-emerald-150: color-mix(in oklab, var(--color-emerald-100), var(--color-emerald-200));
+  --color-emerald-250: color-mix(in oklab, var(--color-emerald-200), var(--color-emerald-300));
+  --color-emerald-650: color-mix(in oklab, var(--color-emerald-600), var(--color-emerald-700));
+  --color-emerald-850: color-mix(in oklab, var(--color-emerald-800), var(--color-emerald-900));
+  --color-indigo-150: color-mix(in oklab, var(--color-indigo-100), var(--color-indigo-200));
+  --color-indigo-250: color-mix(in oklab, var(--color-indigo-200), var(--color-indigo-300));
+  --color-indigo-550: color-mix(in oklab, var(--color-indigo-500), var(--color-indigo-600));
+  --color-indigo-650: color-mix(in oklab, var(--color-indigo-600), var(--color-indigo-700));
+  --color-indigo-750: color-mix(in oklab, var(--color-indigo-700), var(--color-indigo-800));
+  --color-purple-150: color-mix(in oklab, var(--color-purple-100), var(--color-purple-200));
+  --color-red-150: color-mix(in oklab, var(--color-red-100), var(--color-red-200));
+  --color-red-650: color-mix(in oklab, var(--color-red-600), var(--color-red-700));
+  --color-red-850: color-mix(in oklab, var(--color-red-800), var(--color-red-900));
+  --color-rose-150: color-mix(in oklab, var(--color-rose-100), var(--color-rose-200));
+  --color-rose-250: color-mix(in oklab, var(--color-rose-200), var(--color-rose-300));
+  --color-rose-650: color-mix(in oklab, var(--color-rose-600), var(--color-rose-700));
+  --color-slate-150: color-mix(in oklab, var(--color-slate-100), var(--color-slate-200));
+  --color-slate-250: color-mix(in oklab, var(--color-slate-200), var(--color-slate-300));
+  --color-slate-350: color-mix(in oklab, var(--color-slate-300), var(--color-slate-400));
+  --color-slate-450: color-mix(in oklab, var(--color-slate-400), var(--color-slate-500));
+  --color-slate-550: color-mix(in oklab, var(--color-slate-500), var(--color-slate-600));
+  --color-slate-650: color-mix(in oklab, var(--color-slate-600), var(--color-slate-700));
+  --color-slate-750: color-mix(in oklab, var(--color-slate-700), var(--color-slate-800));
+  --color-slate-850: color-mix(in oklab, var(--color-slate-800), var(--color-slate-900));
+  --color-teal-150: color-mix(in oklab, var(--color-teal-100), var(--color-teal-200));
+  --color-teal-650: color-mix(in oklab, var(--color-teal-600), var(--color-teal-700));
+  --color-teal-850: color-mix(in oklab, var(--color-teal-800), var(--color-teal-900));
+}
+
+/*
+ * Tema do portal publico (planejamento 12, etapa 2).
+ *
+ * O cabecalho e o rodape do App.tsx sao os mesmos para todos os perfis,
+ * inclusive no painel do admin, que NAO pode mudar. Por isso a aparencia nova
+ * nao troca o valor global dos tokens: ela os redefine so dentro de
+ * `.tema-ava`, que o App.tsx poe na raiz fora do painel e do perfil. As
+ * utilidades do Tailwind 4 leem `var(--color-...)`, entao tudo dentro muda e
+ * tudo fora fica como estava.
+ *
+ * Onde muda estrutura, e nao so cor (rodape escuro que fica branco), a classe
+ * nova vai com a variante `ava:`, que so vale dentro do tema. O admin continua
+ * recebendo exatamente as classes de antes.
+ */
+@custom-variant ava (&:where(.tema-ava, .tema-ava *));
+
+.tema-ava {
+  /* Paleta azul aprovada em 05/10/2026 (planejamento 13), medida nas telas da
+     skill: acao #0068FC (branco sobre ela 4,79:1), titulo #04185C (16,27:1),
+     hover no marinho #003070 (12,68:1), ciano da skill para estado ativo. */
+  --color-ava-acao: #0068FC;
+  --color-ava-acao-escuro: #003070;
+  --color-ava-tinta: #04185C;
+  --color-ava-ciano: #00A6C7;
+  /* Quem ainda usa o nome antigo dentro do portal (componente compartilhado)
+     recebe o azul, e nao um roxo solto no meio da pagina. */
+  --color-escult-purple: #0068FC;
+  --color-escult-blue: #0068FC;
+  --color-escult-purple-dark: #003070;
+  --font-titulo: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* A Inter so parece "sans pesada" com peso alto e entreletra fechada; a
+   Playfair usava semibold. Fica aqui, e nao em cada titulo, para o titulo do
+   admin (Playfair) nao herdar o peso. */
+.tema-ava .font-titulo {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * Filete dourado antes do sobretitulo, como nas telas aprovadas: o sinal
+ * institucional discreto da skill. Substitui a linha com losangos do plano 12.
+ * E pseudo-elemento: nao e lido por leitor de tela e nao entra no texto.
+ */
+.filete::before {
+  content: "";
+  display: inline-block;
+  width: 1.75rem;
+  height: 3px;
+  margin-right: 0.75rem;
+  vertical-align: middle;
+  border-radius: 2px;
+  background-color: var(--color-ava-dourado);
 }
 
 /* Custom styles mimicking Brazilian cultural/creative sector styling */
@@ -55,3 +280,35 @@
   background-size: 16px 16px;
 }
 
+
+/*
+ * Movimento reduzido — respeitando a configuracao do sistema operacional.
+ *
+ * O portal tinha um brilho que segue o cursor, um icone em rotacao infinita e um
+ * anel tracejado girando por 40 segundos, e NENHUM deles era interrompido: nao
+ * havia uma unica `@media` neste arquivo. Para quem tem enxaqueca vestibular ou
+ * transtorno vestibular, movimento continuo e sintoma, nao enfeite — e a
+ * plataforma e de uma escola publica, sem escolha de onde estudar.
+ *
+ * `0.01ms` em vez de `none`: animacao com duracao zero as vezes nao dispara o
+ * evento `animationend`, e codigo que espera por ele travaria. Duracao minima
+ * remove o movimento e mantem o evento.
+ *
+ * `animation-iteration-count: 1` e o que de fato para o que gira para sempre —
+ * `animation-duration` sozinho so o deixa girar mais rapido.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+}

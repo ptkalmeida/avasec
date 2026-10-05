@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -12,6 +13,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class StoredFile extends Model
 {
+    use Inativavel;
+
     protected $table = 'StoredFile';
 
     protected $keyType = 'string';

@@ -40,7 +40,9 @@ export function parseVideoSource(url: string | null | undefined): VideoSource | 
     return {
       provider: 'youtube',
       videoId,
-      embedUrl: `https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1`,
+      // Domínio sem cookies de rastreamento — reduz bloqueios de navegador/rede
+      // (extensões de privacidade, filtros de escola) que travam youtube.com (ADR 08).
+      embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1`,
       canonicalUrl: `https://www.youtube.com/watch?v=${videoId}`,
     };
   }

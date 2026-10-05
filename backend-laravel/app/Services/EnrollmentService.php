@@ -7,10 +7,14 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\AdmissionRequest;
 use App\Models\Course;
+use App\Models\Lesson;
+use App\Models\LiveSession;
 use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
+use App\Support\Fuso;
 use App\Support\Identity;
+use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -31,19 +35,9 @@ final class EnrollmentService
         'enrolledAt' => null,
         'completedCourseIds' => [],
         'dropOutPenaltyUntil' => null,
+        'canMultiEnroll' => false,
+        'extraCourseIds' => [],
     ];
-
-    /**
-     * @param  array{sub:string,name:string,role:string}  $requester
-     * @return string[]
-     */
-    private function instructorCourseIds(array $requester): array
-    {
-        $ids = Identity::applyOwnRows(Course::query(), $requester, 'instructorId')
-            ->pluck('id')->all();
-
-        return array_values(array_filter($ids, static fn ($id): bool => is_string($id)));
-    }
 
     // ---------- PROGRESSO ----------
 
@@ -62,7 +56,7 @@ final class EnrollmentService
         }
 
         if ($requester['role'] === 'instructor') {
-            $courseIds = $this->instructorCourseIds($requester);
+            $courseIds = InstructorScope::courseIds($requester);
 
             return StudentProgress::query()
                 ->whereIn('courseId', $courseIds)
@@ -89,6 +83,16 @@ final class EnrollmentService
         $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
         $enrollmentId = StudentEnrollment::query()->whereKey($userId)->value('id');
 
+        // Integridade acadêmica: só contam como progresso os IDs de aulas/sessões que
+        // REALMENTE pertencem ao curso, sem duplicatas. Sem isto, o aluno inflava a
+        // própria frequência (e forjava certificado) enviando IDs inventados/repetidos,
+        // porque a frequência é recalculada a partir da contagem deste array.
+        [$completedLessons, $attendedLiveSessions] = $this->sanitizeProgressIds(
+            $input['courseId'],
+            $input['completedLessons'],
+            $input['attendedLiveSessions'],
+        );
+
         $existing = StudentProgress::query()
             ->where('userId', $userId)
             ->where('courseId', $input['courseId'])
@@ -97,8 +101,8 @@ final class EnrollmentService
         $data = [
             'studentName' => Identity::displayName($userId, $requester),
             'courseId' => $input['courseId'],
-            'completedLessons' => $input['completedLessons'],
-            'attendedLiveSessions' => $input['attendedLiveSessions'],
+            'completedLessons' => $completedLessons,
+            'attendedLiveSessions' => $attendedLiveSessions,
             'userId' => $userId,
             'enrollmentId' => $enrollmentId,
         ];
@@ -113,6 +117,32 @@ final class EnrollmentService
         $created = StudentProgress::query()->create($data);
 
         return $created->toArray();
+    }
+
+    /**
+     * Filtra as listas de progresso do cliente para conter apenas IDs de aulas
+     * (Lesson) e sessões ao vivo (LiveSession) que pertencem ao curso, sem
+     * duplicatas. Comparação por FK apenas (ADR 10).
+     *
+     * @param  list<string>  $completedLessons
+     * @param  list<string>  $attendedLiveSessions
+     * @return array{0: list<string>, 1: list<string>}
+     */
+    private function sanitizeProgressIds(string $courseId, array $completedLessons, array $attendedLiveSessions): array
+    {
+        $validLessonIds = array_values(array_filter(
+            Lesson::query()->where('courseId', $courseId)->pluck('id')->all(),
+            static fn ($id): bool => is_string($id),
+        ));
+        $validSessionIds = array_values(array_filter(
+            LiveSession::query()->where('courseId', $courseId)->pluck('id')->all(),
+            static fn ($id): bool => is_string($id),
+        ));
+
+        $keepLessons = array_values(array_unique(array_intersect($completedLessons, $validLessonIds)));
+        $keepSessions = array_values(array_unique(array_intersect($attendedLiveSessions, $validSessionIds)));
+
+        return [$keepLessons, $keepSessions];
     }
 
     // ---------- MATRÍCULA ----------
@@ -133,8 +163,15 @@ final class EnrollmentService
             ];
         }
 
+        // Instrutor só vê matrículas dos próprios alunos (admitidos/matriculados em seus
+        // cursos); admin vê todas. Antes vazava o mapa completo para qualquer não-aluno.
+        $query = StudentEnrollment::query();
+        if ($requester['role'] === 'instructor') {
+            $query->whereIn('userId', InstructorScope::studentIds($requester));
+        }
+
         $map = [];
-        foreach (StudentEnrollment::query()->get() as $row) {
+        foreach ($query->get() as $row) {
             $map[$row->userId] = $this->toPublicEnrollment($row);
         }
 
@@ -142,13 +179,19 @@ final class EnrollmentService
     }
 
     /**
-     * @param  array{enrolledCourseId?:string|null,enrolledAt?:string|null,completedCourseIds?:list<string>,dropOutPenaltyUntil?:string|null}  $updates
+     * @param  array{enrolledCourseId?:string|null,enrolledAt?:string|null,completedCourseIds?:list<string>,dropOutPenaltyUntil?:string|null,canMultiEnroll?:bool}  $updates
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<string, mixed>
      */
     public function upsertEnrollment(string $userId, array $updates, array $requester): array
     {
         $this->assertInstructorCanManage($updates['enrolledCourseId'] ?? null, $requester);
+
+        // Só o Admin Superior concede matrícula múltipla concorrente — nem o
+        // instrutor dono do curso pode ligar isso para os próprios alunos.
+        if (array_key_exists('canMultiEnroll', $updates) && $requester['role'] !== 'admin') {
+            throw ApiException::forbidden('Apenas o Admin Superior pode conceder matrícula múltipla simultânea.');
+        }
 
         $targetUserId = Identity::resolveActorUserId($requester, $userId);
         $current = StudentEnrollment::query()->whereKey($targetUserId)->first();
@@ -167,22 +210,23 @@ final class EnrollmentService
      */
     public function selfEnroll(string $courseId, array $requester): array
     {
-        if (! Course::query()->whereKey($courseId)->exists()) {
-            throw ApiException::notFound('Curso não encontrado.');
-        }
-
         $current = $this->ownEnrollment($requester);
+        $extraCourseIds = $current->extraCourseIds ?? [];
 
-        if ($this->hasActivePenalty($current)) {
-            throw ApiException::forbidden('Você está em período de restrição temporária de nova matrícula por cancelamento tardio. Aguarde o fim da restrição ou solicite liberação à coordenação.');
-        }
-        if ($current?->enrolledCourseId) {
-            throw new ApiException(409, 'CONFLICT', 'Você já possui uma matrícula ativa. Conclua ou cancele o curso atual antes de iniciar outro.');
+        if ($this->modoDaNovaMatricula($current, $courseId) === 'extra') {
+            $merged = array_merge($this->currentRest($current), [
+                'extraCourseIds' => array_values(array_unique([...$extraCourseIds, $courseId])),
+            ]);
+            $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
+
+            return ['enrollment' => $this->toPublicEnrollment($saved)];
         }
 
         $merged = array_merge(self::EMPTY_ENROLLMENT, [
             'completedCourseIds' => $current->completedCourseIds ?? [],
             'dropOutPenaltyUntil' => $current?->dropOutPenaltyUntil,
+            'canMultiEnroll' => $current->canMultiEnroll ?? false,
+            'extraCourseIds' => $extraCourseIds,
             'enrolledCourseId' => $courseId,
             'enrolledAt' => CarbonImmutable::now()->toIso8601String(),
         ]);
@@ -198,8 +242,23 @@ final class EnrollmentService
     public function selfDrop(string $courseId, array $requester): array
     {
         $current = $this->ownEnrollment($requester);
-        if (! $current?->enrolledCourseId || $current->enrolledCourseId !== $courseId) {
+        $extraCourseIds = $current->extraCourseIds ?? [];
+        $isPrimary = $current?->enrolledCourseId === $courseId;
+        $isExtra = in_array($courseId, $extraCourseIds, true);
+        if (! $isPrimary && ! $isExtra) {
             throw new ApiException(400, 'BAD_REQUEST', 'Você não possui matrícula ativa neste curso.');
+        }
+
+        // Cancelamento de uma matrícula EXTRA (concorrente): sem penalidade — a
+        // penalidade de cancelamento tardio só se aplica ao curso principal, único
+        // com `enrolledAt` rastreado.
+        if ($isExtra) {
+            $merged = array_merge($this->currentRest($current), [
+                'extraCourseIds' => array_values(array_filter($extraCourseIds, fn ($id) => $id !== $courseId)),
+            ]);
+            $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
+
+            return ['enrollment' => $this->toPublicEnrollment($saved), 'penaltyApplied' => false];
         }
 
         // Dias contados a partir do enrolledAt REAL persistido — nunca de valor do cliente.
@@ -231,7 +290,10 @@ final class EnrollmentService
     public function selfComplete(string $courseId, array $requester): array
     {
         $current = $this->ownEnrollment($requester);
-        if (! $current?->enrolledCourseId || $current->enrolledCourseId !== $courseId) {
+        $extraCourseIds = $current->extraCourseIds ?? [];
+        $isPrimary = $current?->enrolledCourseId === $courseId;
+        $isExtra = in_array($courseId, $extraCourseIds, true);
+        if (! $isPrimary && ! $isExtra) {
             throw new ApiException(400, 'BAD_REQUEST', 'Você não possui matrícula ativa neste curso.');
         }
 
@@ -253,9 +315,10 @@ final class EnrollmentService
 
         $completed = array_values(array_unique([...($current->completedCourseIds ?? []), $courseId]));
         $merged = array_merge($this->currentRest($current), [
-            'enrolledCourseId' => null,
-            'enrolledAt' => null,
             'completedCourseIds' => $completed,
+            ...($isExtra
+                ? ['extraCourseIds' => array_values(array_filter($extraCourseIds, fn ($id) => $id !== $courseId))]
+                : ['enrolledCourseId' => null, 'enrolledAt' => null]),
         ]);
         $saved = $this->persistEnrollment($requester['sub'], $requester['name'], $merged);
 
@@ -274,7 +337,7 @@ final class EnrollmentService
             return Identity::applyOwnRows(AdmissionRequest::query(), $requester)->get()->map->toArray()->all();
         }
         if ($requester['role'] === 'instructor') {
-            $courseIds = $this->instructorCourseIds($requester);
+            $courseIds = InstructorScope::courseIds($requester);
 
             return AdmissionRequest::query()->whereIn('courseId', $courseIds)->get()->map->toArray()->all();
         }
@@ -300,14 +363,44 @@ final class EnrollmentService
             throw new ApiException(409, 'CONFLICT', 'Matrícula pendente para este curso já registrada.');
         }
 
-        $admission = AdmissionRequest::query()->create([
-            'id' => $input['id'] ?? ('adm-'.$this->nowMs()),
-            'studentName' => Identity::displayName($userId, $requester),
-            'userId' => $userId,
-            'courseId' => $input['courseId'],
-            'status' => 'pending',
-            'submittedAt' => CarbonImmutable::now()->format('d/m/Y'),
-        ]);
+        /*
+         * Aprovação automática (decisão da coordenação, 14/09/2026).
+         *
+         * A regra vive AQUI, no serviço, e não em esconder o botão na tela: sem
+         * isto os pedidos continuariam nascendo "pending" e ficariam presos para
+         * sempre, porque a fila que os resolvia deixou de ser exibida.
+         *
+         * As travas são as mesmas do caminho normal — de propósito. Automática
+         * quer dizer "sem espera humana", não "sem regra": quem já tem curso
+         * ativo, já concluiu aquele curso ou está em restrição continua sendo
+         * recusado, agora na hora e com a razão escrita, em vez de esperar por
+         * uma aprovação que ninguém mais vai dar.
+         */
+        $automatica = config('features.aprovacaoAutomaticaMatricula') === true;
+        $modo = 'principal';
+
+        if ($automatica) {
+            $atual = StudentEnrollment::query()->whereKey($userId)->first();
+            $modo = $this->modoDaNovaMatricula($atual, $input['courseId']);
+        }
+
+        $admission = DB::transaction(function () use ($input, $userId, $requester, $automatica, $modo) {
+            $admission = AdmissionRequest::query()->create([
+                'id' => $input['id'] ?? ('adm-'.$this->nowMs()),
+                'studentName' => Identity::displayName($userId, $requester),
+                'userId' => $userId,
+                'courseId' => $input['courseId'],
+                'status' => $automatica ? 'approved' : 'pending',
+                'submittedAt' => Fuso::agora()->format('d/m/Y'),
+            ]);
+
+            // Mesma transação: "aprovada" sem matrícula efetivada não pode existir.
+            if ($automatica) {
+                $this->efetivarAprovacao($admission, $modo);
+            }
+
+            return $admission;
+        });
 
         return $admission->toArray();
     }
@@ -329,21 +422,13 @@ final class EnrollmentService
             throw ApiException::validation('Status de matrícula inválido.');
         }
 
-        $studentUserId = $admission->userId;
-
         // Aprovação efetiva a matrícula na MESMA transação — nunca "aprovada" sem matricular.
-        $updated = DB::transaction(function () use ($admission, $status, $studentUserId) {
+        $updated = DB::transaction(function () use ($admission, $status) {
             $admission->status = $status;
             $admission->save();
 
             if ($status === 'approved') {
-                $current = StudentEnrollment::query()->whereKey($studentUserId)->first();
-                $merged = array_merge(self::EMPTY_ENROLLMENT, $this->currentRest($current), [
-                    'enrolledCourseId' => $admission->courseId,
-                    'enrolledAt' => CarbonImmutable::now()->toIso8601String(),
-                    'dropOutPenaltyUntil' => null,
-                ]);
-                $this->persistEnrollment($studentUserId, $admission->studentName, $merged);
+                $this->efetivarAprovacao($admission, 'principal');
             }
 
             return $admission;
@@ -374,6 +459,85 @@ final class EnrollmentService
     private function ownEnrollment(array $requester): ?StudentEnrollment
     {
         return Identity::applyOwnRows(StudentEnrollment::query(), $requester)->first();
+    }
+
+    /**
+     * As travas de TODA matrícula nova, num lugar só.
+     *
+     * Existe porque havia dois caminhos para matricular e apenas um tinha
+     * regra: `selfEnroll` validava cinco condições, e `updateAdmissionStatus`
+     * (o botão "Aprovar Acesso") não validava nenhuma — ele sobrescrevia
+     * `enrolledCourseId` direto. Com a aprovação automática ligada isso deixa
+     * de ser assimetria e vira dano: o aluno pede um curso novo e o sistema o
+     * tira, sem aviso e sem ninguém olhando, do curso em que ele já tem
+     * progresso e frequência.
+     *
+     * Devolve o modo da matrícula em vez de um booleano porque o resultado não
+     * é "pode ou não pode": é "entra como principal" ou "entra como simultânea"
+     * — e quem chama precisa saber qual, para gravar no campo certo.
+     *
+     * @return 'principal'|'extra'
+     */
+    private function modoDaNovaMatricula(?StudentEnrollment $current, string $courseId): string
+    {
+        if (! Course::query()->whereKey($courseId)->exists()) {
+            throw ApiException::notFound('Curso não encontrado.');
+        }
+
+        if ($this->hasActivePenalty($current)) {
+            throw ApiException::forbidden('Você está em período de restrição temporária de nova matrícula por cancelamento tardio. Aguarde o fim da restrição ou solicite liberação à coordenação.');
+        }
+
+        $extraCourseIds = $current->extraCourseIds ?? [];
+        if ($current?->enrolledCourseId === $courseId || in_array($courseId, $extraCourseIds, true)) {
+            throw new ApiException(409, 'CONFLICT', 'Você já está matriculado neste curso.');
+        }
+
+        // Curso concluído não aceita nova matrícula. O acesso ao conteúdo continua
+        // pelo modo revisão (vitalício), que não depende de matrícula ativa.
+        if (in_array($courseId, $current->completedCourseIds ?? [], true)) {
+            throw new ApiException(409, 'CONFLICT', 'Você já concluiu este curso. Ele continua disponível para revisão, mas não aceita nova matrícula.');
+        }
+
+        if ($current?->enrolledCourseId) {
+            // Segunda (ou mais) matrícula simultânea: só permitido com a flag global
+            // ligada E a permissão concedida pelo Admin Superior a este aluno.
+            if (config('features.matriculasMultiplas') !== true || $current->canMultiEnroll !== true) {
+                throw new ApiException(409, 'CONFLICT', 'Você já possui uma matrícula ativa. Conclua ou cancele o curso atual antes de iniciar outro.');
+            }
+
+            return 'extra';
+        }
+
+        return 'principal';
+    }
+
+    /**
+     * Efetiva a matrícula de uma solicitação aprovada.
+     *
+     * Separado de `updateAdmissionStatus` porque a aprovação automática precisa
+     * exatamente do mesmo efeito: "aprovada" sem matricular é um estado que não
+     * pode existir — o aluno veria acesso liberado na tela e nenhuma matrícula
+     * no registro.
+     */
+    private function efetivarAprovacao(AdmissionRequest $admission, string $modo): void
+    {
+        $current = StudentEnrollment::query()->whereKey($admission->userId)->first();
+
+        $merged = $modo === 'extra'
+            ? array_merge($this->currentRest($current), [
+                'extraCourseIds' => array_values(array_unique([
+                    ...($current->extraCourseIds ?? []),
+                    $admission->courseId,
+                ])),
+            ])
+            : array_merge(self::EMPTY_ENROLLMENT, $this->currentRest($current), [
+                'enrolledCourseId' => $admission->courseId,
+                'enrolledAt' => CarbonImmutable::now()->toIso8601String(),
+                'dropOutPenaltyUntil' => null,
+            ]);
+
+        $this->persistEnrollment($admission->userId, $admission->studentName, $merged);
     }
 
     private function hasActivePenalty(?StudentEnrollment $row): bool
@@ -422,7 +586,10 @@ final class EnrollmentService
         if ($current === null) {
             return [];
         }
-        $rest = $current->only(['enrolledCourseId', 'enrolledAt', 'completedCourseIds', 'dropOutPenaltyUntil']);
+        $rest = $current->only([
+            'enrolledCourseId', 'enrolledAt', 'completedCourseIds', 'dropOutPenaltyUntil',
+            'canMultiEnroll', 'extraCourseIds',
+        ]);
 
         return $rest;
     }
@@ -442,6 +609,8 @@ final class EnrollmentService
             'enrolledAt' => $row->enrolledAt,
             'completedCourseIds' => $row->completedCourseIds ?? [],
             'dropOutPenaltyUntil' => $row->dropOutPenaltyUntil,
+            'canMultiEnroll' => (bool) $row->canMultiEnroll,
+            'extraCourseIds' => $row->extraCourseIds ?? [],
         ];
     }
 

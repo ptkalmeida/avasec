@@ -4,10 +4,29 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser, PersonRef } from '../types';
+import { Course, StudentProgress, Certificate, ChatMessage, DirectMessage, Quiz, QuizQuestion, QuizSubmission, AcademicRequest, LibraryItem, WebinarEvent, AccessibilitySettings, AdmissionRequest, SecurityLog, StudentEnrollment, ForumMessage, Lesson, PracticalExercise, ExerciseSubmission, AuthUser, PersonRef, DocumentTemplate, SitePageContent, SitePageSchema, SitePageKey, RegistrationDetails } from '../types';
 import { INITIAL_COURSES, INITIAL_LIBRARY, INITIAL_WEBINARS, MOCK_IDS } from '../data/mockData';
+
+/** Gestores mostrados sem sessão de admin (a listagem real é só do admin). */
+const GESTORES_PADRAO: PersonRef[] = [{ id: MOCK_IDS.gestor, name: 'Gestor de Conteúdos' }];
+
+/**
+ * Lista de gestores para quem não é admin: o próprio gestor, quando é ele o
+ * logado; senão a lista padrão. Nunca a resposta de `/auth/users` para um
+ * gestor, que é a lista dos ALUNOS dele.
+ */
+export function gestoresSemListagem(sessao: { id: string; name: string; role: string } | null | undefined): PersonRef[] {
+  return sessao?.role === 'instructor' ? [{ id: sessao.id, name: sessao.name }] : GESTORES_PADRAO;
+}
 import { features } from '../config/features';
 import { courseMinAttendance } from '../config/constants';
+import { avaliacoesPendentes } from '../utils/certificadoElegivel';
+// Uma única geradora de senha inicial, ao lado da política que ela precisa cumprir.
+// A anterior (base-36 de bytes) podia sair só com dígitos ou só com letras, e nesse
+// caso a API rejeitava o cadastro sem a tela explicar por quê.
+import { generateInitialPassword } from '../utils/cpf';
+import { frequenciaPercent, registroDoAluno } from '../utils/courseProgress';
+import { momentoIso } from '../utils/quizAttempts';
 
 // Wrapper de fetch autenticado. A sessão do navegador vive num cookie HttpOnly
 // (ava_session), enviado automaticamente em requisições same-origin — nenhum token fica
@@ -20,14 +39,60 @@ export function authFetch(url: string, options: RequestInit = {}): Promise<Respo
   return window.fetch(url, { ...options, headers, credentials: 'same-origin' });
 }
 
+
+/**
+ * Resultado de uma tentativa de avaliação. `scorePercent`/`passed` são os do
+ * SERVIDOR — o backend recalcula a nota e ignora a que o cliente enviou.
+ */
+export interface QuizResult {
+  ok: boolean;
+  error?: string;
+  scorePercent?: number;
+  passed?: boolean;
+}
+
+/**
+ * Abas do painel de gestão. Era a mesma união literal copiada em três lugares
+ * (contrato, setter e useState) — acrescentar uma aba exigia acertar as três,
+ * e um esquecimento só aparecia como erro de tipo no ponto de uso.
+ */
+export type DashboardTab =
+  | 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events'
+  | 'settings' | 'curriculum' | 'students' | 'faq' | 'avaliacoes';
+
+/**
+ * Resultado de gravar/apagar uma avaliação. `quiz` traz o que o SERVIDOR gravou
+ * (com os ids definitivos das questões), para a tela não seguir com uma versão
+ * inventada no cliente.
+ */
+export interface QuizWriteResult {
+  ok: boolean;
+  error?: string;
+  quiz?: Quiz;
+}
+
+/** Resultado de uma escrita de exercício: quem chama precisa poder avisar a pessoa. */
+export interface ExerciseResult {
+  ok: boolean;
+  error?: string;
+}
+
 interface LMSContextProps {
   courses: Course[];
   activeUser: { id: string; name: string; role: 'student' | 'instructor' | 'admin' };
   authUser: AuthUser | null;
-  loginWithPassword: (nameOrEmail: string, password: string) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
-  registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin') => Promise<{ ok: boolean; pending?: boolean; user?: AuthUser; error?: string }>;
+  /** Identificador aceita e-mail (staff), CPF (aluno) ou nome (contas demo). */
+  /**
+   * `papel`: o do cartão clicado na tela de login. Quando vem, o servidor só
+   * aceita uma conta DESSE papel — o cartão de Gestão chegou a autenticar um
+   * aluno homônimo.
+   */
+  loginWithPassword: (identifier: string, password: string, papel?: 'student' | 'instructor' | 'admin') => Promise<{ ok: boolean; user?: AuthUser; error?: string }>;
+  registerUser: (name: string, email: string, password: string, role?: 'student' | 'instructor' | 'admin', details?: RegistrationDetails) => Promise<{ ok: boolean; pending?: boolean; user?: AuthUser; error?: string }>;
   logoutAuth: () => void;
   changePassword: (newPassword: string, currentPassword?: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Redefinição pela coordenação (sem a senha atual). Restrita a admin no servidor. */
+  adminResetPassword: (userId: string, newPassword: string) => Promise<{ ok: boolean; error?: string }>;
   progress: StudentProgress[];
   certificates: Certificate[];
   chatMessages: ChatMessage[];
@@ -35,7 +100,7 @@ interface LMSContextProps {
   quizzes: Quiz[];
   quizSubmissions: QuizSubmission[];
   professorsList: PersonRef[];
-  studentsList: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[];
+  studentsList: { id?: string; name: string; email: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[];
   academicRequests: AcademicRequest[];
   libraryItems: LibraryItem[];
   webinarEvents: WebinarEvent[];
@@ -56,26 +121,49 @@ interface LMSContextProps {
   updateCourseInstructor: (courseId: string, instructorId: string) => void;
   updateCourseProps: (courseId: string, updates: Partial<Course>) => void;
   addLessonToCourse: (courseId: string, lessonTitle: string, duration: string, content: string, videoUrl?: string) => void;
-  updateLesson: (courseId: string, lessonId: string, updates: Partial<Lesson>) => void;
+  updateLesson: (
+    courseId: string, lessonId: string, updates: Partial<Lesson>
+  ) => Promise<{ ok: boolean; error?: string }>;
+  uploadArquivo: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
   deleteLesson: (courseId: string, lessonId: string) => void;
   addLiveSessionToCourse: (courseId: string, title: string, scheduledAt: string, durationMinutes: number, meetingLink: string, isLive: boolean) => void;
   removeLiveSession: (courseId: string, sessionId: string) => void;
   sendLiveChatMessage: (sessionId: string, text: string) => void;
   setLiveSessionStatus: (courseId: string, sessionId: string, isLive: boolean) => void;
-  sendDirectMessage: (studentUserId: string, text: string) => void;
-  addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => void;
-  deleteQuiz: (quizId: string) => void;
-  submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean) => QuizSubmission;
+  /**
+   * Envia mensagem direta e DEVOLVE o desfecho.
+   *
+   * Era `=> void` e engolia falha: a mensagem entrava no estado local, o POST
+   * saía, e o `.catch` só imprimia no console — que nem dispara em resposta 404,
+   * porque `fetch` resolve com `ok: false` em vez de rejeitar. Com
+   * `features.mensagensDiretas` desligada a rota responde 404 FEATURE_DISABLED,
+   * então TODA mensagem de suporte do aluno era descartada enquanto a tela
+   * anunciava "Mensagem enviada!".
+   */
+  sendDirectMessage: (studentUserId: string, text: string) => Promise<{ ok: boolean; error?: string }>;
+  addQuiz: (courseId: string, title: string, questions: QuizQuestion[]) => Promise<QuizWriteResult>;
+  updateQuiz: (
+    quizId: string, courseId: string, title: string, questions: QuizQuestion[]
+  ) => Promise<QuizWriteResult>;
+  deleteQuiz: (quizId: string) => Promise<QuizWriteResult>;
+  submitQuiz: (courseId: string, quizId: string, scorePercent: number, passed: boolean, answers: Record<string, number>) => Promise<QuizResult>;
   addProfessor: (name: string, password?: string) => void;
   deleteProfessor: (name: string) => void;
-  addStudent: (name: string, email: string, password?: string, municipio?: string, uf?: string, areaInteresse?: string, dataCadastro?: string) => void;
+  /**
+   * Cria a conta do aluno no backend. `cpf` é o identificador de login (ADR 11)
+   * e por isso obrigatório. Devolve o resultado REAL do servidor: quem chama
+   * precisa saber se a conta nasceu antes de dizer "matriculado com sucesso".
+   */
+  addStudent: (name: string, email: string, password: string | undefined, municipio: string | undefined, uf: string | undefined, areaInteresse: string | undefined, dataCadastro: string | undefined, cpf: string) => Promise<{ ok: boolean; error?: string }>;
   deleteStudent: (name: string) => void;
   addAcademicRequest: (req: Omit<AcademicRequest, 'id' | 'status' | 'submittedAt' | 'userId' | 'studentName'> & { userId?: string }) => void;
   updateRequestStatus: (reqId: string, status: 'approved' | 'rejected') => void;
   addCategory: (categoryName: string) => void;
   updateAccessibilitySettings: (updates: Partial<AccessibilitySettings>) => void;
   addLibraryItem: (item: Omit<LibraryItem, 'id'>) => void;
-  addWebinarEvent: (webinar: Omit<WebinarEvent, 'id'>) => void;
+  /** Agenda ou atualiza um webinar; espera o servidor confirmar antes de mexer no estado. */
+  addWebinarEvent: (webinar: Omit<WebinarEvent, 'id'> & { id?: string }) => Promise<{ ok: boolean; error?: string }>;
+  deleteWebinarEvent: (id: string) => Promise<{ ok: boolean; error?: string }>;
   systemSettings: {
     allowDirectMessages: boolean;
     allowGlobalChat: boolean;
@@ -85,8 +173,8 @@ interface LMSContextProps {
     liveClassRecording: boolean;
   };
   updateSystemSettings: (updates: Partial<LMSContextProps['systemSettings']>) => void;
-  activeDashboardTab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq';
-  setActiveDashboardTab: (tab: 'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq') => void;
+  activeDashboardTab: DashboardTab;
+  setActiveDashboardTab: (tab: DashboardTab) => void;
   admissionRequests: AdmissionRequest[];
   addAdmissionRequest: (userId: string, courseId: string, status?: 'pending' | 'approved' | 'rejected') => void;
   updateAdmissionStatus: (reqId: string, status: 'approved' | 'rejected') => void;
@@ -98,17 +186,32 @@ interface LMSContextProps {
   dropStudentFromCourse: (userId: string, courseId: string) => Promise<{ ok: boolean; penaltyApplied: boolean; error?: string }>;
   completeStudentCourse: (userId: string, courseId: string) => Promise<{ ok: boolean; error?: string }>;
   clearStudentPenalty: (userId: string) => void;
+  setStudentMultiEnrollPermission: (userId: string, allowed: boolean) => void;
+  /** Conteúdo das páginas públicas; null enquanto não carregou (usa defaults). */
+  sitePageContent: Record<string, SitePageContent> | null;
+  /** Schema de campos servido pela API, usado para montar o formulário do admin. */
+  sitePageSchema: Record<string, SitePageSchema> | null;
+  updateSitePageContent: (pageKey: SitePageKey, content: Partial<SitePageContent>) => Promise<{ ok: boolean; page?: SitePageContent; error?: string }>;
+  getDocumentTemplate: (type: DocumentTemplate['type']) => Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }>;
+  updateDocumentTemplate: (type: DocumentTemplate['type'], updates: Partial<Pick<DocumentTemplate, 'institutionName' | 'institutionLogoPath' | 'signatories' | 'footerText' | 'customHtml'>>) => Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }>;
   forumMessages: ForumMessage[];
   addForumMessage: (courseId: string, text: string) => void;
   toggleForumMessageLike: (messageId: string) => void;
   deleteForumMessage: (messageId: string) => void;
   practicalExercises: PracticalExercise[];
   exerciseSubmissions: ExerciseSubmission[];
-  addPracticalExercise: (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => void;
-  updatePracticalExercise: (exerciseId: string, updates: Partial<PracticalExercise>) => void;
-  deletePracticalExercise: (exerciseId: string) => void;
-  submitExercise: (exerciseId: string, submissionText: string, fileUrl?: string, fileName?: string) => void;
-  gradeSubmission: (submissionId: string, score: number, feedback: string, graderName: string, status: 'approved' | 'rejected' | 'revision') => void;
+  /**
+   * Exercícios práticos. Todas devolvem o resultado REAL do servidor: a nota e a
+   * entrega são registro acadêmico, e uma falha silenciosa aqui deixava o dado
+   * só no localStorage de quem clicou — o aluno via "Aguardando" e o professor
+   * via a nota que ninguém mais no sistema tinha.
+   */
+  addPracticalExercise: (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => Promise<ExerciseResult>;
+  updatePracticalExercise: (exerciseId: string, updates: Partial<PracticalExercise>) => Promise<ExerciseResult>;
+  deletePracticalExercise: (exerciseId: string) => Promise<ExerciseResult>;
+  submitExercise: (exerciseId: string, submissionText: string, fileUrl?: string, fileName?: string) => Promise<ExerciseResult>;
+  /** `graderName` saiu: o servidor grava `gradedBy` a partir do token, não do cliente. */
+  gradeSubmission: (submissionId: string, score: number, feedback: string, status: 'approved' | 'rejected' | 'revision') => Promise<ExerciseResult>;
 }
 
 const LMSContext = createContext<LMSContextProps | undefined>(undefined);
@@ -193,26 +296,51 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     else localStorage.removeItem('ava_auth_user');
   }, [authUser]);
 
-  // Valida a sessão do cookie HttpOnly ao carregar: o perfil salvo em localStorage é só
-  // exibição — se o cookie expirou/foi limpo, o usuário é deslogado de verdade.
+  // A sessão do cookie HttpOnly é a fonte da verdade; o perfil em localStorage é só
+  // exibição. Ao carregar, pergunta ao servidor quem está autenticado:
+  //  - 200 -> adota a identidade que o servidor informou (ADR 10: identidade vem do token);
+  //  - 401 -> desloga de verdade, mesmo que o localStorage ainda tenha um perfil.
+  //
+  // Antes havia um `if (!authUser) return;` no começo, que só VALIDAVA uma sessão já
+  // conhecida e nunca a ESTABELECIA. Efeito: com o cookie válido e o localStorage
+  // limpo — outra aba, dados do site apagados, navegador que descarta storage — a
+  // pessoa aparecia deslogada enquanto a sessão seguia ativa por 12h no servidor,
+  // exatamente o contrário do que este comentário promete.
   useEffect(() => {
-    if (!authUser) return;
     authFetch('/api/auth/me')
-      .then((res) => {
-        if (res.status === 401) setAuthUser(null);
+      .then(async (res) => {
+        if (res.status === 401) {
+          setAuthUser(null);
+          return;
+        }
+        if (!res.ok) return;
+        const usuario: AuthUser = await res.json();
+        if (usuario?.id) setAuthUser(usuario);
       })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Faz login contra o backend por nome (usado pelo seletor de perfil/PIN) ou e-mail (contém "@").
-  const loginWithPassword = async (nameOrEmail: string, password: string) => {
+  const loginWithPassword = async (identifier: string, password: string, papel?: 'student' | 'instructor' | 'admin') => {
     try {
-      const isEmail = nameOrEmail.includes('@');
+      // Três identificadores (ADR 11): e-mail (admin/gestor), CPF (aluno) e
+      // nome (contas demo internas). 11 dígitos = CPF.
+      const digits = identifier.replace(/\D/g, '');
+      let credentials: Record<string, string>;
+      if (identifier.includes('@')) {
+        credentials = { email: identifier, password };
+      } else if (digits.length === 11) {
+        credentials = { cpf: digits, password };
+      } else {
+        credentials = { name: identifier, password };
+      }
+      if (papel !== undefined) credentials.role = papel;
+
       const res = await authFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(isEmail ? { email: nameOrEmail, password } : { name: nameOrEmail, password }),
+        body: JSON.stringify(credentials),
       });
       const data = await res.json();
       // Erros padronizados vêm como { error: true, code, message } — inclui os 403
@@ -234,13 +362,24 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     name: string,
     email: string,
     password: string,
-    role: 'student' | 'instructor' | 'admin' = 'student'
+    role: 'student' | 'instructor' | 'admin' = 'student',
+    details: RegistrationDetails = {}
   ) => {
     try {
       const res = await authFetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role }),
+        // CPF é obrigatório para conta de aluno no backend (ADR 11); campos
+        // vazios são omitidos para não gravar string vazia no banco.
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+          role,
+          ...Object.fromEntries(
+            Object.entries(details).filter(([, v]) => typeof v === 'string' && v.trim() !== '')
+          ),
+        }),
       });
       const data = await res.json();
       if (!res.ok) return { ok: false, error: data.message || 'Falha ao cadastrar.' };
@@ -263,6 +402,8 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     localStorage.removeItem('ava_auth_token');
     setAuthUser(null);
+    // A lista de gestores é da sessão: não pode sobrar para a tela de login.
+    setProfessorsList(GESTORES_PADRAO);
   };
 
   const changePassword = async (newPassword: string, currentPassword?: string) => {
@@ -281,6 +422,26 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Redefinição de senha pela coordenação. Antes disso a tela de admin só alterava
+  // estado local: a senha do aluno continuava a antiga e ninguém percebia.
+  const adminResetPassword = async (userId: string, newPassword: string) => {
+    try {
+      const res = await authFetch(`/api/auth/users/${userId}/password`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.message || 'Falha ao redefinir a senha.' };
+      }
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao redefinir senha:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
   // Identidade ativa é sempre DERIVADA da sessão autenticada (ADR 10) — nada de
   // perfil paralelo persistido em localStorage.
   const activeUser = useMemo(
@@ -290,19 +451,17 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     [authUser]
   );
 
-  const [professorsList, setProfessorsList] = useState<PersonRef[]>(() => {
-    return [{ id: MOCK_IDS.gestor, name: 'Gestor de Conteúdos' }];
-  });
+  const [professorsList, setProfessorsList] = useState<PersonRef[]>(GESTORES_PADRAO);
 
-  const [studentsList, setStudentsList] = useState<{ id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[]>(() => {
+  const [studentsList, setStudentsList] = useState<{ id?: string; name: string; email: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[]>(() => {
     const defaultStudents = [
-      { name: 'João Silva', email: 'joao.silva@lms.edu', password: '1234', municipio: 'São Paulo', uf: 'SP', areaInteresse: 'Design Digital', dataCadastro: '2026-01-10' },
-      { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', password: '1234', municipio: 'Recife', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-02-14' },
-      { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu', password: '1234', municipio: 'Rio de Janeiro', uf: 'RJ', areaInteresse: 'Design Digital', dataCadastro: '2026-03-05' },
-      { name: 'Sofia Rocha', email: 'sofia.rocha@lms.edu', password: '1234', municipio: 'Salvador', uf: 'BA', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-03-12' },
-      { name: 'Ana Souza', email: 'ana.souza@lms.edu', password: '1234', municipio: 'Olinda', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-04-01' },
-      { name: 'Lucas Santana', email: 'lucas.santana@lms.edu', password: '1234', municipio: 'Belo Horizonte', uf: 'MG', areaInteresse: 'Áreas Técnicas', dataCadastro: '2026-04-18' },
-      { name: 'Carolina Mendes', email: 'carol.mendes@lms.edu', password: '1234', municipio: 'Caruaru', uf: 'PE', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-05-02' }
+      { name: 'João Silva', email: 'joao.silva@lms.edu', municipio: 'São Paulo', uf: 'SP', areaInteresse: 'Design Digital', dataCadastro: '2026-01-10' },
+      { name: 'Gabriel Rodrigues', email: 'gabriel.rodrigues@lms.edu', municipio: 'Recife', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-02-14' },
+      { name: 'Beatriz Costa', email: 'beatriz.c@lms.edu', municipio: 'Rio de Janeiro', uf: 'RJ', areaInteresse: 'Design Digital', dataCadastro: '2026-03-05' },
+      { name: 'Sofia Rocha', email: 'sofia.rocha@lms.edu', municipio: 'Salvador', uf: 'BA', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-03-12' },
+      { name: 'Ana Souza', email: 'ana.souza@lms.edu', municipio: 'Olinda', uf: 'PE', areaInteresse: 'Economia Criativa & IA', dataCadastro: '2026-04-01' },
+      { name: 'Lucas Santana', email: 'lucas.santana@lms.edu', municipio: 'Belo Horizonte', uf: 'MG', areaInteresse: 'Áreas Técnicas', dataCadastro: '2026-04-18' },
+      { name: 'Carolina Mendes', email: 'carol.mendes@lms.edu', municipio: 'Caruaru', uf: 'PE', areaInteresse: 'Políticas e Gestão Culturais', dataCadastro: '2026-05-02' }
     ];
     const saved = localStorage.getItem('ava_students');
     if (saved) {
@@ -310,7 +469,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           const seenEmails = new Set<string>();
-          const dedupedParsed: { id?: string; name: string; email: string; password?: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string }[] = [];
+          const dedupedParsed: { id?: string; name: string; email: string; municipio?: string; uf?: string; areaInteresse?: string; dataCadastro?: string; lastAccess?: string }[] = [];
           
           parsed.forEach(p => {
             if (p && p.email && !seenEmails.has(p.email.toLowerCase())) {
@@ -421,7 +580,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: 'course-1',
         enrolledAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
         completedCourseIds: [],
-        dropOutPenaltyUntil: null
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
       },
       [MOCK_IDS.gabriel]: {
         userId: MOCK_IDS.gabriel,
@@ -429,7 +590,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: 'course-2',
         enrolledAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
         completedCourseIds: [],
-        dropOutPenaltyUntil: null
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
       },
       [MOCK_IDS.beatriz]: {
         userId: MOCK_IDS.beatriz,
@@ -437,7 +600,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: null,
         enrolledAt: null,
         completedCourseIds: ['course-1'],
-        dropOutPenaltyUntil: null
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
       },
       [MOCK_IDS.sofia]: {
         userId: MOCK_IDS.sofia,
@@ -445,7 +610,9 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: null,
         enrolledAt: null,
         completedCourseIds: [],
-        dropOutPenaltyUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString()
+        dropOutPenaltyUntil: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+        canMultiEnroll: false,
+        extraCourseIds: []
       }
     };
   });
@@ -584,7 +751,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return deduped;
   });
 
-  const [activeDashboardTab, setActiveDashboardTab] = useState<'general' | 'messages' | 'certificates' | 'documents' | 'library' | 'events' | 'settings' | 'curriculum' | 'students' | 'faq'>('general');
+  const [activeDashboardTab, setActiveDashboardTab] = useState<DashboardTab>('general');
   const [libraryItems, setLibraryItems] = useState<LibraryItem[]>(() => {
     const saved = localStorage.getItem('ava_library_items');
     let parsed: LibraryItem[] | null = null;
@@ -638,14 +805,56 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error(err));
   };
 
-  const addWebinarEvent = (webinar: Omit<WebinarEvent, 'id'>) => {
-    const newWebinar = { ...webinar, id: `web-${Date.now()}` };
-    setWebinarEvents(prev => [newWebinar, ...prev]);
-    authFetch('/api/webinars', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newWebinar)
-    }).catch(err => console.error(err));
+  /**
+   * Agenda (ou atualiza, informando o id) um webinar.
+   *
+   * Espera a resposta do servidor antes de mexer no estado. Antes inseria na lista
+   * local ANTES de chamar a API e engolia o erro com console.error: o webinar
+   * aparecia na tela de quem agendou, era gravado em localStorage, e não existia no
+   * banco. Quem agendava via a confirmação e o evento nunca chegava ao site.
+   */
+  const addWebinarEvent = async (
+    webinar: Omit<WebinarEvent, 'id'> & { id?: string }
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const payload = { ...webinar, id: webinar.id ?? `web-${Date.now()}` };
+    try {
+      const res = await authFetch('/api/webinars', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.message || 'Não foi possível agendar o webinar.' };
+      }
+      // Usa o registro que o servidor devolveu, não o que foi enviado: o id e os
+      // campos normalizados passam a ser os mesmos que os outros clientes verão.
+      const salvo: WebinarEvent = await res.json();
+      setWebinarEvents(prev => [salvo, ...prev.filter(w => w.id !== salvo.id)]);
+
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao agendar webinar:', err);
+
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
+  const deleteWebinarEvent = async (id: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await authFetch(`/api/webinars/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.message || 'Não foi possível remover o webinar.' };
+      }
+      setWebinarEvents(prev => prev.filter(w => w.id !== id));
+
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao remover webinar:', err);
+
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
   };
 
   useEffect(() => {
@@ -1104,6 +1313,54 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('ava_system_settings', JSON.stringify(systemSettings));
   }, [systemSettings]);
 
+  // Conteúdo editável das páginas públicas. Buscado num efeito próprio, sem
+  // depender de login: o visitante anônimo precisa disso para montar o site.
+  // Null = ainda não carregou (ou API offline) e cada página usa seus defaults.
+  const [sitePageContent, setSitePageContent] = useState<Record<string, SitePageContent> | null>(null);
+  const [sitePageSchema, setSitePageSchema] = useState<Record<string, SitePageSchema> | null>(null);
+
+  useEffect(() => {
+    if (!features.gestaoConteudoSite) return;
+    let cancelled = false;
+
+    authFetch('/api/site-content')
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setSitePageContent(data.pages ?? null);
+        setSitePageSchema(data.schema ?? null);
+      })
+      .catch(() => {
+        // API offline: as páginas seguem com o conteúdo padrão embutido.
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const updateSitePageContent = async (
+    pageKey: SitePageKey,
+    content: Partial<SitePageContent>
+  ): Promise<{ ok: boolean; page?: SitePageContent; error?: string }> => {
+    try {
+      const res = await authFetch(`/api/site-content/${encodeURIComponent(pageKey)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(content)
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.message || 'Não foi possível salvar o conteúdo.' };
+
+      // O servidor devolve a versão canônica (normalizada); é ela que vale.
+      const page = data as SitePageContent;
+      setSitePageContent((prev) => ({ ...(prev ?? {}), [pageKey]: page }));
+      return { ok: true, page };
+    } catch (err) {
+      console.error('Erro ao salvar conteúdo do site:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
   const [securityLogs, setSecurityLogs] = useState<SecurityLog[]>(() => {
     const saved = localStorage.getItem('ava_security_logs');
     let parsed: SecurityLog[] | null = null;
@@ -1123,7 +1380,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ipAddress: '192.168.1.14',
         device: 'Chrome / macOS (Sistema Autenticado)',
         action: 'Auditoria de Sistema',
-        details: 'Geração de relatório geral de matrículas ativas na Escola da Cultura.',
+        details: 'Geração de relatório geral de matrículas ativas na Escola Estadual da Cultura.',
         status: 'SUCCESS' as const
       },
       {
@@ -1244,7 +1501,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           authFetch('/api/security-logs'),
           authFetch('/api/system-settings'),
           authFetch('/api/auth/users?role=student'),
-          authFetch('/api/auth/users?role=instructor'),
+          /*
+            Só o ADMIN lista instrutores. Para um gestor, esta rota devolve os
+            ALUNOS dele (escopo do servidor, de propósito), e a resposta era
+            gravada como lista de gestores: um aluno aparecia na aba "Gestão"
+            da tela de login, e o cartão dele autenticava o aluno.
+          */
+          fetchIf(authUser?.role === 'admin', '/api/auth/users?role=instructor'),
           fetchIf(features.matricula, '/api/enrollments'),
           fetchIf(features.quizSimples, '/api/quizzes'),
           fetchIf(features.quizSimples, '/api/quiz-submissions'),
@@ -1271,9 +1534,13 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             municipio: u.municipio, uf: u.uf, areaInteresse: u.areaInteresse, dataCadastro: u.dataCadastro
           })));
         }
-        if (instructorsRes.ok) {
-          const { items: users } = await instructorsRes.json();
-          setProfessorsList(users.map((u: any) => ({ id: u.id, name: u.name })));
+        if (authUser?.role === 'admin') {
+          if (instructorsRes.ok) {
+            const { items: users } = await instructorsRes.json();
+            setProfessorsList(users.map((u: any) => ({ id: u.id, name: u.name })));
+          }
+        } else {
+          setProfessorsList(gestoresSemListagem(authUser));
         }
         if (enrollmentsRes.ok) setStudentEnrollments(await enrollmentsRes.json());
         if (quizzesRes.ok) setQuizzes(await quizzesRes.json());
@@ -1377,22 +1644,11 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const course = courses.find((c) => c.id === courseId);
     if (!course) return 0;
 
-    const totalLessonsCount = course.lessons.length;
-    const totalLiveCount = course.liveSessions.length;
-    const totalActivities = totalLessonsCount + totalLiveCount;
-
-    if (totalActivities === 0) return 0;
-
-    const userProgress = progress.find((p) => p.courseId === courseId && p.userId === activeUser.id);
-    if (!userProgress) return 0;
-
-    // A lesson completion acts as "attendance" of lessons, and attending live sessions accounts for meetings
-    const completedCount = userProgress.completedLessons.length;
-    const attendedLiveCount = userProgress.attendedLiveSessions.length;
-
-    const totalAttended = completedCount + attendedLiveCount;
-    const percent = Math.min(100, Math.round((totalAttended / totalActivities) * 100));
-    return percent;
+    // Aula concluída conta como presença de aula; encontro assistido conta como
+    // presença de encontro. A conta ignora id que não existe mais no curso: um
+    // resíduo de aula apagada inflava a frequência e podia disparar a emissão
+    // automática de certificado abaixo — ver src/utils/courseProgress.ts.
+    return frequenciaPercent(course, registroDoAluno(progress, courseId, activeUser.id));
   };
 
   // Automatic Certificate Issuance Logic when attendance hits the custom required or default 70% minimum!
@@ -1403,8 +1659,14 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const attendance = calculateAttendancePercent(course.id);
       const minAttendance = courseMinAttendance(course);
       
-      // If student has at least required minimum attendance and doesn't have a certificate for this course yet, issue it automatically!
-      if (attendance >= minAttendance) {
+      /*
+       * Frequencia deixou de bastar quando o curso avalia (decisao de
+       * 09/09/2026). A autoridade e o servidor — ele recalcula e recusa — mas
+       * insistir no POST a cada render renderia um 403 por render, entao a tela
+       * tambem para de pedir.
+       */
+      const pendentes = avaliacoesPendentes(quizzes, quizSubmissions, course.id, activeUser.id);
+      if (attendance >= minAttendance && pendentes.length === 0) {
         const alreadyIssued = certificates.some(
           (cert) => cert.courseId === course.id && cert.userId === activeUser.id
         );
@@ -1424,21 +1686,20 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setCertificates((prev) => (prev.some((c) => c.id === issued.id) ? prev : [...prev, issued]));
           })
           .catch((err) => console.error('Erro ao emitir certificado:', err));
-      } else {
-        // If they became un-qualified (unselected lesson and went below minAttendance), remove certificate
-        // to stay dynamically accurate in state simulation, unless they like it
-        setCertificates((prev) => {
-          const alreadyIssued = prev.some(
-            (cert) => cert.courseId === course.id && cert.userId === activeUser.id
-          );
-          if (alreadyIssued) {
-            return prev.filter((cert) => !(cert.courseId === course.id && cert.userId === activeUser.id));
-          }
-          return prev;
-        });
       }
+      // NÃO existe ramo "else" que remove o certificado da lista.
+      //
+      // Havia um: quando a frequência caía abaixo do mínimo, o certificado
+      // desaparecia do estado LOCAL — e continuava no banco, com o código de
+      // validação funcionando. Ou seja, a tela passava a discordar do registro
+      // oficial em silêncio. Certificado emitido é documento: se precisar
+      // deixar de valer, isso é revogação no servidor, com trilha de auditoria
+      // e decisão de gente — não um filtro no navegador de quem está olhando.
     });
-  }, [progress, activeUser.id, courses, activeUser.role]);
+    // `quizzes`/`quizSubmissions` entram nas dependencias porque ser aprovado
+    // numa prova passou a LIBERAR o certificado: sem eles, o aluno teria de
+    // recarregar a pagina para o certificado aparecer.
+  }, [progress, activeUser.id, courses, activeUser.role, quizzes, quizSubmissions]);
 
   // POST /api/progress sem identidade no corpo — o token decide de quem é o progresso.
   const postProgressUpdate = (updated: StudentProgress) => {
@@ -1588,24 +1849,64 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
   
-  const updateLesson = (courseId: string, lessonId: string, updates: Partial<Lesson>) => {
-    setCourses((prev) =>
-      prev.map((course) => {
-        if (course.id === courseId) {
-          const updatedLessons = course.lessons.map((l) => (l.id === lessonId ? { ...l, ...updates } : l));
-          authFetch(`/api/courses/${courseId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lessons: updatedLessons })
-          }).catch(err => console.error(err));
-          return {
-            ...course,
-            lessons: updatedLessons
-          };
-        }
-        return course;
-      })
+  /**
+   * Atualiza uma aula e DEVOLVE o desfecho.
+   *
+   * Era otimista com `.catch(console.error)`: a aula (e os documentos dela)
+   * mudava na tela e a recusa do servidor — 403 por não lecionar a disciplina,
+   * 422 por payload inválido — passava em silêncio, porque `.catch` só dispara
+   * em falha de rede. A página de documentos da disciplina depende de saber se
+   * gravou, então o retorno virou explícito.
+   *
+   * O estado local só muda quando o servidor aceita: gravar primeiro e depois
+   * descobrir a recusa deixaria a tela divergindo do banco até o recarregamento.
+   */
+  const updateLesson = async (
+    courseId: string,
+    lessonId: string,
+    updates: Partial<Lesson>
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const curso = courses.find((c) => c.id === courseId);
+    if (curso === undefined) {
+      return { ok: false, error: 'Disciplina não encontrada.' };
+    }
+
+    const updatedLessons = curso.lessons.map((l) => (l.id === lessonId ? { ...l, ...updates } : l));
+    const r = await escreveApi(
+      `/api/courses/${courseId}`,
+      'PUT',
+      { lessons: updatedLessons },
+      'Recurso de aulas indisponível nesta instalação.'
     );
+    if (!r.ok) return { ok: false, error: r.error };
+
+    setCourses((prev) =>
+      prev.map((course) => (course.id === courseId ? { ...course, lessons: updatedLessons } : course))
+    );
+
+    return { ok: true };
+  };
+
+  /** Envia um arquivo e devolve a URL pública que o servidor gravou. */
+  const uploadArquivo = async (
+    file: File
+  ): Promise<{ ok: boolean; url?: string; error?: string }> => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await authFetch('/api/upload?visibility=public', { method: 'POST', body: formData });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        return { ok: false, error: err.error || err.message || 'Falha ao enviar o arquivo.' };
+      }
+      const data = await res.json();
+
+      return { ok: true, url: data.url };
+    } catch (err) {
+      console.error('Erro ao enviar arquivo:', err);
+
+      return { ok: false, error: 'Servidor indisponível para envio de arquivos.' };
+    }
   };
 
   const deleteLesson = (courseId: string, lessonId: string) => {
@@ -1720,7 +2021,10 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error(err));
   };
 
-  const sendDirectMessage = (studentUserId: string, text: string) => {
+  const sendDirectMessage = async (
+    studentUserId: string,
+    text: string
+  ): Promise<{ ok: boolean; error?: string }> => {
     const threadOwnerName = studentUserId === activeUser.id
       ? activeUser.name
       : studentsList.find((s) => s.id === studentUserId)?.name ?? '';
@@ -1734,43 +2038,125 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       text,
       timestamp: new Date().toISOString()
     };
+
+    // Insere otimista para a conversa não travar à espera da rede — mas DESFAZ se
+    // o servidor recusar. Antes só inseria: a mensagem ficava na tela para sempre
+    // sem nunca ter saído da máquina.
     setDirectMessages((prev) => [...prev, newDM]);
-    authFetch('/api/dms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ studentUserId, text })
-    }).catch(err => console.error(err));
+
+    const desfazer = () => setDirectMessages((prev) => prev.filter((m) => m.id !== newDM.id));
+
+    try {
+      const res = await authFetch('/api/dms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentUserId, text })
+      });
+
+      if (!res.ok) {
+        desfazer();
+        // `fetch` NÃO rejeita em 404: sem esta checagem a falha era invisível.
+        const dados = await res.json().catch(() => ({}));
+
+        return {
+          ok: false,
+          error: dados.code === 'FEATURE_DISABLED'
+            ? 'O canal de mensagens está desativado nesta versão da plataforma. Sua mensagem não foi enviada.'
+            : (dados.message || 'Não foi possível enviar a mensagem.')
+        };
+      }
+
+      return { ok: true };
+    } catch (err) {
+      console.error('Erro ao enviar mensagem:', err);
+      desfazer();
+
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
   };
 
-  const addQuiz = (courseId: string, title: string, questions: QuizQuestion[]) => {
-    const newQuiz: Quiz = {
-      id: `quiz-${Date.now()}`,
-      courseId,
-      title,
-      questions
-    };
-    setQuizzes((prev) => [...prev, newQuiz]);
-    authFetch('/api/quizzes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newQuiz)
-    }).catch(err => console.error(err));
+  /**
+   * Grava uma avaliação (nova ou existente) e devolve o desfecho.
+   *
+   * `POST /api/quizzes` é upsert pela chave `id` no servidor: com um id que já
+   * existe ele atualiza título/curso e reconcilia as questões (apaga as que não
+   * vieram, atualiza as que vieram com id, cria as novas). Por isso criar e
+   * editar usam a MESMA rota — e por isso a edição precisa reenviar o id de cada
+   * questão que deve sobreviver, senão o servidor a apaga e recria, o que
+   * quebraria a ligação com as respostas já entregues pelos alunos.
+   *
+   * Diferente do padrão antigo, o estado só muda com o que o servidor devolveu:
+   * a versão otimista deixava a avaliação na tela mesmo quando a gravação era
+   * recusada, e o professor só descobria no recarregamento.
+   */
+  const gravaQuiz = async (quiz: Quiz): Promise<QuizWriteResult> => {
+    const r = await escreveApi(
+      '/api/quizzes',
+      'POST',
+      quiz,
+      'Recurso de avaliações indisponível nesta instalação.'
+    );
+    if (!r.ok) return { ok: false, error: r.error };
+
+    // O servidor devolve a avaliação já reconciliada (ids definitivos das
+    // questões). Usar a resposta evita divergir do banco no primeiro clique.
+    const salvo = (r.data && typeof r.data === 'object' ? r.data : quiz) as Quiz;
+    setQuizzes((prev) => {
+      const jaExiste = prev.some((q) => q.id === salvo.id);
+
+      return jaExiste ? prev.map((q) => (q.id === salvo.id ? salvo : q)) : [...prev, salvo];
+    });
+
+    return { ok: true, quiz: salvo };
   };
 
-  const deleteQuiz = (quizId: string) => {
+  const addQuiz = (courseId: string, title: string, questions: QuizQuestion[]) =>
+    gravaQuiz({ id: `quiz-${Date.now()}`, courseId, title, questions });
+
+  const updateQuiz = (
+    quizId: string,
+    courseId: string,
+    title: string,
+    questions: QuizQuestion[]
+  ) => gravaQuiz({ id: quizId, courseId, title, questions });
+
+  /**
+   * Tira a avaliação do ar. Desde a ADR 12 o servidor INATIVA em vez de apagar,
+   * e as respostas já entregues pelos alunos permanecem — antes o backend
+   * removia as QuizSubmission do quiz junto.
+   *
+   * Quem chama ainda deve confirmar com a pessoa (a avaliação desaparece para a
+   * turma); aqui só se garante que a tela não finja sucesso se o servidor
+   * recusar.
+   */
+  const deleteQuiz = async (quizId: string): Promise<QuizWriteResult> => {
+    const r = await escreveApi(
+      `/api/quizzes/${quizId}`,
+      'DELETE',
+      undefined,
+      'Recurso de avaliações indisponível nesta instalação.'
+    );
+    if (!r.ok) return { ok: false, error: r.error };
+
     setQuizzes((prev) => prev.filter((q) => q.id !== quizId));
     setQuizSubmissions((prev) => prev.filter((qs) => qs.quizId !== quizId));
-    authFetch(`/api/quizzes/${quizId}`, { method: 'DELETE' }).catch(err => console.error(err));
+
+    return { ok: true };
   };
 
   // Sempre ação do próprio aluno — identidade sai do token; o estado otimista usa activeUser.
-  const submitQuiz = (
+  const submitQuiz = async (
     courseId: string,
     quizId: string,
     scorePercent: number,
-    passed: boolean
-  ): QuizSubmission => {
-    const newSubmission: QuizSubmission = {
+    passed: boolean,
+    answers: Record<string, number>
+  ): Promise<QuizResult> => {
+    // scorePercent/passed aqui são só otimistas para o feedback imediato na tela.
+    // A nota REAL é recalculada no servidor a partir de `answers` (o backend ignora
+    // qualquer nota vinda do cliente) — ver LearningService::submitQuiz.
+    const agora = new Date();
+    const otimista: QuizSubmission = {
       id: `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       userId: activeUser.id,
       studentName: activeUser.name,
@@ -1778,24 +2164,60 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       quizId,
       scorePercent,
       passed,
-      submittedAt: new Date().toLocaleDateString('pt-BR') + ' às ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      submittedAt: agora.toLocaleDateString('pt-BR') + ' às ' + agora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      // Mesma forma que o servidor devolve (hora local, sem fuso), para que a
+      // ordenação valha já no estado otimista e não só depois da reconciliação.
+      enviadoEm: momentoIso(agora)
     };
-    setQuizSubmissions((prev) => {
-      // replace previous submissions of the same student for the same quiz to allow retries
-      const cleaned = prev.filter((sub) => !(sub.userId === activeUser.id && sub.quizId === quizId));
-      return [...cleaned, newSubmission];
-    });
-    const { userId: _userId, studentName: _studentName, ...body } = newSubmission;
-    authFetch('/api/quiz-submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    }).catch(err => console.error(err));
-    return newSubmission;
+    // ACRESCENTA. Antes as tentativas anteriores do mesmo aluno eram removidas do
+    // estado, o que espelhava o servidor da época — ele inativava a anterior. Agora
+    // o histórico fica no ar, e quem escolhe a vigente é `tentativaVigente`.
+    setQuizSubmissions((prev) => [otimista, ...prev]);
+
+    try {
+      const res = await authFetch('/api/quiz-submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizId, answers })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        // A tentativa otimista sai da lista: deixá-la ali mostraria ao aluno uma
+        // nota que o servidor não registrou. Antes o erro era só console.error.
+        setQuizSubmissions((prev) => prev.filter((sub) => sub.id !== otimista.id));
+        return { ok: false, error: data.message || 'O servidor não registrou sua tentativa.' };
+      }
+      const salva = await res.json();
+      if (salva && typeof salva.scorePercent === 'number') {
+        // Reconcilia com a nota autoritativa do servidor.
+        setQuizSubmissions((prev) => prev.map((sub) =>
+          sub.id === otimista.id
+            ? {
+                ...sub,
+                scorePercent: salva.scorePercent,
+                passed: !!salva.passed,
+                id: salva.id ?? sub.id,
+                // Data do servidor quando ela vem: é o relógio que ordena as
+                // tentativas de todos, não o do navegador de quem respondeu.
+                submittedAt: typeof salva.submittedAt === 'string' ? salva.submittedAt : sub.submittedAt,
+                enviadoEm: typeof salva.enviadoEm === 'string' ? salva.enviadoEm : sub.enviadoEm
+              }
+            : sub
+        ));
+        return { ok: true, scorePercent: salva.scorePercent, passed: !!salva.passed };
+      }
+      return { ok: true, scorePercent, passed };
+    } catch (err) {
+      console.error('Erro ao enviar avaliação:', err);
+      setQuizSubmissions((prev) => prev.filter((sub) => sub.id !== otimista.id));
+      return { ok: false, error: 'Servidor indisponível. Sua tentativa não foi registrada.' };
+    }
   };
 
   const addProfessor = (name: string, password?: string) => {
-    const finalPassword = password && password.trim() ? password.trim() : '5678';
+    // Sem senha explícita: gera uma aleatória (nunca um padrão compartilhado como '5678',
+    // que somado ao login por nome permitiria adivinhar credenciais de contas reais).
+    const finalPassword = password && password.trim() ? password.trim() : generateInitialPassword();
     setProfessorsList((prev) => {
       if (prev.some((p) => p.name === name)) return prev;
       // Id provisório até a hidratação trazer o id real criado pelo backend.
@@ -1810,27 +2232,52 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setProfessorsList((prev) => prev.filter((p) => p.name !== name));
   };
 
-  const addStudent = (
+  const addStudent = async (
     name: string,
     email: string,
-    password?: string,
-    municipio?: string,
-    uf?: string,
-    areaInteresse?: string,
-    dataCadastro?: string
-  ) => {
-    const finalPassword = password && password.trim() ? password.trim() : '1234';
+    password: string | undefined,
+    municipio: string | undefined,
+    uf: string | undefined,
+    areaInteresse: string | undefined,
+    dataCadastro: string | undefined,
+    cpf: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    const finalPassword = password && password.trim() ? password.trim() : generateInitialPassword();
     const finalMunicipio = municipio?.trim() || 'São Paulo';
     const finalUf = uf?.trim() || 'SP';
     const finalArea = areaInteresse?.trim() || 'Tecnologia';
     const finalData = dataCadastro?.trim() || new Date().toISOString().split('T')[0];
 
+    // A conta real vem PRIMEIRO. A inserção otimista na lista local ficava antes
+    // e nunca era desfeita: quando a API recusava o cadastro (por exemplo, sem
+    // CPF, que ela exige para aluno), o aluno aparecia na tabela da gestão sem
+    // existir no banco — e ninguém conseguia logar com ele.
+    try {
+      const res = await authFetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, email, cpf, password: finalPassword, role: 'student',
+          municipio: finalMunicipio, uf: finalUf, areaInteresse: finalArea, dataCadastro: finalData
+        })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        return { ok: false, error: data.message || 'O servidor recusou o cadastro do aluno.' };
+      }
+    } catch (err) {
+      console.error('Erro ao registrar aluno:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+
     setStudentsList((prev) => {
       if (prev.some((s) => s.name.toLowerCase() === name.toLowerCase() || s.email.toLowerCase() === email.toLowerCase())) return prev;
+      // A senha NÃO entra nesta lista: ela é persistida em localStorage ('ava_students'),
+      // e ninguém a lia — era credencial em texto plano guardada no navegador de quem
+      // cadastra. O servidor guarda só o hash; para trocar, há o fluxo de redefinição.
       return [...prev, {
         name,
         email,
-        password: finalPassword,
         municipio: finalMunicipio,
         uf: finalUf,
         areaInteresse: finalArea,
@@ -1838,15 +2285,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }];
     });
 
-    // Cria a conta real no backend (hash bcrypt) — necessária para o login funcionar de verdade.
-    authFetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name, email, password: finalPassword, role: 'student',
-        municipio: finalMunicipio, uf: finalUf, areaInteresse: finalArea, dataCadastro: finalData
-      })
-    }).catch((err) => console.error('Erro ao registrar aluno:', err));
+    return { ok: true };
   };
 
   const deleteStudent = (name: string) => {
@@ -1980,6 +2419,22 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // resposta (já indexada pelo userId que ela mesma traz) — nada de calcular no navegador.
   const applySelfEnrollmentResponse = (enrollment: StudentEnrollment) => {
     setStudentEnrollments(prev => ({ ...prev, [enrollment.userId]: enrollment }));
+    // O catálogo entrega o material de estudo apenas dos cursos a que o aluno
+    // pertence. Matricular/cancelar muda esse conjunto, e a sincronização geral só
+    // reage a login/logout — sem este refetch, o aluno acabaria de se matricular e
+    // veria a aula sem texto, vídeo nem documentos até recarregar a página.
+    void refreshCourses();
+  };
+
+  /** Rebusca só o catálogo, para refletir mudança de acesso ao material. */
+  const refreshCourses = async () => {
+    if (!features.catalogoCursos) return;
+    try {
+      const res = await authFetch('/api/courses');
+      if (res.ok) setCourses(await res.json());
+    } catch (err) {
+      console.error('Erro ao atualizar catálogo:', err);
+    }
   };
 
   const enrollStudentInCourse = async (_userId: string, courseId: string): Promise<{ ok: boolean; error?: string }> => {
@@ -2041,12 +2496,67 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enrolledCourseId: null,
         enrolledAt: null,
         completedCourseIds: [],
-        dropOutPenaltyUntil: null
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
       };
       const updated = { ...current, dropOutPenaltyUntil: null };
       syncEnrollment(userId, updated);
       return { ...prev, [userId]: updated };
     });
+  };
+
+  // Concessão da permissão de matrícula múltipla — só o Admin Superior pode
+  // chamar isto; o backend também recusa (403) se o requisitante não for admin.
+  const setStudentMultiEnrollPermission = (userId: string, allowed: boolean) => {
+    setStudentEnrollments(prev => {
+      const current = prev[userId] || {
+        userId,
+        studentName: studentsList.find((s) => s.id === userId)?.name ?? '',
+        enrolledCourseId: null,
+        enrolledAt: null,
+        completedCourseIds: [],
+        dropOutPenaltyUntil: null,
+        canMultiEnroll: false,
+        extraCourseIds: []
+      };
+      const updated = { ...current, canMultiEnroll: allowed };
+      syncEnrollment(userId, updated);
+      return { ...prev, [userId]: updated };
+    });
+  };
+
+  // Área de gerenciamento de templates de documentos — só Admin Superior lê/edita.
+  // Sem estado global: usados só pela tela de edição e pela prévia do certificado.
+  const getDocumentTemplate = async (type: DocumentTemplate['type']): Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }> => {
+    try {
+      const res = await authFetch(`/api/document-templates/${encodeURIComponent(type)}`);
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.message || 'Não foi possível carregar o template.' };
+      return { ok: true, template: data as DocumentTemplate };
+    } catch (err) {
+      console.error('Erro ao carregar template de documento:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
+  const updateDocumentTemplate = async (
+    type: DocumentTemplate['type'],
+    updates: Partial<Pick<DocumentTemplate, 'institutionName' | 'institutionLogoPath' | 'signatories' | 'footerText' | 'customHtml'>>
+  ): Promise<{ ok: boolean; template?: DocumentTemplate; error?: string }> => {
+    try {
+      const res = await authFetch(`/api/document-templates/${encodeURIComponent(type)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, error: data.message || 'Não foi possível salvar o template.' };
+      return { ok: true, template: data as DocumentTemplate };
+    } catch (err) {
+      console.error('Erro ao salvar template de documento:', err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
   };
 
   const addForumMessage = (courseId: string, text: string) => {
@@ -2091,92 +2601,150 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     authFetch(`/api/forum/${messageId}`, { method: 'DELETE' }).catch(err => console.error(err));
   };
 
-  const addPracticalExercise = (courseId: string, title: string, description: string, instructions: string, maxPoints: number, dueDate?: string) => {
-    const newEx: PracticalExercise = {
-      id: `exercise-${Date.now()}`,
-      courseId,
-      title,
-      description,
-      instructions,
-      maxPoints,
-      dueDate
-    };
-    setPracticalExercises(prev => [...prev, newEx]);
-    authFetch('/api/exercises', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newEx)
-    }).catch(err => console.error(err));
-  };
-
-  const updatePracticalExercise = (exerciseId: string, updates: Partial<PracticalExercise>) => {
-    setPracticalExercises(prev => prev.map(ex => {
-      if (ex.id !== exerciseId) return ex;
-      const updated = { ...ex, ...updates };
-      authFetch('/api/exercises', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      }).catch(err => console.error(err));
-      return updated;
-    }));
-  };
-
-  const deletePracticalExercise = (exerciseId: string) => {
-    setPracticalExercises(prev => prev.filter(ex => ex.id !== exerciseId));
-    setExerciseSubmissions(prev => prev.filter(sub => sub.exerciseId !== exerciseId));
-    authFetch(`/api/exercises/${exerciseId}`, { method: 'DELETE' }).catch(err => console.error(err));
-  };
-
-  // Sempre ação do próprio aluno — identidade sai do token; o estado otimista usa activeUser.
-  const submitExercise = (exerciseId: string, submissionText: string, fileUrl?: string, fileName?: string) => {
-    const existingIndex = exerciseSubmissions.findIndex(sub => sub.exerciseId === exerciseId && sub.userId === activeUser.id);
-
-    const newSub: ExerciseSubmission = {
-      id: existingIndex >= 0 ? exerciseSubmissions[existingIndex].id : `sub-${Date.now()}`,
-      exerciseId,
-      userId: activeUser.id,
-      studentName: activeUser.name,
-      submissionText,
-      fileUrl,
-      fileName,
-      submittedAt: new Date().toLocaleString('pt-BR'),
-      status: 'pending'
-    };
-
-    if (existingIndex >= 0) {
-      setExerciseSubmissions(prev => prev.map(sub => sub.id === newSub.id ? newSub : sub));
-    } else {
-      setExerciseSubmissions(prev => [...prev, newSub]);
-    }
-    const { userId: _userId, studentName: _studentName, ...body } = newSub;
-    authFetch('/api/exercise-submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    }).catch(err => console.error(err));
-  };
-
-  const gradeSubmission = (submissionId: string, score: number, feedback: string, graderName: string, status: 'approved' | 'rejected' | 'revision') => {
-    setExerciseSubmissions(prev => prev.map(sub => {
-      if (sub.id === submissionId) {
-        const updated = {
-          ...sub,
-          score,
-          feedback,
-          status,
-          gradedAt: new Date().toLocaleString('pt-BR'),
-          gradedBy: graderName
-        };
-        authFetch('/api/exercise-submissions', {
-          method: 'POST',
+  /**
+   * Fala com a API e só depois mexe no estado local.
+   *
+   * O padrão anterior era o inverso — estado otimista primeiro, `.catch()`
+   * depois — e `.catch()` não dispara em 4xx. Com a flag desligada TODA chamada
+   * daqui voltava 404 e nada disso aparecia: exercício, entrega e nota viviam
+   * apenas no localStorage de quem clicou.
+   */
+  /**
+   * Escrita autenticada que DEVOLVE o desfecho em vez de engoli-lo.
+   *
+   * O padrão antigo (`authFetch(...).catch(console.error)`) não fecha o buraco:
+   * `.catch` só dispara em falha de rede, então 403/404/422 seguiam silenciosos
+   * enquanto o estado otimista já tinha mudado a tela. Quem chama aqui tem de
+   * decidir o que fazer com `ok: false`.
+   *
+   * `rotulo404` existe porque nas rotas atrás de feature flag um 404 quer dizer
+   * "recurso desligado nesta instalação", não "não existe".
+   */
+  const escreveApi = async (
+    url: string,
+    method: 'POST' | 'PUT' | 'DELETE',
+    body?: unknown,
+    rotulo404 = 'Recurso indisponível nesta instalação.'
+    // Forma única em vez de união discriminada: este tsconfig não liga
+    // `strictNullChecks`, e sem ele o TypeScript não estreita `{ok:true}|{ok:false}`.
+  ): Promise<{ ok: boolean; data?: unknown; error?: string }> => {
+    try {
+      const res = await authFetch(url, {
+        method,
+        ...(body === undefined ? {} : {
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updated)
-        }).catch(err => console.error(err));
-        return updated;
+          body: JSON.stringify(body),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const padrao = res.status === 404 ? rotulo404 : 'O servidor recusou a operação.';
+        return { ok: false, error: data.message || padrao };
       }
-      return sub;
-    }));
+      return { ok: true, data: await res.json().catch(() => null) };
+    } catch (err) {
+      console.error(`Erro em ${method} ${url}:`, err);
+      return { ok: false, error: 'Servidor indisponível. Tente novamente em instantes.' };
+    }
+  };
+
+  const escreveExercicio = (
+    url: string,
+    method: 'POST' | 'PUT' | 'DELETE',
+    body?: unknown
+  ) => escreveApi(url, method, body, 'Recurso de exercícios práticos indisponível nesta instalação.');
+
+  const addPracticalExercise = async (
+    courseId: string,
+    title: string,
+    description: string,
+    instructions: string,
+    maxPoints: number,
+    dueDate?: string
+  ): Promise<ExerciseResult> => {
+    const novo: PracticalExercise = {
+      id: `exercise-${Date.now()}`, courseId, title, description, instructions, maxPoints, dueDate,
+    };
+    const res = await escreveExercicio('/api/exercises', 'POST', novo);
+    if (!res.ok) return { ok: false, error: res.error };
+
+    // O servidor é a autoridade sobre o registro gravado (id, normalizações).
+    const criado = (res.data as PracticalExercise | null) ?? novo;
+    setPracticalExercises((prev) => [...prev, criado]);
+    return { ok: true };
+  };
+
+  const updatePracticalExercise = async (
+    exerciseId: string,
+    updates: Partial<PracticalExercise>
+  ): Promise<ExerciseResult> => {
+    const atual = practicalExercises.find((ex) => ex.id === exerciseId);
+    if (!atual) return { ok: false, error: 'Exercício não encontrado.' };
+
+    // PUT /exercises/{id}. Antes ia um POST na rota de criação — com id repetido,
+    // o servidor tratava como criação e a edição não acontecia.
+    const res = await escreveExercicio(`/api/exercises/${exerciseId}`, 'PUT', { ...atual, ...updates });
+    if (!res.ok) return { ok: false, error: res.error };
+
+    const salvo = (res.data as PracticalExercise | null) ?? { ...atual, ...updates };
+    setPracticalExercises((prev) => prev.map((ex) => (ex.id === exerciseId ? salvo : ex)));
+    return { ok: true };
+  };
+
+  const deletePracticalExercise = async (exerciseId: string): Promise<ExerciseResult> => {
+    const res = await escreveExercicio(`/api/exercises/${exerciseId}`, 'DELETE');
+    if (!res.ok) return { ok: false, error: res.error };
+
+    setPracticalExercises((prev) => prev.filter((ex) => ex.id !== exerciseId));
+    setExerciseSubmissions((prev) => prev.filter((sub) => sub.exerciseId !== exerciseId));
+    return { ok: true };
+  };
+
+  /** Sempre ação do próprio aluno — a identidade sai do token, não do corpo. */
+  const submitExercise = async (
+    exerciseId: string,
+    submissionText: string,
+    fileUrl?: string,
+    fileName?: string
+  ): Promise<ExerciseResult> => {
+    const res = await escreveExercicio('/api/exercise-submissions', 'POST', {
+      exerciseId, submissionText, fileUrl, fileName,
+    });
+    if (!res.ok) return { ok: false, error: res.error };
+
+    // `submittedAt` e `status` vêm do servidor: data de entrega é registro
+    // acadêmico e não pode ser o relógio do navegador do aluno.
+    const salva = res.data as ExerciseSubmission | null;
+    if (salva) {
+      setExerciseSubmissions((prev) => {
+        const i = prev.findIndex((sub) => sub.id === salva.id
+          || (sub.exerciseId === salva.exerciseId && sub.userId === salva.userId));
+        if (i < 0) return [...prev, salva];
+        return prev.map((sub, idx) => (idx === i ? salva : sub));
+      });
+    }
+    return { ok: true };
+  };
+
+  const gradeSubmission = async (
+    submissionId: string,
+    score: number,
+    feedback: string,
+    status: 'approved' | 'rejected' | 'revision'
+  ): Promise<ExerciseResult> => {
+    // PUT /exercise-submissions/{id}/grade. Antes ia um POST em
+    // /exercise-submissions, que é a rota de ENTREGA e só aceita role:student —
+    // lançar nota respondia 403 e a nota nunca saía do navegador do professor.
+    const res = await escreveExercicio(`/api/exercise-submissions/${submissionId}/grade`, 'PUT', {
+      score, feedback, status,
+    });
+    if (!res.ok) return { ok: false, error: res.error };
+
+    const salva = res.data as ExerciseSubmission | null;
+    if (salva) {
+      setExerciseSubmissions((prev) => prev.map((sub) => (sub.id === submissionId ? salva : sub)));
+    }
+    return { ok: true };
   };
 
   return (
@@ -2189,6 +2757,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         registerUser,
         logoutAuth,
         changePassword,
+        adminResetPassword,
         progress,
         certificates,
         chatMessages,
@@ -2212,6 +2781,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCourseProps,
         addLessonToCourse,
         updateLesson,
+        uploadArquivo,
         deleteLesson,
         addLiveSessionToCourse,
         removeLiveSession,
@@ -2219,6 +2789,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setLiveSessionStatus,
         sendDirectMessage,
         addQuiz,
+        updateQuiz,
         deleteQuiz,
         submitQuiz,
         addProfessor,
@@ -2231,6 +2802,7 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateAccessibilitySettings,
         addLibraryItem,
         addWebinarEvent,
+        deleteWebinarEvent,
         isSpeechEnabled,
         setIsSpeechEnabled,
         currentLang,
@@ -2252,6 +2824,12 @@ export const LMSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         dropStudentFromCourse,
         completeStudentCourse,
         clearStudentPenalty,
+        setStudentMultiEnrollPermission,
+        sitePageContent,
+        sitePageSchema,
+        updateSitePageContent,
+        getDocumentTemplate,
+        updateDocumentTemplate,
         forumMessages,
         addForumMessage,
         toggleForumMessageLike,

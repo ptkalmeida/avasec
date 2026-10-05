@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use Carbon\CarbonImmutable;
+use App\Support\Fuso;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -27,7 +27,8 @@ final class AuditLogger
         ?array $actorOverride = null,
     ): void {
         $actor = $actorOverride ?? $this->actorFromRequest($request);
-        $now = CarbonImmutable::now();
+        // Fuso de exibição: o log é lido por pessoa, e em UTC marcava 3h adiante.
+        $now = Fuso::agora();
 
         try {
             DB::table('SecurityLog')->insert([
@@ -63,11 +64,9 @@ final class AuditLogger
 
     private function clientIp(Request $request): string
     {
-        $forwarded = $request->header('X-Forwarded-For');
-        if (is_string($forwarded) && $forwarded !== '') {
-            return trim(explode(',', $forwarded)[0]);
-        }
-
+        // $request->ip() já resolve o X-Forwarded-For, mas SÓ quando vem de um proxy
+        // confiável (TrustProxies em bootstrap/app.php). Ler o header cru permitiria a
+        // qualquer cliente forjar o IP registrado na auditoria (X-Forwarded-For: 8.8.8.8).
         return $request->ip() ?? 'desconhecido';
     }
 }

@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\Course;
 use App\Models\User;
-use App\Support\Identity;
+use App\Support\Cep;
+use App\Support\Cpf;
+use App\Support\Fuso;
+use App\Support\InstructorScope;
 use App\Support\Jwt;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +33,7 @@ final class AuthService
     private const BCRYPT_COST = 10;
 
     /**
-     * @param  array{name:string,email:string,password:string,role?:string|null,cpf?:string|null,municipio?:string|null,uf?:string|null,areaInteresse?:string|null,dataCadastro?:string|null}  $input
+     * @param  array{name:string,email:string,password:string,role?:string|null,cpf?:string|null,municipio?:string|null,uf?:string|null,areaInteresse?:string|null,dataCadastro?:string|null,celular?:string|null,cep?:string|null,endereco?:string|null,nomeSocial?:string|null,identidade?:string|null}  $input
      * @param  array{sub:string,name:string,role:string}|null  $requester
      * @return array{token: string|null, user: PublicUser}
      */
@@ -48,6 +50,15 @@ final class AuthService
             throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este e-mail.');
         }
 
+        // CPF é o identificador de login do aluno (ADR 11) — guardado só em
+        // dígitos, e conflito precisa ser 409 explícito e não erro de índice.
+        $cpf = isset($input['cpf']) && $input['cpf'] !== ''
+            ? Cpf::normalize($input['cpf'])
+            : null;
+        if ($cpf !== null && User::query()->where('cpf', $cpf)->exists()) {
+            throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este CPF.');
+        }
+
         $role = 'student';
         if ($isAdminProvisioning && in_array($requestedRole, ['student', 'instructor', 'admin'], true)) {
             $role = $requestedRole;
@@ -61,11 +72,19 @@ final class AuthService
         $user->passwordHash = $this->hash($input['password']);
         $user->role = $role;
         $user->status = $status;
-        $user->cpf = $input['cpf'] ?? null;
+        $user->cpf = $cpf;
         $user->municipio = $input['municipio'] ?? null;
         $user->uf = $input['uf'] ?? null;
         $user->areaInteresse = $input['areaInteresse'] ?? null;
-        $user->dataCadastro = $input['dataCadastro'] ?? CarbonImmutable::now()->format('Y-m-d');
+        // Data local: cadastro às 22h BRT registrava o dia seguinte em UTC.
+        $user->dataCadastro = $input['dataCadastro'] ?? Fuso::agora()->format('Y-m-d');
+        $user->celular = $input['celular'] ?? null;
+        $user->cep = isset($input['cep']) && $input['cep'] !== ''
+            ? Cep::normalize($input['cep'])
+            : null;
+        $user->endereco = $input['endereco'] ?? null;
+        $user->nomeSocial = $input['nomeSocial'] ?? null;
+        $user->identidade = $input['identidade'] ?? null;
         $user->failedLoginAttempts = 0;
         $user->lockedUntil = null;
         $user->save();
@@ -80,14 +99,39 @@ final class AuthService
     }
 
     /**
-     * @param  array{name?:string|null,email?:string|null,password:string}  $input
+     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string,role?:string|null}  $input
      * @return array{token: string, user: PublicUser}
      */
     public function login(array $input): array
     {
-        $user = ! empty($input['email'])
-            ? User::query()->where('email', $input['email'])->first()
-            : User::query()->where('name', $input['name'] ?? '')->first();
+        $papel = $input['role'] ?? null;
+
+        // Três identificadores possíveis (ADR 11): CPF é o do aluno; e-mail é o
+        // de admin/gestor; `name` permanece para as contas demo internas.
+        // A busca por CPF normaliza antes, para casar com o que está gravado.
+        if (! empty($input['cpf'])) {
+            $user = User::query()->where('cpf', Cpf::normalize($input['cpf']))->first();
+        } elseif (! empty($input['email'])) {
+            $user = User::query()->where('email', $input['email'])->first();
+        } else {
+            /*
+             * Nome não é único: um aluno e um gestor podem ter o mesmo. Sem o
+             * papel, `first()` pegava qualquer um dos dois — e o cartão de
+             * Gestão chegou a autenticar um aluno. Com o papel, a busca já
+             * começa restrita a ele.
+             */
+            $porNome = User::query()->where('name', $input['name'] ?? '');
+            if ($papel !== null) {
+                $porNome->where('role', $papel);
+            }
+            $user = $porNome->first();
+        }
+
+        // Conta de outro papel que o pedido é tratada como inexistente: mesma
+        // mensagem genérica, sem contar tentativa contra a conta de outra pessoa.
+        if ($user !== null && $papel !== null && $user->role !== $papel) {
+            $user = null;
+        }
 
         // Mensagem genérica sempre — nunca revela se o identificador existe.
         if ($user === null) {
@@ -147,21 +191,43 @@ final class AuthService
         return $this->toPublicUser($user);
     }
 
-    public function changePassword(string $userId, string $newPassword, ?string $currentPassword): void
+    public function changePassword(string $userId, string $newPassword, string $currentPassword): void
     {
         $user = User::query()->find($userId);
         if ($user === null) {
             throw ApiException::notFound('Usuário não encontrado.');
         }
 
-        if ($currentPassword !== null && $currentPassword !== '') {
-            if (! password_verify($currentPassword, $user->passwordHash)) {
-                throw ApiException::unauthorized('Senha atual incorreta.');
-            }
+        // A senha atual é SEMPRE verificada (autosserviço). Reset sem a senha atual,
+        // se necessário, deve ser um fluxo administrativo separado e auditado.
+        if (! password_verify($currentPassword, $user->passwordHash)) {
+            throw ApiException::unauthorized('Senha atual incorreta.');
         }
 
         $user->passwordHash = $this->hash($newPassword);
         $user->save();
+    }
+
+    /**
+     * Redefinição administrativa: troca a senha SEM a senha atual, porque quem faz não
+     * a conhece. É o "fluxo administrativo separado e auditado" citado acima, que até
+     * agora não existia — a interface de admin oferecia "Redefinir Senha" e só mexia em
+     * estado local, então a coordenação acreditava ter revogado um acesso que continuava
+     * valendo. Restrita a admin na rota; a auditoria fica no controller.
+     *
+     * @return array<string, mixed> usuário público (nunca o hash)
+     */
+    public function adminResetPassword(string $userId, string $newPassword): array
+    {
+        $user = User::query()->find($userId);
+        if ($user === null) {
+            throw ApiException::notFound('Usuário não encontrado.');
+        }
+
+        $user->passwordHash = $this->hash($newPassword);
+        $user->save();
+
+        return $this->toPublicUser($user);
     }
 
     /**
@@ -190,24 +256,9 @@ final class AuthService
     public function listStudentsForInstructor(string $instructorSub, string $instructorName, int $skip, int $take): array
     {
         $requester = ['sub' => $instructorSub, 'name' => $instructorName, 'role' => 'instructor'];
-        $courseIds = Identity::applyOwnRows(Course::query(), $requester, 'instructorId')
-            ->pluck('id')
-            ->all();
 
-        if (count($courseIds) === 0) {
-            return ['items' => [], 'total' => 0];
-        }
-
-        // Vínculo por FK apenas (ADR 10) — userId é NOT NULL nas duas tabelas.
-        $admissions = DB::table('AdmissionRequest')
-            ->whereIn('courseId', $courseIds)
-            ->where('status', 'approved')
-            ->pluck('userId');
-        $enrollments = DB::table('StudentEnrollment')
-            ->whereIn('enrolledCourseId', $courseIds)
-            ->pluck('userId');
-
-        $studentIds = $admissions->concat($enrollments)->filter()->unique()->values()->all();
+        // Vínculo por FK apenas (ADR 10). Fonte única do escopo: InstructorScope.
+        $studentIds = InstructorScope::studentIds($requester);
         if (count($studentIds) === 0) {
             return ['items' => [], 'total' => 0];
         }
@@ -237,9 +288,32 @@ final class AuthService
         return $this->toPublicUser($user);
     }
 
-    public function deleteUser(string $userId): void
+    /**
+     * Inativa a conta preservando o histórico acadêmico inteiro (ADR 12).
+     *
+     * Isto era `User::query()->where('id', $userId)->delete()`, e as chaves
+     * estrangeiras estão em ON DELETE CASCADE: apagar UMA pessoa destruía as
+     * notas de avaliação (`QuizSubmission`), os trabalhos entregues e corrigidos
+     * (`ExerciseSubmission`), o progresso e as presenças (`StudentProgress`), a
+     * matrícula, os requerimentos e o histórico de atendimento — e o certificado
+     * sobrevivia apontando para ninguém (`Certificate.userId` é SET NULL).
+     *
+     * A pessoa sai do ar; o que ela cursou continua reconstituível.
+     *
+     * @param  array{sub:string,name:string,role:string}|null  $requester
+     */
+    public function deleteUser(string $userId, ?array $requester = null, ?string $motivo = null): void
     {
-        User::query()->where('id', $userId)->delete();
+        $user = User::query()->find($userId);
+        if ($user === null) {
+            return;
+        }
+
+        // Bloquear a conta junto: `inativadoEm` tira das listagens, e o `status`
+        // é o que o middleware de autenticação consulta para recusar o login.
+        $user->status = 'blocked';
+        $user->saveQuietly();
+        $user->inativar($requester['sub'] ?? null, $motivo);
     }
 
     /**

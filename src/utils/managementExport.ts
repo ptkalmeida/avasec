@@ -99,7 +99,20 @@ export function buildMatriculas(enrollments: any[], progress: any[], certificate
   return rows;
 }
 
-export function buildProgressoModulo(progress: any[], catalog: any[]) {
+/**
+ * Progresso por AULA.
+ *
+ * Chamava-se "progresso por módulo" e as colunas eram `id_modulo`,
+ * `titulo_modulo`, `status_modulo` — mas o laço sempre percorreu
+ * `course.lessons`: os dados eram de aula, só o rótulo dizia módulo. Módulo não
+ * existe no banco (não há coluna em `Lesson` nem tabela `Module`), então o nome
+ * antigo descrevia um agrupamento que ninguém cadastrou.
+ *
+ * Os cabeçalhos do CSV mudaram junto com o nome. É mudança visível para quem já
+ * baixou a planilha antes — e a alternativa era manter `titulo_modulo` com
+ * título de aula dentro, que é o problema, não a solução.
+ */
+export function buildProgressoAula(progress: any[], catalog: any[]) {
   const rows: any[] = [];
   for (const p of progress) {
     const course = catalog.find((c) => c.id === p.courseId);
@@ -111,9 +124,9 @@ export function buildProgressoModulo(progress: any[], catalog: any[]) {
         id_matricula: p.enrollmentId ?? '',
         id_aluno: p.userId,
         id_curso: p.courseId,
-        id_modulo: lesson.id,
-        titulo_modulo: lesson.title,
-        status_modulo: completed.includes(lesson.id) ? 'Concluído' : 'Não Iniciado',
+        id_aula: lesson.id,
+        titulo_aula: lesson.title,
+        status_aula: completed.includes(lesson.id) ? 'Concluído' : 'Não Iniciado',
       });
     }
   }
@@ -190,7 +203,7 @@ async function buildBase(base: ManagementBase): Promise<any[]> {
     }
     case 'progresso': {
       const [progress, catalog] = await Promise.all([fetchDataset('progress'), fetchCourseCatalog()]);
-      return buildProgressoModulo(progress, catalog);
+      return buildProgressoAula(progress, catalog);
     }
     case 'certificados': {
       const [certificates, catalog] = await Promise.all([fetchDataset('certificates'), fetchCourseCatalog()]);

@@ -121,25 +121,31 @@ em todos os outros ambientes, e o AVASEC era a única exceção em Node.
 Após validação completa (55 testes PHPUnit + smoke test de todos os módulos via
 proxy + **teste no navegador headless**: landing page, login admin com PIN e
 dashboard administrativo carregando dados reais servidos pelo Laravel), o backend
-Node foi **arquivado em `legacy-node/`** (não deletado — decisão do time):
+Node foi primeiro arquivado em `legacy-node/` e, depois, **removido de vez**:
 
-- `server.ts`, `src/server/`, `prisma/`, testes do backend e
-  `vitest.backend.config.ts` movidos para `legacy-node/` (ver
-  `legacy-node/README.md` para o inventário e o passo a passo de rollback).
-- `npm run dev` agora sobe o Vite standalone (proxy `/api`/`/uploads` → Laravel);
+- `npm run dev` sobe o Vite standalone (proxy `/api`/`/uploads` → Laravel);
   `npm run api` sobe o Laravel; `npm run test:api` roda o PHPUnit;
   `npm run db:migrate` roda as migrations do Laravel. Scripts do Prisma removidos.
 - `npm run build` gera apenas o `dist/` do frontend (o servidor de produção é o
   PHP-FPM/Nginx — ver `DEPLOY_LARAVEL.md`).
-- As dependências npm do backend (express, prisma, etc.) foram mantidas no
-  `package.json` para o rollback ser trivial; removê-las é limpeza futura.
 
-## Rollback
+## Descarte do Node (rollback encerrado)
 
-O rollback pós-corte é "mover de volta": os passos exatos estão em
-`legacy-node/README.md`. Nenhum arquivo do Node foi deletado e nenhum dado do banco
-foi alterado pelo corte (a baseline de migrations foi apenas *registrada* como
-aplicada — para desfazê-la, `DROP TABLE migrations` no banco `avasec`).
+Em 26/08/2026, por decisão do time, a rota de rollback foi **descartada**: não há
+intenção de voltar ao Node. Foram removidos:
+
+- `legacy-node/` (82 arquivos: `server.ts`, `src/server/`, `prisma/` e a suíte
+  Vitest do backend).
+- `deploy/` (PM2 + Nginx apontando para a porta 3000 — o deploy atual é
+  Nginx + PHP-FPM + systemd, ver `DEPLOY_LARAVEL.md` e ADR 07).
+- As dependências npm do backend Node: `express`, `@prisma/client`, `prisma`,
+  `bcryptjs`, `jsonwebtoken`, `cookie-parser`, `cors`, `helmet`,
+  `express-rate-limit`, `multer`, `file-type`, `dotenv`, `zod`, `supertest`,
+  `tsx`, `http-proxy-middleware`, `autoprefixer`, `esbuild` e os `@types`
+  correspondentes.
+
+Tudo permanece recuperável pelo histórico do git (os arquivos eram rastreados).
+Nenhum dado do banco foi alterado.
 
 ## Pendências conhecidas (não migradas, de baixo risco)
 

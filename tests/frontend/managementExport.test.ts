@@ -3,7 +3,7 @@ import {
   buildAlunos,
   buildCursos,
   buildMatriculas,
-  buildProgressoModulo,
+  buildProgressoAula,
   buildCertificados,
 } from '../../src/utils/managementExport';
 
@@ -74,16 +74,16 @@ describe('managementExport — conversão de payloads do backend para a base de 
     expect(rows[2]).toMatchObject({ id_curso: 'c3', status_matricula: 'Concluída', certificado_liberado: 'Não' });
   });
 
-  it('buildProgressoModulo ignora progresso de cursos que não estão mais no catálogo', () => {
-    const rows = buildProgressoModulo(
+  it('buildProgressoAula ignora progresso de cursos que não estão mais no catálogo', () => {
+    const rows = buildProgressoAula(
       [{ id: 'p1', userId: 'u1', courseId: 'curso-removido', completedLessons: [] }],
       [{ id: 'c1', lessons: [{ id: 'l1', title: 'Aula 1' }] }],
     );
     expect(rows).toEqual([]);
   });
 
-  it('buildProgressoModulo marca cada aula como Concluído/Não Iniciado', () => {
-    const rows = buildProgressoModulo(
+  it('buildProgressoAula marca cada aula como Concluído/Não Iniciado', () => {
+    const rows = buildProgressoAula(
       [{ id: 'p1', userId: 'u1', courseId: 'c1', completedLessons: ['l1'] }],
       [
         {
@@ -95,7 +95,7 @@ describe('managementExport — conversão de payloads do backend para a base de 
         },
       ],
     );
-    expect(rows.map((r) => r.status_modulo)).toEqual(['Concluído', 'Não Iniciado']);
+    expect(rows.map((r) => r.status_aula)).toEqual(['Concluído', 'Não Iniciado']);
   });
 
   it('buildCertificados usa a carga horária do curso correspondente no catálogo', () => {

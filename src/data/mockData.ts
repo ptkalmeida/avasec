@@ -4,6 +4,20 @@
  */
 
 import { Course } from '../types';
+/**
+ * Data ISO local a N dias de hoje, na hora indicada — para as sessões ao vivo do
+ * fallback offline. Datas fixas no código nasceriam vencidas e a agenda dos próximos
+ * 30 dias apareceria vazia sempre que a API estivesse fora.
+ */
+const emDias = (dias: number, hora: number, minuto = 0): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + dias);
+  d.setHours(hora, minuto, 0, 0);
+  const p = (n: number) => String(n).padStart(2, '0');
+
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
 
 // Ids dos usuários mock do fallback offline (ADR 10). São só placeholders locais:
 // assim que a hidratação da API responde, os dados reais (keyed por id do banco)
@@ -130,7 +144,7 @@ Um design nunca está 100% pronto até que passe pelo teste empírico de um usu�
         id: 'live-1-1',
         courseId: 'course-1',
         title: 'Abertura do Curso: Mentoria de Wireframes de Alta Fidelidade',
-        scheduledAt: 'Hoje, às 19:30',
+        scheduledAt: emDias(0, 19, 30),
         durationMinutes: 60,
         meetingLink: 'https://meet.google.com/abc-defg-hij',
         isLive: true
@@ -139,7 +153,7 @@ Um design nunca está 100% pronto até que passe pelo teste empírico de um usu�
         id: 'live-1-2',
         courseId: 'course-1',
         title: 'Feedback de Projetos Finais e Portfólio de UX',
-        scheduledAt: 'Amanhã, às 18:00',
+        scheduledAt: emDias(1, 18, 0),
         durationMinutes: 90,
         meetingLink: 'https://meet.google.com/xyz-wdsa-qwe',
         isLive: false
@@ -223,7 +237,7 @@ O coração de qualquer AVA é o armazenamento persistente de dados. Vamos anali
         id: 'live-2-1',
         courseId: 'course-2',
         title: 'Live Class: Desenvolvendo uma API Completa e Conexão de Banco de Dados',
-        scheduledAt: 'Hoje, às 16:30',
+        scheduledAt: emDias(0, 16, 30),
         durationMinutes: 90,
         meetingLink: 'https://meet.google.com/pqr-stuv-wxy',
         isLive: true
@@ -232,7 +246,7 @@ O coração de qualquer AVA é o armazenamento persistente de dados. Vamos anali
         id: 'live-2-2',
         courseId: 'course-2',
         title: 'Implantando Serviços Web com Docker',
-        scheduledAt: 'Próxima Segunda, às 20:00',
+        scheduledAt: emDias(7, 20, 0),
         durationMinutes: 60,
         meetingLink: 'https://meet.google.com/mno-abcd-efg',
         isLive: false
@@ -292,7 +306,7 @@ Kanban não é apenas colar post-its na parede! É sobre gerenciar um fluxo cont
         id: 'live-3-1',
         courseId: 'course-3',
         title: 'Simulação de Sprint Game e Dinâmicas em Equipe',
-        scheduledAt: 'Hoje, às 14:00',
+        scheduledAt: emDias(0, 14, 0),
         durationMinutes: 120,
         meetingLink: 'https://meet.google.com/klm-nopq-rst',
         isLive: false

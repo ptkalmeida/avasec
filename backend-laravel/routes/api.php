@@ -6,6 +6,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CertificateController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\EnrollmentController;
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\HealthController;
@@ -14,6 +15,7 @@ use App\Http\Controllers\LibraryController;
 use App\Http\Controllers\MessagingController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\SitePageContentController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\WebinarController;
 use Illuminate\Support\Facades\Route;
@@ -35,13 +37,21 @@ Route::prefix('auth')->group(function (): void {
     Route::put('/password', [AuthController::class, 'changePassword'])
         ->middleware(['throttle:auth-password', 'jwt']);
 
+    // Aluno nunca lista usuários (vazava e-mails de todos, inclusive admins). Instrutor
+    // fica restrito aos próprios alunos no controller; admin é irrestrito.
     Route::get('/users', [AuthController::class, 'listUsers'])
-        ->middleware(['jwt', 'active']);
+        ->middleware(['jwt', 'active', 'role:instructor,admin']);
     Route::put('/users/{id}/status', [AuthController::class, 'updateStatus'])
         ->middleware(['jwt', 'active', 'role:admin']);
     // Rename seguro (ADR 10): self ou admin — identidade é o id, o nome é display.
     Route::put('/users/{id}/name', [AuthController::class, 'renameUser'])
         ->middleware(['jwt', 'active']);
+    // Redefinição administrativa: sem a senha atual (o admin não a conhece), por isso
+    // restrita a admin e auditada. A tela de gestão oferecia esta ação desde sempre,
+    // mas sem endpoint: só alterava estado local, dando à coordenação a impressão
+    // falsa de ter revogado um acesso.
+    Route::put('/users/{id}/password', [AuthController::class, 'adminResetPassword'])
+        ->middleware(['throttle:auth-password', 'jwt', 'active', 'role:admin']);
     Route::delete('/users/{id}', [AuthController::class, 'removeUser'])
         ->middleware(['jwt', 'active', 'role:admin']);
 });
@@ -59,12 +69,27 @@ Route::middleware('feature:eventosWebinars')->group(function (): void {
     Route::get('/webinars', [WebinarController::class, 'index']);
     Route::post('/webinars', [WebinarController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
+    // Exclusao existe para a area de gestao de webinars poder desmarcar um evento;
+    // antes so havia criar e listar, e um webinar agendado por engano ficava na
+    // agenda publica para sempre.
+    Route::delete('/webinars/{id}', [WebinarController::class, 'destroy'])
+        ->middleware(['jwt', 'active', 'role:instructor,admin']);
 });
 
 // Etapa 3 (núcleo de negócio) — Cursos. Espelha src/server/routes/courseRoutes.ts:
 // catálogo GET público; mutações restritas a instrutor/admin (ownership no service).
 Route::middleware('feature:catalogoCursos')->group(function (): void {
-    Route::get('/courses', [CourseController::class, 'index']);
+    // Catálogo público (escopo declarado), mas com `jwt.optional`: se houver sessão,
+    // o material de estudo das aulas do próprio aluno/instrutor vem junto; sem sessão,
+    // só a vitrine. Antes desta linha o curso inteiro — texto das aulas, videoUrl,
+    // documentos e link do Meet — saía para qualquer visitante.
+    Route::get('/courses', [CourseController::class, 'index'])
+        ->middleware('jwt.optional');
+    // ANTES de qualquer rota com parâmetro: 'resolve' é segmento literal e não
+    // pode ser confundido com um slug de curso.
+    Route::get('/courses/resolve/{valor}', [CourseController::class, 'resolve'])
+        ->middleware('jwt.optional')
+        ->where('valor', '[A-Za-z0-9_-]+');
     Route::post('/courses', [CourseController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
     Route::put('/courses/{id}', [CourseController::class, 'update'])
@@ -129,7 +154,10 @@ Route::middleware(['feature:uploadArquivos', 'jwt', 'active'])->group(function (
 
 // Quizzes e submissões (flag quizSimples).
 Route::middleware('feature:quizSimples')->group(function (): void {
-    Route::get('/quizzes', [LearningController::class, 'listQuizzes']);
+    // Exige autenticação: o gabarito (correctOptionIndex) não pode ser raspado
+    // anonimamente. Alunos matriculados ainda recebem o gabarito para o fluxo de
+    // feedback imediato do quiz — a nota é validada no servidor (submitQuiz).
+    Route::get('/quizzes', [LearningController::class, 'listQuizzes'])->middleware(['jwt', 'active']);
     Route::post('/quizzes', [LearningController::class, 'createQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
     Route::delete('/quizzes/{id}', [LearningController::class, 'deleteQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
 
@@ -180,6 +208,25 @@ Route::middleware('feature:solicitacoesAcademicas')->group(function (): void {
 Route::get('/system-settings', [SettingsController::class, 'show']);
 Route::put('/system-settings', [SettingsController::class, 'update'])->middleware(['jwt', 'active', 'role:admin']);
 
+// Templates de documentos (certificado, histórico) — leitura autenticada (o aluno
+// precisa ver os mesmos dados institucionais/assinaturas na prévia do próprio
+// certificado); edição só Admin Superior (sem feature flag: ferramenta administrativa).
+Route::prefix('document-templates')->middleware(['jwt', 'active'])->group(function (): void {
+    Route::get('/{type}', [DocumentTemplateController::class, 'show']);
+    Route::put('/{type}', [DocumentTemplateController::class, 'update'])->middleware('role:admin');
+    Route::get('/{type}/preview', [DocumentTemplateController::class, 'preview'])->middleware('role:admin');
+});
+
+// Conteúdo das páginas públicas do portal. GET é público sem autenticação: o
+// visitante anônimo monta o site com isso (mesma forma de /system-settings).
+// PUT é só Admin Superior — o service repete a checagem de papel.
+Route::prefix('site-content')->middleware('feature:gestaoConteudoSite')->group(function (): void {
+    Route::get('/', [SitePageContentController::class, 'index']);
+    Route::get('/{pageKey}', [SitePageContentController::class, 'show']);
+    Route::put('/{pageKey}', [SitePageContentController::class, 'update'])
+        ->middleware(['jwt', 'active', 'role:admin']);
+});
+
 // Auditoria (SecurityLog) — só leitura/limpeza por admin; nunca há POST (gravação é server-side).
 Route::prefix('security-logs')->middleware(['jwt', 'active', 'role:admin'])->group(function (): void {
     Route::get('/', [AuditController::class, 'listSecurityLogs']);
@@ -187,7 +234,10 @@ Route::prefix('security-logs')->middleware(['jwt', 'active', 'role:admin'])->gro
 });
 
 // Telemetria (ClientEvent) — POST aceita anônimo (identidade vem do token se houver); GET só admin.
-Route::post('/telemetry', [AuditController::class, 'recordClientEvent'])->middleware('jwt.optional');
+// Rota pública que ESCREVE no banco (ClientEvent): precisa de limite, senão qualquer
+// anônimo enfileira linhas com texto próprio até encher a tabela.
+Route::post('/telemetry', [AuditController::class, 'recordClientEvent'])
+    ->middleware(['throttle:telemetry', 'jwt.optional']);
 Route::get('/telemetry', [AuditController::class, 'listClientEvents'])->middleware(['jwt', 'active', 'role:admin']);
 
 // Exportação de Dados Gerenciais (flag dadosGerenciais) — só admin, com rate limit e auditoria.

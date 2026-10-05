@@ -3,13 +3,19 @@
  * SPDX-License-Identifier: Apache-2.5
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useLMS } from '../context/LMSContext';
+import { AbaAdmin, SubAbaRelatorio, caminhoAdmin, parseAdmin } from '../router/adminRoutes';
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
-import { downloadSubmissionFile } from '../utils/fileDownload';
+import { downloadSubmissionFile, previewDocumentTemplatePdf } from '../utils/fileDownload';
+import { DocumentoImprimivel } from './shared/AreaDeImpressao';
 import { courseMinAttendance } from '../config/constants';
-import { isCourseExpired, StudentEnrollment } from '../types';
-import { BackButton } from './BackButton';
+import { gruposVisiveisDoAdmin, itemDoAdmin, itensVisiveisDoAdmin } from '../config/menuAdmin';
+import { isCourseExpired, StudentEnrollment, DocumentTemplate } from '../types';
+import { SiteContentPanel } from './admin/SiteContentPanel';
+import { AnchoredMenu } from './shared/AnchoredMenu';
+import { SitePageKey } from '../types';
 import { 
   ShieldCheck, Users, User, BookOpen, Award, CheckSquare, Plus, ArrowLeft,
   Trash2, Lock, Settings, Activity, FileText, Search, Shield, Filter,
@@ -17,20 +23,30 @@ import {
   ArrowUpRight, ArrowDownRight, TrendingUp, Eye, EyeOff, Key,
   MoreVertical, Mail, AlertTriangle, UserCheck, RefreshCw, Unlock, 
   MessageSquare, CheckCircle2, XCircle, ExternalLink, ChevronDown, 
-  SlidersHorizontal, Sparkles, Clock, AlertCircle, HelpCircle, Database
+  SlidersHorizontal, Sparkles, Clock, AlertCircle, HelpCircle, Database, ArrowRight,
+  Menu
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, 
   PieChart, Pie, Cell, LineChart, Line, AreaChart, Area 
 } from 'recharts';
 import { features } from '../config/features';
+import { generateInitialPassword, passwordProblem, maskCpf, isValidCpf } from '../utils/cpf';
+import {
+  apenasLetras, apenasUf, apenasAreaInteresse,
+  problemaNoNome, problemaNoEmail, problemaNoMunicipio, problemaNaUf, problemaNaArea,
+} from '../utils/camposMatricula';
+import { parseDataBr } from '../utils/exerciseStatus';
+import { mediaDasVigentes, mediaDoAlunoNoCurso } from '../utils/quizAttempts';
 
 interface AdminDashboardProps {
   onBackToLanding?: () => void;
   speakText: (text: string) => void;
+  /** Abre uma página pública do portal (usado pela gestão de conteúdo do site). */
+  onPreviewPage?: (pageKey: SitePageKey) => void;
 }
 
-export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardProps) {
+export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: AdminDashboardProps) {
   const {
     courses,
     progress,
@@ -58,20 +74,131 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     updateSystemSettings,
     studentEnrollments,
     clearStudentPenalty,
+    setStudentMultiEnrollPermission,
+    getDocumentTemplate,
+    updateDocumentTemplate,
     practicalExercises,
     exerciseSubmissions,
     addPracticalExercise,
     updatePracticalExercise,
     deletePracticalExercise,
     gradeSubmission,
+    adminResetPassword,
   } = useLMS();
 
   // List of registered student accounts for master academic academic progress tracking
   const mockStudents = studentsList;
 
-  // Selected Section State: 'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi'
-  const [activeTab, setActiveTab] = useState<'analytics' | 'professors' | 'courses' | 'students' | 'requests' | 'settings' | 'exercicios' | 'export_bi'>('analytics');
+  /*
+   * NAVEGAÇÃO — derivada do ENDEREÇO, não guardada em `useState`.
+   *
+   * Dez seções na barra lateral, cinco sub-abas de relatório e a ficha de um
+   * aluno, tudo sob a mesma URL `/app`: quem precisava dizer "olha a ficha deste
+   * aluno" mandava um print da tela.
+   *
+   * As assinaturas de `setActiveTab`, `setActiveReportSubTab` e
+   * `setActiveStudentProfile` continuam idênticas — a árvore de render não sabe
+   * que agora aquilo empurra uma entrada no histórico.
+   */
+  const navigate = useNavigate();
+  const location = useLocation();
+  const destino = React.useMemo(
+    () => parseAdmin(location.pathname, location.search),
+    [location.pathname, location.search]
+  );
+
+  const irPara = (mudanca: Parameters<typeof caminhoAdmin>[0]): void => {
+    navigate(caminhoAdmin({ ...destino, ...mudanca }));
+  };
+
+  const activeTab: AbaAdmin = destino.aba;
+  const setActiveTab = (aba: AbaAdmin): void => {
+    // Trocar de seção limpa a ficha aberta: ela pertence à seção Alunos.
+    irPara({ aba, alunoId: null });
+    // E a lista de alunos aberta num curso pertence à seção Cursos: sem isto, o
+    // Voltar do topo seguia "fechando" uma lista que não estava mais na tela.
+    setExpandedCourseStudentsId(null);
+  };
   const [selectedBiBase, setSelectedBiBase] = useState<'alunos' | 'cursos' | 'matriculas' | 'progresso' | 'certificados'>('alunos');
+
+  // Área de gerenciamento de templates de documentos (certificado, histórico)
+  const [templateDocType, setTemplateDocType] = useState<DocumentTemplate['type']>('certificado');
+  const [templateDraft, setTemplateDraft] = useState<DocumentTemplate | null>(null);
+  /* Gaveta de secoes abaixo de 1024px — substitui o <select> que colapsava
+     a barra lateral inteira num campo. */
+  const [gavetaAberta, setGavetaAberta] = useState(false);
+
+  /*
+    Esc fecha a gaveta. Um `role="dialog"` com `aria-modal` que so fecha por
+    clique deixa quem navega por teclado presa dentro dela.
+  */
+  useEffect(() => {
+    if (!gavetaAberta) return undefined;
+
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setGavetaAberta(false);
+    };
+    window.addEventListener('keydown', aoTeclar);
+
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [gavetaAberta]);
+  const [templateLoading, setTemplateLoading] = useState(false);
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [templateSaved, setTemplateSaved] = useState(false);
+  const [templatePreviewLoading, setTemplatePreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeTab !== 'templates') return;
+    let cancelled = false;
+    setTemplateLoading(true);
+    setTemplateError(null);
+    getDocumentTemplate(templateDocType).then((res) => {
+      if (cancelled) return;
+      setTemplateLoading(false);
+      if (res.ok && res.template) {
+        setTemplateDraft(res.template);
+      } else {
+        setTemplateError(res.error || 'Não foi possível carregar o template.');
+      }
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, templateDocType]);
+
+  const handleSaveTemplate = async () => {
+    if (!templateDraft) return;
+    setTemplateSaving(true);
+    setTemplateError(null);
+    setTemplateSaved(false);
+    // `customHtml: null` limpa o HTML livre de um template que já o tenha
+    // gravado: sem isto, o backend seguiria usando a versão em HTML e a edição
+    // estruturada não teria efeito nenhum no PDF.
+    const payload = {
+      institutionName: templateDraft.institutionName,
+      signatories: templateDraft.signatories,
+      footerText: templateDraft.footerText,
+      customHtml: null,
+    };
+    const res = await updateDocumentTemplate(templateDocType, payload);
+    setTemplateSaving(false);
+    if (res.ok && res.template) {
+      setTemplateDraft(res.template);
+      setTemplateSaved(true);
+      showToast('Template de documento salvo com sucesso.');
+      setTimeout(() => setTemplateSaved(false), 3000);
+    } else {
+      setTemplateError(res.error || 'Não foi possível salvar o template.');
+    }
+  };
+
+  const handlePreviewTemplate = async () => {
+    setTemplatePreviewLoading(true);
+    setTemplateError(null);
+    const error = await previewDocumentTemplatePdf(templateDocType);
+    setTemplatePreviewLoading(false);
+    if (error) setTemplateError(error);
+  };
 
   // Exercise form states
   const [exCourseId, setExCourseId] = useState('');
@@ -88,8 +215,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
   const [gradeScore, setGradeScore] = useState(100);
   const [gradeFeedback, setGradeFeedback] = useState('');
 
-  // New report active sub-filters: 'consolidado' | 'alunos' | 'professores' | 'cursos' | 'inscricoes'
-  const [activeReportSubTab, setActiveReportSubTab] = useState<'consolidado' | 'alunos' | 'professores' | 'cursos' | 'inscricoes'>('consolidado');
+  const activeReportSubTab: SubAbaRelatorio = destino.subAba;
+  const setActiveReportSubTab = (sub: SubAbaRelatorio): void => {
+    irPara({ aba: 'analytics', subAba: sub });
+  };
 
   // Document generation helper state
   const [activeDocViewer, setActiveDocViewer] = useState<{
@@ -105,6 +234,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
   const [newProfSpecialty, setNewProfSpecialty] = useState('Design de Interfaces');
   const [newStudentName, setNewStudentName] = useState('');
   const [newStudentEmail, setNewStudentEmail] = useState('');
+  // CPF é o identificador de login do aluno (ADR 11). Sem ele a conta nasce
+  // impossível de autenticar — e a API recusa o cadastro.
+  const [newStudentCpf, setNewStudentCpf] = useState('');
   const [newStudentPassword, setNewStudentPassword] = useState('');
   const [newStudentMunicipio, setNewStudentMunicipio] = useState('');
   const [newStudentUf, setNewStudentUf] = useState('');
@@ -114,9 +246,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
   const [showCoursePickerModal, setShowCoursePickerModal] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
 
+  /*
+    O Voltar do topo fecha o que está aberto NA SEÇÃO ATUAL, e só então sai.
+    Antes: com a ficha de um aluno aberta ele saía direto para o portal, e a
+    lista de alunos de um curso (que fica em Cursos) se anunciava como
+    "Gestão de Alunos".
+  */
   const handleBack = () => {
     if (activeDocViewer) {
       setActiveDocViewer(null);
+    } else if (activeStudentProfile) {
+      setActiveStudentProfile(null);
     } else if (expandedCourseStudentsId) {
       setExpandedCourseStudentsId(null);
     } else if (onBackToLanding) {
@@ -126,7 +266,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
   const getBackLabel = () => {
     if (activeDocViewer) return "Fechar Documento";
-    if (expandedCourseStudentsId) return "Voltar p/ Gestão de Alunos";
+    if (activeStudentProfile) return "Voltar p/ Alunos";
+    if (expandedCourseStudentsId) return "Voltar p/ Cursos";
     return "Sair p/ Portal";
   };
 
@@ -162,7 +303,25 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     horasTotais?: number;
   }>>({});
 
-  const [activeStudentProfile, setActiveStudentProfile] = useState<string | null>(null);
+  /*
+   * Ficha do aluno, endereçada por `id` — e o `?? name` é fallback, não escolha.
+   *
+   * A ficha era localizada por NOME (`find(s => s.name === ...)`). Isso já era
+   * frágil dentro da tela e vira defeito num endereço: homônimo existe de
+   * verdade aqui — há conta "Homonimo Teste" no próprio banco de testes, criada
+   * exatamente para esse caso —, e dois alunos de mesmo nome dividiriam a mesma
+   * URL, abrindo a ficha de quem viesse primeiro na lista.
+   *
+   * `studentsList` declara `id?: string`, então o nome permanece como último
+   * recurso para entrada sem id; toda conta vinda da API tem id.
+   */
+  const activeStudentProfile = destino.alunoId;
+  const setActiveStudentProfile = (chave: string | null): void => {
+    irPara({ aba: 'students', alunoId: chave });
+  };
+
+  /** Chave estável de um aluno para endereço e busca. */
+  const chaveDoAluno = (aluno: { id?: string; name: string }): string => aluno.id ?? aluno.name;
   
   // Filters for Students
   const [filterCourse, setFilterCourse] = useState('all');
@@ -179,7 +338,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
   // Mini interactions
   const [activeStudentMenu, setActiveStudentMenu] = useState<string | null>(null);
-  const [resetPassInfo, setResetPassInfo] = useState<{ name: string; email: string } | null>(null);
+  // Botão que abriu o menu de ações: o painel é renderizado em portal (fora da
+  // tabela, que recorta por overflow) e precisa dessa referência para se ancorar.
+  const [studentMenuAnchor, setStudentMenuAnchor] = useState<HTMLElement | null>(null);
+  const [resetPassInfo, setResetPassInfo] = useState<{ id?: string; name: string; email: string } | null>(null);
+  // Senha inicial gerada no cadastro: mostrada uma vez, para a coordenação repassar.
+  // Não é persistida em lugar nenhum — some ao fechar, e a partir daí só há redefinição.
+  const [senhaGerada, setSenhaGerada] = useState<{ nome: string; senha: string } | null>(null);
   const [sendMessageInfo, setSendMessageInfo] = useState<{ name: string; email: string } | null>(null);
 
   // Customizable certificate attendance barrier state simulation (defaults 70)
@@ -190,7 +355,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
   const getEnrichedStudent = (st: { id?: string; name: string; email: string; password?: string }) => {
     const name = st.name;
     const email = st.email;
-    const activePass = st.password || localStorage.getItem(`ava_active_password_${st.name}`) || '1234';
+    // Senha de aluno NÃO é exibida nem transitada por aqui. O campo `password`
+    // devolvido antes nunca era renderizado, mas carregava um padrão `1234` e uma
+    // leitura de localStorage — dado de credencial vivo num objeto de listagem.
+    // Para trocar a senha de um aluno existe o fluxo de redefinição, que passa
+    // pelo servidor e é auditado.
 
     // Core default mapping as requested by the prompt
     let defaultRA = '1234';
@@ -367,7 +536,6 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       name,
       email,
       ra: defaultRA,
-      password: activePass,
       curso: finalStatusMatricula === 'Sem matrícula' ? '—' : defaultCurso,
       turma: finalStatusMatricula === 'Sem matrícula' ? '—' : defaultTurma,
       polo: finalStatusMatricula === 'Sem matrícula' ? '—' : defaultPolo,
@@ -517,10 +685,34 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     setNewProfPassword('');
   };
 
-  const handleCreateStudent = (e: React.FormEvent) => {
+  const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newStudentName.trim() || !newStudentEmail.trim()) {
-      showToast('Por favor, digite o nome e e-mail do aluno.');
+    /*
+     * Cada campo aceita só o que promete. Antes a checagem era um `if` genérico
+     * de "nome e e-mail preenchidos": um CPF digitado no campo de e-mail passava
+     * pela tela e morria no servidor, nome com dígito entrava no cadastro, e a
+     * UF aceitava dois caracteres quaisquer ("12", "XX") — ela só tinha
+     * `maxLength={2}` e `toUpperCase()`.
+     *
+     * A digitação já recusa o caractere errado; isto pega o que ela não julga:
+     * sobrenome faltando, e-mail malformado e UF inexistente.
+     */
+    const problemaDeCampo =
+      problemaNoNome(newStudentName)
+      ?? problemaNoEmail(newStudentEmail)
+      ?? problemaNoMunicipio(newStudentMunicipio)
+      ?? problemaNaUf(newStudentUf)
+      ?? problemaNaArea(newStudentAreaInteresse);
+    if (problemaDeCampo !== null) {
+      showToast(problemaDeCampo);
+      return;
+    }
+
+    // Sem CPF válido não existe login de aluno (a aba "Aluno" da tela de acesso
+    // pede CPF, e a API recusa conta de aluno sem ele). Barrar aqui evita o
+    // cadastro que morria no servidor sem ninguém saber.
+    if (!isValidCpf(newStudentCpf)) {
+      showToast('Informe um CPF válido — é o identificador de login do aluno.');
       return;
     }
 
@@ -529,7 +721,16 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       return;
     }
 
-    const pass = newStudentPassword.trim() || '1234';
+    // Senha em branco gera uma aleatória que cumpre a política da ADR 11. O padrão
+    // fixo antigo (`1234`) era senha conhecida em toda conta nova e, desde a ADR 11,
+    // a API o rejeitava — o cadastro falhava sem que a tela dissesse por quê.
+    const informada = newStudentPassword.trim();
+    const problema = informada === '' ? null : passwordProblem(informada);
+    if (problema !== null) {
+      showToast(problema);
+      return;
+    }
+    const pass = informada || generateInitialPassword();
     const studentName = newStudentName.trim();
     const studentEmail = newStudentEmail.trim();
     const studentMunicipio = newStudentMunicipio.trim() || 'São Paulo';
@@ -537,8 +738,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     const studentArea = newStudentAreaInteresse.trim() || 'Tecnologia';
     const studentDate = new Date().toISOString().split('T')[0];
 
-    addStudent(studentName, studentEmail, pass, studentMunicipio, studentUf, studentArea, studentDate);
-    
+    // O cadastro é AGUARDADO. Antes o resultado era ignorado (só `.catch` de
+    // rede), então um 400 do servidor passava batido: a tela dizia "matriculado
+    // com sucesso", mostrava senha inicial e o aluno entrava na lista local —
+    // sem que conta nenhuma existisse no banco.
+    const criado = await addStudent(
+      studentName, studentEmail, pass, studentMunicipio, studentUf, studentArea, studentDate,
+      newStudentCpf
+    );
+    if (!criado.ok) {
+      showToast(criado.error ?? 'Não foi possível matricular o aluno.');
+      return;
+    }
+
     // Auto-enroll in the selected course with approved status
     if (selectedEnrollCourseId) {
       // Aluno recém-criado ainda não tem id local (o cadastro no backend é assíncrono);
@@ -553,8 +765,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       showToast(`Aluno ${studentName} matriculado(a) com sucesso!`);
     }
 
+    // Senha gerada aparece num painel fixo, não em toast: nada a guarda, e o toast
+    // desaparece antes de a coordenação conseguir repassá-la ao aluno.
+    if (informada === '') {
+      setSenhaGerada({ nome: studentName, senha: pass });
+    }
+
     setNewStudentName('');
     setNewStudentEmail('');
+    setNewStudentCpf('');
     setNewStudentPassword('');
     setNewStudentMunicipio('');
     setNewStudentUf('');
@@ -623,24 +842,42 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
     return Math.round((attended / totals) * 100);
   };
 
-  const getGlobalAverageQuizScore = () => {
-    if (quizSubmissions.length === 0) return 0;
-    const total = quizSubmissions.reduce((sum, s) => sum + s.scorePercent, 0);
-    return Math.round(total / quizSubmissions.length);
-  };
+  /*
+   * Média só das tentativas VIGENTES — uma por aluno+avaliação.
+   *
+   * Somar a lista crua passou a significar "média entre tentativas" no dia em
+   * que o histórico ficou no ar: quem refaz três vezes pesa o triplo de quem fez
+   * uma, e a nota baixa corrigida na segunda tentativa arrastaria o indicador
+   * para baixo para sempre.
+   */
+  const getGlobalAverageQuizScore = () => mediaDasVigentes(quizSubmissions) ?? 0;
 
   // Itens de navegação do módulo administrativo (esqueleto sidebar+topbar do PC Design System).
-  const adminNavItems = [
-    { id: 'analytics', label: 'Dashboard & Relatórios', icon: Activity, visible: true },
-    { id: 'professors', label: 'Equipe Pedagógica', icon: User, visible: true },
-    { id: 'students', label: 'Alunos', icon: Award, visible: true },
-    { id: 'courses', label: 'Cursos & Trilhas', icon: BookOpen, visible: features.catalogoCursos },
-    { id: 'requests', label: 'Documentos', icon: FileCheck, visible: features.solicitacoesAcademicas },
-    { id: 'exercicios', label: 'Exercícios Práticos', icon: CheckSquare, visible: features.atividadesPraticasAvancadas },
-    { id: 'export_bi', label: 'Dados Gerenciais', icon: Database, visible: features.dadosGerenciais },
-    { id: 'settings', label: 'Configurações', icon: Settings, visible: features.perfilBasico },
-  ].filter((t) => t.visible);
-  const activeNavItem = adminNavItems.find((t) => t.id === activeTab);
+  /*
+    Os dez itens continuam os mesmos, com as mesmas flags — o que mudou e que
+    agora eles vem agrupados (Pessoas / Ensino / Sistema) de `config/menuAdmin`,
+    e cada secao tem o seu subtitulo. O icone fica aqui porque e do lucide, e o
+    modulo de configuracao nao importa componente.
+  */
+  const iconeDaAba: Record<string, React.ElementType> = {
+    analytics: Activity,
+    professors: User,
+    students: Award,
+    courses: BookOpen,
+    requests: FileCheck,
+    exercicios: CheckSquare,
+    export_bi: Database,
+    templates: FileText,
+    site_content: Layers,
+    settings: Settings,
+  };
+  const gruposDaNav = gruposVisiveisDoAdmin(features as Record<string, boolean | undefined>);
+  const abasVisiveis = itensVisiveisDoAdmin(features as Record<string, boolean | undefined>);
+  /*
+    `itemDoAdmin` e nao `abasVisiveis.find`: quem chega por link antigo numa aba
+    desligada tambem precisa ler onde esta.
+  */
+  const activeNavItem = itemDoAdmin(activeTab);
 
   return (
     <div className="flex min-h-[calc(100vh-5rem)] bg-[#F1F5F9] animate-in fade-in duration-300 text-left">
@@ -651,38 +888,118 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           <ShieldCheck className="h-5 w-5 text-blue-400 shrink-0" />
           <div className="min-w-0">
             <span className="block text-sm font-bold text-white leading-tight truncate">Administração</span>
-            <span className="block text-[10px] text-slate-400">AVASEC · Master Root</span>
+            <span className="block text-apoio text-escult-ink-claro">AVASEC · Administrador Superior</span>
           </div>
         </div>
 
-        <nav className="p-3 space-y-1 flex-1 overflow-y-auto">
-          <span className="block px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Gestão</span>
-          {adminNavItems.map((tab) => {
-            const IconComp = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm transition-colors cursor-pointer text-left ${
-                  isActive ? 'bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/5'
-                }`}
-              >
-                <IconComp className="h-4 w-4 shrink-0" />
-                <span className="truncate">{tab.label}</span>
-              </button>
-            );
-          })}
+        {/*
+          Era uma lista plana de dez itens sob o rotulo unico "Gestao",
+          misturando pessoas, conteudo pedagogico e administracao de sistema.
+          Os grupos vem de `config/menuAdmin`, e grupo vazio nao e desenhado.
+        */}
+        <nav className="p-3 flex-1 overflow-y-auto" aria-label="Seções da administração">
+          {gruposDaNav.map((grupo) => (
+            <div key={grupo.titulo || 'topo'} className="space-y-1 mb-3 last:mb-0">
+              {grupo.titulo !== '' && (
+                <span className="block px-3 pt-2 pb-1 text-nota font-bold uppercase tracking-wider text-escult-ink-claro">
+                  {grupo.titulo}
+                </span>
+              )}
+              {grupo.itens.map((tab) => {
+                const IconComp = iconeDaAba[tab.id] ?? Activity;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-[6px] text-sm transition-colors cursor-pointer text-left ${
+                      isActive ? 'bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/5'
+                    }`}
+                  >
+                    <IconComp className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{tab.rotulo}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Aviso de privacidade — rodapé da sidebar */}
         <div className="p-4 border-t border-white/10 flex gap-2 items-start">
           <Lock className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-slate-400 leading-normal">
+          <p className="text-apoio text-escult-ink-claro leading-normal">
             O administrador não tem acesso de leitura aos chats privados ou DMs de alunos por diretrizes de privacidade de dados.
           </p>
         </div>
       </aside>
+
+      {/*
+        ===== GAVETA DE SECOES (abaixo de 1024px) =====
+
+        Mesma lista agrupada da barra lateral, mesma paleta do painel. O
+        <select> que existia aqui apagava tres coisas de uma vez: a visao geral
+        das secoes, os grupos e a marcacao do item ativo.
+      */}
+      {gavetaAberta && (
+        <div className="lg:hidden fixed inset-0 z-50 flex">
+          <button
+            className="absolute inset-0 bg-slate-950/60 cursor-pointer"
+            aria-label="Fechar seções"
+            onClick={() => setGavetaAberta(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Seções da administração"
+            className="relative w-72 max-w-[85vw] bg-[#0F172A] text-slate-300 flex flex-col shadow-2xl"
+          >
+            <div className="p-4 border-b border-white/10 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <ShieldCheck className="h-5 w-5 text-blue-400 shrink-0" />
+                <span className="block text-sm font-bold text-white truncate">Administração</span>
+              </div>
+              <button
+                onClick={() => setGavetaAberta(false)}
+                className="p-1.5 rounded-[6px] hover:bg-white/10 transition-colors cursor-pointer"
+                aria-label="Fechar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <nav className="p-3 flex-1 overflow-y-auto">
+              {gruposDaNav.map((grupo) => (
+                <div key={grupo.titulo || 'topo'} className="space-y-1 mb-3 last:mb-0">
+                  {grupo.titulo !== '' && (
+                    <span className="block px-3 pt-2 pb-1 text-nota font-bold uppercase tracking-wider text-escult-ink-claro">
+                      {grupo.titulo}
+                    </span>
+                  )}
+                  {grupo.itens.map((tab) => {
+                    const IconComp = iconeDaAba[tab.id] ?? Activity;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => { setActiveTab(tab.id as any); setGavetaAberta(false); }}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-[6px] text-sm transition-colors cursor-pointer text-left ${
+                          isActive ? 'bg-blue-500/15 text-blue-400' : 'text-slate-300 hover:bg-white/5'
+                        }`}
+                      >
+                        <IconComp className="h-4 w-4 shrink-0" />
+                        <span className="truncate">{tab.rotulo}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* ===== TOPBAR branca ===== */}
@@ -704,26 +1021,38 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             )}
             <div className="min-w-0">
               <h1 className="text-[1.2rem] font-bold text-slate-900 leading-tight truncate">
-                {activeNavItem?.label ?? 'Portal do Administrador'}
+                {activeNavItem?.rotulo ?? 'Portal do Administrador'}
               </h1>
-              <p className="text-xs text-slate-500 truncate">Gestão global de professores, alunos, turmas e cursos.</p>
+              {/*
+                Aqui ficava UM subtitulo — "Gestao global de professores, alunos,
+                turmas e cursos" — repetido nas dez telas, inclusive em
+                Configuracoes e em Paginas do Site, onde nao descrevia nada do
+                que estava na tela. Agora cada secao diz o que e a sua.
+              */}
+              <p className="text-xs text-escult-ink-2 truncate" title={activeNavItem?.subtitulo}>
+                {activeNavItem?.subtitulo ?? 'Administração do AVASEC.'}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
-            {/* Navegação mobile (sidebar oculta abaixo de lg) */}
-            <select
-              value={activeTab}
-              onChange={(e) => setActiveTab(e.target.value as any)}
-              className="lg:hidden border border-slate-200 rounded-[6px] text-sm text-slate-700 px-2 py-1.5 bg-white"
-              aria-label="Seção do painel administrativo"
+            {/*
+              Abaixo de 1024px a barra lateral inteira colapsava num <select>:
+              sumia a visao geral das secoes, sumiam os grupos e o item ativo
+              virava so o valor de um campo. A gaveta preserva a estrutura — e,
+              por ser a mesma lista agrupada, nao ha duas fontes de verdade.
+            */}
+            <button
+              onClick={() => setGavetaAberta(true)}
+              className="lg:hidden border border-slate-200 text-slate-700 rounded-[6px] text-sm px-3 py-1.5 bg-white hover:bg-slate-50 transition-colors cursor-pointer flex items-center gap-2"
+              aria-label="Abrir seções da administração"
+              aria-expanded={gavetaAberta}
             >
-              {adminNavItems.map((tab) => (
-                <option key={tab.id} value={tab.id}>{tab.label}</option>
-              ))}
-            </select>
-            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide bg-blue-50 text-blue-600">
-              Master Root
+              <Menu className="h-4 w-4" />
+              <span className="truncate max-w-[9rem]">{activeNavItem?.rotulo ?? 'Seções'}</span>
+            </button>
+            <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sobretitulo uppercase bg-blue-50 text-blue-600">
+              Administrador Superior
             </span>
           </div>
         </header>
@@ -739,8 +1068,16 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
         (!features.perfilBasico && activeTab === 'settings')) && (
         <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-[10px] p-8 text-center max-w-xl mx-auto my-12 shadow-sm space-y-3">
           <Lock className="h-10 w-10 text-amber-600 mx-auto" />
-          <h3 className="font-extrabold text-base">Esta funcionalidade está temporariamente indisponível.</h3>
-          <p className="text-xs text-slate-500">Estamos trabalhando em melhorias e atualizações para esta seção. Por favor, tente novamente mais tarde.</p>
+          {/*
+            Nao diz mais "temporariamente". Um recurso pode ficar meses
+            desligado por decisao de produto — o proprio features.ts diz que
+            webinar "nao entra nesta fase" — e prometer volta breve para quem
+            nunca vai ver a tela e informacao falsa. Quem chega aqui chegou por
+            link salvo ou endereco digitado: o que serve e saber o que aconteceu
+            e para onde ir.
+          */}
+          <h3 className="font-extrabold text-base">Esta seção não está disponível nesta versão da plataforma.</h3>
+          <p className="text-xs text-escult-ink-2">Ela não aparece no menu porque está desativada. Use o menu para voltar.</p>
         </div>
       )}
 
@@ -749,22 +1086,22 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           
           {/* Header Info */}
           <div className="bg-white border border-slate-200 rounded-[10px] p-5 space-y-2">
-            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-2">
               <Activity className="h-4.5 w-4.5 text-blue-600" />
               <span>Painel de Controle e Inteligência de Dados (Analytics)</span>
             </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-escult-ink-2 leading-relaxed">
               Visão consolidada do ecossistema educacional. Monitore métricas de engajamento, rendimento pedagógico e gere relatórios oficiais de auditoria.
             </p>
           </div>
 
           <div className="border-t border-slate-100 pt-6">
             <div className="mb-4">
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <h3 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-2">
                 <FileText className="h-4 w-4 text-blue-600" />
                 <span>Módulos de Relatórios e Auditoria Pedagógica</span>
               </h3>
-              <p className="text-[11px] text-slate-500 mt-1">Gere documentos oficiais e estatísticas cruzadas de alunos e professores.</p>
+              <p className="text-rotulo text-escult-ink-2 mt-1">Gere documentos oficiais e estatísticas cruzadas de alunos e professores.</p>
             </div>
 
             {/* Sub Navigation controls to target specific reports */}
@@ -782,13 +1119,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <button
                     key={st.id}
                     onClick={() => setActiveReportSubTab(st.id as any)}
-                    className={`flex-1 justify-center px-5 py-2.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                    className={`flex-1 justify-center px-5 py-2.5 rounded-md text-rotulo font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                       isSubActive 
                         ? 'bg-white text-slate-900 shadow-sm border border-slate-200/60 font-black' 
-                        : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50'
+                        : 'text-escult-ink-2 hover:text-slate-800 hover:bg-slate-100/50'
                     }`}
                   >
-                    <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                    <SubIcon className={`h-3.5 w-3.5 ${isSubActive ? 'text-blue-600' : 'text-escult-ink-3'}`} />
                     <span>{st.label}</span>
                   </button>
                 );
@@ -799,7 +1136,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               
               {/* Action buttons header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                <span className="text-sobretitulo text-escult-ink-2 uppercase">
                   Relatório de Rendimento: <span className="text-slate-800 font-extrabold text-xs">
                     {[
                       { id: 'consolidado', label: 'Visão Geral' },
@@ -814,7 +1151,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   onClick={() => {
                     window.print();
                   }}
-                  className="text-[10px] bg-slate-900 hover:bg-slate-800 text-white transition-colors font-bold px-3 py-1.8 rounded-md flex items-center gap-1.5 cursor-pointer"
+                  className="text-apoio bg-slate-900 hover:bg-slate-800 text-white transition-colors font-bold px-3 py-1.8 rounded-md flex items-center gap-1.5 cursor-pointer"
                 >
                   <Printer className="h-3 w-3 text-slate-300" />
                   <span>Imprimir Relatório Oficial</span>
@@ -834,7 +1171,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Alunos matriculados</p>
+                        <p className="text-sobretitulo text-escult-ink-2 uppercase">Alunos matriculados</p>
                         <p className="text-2xl font-black text-slate-900">{studentsList.length}</p>
                       </div>
                     </div>
@@ -846,7 +1183,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Cursos publicados</p>
+                        <p className="text-sobretitulo text-escult-ink-2 uppercase">Cursos publicados</p>
                         <p className="text-2xl font-black text-slate-900">{courses.length}</p>
                       </div>
                     </div>
@@ -858,7 +1195,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Matrículas ativas</p>
+                        <p className="text-sobretitulo text-escult-ink-2 uppercase">Matrículas ativas</p>
                         <p className="text-2xl font-black text-slate-900">
                           {(Object.values(studentEnrollments || {}) as StudentEnrollment[]).filter(e => e.enrolledCourseId).length}
                         </p>
@@ -872,7 +1209,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         </div>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Certificados emitidos</p>
+                        <p className="text-sobretitulo text-escult-ink-2 uppercase">Certificados emitidos</p>
                         <p className="text-2xl font-black text-slate-900">{certificates.length}</p>
                       </div>
                     </div>
@@ -884,7 +1221,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     
                     {/* Category Distribution (Pie) */}
                     <div className="lg:col-span-1 bg-white border border-slate-200 rounded-[10px] p-5 shadow-sm flex flex-col">
-                      <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
+                      <h4 className="text-sobretitulo text-slate-900 uppercase mb-6 flex items-center gap-2">
                         <Layers className="h-3.5 w-3.5 text-blue-600" />
                         Inscrições por Categoria
                       </h4>
@@ -920,7 +1257,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     {/* Monthly Trend (Area Chart) */}
                     <div className="lg:col-span-2 bg-white border border-slate-200 rounded-[10px] p-5 shadow-sm">
                       <div className="flex items-center justify-between mb-6">
-                        <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                        <h4 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-2">
                           <TrendingUp className="h-3.5 w-3.5 text-blue-600" />
                           Crescimento de Matrículas (Semestral)
                         </h4>
@@ -965,9 +1302,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     ].map((stat) => (
                       <div key={stat.label} className="bg-white border border-slate-200 p-4 rounded-[10px] shadow-sm flex justify-between items-start">
                         <div className="space-y-1">
-                          <header className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-tight">{stat.label}</header>
-                          <p className="text-xl font-black text-slate-900 font-mono leading-none">{stat.value}</p>
-                          <span className="text-[9px] text-slate-500 block leading-tight">{stat.desc}</span>
+                          <header className="text-sobretitulo text-escult-ink-2 uppercase leading-tight">{stat.label}</header>
+                          <p className="text-xl font-black text-slate-900 leading-none">{stat.value}</p>
+                          <span className="text-apoio text-escult-ink-2 block leading-tight">{stat.desc}</span>
                         </div>
                         <div className={`p-1.5 rounded-md border ${stat.accent}`}>
                           <stat.icon className="h-3.5 w-3.5" />
@@ -984,19 +1321,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <div className="space-y-4 animate-in fade-in duration-200">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-[10px] border border-slate-100">
                     <div className="text-left font-sans">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block">Total de Alunos</span>
-                      <strong className="text-xl font-black text-slate-900 font-mono">{mockStudents.length} alunos</strong>
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase block">Total de Alunos</span>
+                      <strong className="text-xl font-black text-slate-900">{mockStudents.length} alunos</strong>
                     </div>
                     <div className="text-left">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Certificados Emitidos</span>
-                      <strong className="text-xl font-black text-emerald-700 font-mono">{certificates.length} emitidos</strong>
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase block font-sans">Certificados Emitidos</span>
+                      <strong className="text-xl font-black text-emerald-700">{certificates.length} emitidos</strong>
                     </div>
                   </div>
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                        <tr className="border-b border-slate-100 text-sobretitulo text-escult-ink-2 uppercase bg-slate-50/50">
                           <th className="p-2.5">Nome</th>
                           <th className="p-2.5">E-mail</th>
                           <th className="p-2.5 text-center">Matrículas ativas</th>
@@ -1018,12 +1355,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           return (
                             <tr key={`${st.email}-${idx}`} className="border-b border-slate-100 hover:bg-slate-50/25">
                               <td className="p-2.5 font-extrabold text-slate-900">{st.name}</td>
-                              <td className="p-2.5 text-slate-500 font-mono">{st.email}</td>
+                              <td className="p-2.5 text-escult-ink-2">{st.email}</td>
                               <td className="p-2.5 text-center font-bold text-slate-700">{enrollmentsCount}</td>
-                              <td className="p-2.5 text-center font-mono text-blue-600 font-bold">{avgProg}%</td>
-                              <td className="p-2.5 text-center text-slate-500 text-[10px]">{st.lastAccess || 'Sem acesso'}</td>
+                              <td className="p-2.5 text-center text-blue-600 font-bold">{avgProg}%</td>
+                              <td className="p-2.5 text-center text-escult-ink-2 text-apoio">{st.lastAccess || 'Sem acesso'}</td>
                               <td className="p-2.5 text-center">
-                                <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Regular</span>
+                                <span className="text-sobretitulo uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Regular</span>
                               </td>
                               <td className="p-2.5 text-right">
                                 <select 
@@ -1034,7 +1371,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                       e.target.value = '';
                                     }
                                   }}
-                                  className="text-[10px] bg-slate-100 border border-slate-200 rounded px-2 py-1 text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
+                                  className="text-apoio bg-slate-100 border border-slate-200 rounded px-2 py-1 text-slate-700 font-semibold focus:outline-hidden cursor-pointer"
                                 >
                                   <option value="">Emitir...</option>
                                   <option value="historico">Histórico</option>
@@ -1056,8 +1393,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <div className="space-y-4 animate-in fade-in duration-200">
                   <div className="bg-slate-50 p-4 rounded-[10px] border border-slate-100 flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Equipe pedagógica</span>
-                      <strong className="text-lg font-black text-slate-900 font-mono block mt-1">
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase block">Equipe pedagógica</span>
+                      <strong className="text-lg font-black text-slate-900 block mt-1">
                         {professorsList.length} / {professorsList.length === 1 ? '1 gestor de conteúdos ativo' : `${professorsList.length - 1} ${professorsList.length - 1 === 1 ? 'professor' : 'professores'}, 1 gestor de conteúdos`}
                       </strong>
                     </div>
@@ -1066,11 +1403,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                        <tr className="border-b border-slate-100 text-sobretitulo text-escult-ink-2 uppercase bg-slate-50/50">
                           <th className="p-2.5">Nome</th>
                           <th className="p-2.5">Perfil</th>
                           <th className="p-2.5 text-center">Cursos vinculados</th>
-                          <th className="p-2.5 text-center">Aulas/Módulos</th>
+                          <th className="p-2.5 text-center">Aulas</th>
                           <th className="p-2.5 text-center">Status</th>
                           <th className="p-2.5 text-right">Ações</th>
                         </tr>
@@ -1084,19 +1421,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <tr key={`${prof.id}-${idx}`} className="border-b border-slate-100">
                               <td className="p-2.5 font-extrabold text-slate-900">{prof.name}</td>
                               <td className="p-2.5">
-                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                                <span className={`px-2 py-0.5 rounded-full text-sobretitulo font-bold uppercase ${
                                   profile === 'Gestor de Conteúdos' ? 'bg-blue-50 text-blue-700' : 'bg-slate-50 text-slate-700'
                                 }`}>
                                   {profile}
                                 </span>
                               </td>
                               <td className="p-2.5 text-center font-bold text-blue-600">{assigned.length}</td>
-                              <td className="p-2.5 text-center font-mono text-slate-500">{totalLessons}</td>
+                              <td className="p-2.5 text-center text-escult-ink-2">{totalLessons}</td>
                               <td className="p-2.5 text-center">
-                                <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Ativo</span>
+                                <span className="text-sobretitulo uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Ativo</span>
                               </td>
                               <td className="p-2.5 text-right">
-                                <button className="p-1 hover:bg-slate-100 rounded text-slate-400">
+                                <button className="p-1 hover:bg-slate-100 rounded text-escult-ink-3">
                                   <MoreVertical className="h-3 w-3" />
                                 </button>
                               </td>
@@ -1115,10 +1452,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                        <tr className="border-b border-slate-100 text-sobretitulo text-escult-ink-2 uppercase bg-slate-50/50">
                           <th className="p-2.5">Curso</th>
                           <th className="p-2.5">Categoria/Eixo</th>
-                          <th className="p-2.5 text-center">Módulos</th>
+                          <th className="p-2.5 text-center">Aulas</th>
                           <th className="p-2.5 text-center">Alunos matriculados</th>
                           <th className="p-2.5 text-center">Concluintes</th>
                           <th className="p-2.5 text-center">Progresso médio</th>
@@ -1138,14 +1475,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 <span className="font-extrabold text-slate-900 block">{c.title}</span>
                               </td>
                               <td className="p-2.5">
-                                <span className="text-[10px] text-slate-500 block font-bold uppercase tracking-wider">{c.category}</span>
+                                <span className="text-sobretitulo text-escult-ink-2 block uppercase">{c.category}</span>
                               </td>
-                              <td className="p-2.5 text-center font-mono">{c.lessons.length}</td>
+                              <td className="p-2.5 text-center">{c.lessons.length}</td>
                               <td className="p-2.5 text-center font-bold text-slate-700">{enrolled}</td>
                               <td className="p-2.5 text-center font-bold text-emerald-600">{finished}</td>
-                              <td className="p-2.5 text-center font-mono text-blue-600 font-bold">{avgProg}%</td>
+                              <td className="p-2.5 text-center text-blue-600 font-bold">{avgProg}%</td>
                               <td className="p-2.5 text-right">
-                                <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
+                                <span className="text-sobretitulo uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">
                                   Publicado
                                 </span>
                               </td>
@@ -1164,7 +1501,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-500 uppercase bg-slate-50/50">
+                        <tr className="border-b border-slate-100 text-sobretitulo text-escult-ink-2 uppercase bg-slate-50/50">
                           <th className="p-2.5">Aluno</th>
                           <th className="p-2.5">Curso</th>
                           <th className="p-2.5 text-center">Data da matrícula</th>
@@ -1195,19 +1532,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <tr key={idx} className="border-b border-slate-100">
                               <td className="p-2.5 font-bold text-slate-900">{studentName}</td>
                               <td className="p-2.5 text-slate-600">{course.title}</td>
-                              <td className="p-2.5 text-center text-slate-500">{formattedDate}</td>
-                              <td className="p-2.5 text-center font-mono text-blue-600 font-bold">{ratio}%</td>
-                              <td className="p-2.5 text-center text-slate-500">{student?.lastAccess || 'Sem acesso'}</td>
+                              <td className="p-2.5 text-center text-escult-ink-2">{formattedDate}</td>
+                              <td className="p-2.5 text-center text-blue-600 font-bold">{ratio}%</td>
+                              <td className="p-2.5 text-center text-escult-ink-2">{student?.lastAccess || 'Sem acesso'}</td>
                               <td className="p-2.5 text-center">
-                                <span className="text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Ativa</span>
+                                <span className="text-sobretitulo uppercase bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">Ativa</span>
                               </td>
                               <td className="p-2.5 text-right">
                                 {hasCert ? (
-                                  <span className="text-emerald-600 flex items-center justify-end gap-1 font-bold text-[10px]">
+                                  <span className="text-emerald-600 flex items-center justify-end gap-1 font-bold text-apoio">
                                     <CheckCircle2 className="h-3 w-3" /> Emitido
                                   </span>
                                 ) : (
-                                  <span className="text-slate-400 font-bold text-[10px]">Pendente</span>
+                                  <span className="text-escult-ink-2 font-bold text-apoio">Pendente</span>
                                 )}
                               </td>
                             </tr>
@@ -1228,34 +1565,42 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {activeTab === 'professors' && (
         <div className="space-y-4 text-left animate-in fade-in duration-300">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
+            {/*
+              Havia um BackButton "Voltar ao Painel Administrativo" aqui — e em
+              mais NOVE lugares (oito neste arquivo, dois no SiteContentPanel).
+              Todos duplicavam o PRIMEIRO item da barra lateral, que esta sempre
+              visivel. Um botao que repete o que ja esta na tela nao ajuda: ocupa
+              a primeira linha de cada secao e adia o conteudo.
+
+              Bloco 1 do handoff. Este comentario existe uma vez so, aqui.
+            */}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* Gestor de Conteúdos Configuration Panel */}
           <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-[10px] text-left h-fit space-y-4">
             <div>
-              <span className="rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-[9px] font-bold border border-emerald-100 uppercase tracking-wide">
+              <span className="rounded-full bg-emerald-50 text-emerald-700 px-2.5 py-0.5 text-sobretitulo border border-emerald-100 uppercase">
                 Configuração de Perfil
               </span>
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mt-2">Configurações do Gestor</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Gerencie os dados e acessos de controle de conteúdos.</p>
+              <h3 className="text-sobretitulo text-slate-900 uppercase mt-2">Configurações do Gestor</h3>
+              <p className="text-rotulo text-escult-ink-2 mt-0.5">Gerencie os dados e acessos de controle de conteúdos.</p>
             </div>
 
             <div className="space-y-3 pt-2">
               <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-[10px] space-y-2.5">
                 <div>
-                  <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Usuário do Gestor</span>
+                  <span className="text-sobretitulo text-escult-ink-2 uppercase block leading-none">Usuário do Gestor</span>
                   <span className="text-xs font-bold text-slate-800 block mt-1">Gestor de Conteúdos</span>
                 </div>
                 <div>
-                  <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">Especialidade Principal</span>
+                  <span className="text-sobretitulo text-escult-ink-2 uppercase block leading-none">Especialidade Principal</span>
                   <span className="text-xs font-semibold text-slate-700 block mt-1">Design de Interfaces & Novas Mídias</span>
                 </div>
-                <div>
-                  <span className="text-[9px] text-slate-400 font-bold uppercase block leading-none">PIN de Acesso</span>
-                  <span className="text-xs font-mono font-bold text-[#3B82F6] block mt-1">5678 ou 1234</span>
-                </div>
+                {/* O "PIN de Acesso" que ficava aqui expunha as senhas de demonstração
+                    (5678/1234) no pacote de produção, e desde a ADR 11 a política de
+                    senha nem aceita mais PIN de 4 dígitos — era informação vazada e
+                    errada ao mesmo tempo. Credencial não se exibe em tela de gestão. */}
               </div>
             </div>
           </div>
@@ -1263,17 +1608,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           {/* Master Professors list cards */}
           <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-[10px] space-y-4 professors-list-container">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+              <h3 className="text-sobretitulo text-slate-900 uppercase">
                 Gestor Ativo no AVA ({professorsList.length})
               </h3>
               <div className="relative w-full sm:w-auto">
-                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+                <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-escult-ink-3" />
                 <input
                   type="text"
                   placeholder="Buscar gestor por nome..."
                   value={professorSearchQuery}
                   onChange={(e) => setProfessorSearchQuery(e.target.value)}
-                  className="w-full sm:w-64 pl-8 pr-3 py-1.5 text-[11px] border border-slate-200 rounded-md max-w-full text-slate-700 bg-slate-50 focus:bg-white transition-colors focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full sm:w-64 pl-8 pr-3 py-1.5 text-rotulo border border-slate-200 rounded-md max-w-full text-slate-700 bg-slate-50 focus:bg-white transition-colors focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </div>
             </div>
@@ -1286,20 +1631,26 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 const assignedCourses = courses.filter(c => c.instructorId === prof.id);
                 return (
                   <div key={prof.id} className="border border-slate-100 p-4 rounded-[10px] bg-slate-50/40 relative group">
-                    <div className="absolute top-4 right-4 flex items-center gap-1.5">
-                      <span className="text-[9px] bg-slate-200 font-mono font-bold px-1.5 py-0.5 rounded text-slate-600">
-                        ID: GESTOR-01
-                      </span>
-                    </div>
-                    <strong className="block font-black text-slate-900 text-xs pr-24">{prof.name}</strong>
-                    <span className="text-[10px] font-bold text-blue-600 tracking-wide uppercase block mt-1">Coordenação Geral de Conteúdos</span>
-                    <span className="text-[10px] text-slate-400 block mt-2">Trilhas sob Gestão: {assignedCourses.length}</span>
+                    {/*
+                      Aqui havia duas informacoes INVENTADAS, e as duas dentro de
+                      um `.map()`: o selo "ID: GESTOR-01", literal fixo que fazia
+                      TODO gestor exibir o mesmo identificador, e o cargo
+                      "Coordenacao Geral de Conteudos", atribuido a qualquer
+                      pessoa da lista. `PersonRef` tem apenas `id` e `name`: nao
+                      existe cargo nem matricula funcional neste dado.
+
+                      Um identificador repetido e pior que nenhum — quem abre
+                      esta tela para conferir uma pessoa acredita nele. Ficam os
+                      fatos: o nome e quantas trilhas a pessoa conduz.
+                    */}
+                    <strong className="block font-black text-slate-900 text-xs pr-4">{prof.name}</strong>
+                    <span className="text-apoio text-escult-ink-2 block mt-2">Trilhas sob Gestão: {assignedCourses.length}</span>
                     <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-wrap gap-1">
                       {assignedCourses.length === 0 ? (
-                        <span className="text-slate-400 text-[10px] italic">Nenhuma disciplina vinculada</span>
+                        <span className="text-escult-ink-2 text-apoio italic">Nenhuma disciplina vinculada</span>
                       ) : (
                         assignedCourses.map(c => (
-                          <span key={`${c.id}-${idx}`} className="text-[9px] bg-white border border-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
+                          <span key={`${c.id}-${idx}`} className="text-apoio bg-white border border-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
                             {c.title}
                           </span>
                         ))
@@ -1318,20 +1669,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {activeTab === 'courses' && (
         <div className="space-y-4 text-left animate-in fade-in duration-300">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
           {/* Create custom Course Block */}
           <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-[10px] h-fit space-y-4">
             <div>
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Prover Disciplina</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">Cadastre um novo curso na plataforma letiva.</p>
+              <h3 className="text-sobretitulo text-slate-900 uppercase">Prover Disciplina</h3>
+              <p className="text-rotulo text-escult-ink-2 mt-0.5">Cadastre um novo curso na plataforma letiva.</p>
             </div>
 
             <form onSubmit={handleCreateCourse} className="space-y-3">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Título do Curso</label>
+                <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Título do Curso</label>
                 <input
                   type="text"
                   required
@@ -1343,7 +1693,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Área Acadêmica / Categoria</label>
+                <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Área Acadêmica / Categoria</label>
                 <select
                   value={newCourseCategory}
                   onChange={(e) => setNewCourseCategory(e.target.value)}
@@ -1356,7 +1706,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Professor Responsável</label>
+                <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Professor Responsável</label>
                 <select
                   value={newCourseTeacherId}
                   onChange={(e) => setNewCourseTeacherId(e.target.value)}
@@ -1369,7 +1719,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ementa / Descrição Curta (Opcional)</label>
+                <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Ementa / Descrição Curta (Opcional)</label>
                 <textarea
                   placeholder="Visão abrangente para orientar a admissão dos alunos..."
                   value={newCourseDesc}
@@ -1379,9 +1729,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center justify-between">
+                <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1 flex items-center justify-between">
                   <span>Vigência de Exibição / Validade do Contrato</span>
-                  <span className="text-[8px] bg-amber-50 text-amber-700 border border-amber-200 px-1 rounded uppercase font-black">Proteção Jurídica</span>
+                  <span className="text-sobretitulo bg-amber-50 text-amber-700 border border-amber-200 px-1 rounded uppercase">Proteção Jurídica</span>
                 </label>
                 <input
                   type="date"
@@ -1393,7 +1743,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo de Curso</label>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Tipo de Curso</label>
                   <select
                     value={newCourseType}
                     onChange={(e) => setNewCourseType(e.target.value as 'fixo' | 'ao_vivo')}
@@ -1428,11 +1778,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             {/* Habilitar Nova Área de Atuação */}
             <div className="border-t border-slate-100 pt-4 mt-2 space-y-3">
               <div>
-                <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <h3 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-1.5">
                   <Layers className="h-3.5 w-3.5 text-blue-600" />
                   <span>Habilitar Nova Área de Atuação</span>
                 </h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Defina novas áreas de atuação/categorias no catálogo.</p>
+                <p className="text-apoio text-escult-ink-2 mt-0.5">Defina novas áreas de atuação/categorias no catálogo.</p>
               </div>
 
               <div className="flex gap-1.5">
@@ -1462,10 +1812,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
               {/* Badges for active categories */}
               <div className="space-y-1">
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Áreas Ativas</span>
+                <span className="text-sobretitulo text-escult-ink-2 uppercase block">Áreas Ativas</span>
                 <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto pr-1">
                   {categoriesList.map(cat => (
-                    <span key={cat} className="bg-blue-50 border border-blue-100 text-[9px] font-mono font-bold text-blue-700 px-1.5 py-0.5 rounded-sm">
+                    <span key={cat} className="bg-blue-50 border border-blue-100 text-apoio font-bold text-blue-700 px-1.5 py-0.5 rounded-sm">
                       {cat}
                     </span>
                   ))}
@@ -1477,18 +1827,18 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           {/* Master Course lists details */}
           <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-[10px] space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-2">
-              <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
+              <h3 className="text-sobretitulo text-slate-900 uppercase">
                 Cursos Ativos no Catálogo ({courses.length})
               </h3>
               
               <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-escult-ink-3" />
                 <input
                   type="text"
                   placeholder="Pesquisar termo de disciplina..."
                   value={courseSearchQuery}
                   onChange={(e) => setCourseSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 pl-8 pr-3 py-1.8 text-[11px] rounded-md text-slate-700"
+                  className="w-full bg-slate-50 border border-slate-200 pl-8 pr-3 py-1.8 text-rotulo rounded-md text-slate-700"
                 />
               </div>
             </div>
@@ -1521,24 +1871,24 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <div className="space-y-1.5 text-left max-w-lg">
                           <div className="flex items-center gap-2">
                             <strong className="text-sm font-extrabold text-slate-900 block">{course.title}</strong>
-                            <span className="bg-slate-100 text-[8px] font-black uppercase text-slate-600 px-1.5 rounded">
+                            <span className="bg-slate-100 text-sobretitulo uppercase text-slate-600 px-1.5 rounded">
                               {course.category}
                             </span>
                           </div>
                           
-                          <p className="text-[11px] text-slate-500 line-clamp-2">{course.description}</p>
+                          <p className="text-rotulo text-escult-ink-2 line-clamp-2">{course.description}</p>
                           
                           {/* Info metrics line & Swap Instructor controls */}
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1.5 text-[10px] text-slate-400 font-medium">
-                            <span>Lessons: <strong>{course.lessons.length} aulas</strong></span>
-                            <span>Evaluations: <strong>{testsCount} testes</strong></span>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1.5 text-apoio text-escult-ink-2 font-medium">
+                            <span>Aulas: <strong>{course.lessons.length} aulas</strong></span>
+                            <span>Avaliações: <strong>{testsCount} testes</strong></span>
                             <span>Professor Atual: <strong className="text-slate-800">{course.instructorName}</strong></span>
                           </div>
 
                           {/* Swap instructor dropdown and Course Type/Chat controls */}
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 text-[10px] text-slate-500">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-2 text-apoio text-escult-ink-2">
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-400 uppercase tracking-wide">Trocar Professor:</span>
+                              <span className="font-bold text-escult-ink-3 uppercase tracking-wide">Trocar Professor:</span>
                               <select
                                 value={course.instructorId ?? ''}
                                 onChange={(e) => {
@@ -1547,7 +1897,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   updateCourseInstructor(course.id, newTeacher.id);
                                   showToast(`Professor do curso "${course.title}" modificado com sucesso para ${newTeacher.name}!`);
                                 }}
-                                className="border border-slate-200 bg-white p-0.5 px-1.5 text-[10px] rounded-md font-bold text-slate-700 cursor-pointer focus:outline-hidden"
+                                className="border border-slate-200 bg-white p-0.5 px-1.5 text-apoio rounded-md font-bold text-slate-700 cursor-pointer focus:outline-hidden"
                               >
                                 <option value="" disabled>Selecionar…</option>
                                 {professorsList.map((prof) => (
@@ -1557,14 +1907,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             </div>
                             
                             <div className="flex items-center gap-1.5">
-                              <span className="font-bold text-slate-400 uppercase tracking-wide">Tipo:</span>
+                              <span className="font-bold text-escult-ink-3 uppercase tracking-wide">Tipo:</span>
                               <select
                                 value={course.courseType || 'fixo'}
                                 onChange={(e) => {
                                   updateCourseProps(course.id, { courseType: e.target.value as 'fixo' | 'ao_vivo' });
                                   showToast(`Tipo do curso "${course.title}" alterado para ${e.target.value === 'fixo' ? 'Gravado (Fixo)' : 'Síncrono (Ao Vivo)'}!`);
                                 }}
-                                className="border border-slate-200 bg-white p-0.5 px-1.5 text-[10px] rounded-md font-bold text-slate-700 cursor-pointer focus:outline-hidden"
+                                className="border border-slate-200 bg-white p-0.5 px-1.5 text-apoio rounded-md font-bold text-slate-700 cursor-pointer focus:outline-hidden"
                               >
                                 <option value="fixo">Gravado (Fixo)</option>
                                 <option value="ao_vivo">Síncrono (Ao Vivo)</option>
@@ -1587,7 +1937,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             </div>
 
                             <div className="flex items-center gap-1 mt-0.5 sm:mt-0">
-                              <span className="font-bold text-slate-400 uppercase tracking-wide">Vigência:</span>
+                              <span className="font-bold text-escult-ink-3 uppercase tracking-wide">Vigência:</span>
                               <input
                                 type="date"
                                 value={course.contractExpirationDate || ''}
@@ -1595,7 +1945,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   updateCourseProps(course.id, { contractExpirationDate: e.target.value || undefined });
                                   showToast(`Vigência do curso "${course.title}" atualizada para ${e.target.value || 'Sem limite (Permanente)'}!`);
                                 }}
-                                className="border border-slate-200 bg-white p-0.5 px-1.5 text-[10px] rounded-md font-bold text-slate-700 cursor-pointer focus:outline-hidden"
+                                className="border border-slate-200 bg-white p-0.5 px-1.5 text-apoio rounded-md font-bold text-slate-700 cursor-pointer focus:outline-hidden"
                               />
                             </div>
                           </div>
@@ -1605,8 +1955,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <div className="flex flex-row md:flex-col items-center gap-2 shrink-0 self-start md:self-auto justify-between md:justify-start w-full md:w-auto">
                           {isCourseExpired(course.contractExpirationDate) ? (
                             <div className="flex flex-col gap-1.5 items-center shrink-0">
-                              <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-100 font-black px-2.5 py-1 rounded-md uppercase flex items-center gap-1 shrink-0" title="Expirado preventivamente para segurança jurídica">
-                                ⚠️ Expirado (Arquivado)
+                              <span className="text-sobretitulo bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-1 rounded-md uppercase flex items-center gap-1 shrink-0" title="Expirado preventivamente para segurança jurídica">
+                                <AlertTriangle className="h-3 w-3" />Expirado (Arquivado)
                               </span>
                               <button
                                 onClick={() => {
@@ -1618,26 +1968,28 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   showToast(`Curso "${course.title}" reativado! Nova vigência prorrogada até ${dateStr}.`);
                                   speakText(`Curso reativado com sucesso.`);
                                 }}
-                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[9px] uppercase rounded-md transition-colors cursor-pointer shadow-sm whitespace-nowrap"
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-sobretitulo uppercase rounded-md transition-colors cursor-pointer shadow-sm whitespace-nowrap"
                                 title="Renovar vigência por mais 1 ano"
                               >
                                 Reativar Curso
                               </button>
                             </div>
                           ) : (
-                            <span className="text-[10px] bg-blue-50 text-blue-700 border border-blue-100 font-black px-2.5 py-1 rounded-md uppercase shrink-0">
+                            <span className="text-sobretitulo bg-blue-50 text-blue-700 border border-blue-100 px-2.5 py-1 rounded-md uppercase shrink-0">
                               Ativo no AVA
                             </span>
                           )}
                           
                           <button
                             onClick={() => {
-                              if (window.confirm(`Tem certeza que deseja excluir permanentemente o curso "${course.title}"?`)) {
+                              // "Permanentemente" deixou de ser verdade com a ADR 12: a disciplina
+                              // sai do ar e o registro fica, para auditoria.
+                              if (window.confirm(`Excluir a disciplina "${course.title}"? Ela sai do ar para os alunos; o registro e o histórico de quem a cursou ficam preservados.`)) {
                                 deleteCourse(course.id);
                                 showToast(`Curso "${course.title}" foi excluído com sucesso!`);
                               }
                             }}
-                            className="p-1 px-2.5 hover:bg-red-50 text-red-600 hover:text-red-700 border border-slate-200 hover:border-red-200 rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-[10px]"
+                            className="p-1 px-2.5 hover:bg-red-50 text-red-600 hover:text-red-700 border border-slate-200 hover:border-red-200 rounded-md transition-all cursor-pointer flex items-center gap-1 font-bold text-apoio"
                             title="Excluir Disciplina"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1651,16 +2003,16 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <button
                           type="button"
                           onClick={() => setExpandedCourseStudentsId(expandedCourseStudentsId === course.id ? null : course.id)}
-                          className="flex items-center gap-1 text-[11px] text-[#3B82F6] font-bold hover:underline cursor-pointer"
+                          className="flex items-center gap-1 text-rotulo text-[#3B82F6] font-bold hover:underline cursor-pointer"
                         >
                           <Users className="h-3.5 w-3.5 text-[#3B82F6]" />
                           <span>Alunos Ativos ({activeStudents.length}): {activeStudents.map(s => s.name).join(', ')}</span>
-                          <span className="text-[9px] text-slate-400 font-normal">({expandedCourseStudentsId === course.id ? 'Ocultar' : 'Ver Detalhes'})</span>
+                          <span className="text-apoio text-escult-ink-2 font-normal">({expandedCourseStudentsId === course.id ? 'Ocultar' : 'Ver Detalhes'})</span>
                         </button>
                         
                         {expandedCourseStudentsId === course.id && (
                           <div className="mt-2 bg-slate-50 border border-slate-100 rounded-[10px] p-3 space-y-2 animate-in fade-in duration-200">
-                            <span className="text-[9px] font-extrabold text-slate-400 block uppercase tracking-wider">Identificação dos Alunos Vinculados</span>
+                            <span className="text-sobretitulo text-escult-ink-2 block uppercase">Identificação dos Alunos Vinculados</span>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               {activeStudents.map((std, index) => (
                                 <div key={index} className="flex items-center gap-2.5 bg-white border border-slate-100 p-2 rounded-md">
@@ -1668,8 +2020,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                     {std.name[0]}
                                   </div>
                                   <div className="text-left">
-                                    <span className="text-[11px] font-bold text-slate-800 block leading-tight">{std.name}</span>
-                                    <span className="text-[9px] text-slate-400 block leading-none">{std.email}</span>
+                                    <span className="text-rotulo font-bold text-slate-800 block leading-tight">{std.name}</span>
+                                    <span className="text-apoio text-escult-ink-2 block leading-none">{std.email}</span>
                                   </div>
                                 </div>
                               ))}
@@ -1690,7 +2042,6 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {activeTab === 'students' && (
         <div className="space-y-6 text-left animate-in fade-in duration-300">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           
           {/* Top Title Card */}
@@ -1700,7 +2051,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <Users className="h-5 w-5 text-blue-600" />
                 <span>Gestão Estratégica & Acompanhamento de Alunos</span>
               </h3>
-              <p className="text-xs text-slate-500 max-w-3xl leading-relaxed">
+              <p className="text-xs text-escult-ink-2 max-w-3xl leading-relaxed">
                 Monitore matrículas, evolução de carga horária, níveis de engajamento, pendências documentais e de termos de compromisso para acompanhamento preventivo de forma prática e segura.
               </p>
             </div>
@@ -1728,14 +2079,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   : "bg-slate-50/40 border-slate-200 hover:border-slate-300"
               }`}
             >
-              <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${activeQuickFilter === 'all' ? "text-slate-900" : "text-slate-400"}`}>Total Geral</span>
+              <span className={`text-sobretitulo font-black uppercase tracking-widest ${activeQuickFilter === 'all' ? "text-slate-900" : "text-escult-ink-2"}`}>Total Geral</span>
               <div className="flex items-baseline justify-between mt-1">
-                <span className="text-2xl font-black text-slate-900 font-mono">{totalStudentsCount}</span>
+                <span className="text-2xl font-black text-slate-900">{totalStudentsCount}</span>
                 <span className={`p-1.5 rounded-md ${activeQuickFilter === 'all' ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"}`}>
                   <Users className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-400">Alunos cadastrados</span>
+              <span className="text-apoio text-escult-ink-2">Alunos cadastrados</span>
             </button>
 
             {/* Ativos */}
@@ -1747,14 +2098,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   : "bg-slate-50/40 border-slate-200 hover:border-slate-300"
               }`}
             >
-              <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${activeQuickFilter === 'ativos' ? "text-blue-700" : "text-slate-400"}`}>Matrícula Ativa</span>
+              <span className={`text-sobretitulo font-black uppercase tracking-widest ${activeQuickFilter === 'ativos' ? "text-blue-700" : "text-escult-ink-2"}`}>Matrícula Ativa</span>
               <div className="flex items-baseline justify-between mt-1">
-                <span className="text-2xl font-black text-slate-900 font-mono">{activeMatriculasCount}</span>
-                <span className={`p-1.5 rounded-md ${activeQuickFilter === 'ativos' ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"}`}>
+                <span className="text-2xl font-black text-slate-900">{activeMatriculasCount}</span>
+                <span className={`p-1.5 rounded-md ${activeQuickFilter === 'ativos' ? "bg-blue-600 text-white" : "bg-slate-100 text-escult-ink-2"}`}>
                    <UserCheck className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-400">Regulares no AVA</span>
+              <span className="text-apoio text-escult-ink-2">Regulares no AVA</span>
             </button>
 
             {/* Sem Matrícula */}
@@ -1766,14 +2117,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   : "bg-slate-50/40 border-slate-200 hover:border-slate-300"
               }`}
             >
-              <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${activeQuickFilter === 'sem_matricula' ? "text-slate-900" : "text-slate-400"}`}>Sem Matrícula</span>
+              <span className={`text-sobretitulo font-black uppercase tracking-widest ${activeQuickFilter === 'sem_matricula' ? "text-slate-900" : "text-escult-ink-2"}`}>Sem Matrícula</span>
               <div className="flex items-baseline justify-between mt-1">
-                <span className="text-2xl font-black text-slate-950 font-mono">{semMatriculaCount}</span>
-                <span className={`p-1.5 rounded-md ${activeQuickFilter === 'sem_matricula' ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-500"}`}>
+                <span className="text-2xl font-black text-slate-950">{semMatriculaCount}</span>
+                <span className={`p-1.5 rounded-md ${activeQuickFilter === 'sem_matricula' ? "bg-slate-900 text-white" : "bg-slate-100 text-escult-ink-2"}`}>
                   <XCircle className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-400">Aguardando vínculo</span>
+              <span className="text-apoio text-escult-ink-2">Aguardando vínculo</span>
             </button>
 
             {/* Pendências */}
@@ -1787,20 +2138,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     : "bg-slate-50/40 border-slate-200"
               }`}
             >
-              <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${
-                activeQuickFilter === 'pendencias' ? "text-amber-800" : comPendenciasCount > 0 ? "text-amber-700" : "text-slate-400"
+              <span className={`text-sobretitulo font-black uppercase tracking-widest ${
+                activeQuickFilter === 'pendencias' ? "text-amber-800" : comPendenciasCount > 0 ? "text-amber-700" : "text-escult-ink-2"
               }`}>Com Pendências</span>
               <div className="flex items-baseline justify-between mt-1">
-                <span className={`text-2xl font-black font-mono ${
+                <span className={`text-2xl font-black ${
                   activeQuickFilter === 'pendencias' ? "text-amber-900" : comPendenciasCount > 0 ? "text-amber-800" : "text-slate-900"
                 }`}>{comPendenciasCount}</span>
                 <span className={`p-1.5 rounded-md ${
-                  activeQuickFilter === 'pendencias' ? "bg-amber-600 text-white" : comPendenciasCount > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"
+                  activeQuickFilter === 'pendencias' ? "bg-amber-600 text-white" : comPendenciasCount > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-escult-ink-2"
                 }`}>
                   <AlertTriangle className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-400">Exige regularização</span>
+              <span className="text-apoio text-escult-ink-2">Exige regularização</span>
             </button>
 
             {/* Inativo há > 7 dias */}
@@ -1814,20 +2165,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     : "bg-slate-50/40 border-slate-200"
               }`}
             >
-              <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${
-                activeQuickFilter === 'ausentes' ? "text-orange-800" : semAcessoRecenteCount > 0 ? "text-orange-700" : "text-slate-400"
+              <span className={`text-sobretitulo font-black uppercase tracking-widest ${
+                activeQuickFilter === 'ausentes' ? "text-orange-800" : semAcessoRecenteCount > 0 ? "text-orange-700" : "text-escult-ink-2"
               }`}>Ausentes &gt; 7d</span>
               <div className="flex items-baseline justify-between mt-1">
-                <span className={`text-2xl font-black font-mono ${
+                <span className={`text-2xl font-black ${
                   activeQuickFilter === 'ausentes' ? "text-orange-900" : semAcessoRecenteCount > 0 ? "text-orange-800" : "text-slate-900"
                 }`}>{semAcessoRecenteCount}</span>
                 <span className={`p-1.5 rounded-md ${
-                  activeQuickFilter === 'ausentes' ? "bg-orange-600 text-white" : semAcessoRecenteCount > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-500"
+                  activeQuickFilter === 'ausentes' ? "bg-orange-600 text-white" : semAcessoRecenteCount > 0 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-escult-ink-2"
                 }`}>
                   <Clock className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-400">Sem acesso recente</span>
+              <span className="text-apoio text-escult-ink-2">Sem acesso recente</span>
             </button>
 
             {/* Evasão / Crítico */}
@@ -1841,20 +2192,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     : "bg-slate-50/40 border-slate-200"
               }`}
             >
-              <span className={`text-[9px] font-black uppercase tracking-widest font-mono ${
-                activeQuickFilter === 'evasao' ? "text-red-800" : emRiscoEvasaoCount > 0 ? "text-red-700" : "text-slate-400"
+              <span className={`text-sobretitulo font-black uppercase tracking-widest ${
+                activeQuickFilter === 'evasao' ? "text-red-800" : emRiscoEvasaoCount > 0 ? "text-red-700" : "text-escult-ink-2"
               }`}>Risco Evasão</span>
               <div className="flex items-baseline justify-between mt-1">
-                <span className={`text-2xl font-black font-mono ${
+                <span className={`text-2xl font-black ${
                   activeQuickFilter === 'evasao' ? "text-red-900" : emRiscoEvasaoCount > 0 ? "text-red-800" : "text-slate-900"
                 }`}>{emRiscoEvasaoCount}</span>
                 <span className={`p-1.5 rounded-md ${
-                  activeQuickFilter === 'evasao' ? "bg-red-600 text-white" : emRiscoEvasaoCount > 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-slate-100 text-slate-500"
+                  activeQuickFilter === 'evasao' ? "bg-red-600 text-white" : emRiscoEvasaoCount > 0 ? "bg-red-100 text-red-700 animate-pulse" : "bg-slate-100 text-escult-ink-2"
                 }`}>
                   <AlertCircle className="h-4 w-4" />
                 </span>
               </div>
-              <span className="text-[9px] text-slate-400">Necessita contato</span>
+              <span className="text-apoio text-escult-ink-2">Necessita contato</span>
             </button>
           </div>
 
@@ -1863,25 +2214,25 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             {/* Left Column: Enrollment Form */}
             <div className="lg:col-span-3 bg-white border border-slate-200/80 p-5 rounded-[10px] h-fit space-y-4 shadow-sm">
               <div>
-                <h4 className="text-xs font-black text-slate-950 uppercase tracking-wider">Matricular Novo Aluno</h4>
-                <p className="text-[11px] text-slate-400 mt-1 leading-normal">Vincule e configure os parâmetros de acesso do aluno com segurança.</p>
+                <h4 className="text-sobretitulo text-slate-950 uppercase">Matricular Novo Aluno</h4>
+                <p className="text-rotulo text-escult-ink-3 mt-1 leading-normal">Vincule e configure os parâmetros de acesso do aluno com segurança.</p>
               </div>
 
               <form onSubmit={handleCreateStudent} className="space-y-3.5">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Nome Completo</label>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Nome Completo</label>
                   <input
                     type="text"
                     required
                     placeholder="Ex: Clara Ribeiro"
                     value={newStudentName}
-                    onChange={(e) => setNewStudentName(e.target.value)}
+                    onChange={(e) => setNewStudentName(apenasLetras(e.target.value))}
                     className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">E-mail Acadêmico</label>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">E-mail Acadêmico</label>
                   <input
                     type="email"
                     required
@@ -1892,8 +2243,30 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   />
                 </div>
 
+                {/*
+                  CPF é o que a tela de login pede do aluno (aba "Aluno" só
+                  aceita CPF). Este formulário não tinha o campo: a conta era
+                  criada sem identificador de login e o aluno não tinha por onde
+                  entrar. Obrigatório aqui, como já é no cadastro público.
+                */}
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Curso de Matrícula</label>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1" htmlFor="inp-new-student-cpf">
+                    C.P.F. <span className="text-escult-ink-2 font-normal normal-case">— é com ele que o aluno faz login</span>
+                  </label>
+                  <input
+                    id="inp-new-student-cpf"
+                    type="text"
+                    required
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
+                    value={newStudentCpf}
+                    onChange={(e) => setNewStudentCpf(maskCpf(e.target.value))}
+                    className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Curso de Matrícula</label>
                   <button
                     type="button"
                     onClick={() => setShowCoursePickerModal(true)}
@@ -1904,15 +2277,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         ? courses.find(c => c.id === selectedEnrollCourseId)?.title 
                         : "Selecionar Disciplina..."}
                     </span>
-                    <BookOpen className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600 transition-colors shrink-0" />
+                    <BookOpen className="h-3.5 w-3.5 text-escult-ink-3 group-hover:text-blue-600 transition-colors shrink-0" />
                   </button>
                   {selectedEnrollCourseId && (
                     <div className="mt-2 p-2 bg-emerald-50 border border-emerald-100 rounded-md animate-in fade-in duration-200">
                       <div className="flex items-center gap-1.5">
                         <ShieldCheck className="h-3 w-3 text-emerald-600" />
-                        <span className="text-[9px] font-bold text-emerald-800 uppercase tracking-tight">Professor Designado:</span>
+                        <span className="text-sobretitulo text-emerald-800 uppercase">Professor Designado:</span>
                       </div>
-                      <p className="text-[11px] font-black text-emerald-900 mt-0.5">
+                      <p className="text-rotulo font-black text-emerald-900 mt-0.5">
                         {courses.find(c => c.id === selectedEnrollCourseId)?.instructorName}
                       </p>
                     </div>
@@ -1920,22 +2293,22 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1 flex items-center justify-between">
                     <span>Senha Inicial</span>
-                    <span className="text-[8.5px] text-slate-400 font-normal normal-case">Padrão: 1234</span>
+                    <span className="text-apoio text-escult-ink-2 font-normal normal-case">Em branco: gerada automaticamente</span>
                   </label>
                   <div className="relative">
                     <input
                       type={showStudentPassword ? 'text' : 'password'}
-                      placeholder="Defina a senha"
+                      placeholder="Mín. 8, com letra e número"
                       value={newStudentPassword}
                       onChange={(e) => setNewStudentPassword(e.target.value)}
-                      className="w-full border border-slate-200 p-2.5 pr-10 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
+                      className="w-full border border-slate-200 p-2.5 pr-10 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                     />
                     <button
                       type="button"
                       onClick={() => setShowStudentPassword(!showStudentPassword)}
-                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                      className="absolute right-2.5 top-2.5 text-escult-ink-3 hover:text-blue-600 transition-colors cursor-pointer"
                     >
                       {showStudentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -1944,35 +2317,35 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Município</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Município</label>
                     <input
                       type="text"
                       placeholder="Ex: Recife"
                       value={newStudentMunicipio}
-                      onChange={(e) => setNewStudentMunicipio(e.target.value)}
+                      onChange={(e) => setNewStudentMunicipio(apenasLetras(e.target.value))}
                       className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">UF</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">UF</label>
                     <input
                       type="text"
                       maxLength={2}
                       placeholder="PE"
                       value={newStudentUf}
-                      onChange={(e) => setNewStudentUf(e.target.value.toUpperCase())}
-                      className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 text-center uppercase focus:outline-hidden focus:ring-1 focus:ring-slate-400 font-mono"
+                      onChange={(e) => setNewStudentUf(apenasUf(e.target.value))}
+                      className="w-full border border-slate-200 p-2.5 text-sobretitulo rounded-md text-slate-800 text-center uppercase focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Área de Interesse</label>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Área de Interesse</label>
                   <input
                     type="text"
                     placeholder="Ex: Economia Criativa & IA"
                     value={newStudentAreaInteresse}
-                    onChange={(e) => setNewStudentAreaInteresse(e.target.value)}
+                    onChange={(e) => setNewStudentAreaInteresse(apenasAreaInteresse(e.target.value))}
                     className="w-full border border-slate-200 p-2.5 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                   />
                 </div>
@@ -1988,8 +2361,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
               {/* Quick instructions indicator */}
               <div className="p-3 bg-slate-50 border border-slate-100 rounded-[10px] space-y-1 text-left">
-                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest block">Segurança Integrada</span>
-                <p className="text-[10px] text-slate-400 leading-relaxed">
+                <span className="text-sobretitulo text-escult-ink-2 uppercase block">Segurança Integrada</span>
+                <p className="text-apoio text-escult-ink-2 leading-relaxed">
                   Senhas são mantidas ocultas. Utilize redefinições seguras na tabela e link de acesso direto sem exibir credenciais em texto aberto.
                 </p>
               </div>
@@ -2002,7 +2375,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <div className="space-y-4 bg-slate-50/50 p-5 rounded-[10px] border border-slate-200/60 text-left">
                 {/* Header row */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-                  <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="text-sobretitulo text-slate-800 uppercase flex items-center gap-1.5">
                     <SlidersHorizontal className="h-4 w-4 text-blue-600" />
                     <span>Filtros Estratégicos & Ordenação</span>
                   </span>
@@ -2020,7 +2393,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       setActiveQuickFilter('all');
                       showToast("Filtros redefinidos para os valores padrão.");
                     }}
-                    className="text-[10px] font-bold text-slate-400 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer w-fit"
+                    className="text-apoio font-bold text-escult-ink-2 hover:text-blue-600 transition-colors flex items-center gap-1 cursor-pointer w-fit"
                   >
                     <RefreshCw className="h-3 w-3" />
                     <span>Limpar Filtros</span>
@@ -2030,9 +2403,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 {/* Primary row: Search & Sorting */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
                   <div className="md:col-span-6 relative">
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Buscar Aluno</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Buscar Aluno</label>
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-escult-ink-3" />
                       <input
                         type="text"
                         placeholder="Nome completo, e-mail acadêmico ou RA..."
@@ -2044,7 +2417,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   </div>
 
                   <div className="md:col-span-4">
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Ordenar Registros</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Ordenar Registros</label>
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
@@ -2066,7 +2439,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       title="Alternar Ordem"
                     >
                       <span>{sortOrder === 'asc' ? 'A-Z' : 'Z-A'}</span>
-                      <span className="text-[9px] opacity-70">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                      <span className="text-apoio opacity-70">{sortOrder === 'asc' ? '↑' : '↓'}</span>
                     </button>
                   </div>
                 </div>
@@ -2075,7 +2448,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 pt-1 border-t border-slate-100">
                   {/* Course Filter */}
                   <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Curso</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Curso</label>
                     <select
                       value={filterCourse}
                       onChange={(e) => setFilterCourse(e.target.value)}
@@ -2091,7 +2464,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                   {/* Turma Filter */}
                   <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Turma</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Turma</label>
                     <select
                       value={filterTurma}
                       onChange={(e) => setFilterTurma(e.target.value)}
@@ -2106,7 +2479,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                   {/* Status Matrícula Filter */}
                   <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Matrícula</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Matrícula</label>
                     <select
                       value={filterStatusMatricula}
                       onChange={(e) => setFilterStatusMatricula(e.target.value)}
@@ -2123,7 +2496,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                   {/* Pendência Filter */}
                   <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Pendências</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Pendências</label>
                     <select
                       value={filterPendencia}
                       onChange={(e) => setFilterPendencia(e.target.value)}
@@ -2141,7 +2514,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                   {/* Risco Evasão Filter */}
                   <div>
-                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1">Risco Evasão</label>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Risco Evasão</label>
                     <select
                       value={filterRisco}
                       onChange={(e) => setFilterRisco(e.target.value)}
@@ -2161,7 +2534,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <div className="hidden md:block overflow-x-auto border border-slate-200/80 rounded-[10px]">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/70">
+                    <tr className="border-b border-slate-200 text-sobretitulo text-escult-ink-2 uppercase bg-slate-50/70">
                       <th className="p-4 py-3">Aluno / RA</th>
                       <th className="p-4 py-3">Curso / Turma</th>
                       <th className="p-4 py-3">Status Matrícula</th>
@@ -2174,7 +2547,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <tbody>
                     {sortedStudents.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="text-center p-10 text-slate-400 text-xs font-bold bg-slate-50/20">
+                        <td colSpan={7} className="text-center p-10 text-escult-ink-3 text-xs font-bold bg-slate-50/20">
                           Nenhum aluno corresponde aos filtros de busca aplicados.
                         </td>
                       </tr>
@@ -2188,7 +2561,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <td className="p-4 align-middle">
                               <div className="flex items-center gap-3">
                                 <div className="relative shrink-0">
-                                  <div className="h-9 w-9 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-extrabold flex items-center justify-center rounded-full tracking-tight">
+                                  <div className="h-9 w-9 bg-slate-100 border border-slate-200 text-slate-600 text-rotulo font-extrabold flex items-center justify-center rounded-full tracking-tight">
                                     {initials}
                                   </div>
                                   {st.riskLevel === 'Crítico' && (
@@ -2211,11 +2584,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 <div className="text-left">
                                   <span 
                                     className="font-extrabold text-slate-900 hover:text-blue-600 transition-colors block leading-tight text-sm cursor-pointer" 
-                                    onClick={() => setActiveStudentProfile(st.name)}
+                                    onClick={() => setActiveStudentProfile(chaveDoAluno(st))}
                                   >
                                     {st.name}
                                   </span>
-                                  <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">{st.email} • RA: {st.ra}</span>
+                                  <span className="text-apoio text-escult-ink-2 block mt-0.5">{st.email} • RA: {st.ra}</span>
                                 </div>
                               </div>
                             </td>
@@ -2223,13 +2596,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             {/* CURSO / TURMA */}
                             <td className="p-4 align-middle">
                               {st.curso === '—' ? (
-                                <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-slate-400 text-[10px] font-bold">
+                                <span className="inline-block px-2 py-0.5 rounded bg-slate-100 text-escult-ink-2 text-apoio font-bold">
                                   Sem matrícula ativa
                                 </span>
                               ) : (
                                 <div className="space-y-0.5">
-                                  <span className="text-[11.5px] font-extrabold text-slate-700 block leading-tight">{st.curso}</span>
-                                  <span className="text-[10px] text-slate-400 block font-mono">
+                                  <span className="text-rotulo font-extrabold text-slate-700 block leading-tight">{st.curso}</span>
+                                  <span className="text-apoio text-escult-ink-2 block">
                                     Turma {st.turma} • {st.polo || 'Digital'}
                                   </span>
                                 </div>
@@ -2239,14 +2612,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             {/* STATUS MATRÍCULA */}
                             <td className="p-4 align-middle">
                               {(() => {
-                                let badgeColor = "bg-slate-50 text-slate-500 border-slate-200";
+                                let badgeColor = "bg-slate-50 text-escult-ink-2 border-slate-200";
                                 if (st.statusMatricula === 'Ativa') badgeColor = "bg-slate-100/85 text-slate-700 border-slate-200/60 font-semibold";
                                 else if (st.statusMatricula === 'Trancada') badgeColor = "bg-amber-50 text-amber-850 border-amber-200/70 font-bold";
                                 else if (st.statusMatricula === 'Concluída') badgeColor = "bg-blue-50 text-blue-800 border-blue-200/70 font-bold";
                                 else if (st.statusMatricula === 'Cancelada') badgeColor = "bg-red-50 text-red-850 border-red-200/70 font-bold";
 
                                 return (
-                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-[9px] font-black border uppercase tracking-wider ${badgeColor}`}>
+                                  <span className={`inline-flex px-2 py-0.5 rounded-full text-sobretitulo border uppercase ${badgeColor}`}>
                                     {st.statusMatricula}
                                   </span>
                                 );
@@ -2256,12 +2629,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             {/* PROGRESSO */}
                             <td className="p-4 align-middle">
                               {st.statusMatricula === 'Sem matrícula' ? (
-                                <span className="text-slate-400 text-xs font-bold font-mono">—</span>
+                                <span className="text-escult-ink-3 text-xs font-bold">—</span>
                               ) : (
                                 <div className="w-28 space-y-1">
-                                  <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                                  <div className="flex items-center justify-between text-apoio font-bold text-slate-600">
                                     <span className="font-extrabold">{st.progresso}%</span>
-                                    <span className="text-[9px] text-slate-400 font-normal">{st.horasConcluidas}h de {st.horasTotais}h</span>
+                                    <span className="text-apoio text-escult-ink-2 font-normal">{st.horasConcluidas}h de {st.horasTotais}h</span>
                                   </div>
                                   <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
                                     <div 
@@ -2276,11 +2649,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             {/* ÚLTIMO ACESSO */}
                             <td className="p-4 align-middle">
                               <div className="space-y-1">
-                                <span className="text-[11px] font-bold text-slate-700 block leading-tight">{st.lastAccess}</span>
+                                <span className="text-rotulo font-bold text-slate-700 block leading-tight">{st.lastAccess}</span>
                                 {(() => {
                                   if (st.riskLevel === 'Crítico') {
                                     return (
-                                      <span className="inline-flex items-center gap-0.5 text-[8px] font-black text-red-700 bg-red-50 border border-red-100 rounded-md px-1 py-0.5 uppercase tracking-wide">
+                                      <span className="inline-flex items-center gap-0.5 text-sobretitulo text-red-700 bg-red-50 border border-red-100 rounded-md px-1 py-0.5 uppercase">
                                         <AlertCircle className="h-2.5 w-2.5 shrink-0" />
                                         <span>Risco Crítico</span>
                                       </span>
@@ -2288,7 +2661,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   }
                                   if (st.riskLevel === 'Risco') {
                                     return (
-                                      <span className="inline-flex items-center gap-0.5 text-[8px] font-black text-orange-700 bg-orange-50 border border-orange-100 rounded-md px-1 py-0.5 uppercase tracking-wide">
+                                      <span className="inline-flex items-center gap-0.5 text-sobretitulo text-orange-700 bg-orange-50 border border-orange-100 rounded-md px-1 py-0.5 uppercase">
                                         <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
                                         <span>Risco Evasão</span>
                                       </span>
@@ -2296,14 +2669,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   }
                                   if (st.riskLevel === 'Atenção') {
                                     return (
-                                      <span className="inline-flex items-center gap-0.5 text-[8px] font-black text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-1 py-0.5 uppercase tracking-wide">
+                                      <span className="inline-flex items-center gap-0.5 text-sobretitulo text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-1 py-0.5 uppercase">
                                         <Clock className="h-2.5 w-2.5 shrink-0" />
                                         <span>Atenção</span>
                                       </span>
                                     );
                                   }
                                   return (
-                                    <span className="text-[9px] text-slate-400 font-medium">Regular</span>
+                                    <span className="text-apoio text-escult-ink-2 font-medium">Regular</span>
                                   );
                                 })()}
                               </div>
@@ -2313,9 +2686,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <td className="p-4 align-middle">
                               <div className="flex flex-wrap gap-1 max-w-[130px]">
                                 {st.pendencias.map((pend, idx) => {
-                                  let style = "bg-slate-50 text-slate-400 border-slate-100 font-normal tracking-tight normal-case";
+                                  let style = "bg-slate-50 text-escult-ink-3 border-slate-100 font-normal tracking-tight normal-case";
                                   if (pend === 'Nenhuma') {
-                                    style = "bg-slate-50/40 text-slate-400 border-slate-100 font-medium tracking-tight normal-case";
+                                    style = "bg-slate-50/40 text-escult-ink-3 border-slate-100 font-medium tracking-tight normal-case";
                                   } else if (pend.includes('Termo de Compromisso')) {
                                     style = "bg-red-50 text-red-700 border-red-150 font-black";
                                   } else {
@@ -2325,7 +2698,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   return (
                                     <span 
                                       key={idx} 
-                                      className={`px-1.5 py-0.5 rounded-md text-[9px] border uppercase block leading-none ${style}`}
+                                      className={`px-1.5 py-0.5 rounded-md text-sobretitulo border uppercase block leading-none ${style}`}
                                     >
                                       {pend}
                                     </span>
@@ -2338,33 +2711,35 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <td className="p-4 align-middle text-right relative">
                               <div className="flex items-center justify-end gap-1.5">
                                 <button
-                                  onClick={() => setActiveStudentProfile(st.name)}
-                                  className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200/50 text-blue-900 font-black rounded-md text-[10px] uppercase transition-colors cursor-pointer flex items-center gap-1"
+                                  onClick={() => setActiveStudentProfile(chaveDoAluno(st))}
+                                  className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200/50 text-blue-900 rounded-md text-sobretitulo uppercase transition-colors cursor-pointer flex items-center gap-1"
                                 >
                                   <SlidersHorizontal className="h-3 w-3 text-blue-600" />
                                   <span>Gerenciar</span>
                                 </button>
                                 
-                                <div className="relative">
+                                <div>
                                   <button
-                                    onClick={() => setActiveStudentMenu(activeStudentMenu === st.email ? null : st.email)}
-                                    className="p-1.5 hover:bg-slate-100 rounded-md text-slate-400 hover:text-slate-700 transition-all cursor-pointer"
+                                    onClick={(e) => {
+                                      const abrindo = activeStudentMenu !== st.email;
+                                      setStudentMenuAnchor(abrindo ? e.currentTarget : null);
+                                      setActiveStudentMenu(abrindo ? st.email : null);
+                                    }}
+                                    className="p-1.5 hover:bg-slate-100 rounded-md text-escult-ink-3 hover:text-slate-700 transition-all cursor-pointer"
                                     title="Ações Rápidas"
                                   >
                                     <MoreVertical className="h-4 w-4" />
                                   </button>
-                                  
+
                                   {activeStudentMenu === st.email && (
-                                    <>
-                                      <div 
-                                        className="fixed inset-0 z-10" 
-                                        onClick={() => setActiveStudentMenu(null)}
-                                      />
-                                      <div className="absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-[10px] shadow-xl py-1.5 z-20 text-left animate-in fade-in slide-in-from-top-1 duration-150">
+                                    <AnchoredMenu
+                                      anchor={studentMenuAnchor}
+                                      onClose={() => setActiveStudentMenu(null)}
+                                    >
                                         <button
                                           onClick={() => {
                                             setActiveStudentMenu(null);
-                                            setActiveStudentProfile(st.name);
+                                            setActiveStudentProfile(chaveDoAluno(st));
                                           }}
                                           className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-bold"
                                         >
@@ -2386,7 +2761,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                         <button
                                           onClick={() => {
                                             setActiveStudentMenu(null);
-                                            setResetPassInfo({ name: st.name, email: st.email });
+                                            setResetPassInfo({ id: st.id, name: st.name, email: st.email });
                                           }}
                                           className="w-full px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-bold"
                                         >
@@ -2437,8 +2812,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                           <Trash2 className="h-3.5 w-3.5" />
                                           <span>Excluir Aluno</span>
                                         </button>
-                                      </div>
-                                    </>
+                                    </AnchoredMenu>
                                   )}
                                 </div>
                               </div>
@@ -2454,7 +2828,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               {/* Students Mobile View Cards - Extemely Polished for responsive viewport */}
               <div className="block md:hidden space-y-4">
                 {sortedStudents.length === 0 ? (
-                  <div className="text-center p-10 text-slate-400 text-xs font-bold bg-slate-50/20 border border-slate-200 rounded-[10px]">
+                  <div className="text-center p-10 text-escult-ink-3 text-xs font-bold bg-slate-50/20 border border-slate-200 rounded-[10px]">
                     Nenhum aluno corresponde aos filtros aplicados.
                   </div>
                 ) : (
@@ -2470,7 +2844,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                           <div className="flex items-center gap-2.5 text-left">
                             <div className="relative shrink-0">
-                              <div className="h-9 w-9 bg-slate-100 border border-slate-200 text-slate-700 text-xs font-extrabold flex items-center justify-center rounded-full uppercase">
+                              <div className="h-9 w-9 bg-slate-100 border border-slate-200 text-slate-700 text-sobretitulo flex items-center justify-center rounded-full uppercase">
                                 {initials}
                               </div>
                               {!isNormalRisk && (
@@ -2483,18 +2857,18 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             </div>
                             <div>
                               <strong 
-                                onClick={() => setActiveStudentProfile(st.name)}
+                                onClick={() => setActiveStudentProfile(chaveDoAluno(st))}
                                 className="text-slate-900 block font-extrabold leading-tight cursor-pointer hover:underline"
                               >
                                 {st.name}
                               </strong>
-                              <span className="text-[10px] text-slate-400 block font-mono mt-0.5">RA: {st.ra}</span>
+                              <span className="text-apoio text-escult-ink-2 block mt-0.5">RA: {st.ra}</span>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-1.5">
                             <button
-                              onClick={() => setActiveStudentProfile(st.name)}
+                              onClick={() => setActiveStudentProfile(chaveDoAluno(st))}
                               className="p-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-[10px] transition-all cursor-pointer"
                               title="Gerenciar Aluno"
                             >
@@ -2518,31 +2892,31 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         {/* Meta Grid */}
                         <div className="grid grid-cols-2 gap-3.5 text-left text-xs">
                           <div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Curso</span>
+                            <span className="text-sobretitulo text-escult-ink-2 uppercase block">Curso</span>
                             <span className="font-extrabold text-slate-800 block mt-0.5 truncate max-w-[130px]" title={st.curso}>{st.curso}</span>
-                            <span className="text-[10px] text-slate-400 block font-mono">Turma {st.turma}</span>
+                            <span className="text-apoio text-escult-ink-2 block">Turma {st.turma}</span>
                           </div>
 
                           <div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Último Acesso</span>
+                            <span className="text-sobretitulo text-escult-ink-2 uppercase block">Último Acesso</span>
                             <span className="font-extrabold text-slate-800 block mt-0.5">{st.lastAccess}</span>
                             {!isNormalRisk && (
-                              <span className="inline-block mt-1 text-[8.5px] font-black text-red-700 bg-red-50 border border-red-100 rounded px-1.5 py-0.5 uppercase tracking-wider animate-pulse">
+                              <span className="inline-block mt-1 text-sobretitulo text-red-700 bg-red-50 border border-red-100 rounded px-1.5 py-0.5 uppercase animate-pulse">
                                 Risco: {st.riskLevel}
                               </span>
                             )}
                           </div>
 
                           <div>
-                            <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest block">Situação</span>
-                            <span className="font-extrabold text-slate-800 block mt-0.5 uppercase text-[10px] tracking-wide">{st.statusMatricula}</span>
+                            <span className="text-sobretitulo text-escult-ink-2 uppercase block">Situação</span>
+                            <span className="text-slate-800 block mt-0.5 uppercase text-sobretitulo">{st.statusMatricula}</span>
                           </div>
                         </div>
 
                         {/* Progress Tracker (If Active) */}
                         {st.statusMatricula !== 'Sem matrícula' && (
                           <div className="space-y-1.5 bg-slate-50 p-2.5 rounded-[10px] border border-slate-100">
-                            <div className="flex items-center justify-between text-[10px] font-bold text-slate-600">
+                            <div className="flex items-center justify-between text-apoio font-bold text-slate-600">
                               <span>Progresso Letivo:</span>
                               <span className="font-black text-slate-800">{st.progresso}% ({st.horasConcluidas}h / {st.horasTotais}h)</span>
                             </div>
@@ -2554,18 +2928,18 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                         {/* Pendencies section */}
                         <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mr-1">Pendências:</span>
+                          <span className="text-sobretitulo text-escult-ink-2 uppercase mr-1">Pendências:</span>
                           {st.pendencias.map((pend, idx) => {
-                            let pillStyle = "bg-slate-50 text-slate-400 border-slate-100";
+                            let pillStyle = "bg-slate-50 text-escult-ink-3 border-slate-100";
                             if (pend === 'Nenhuma') {
-                              pillStyle = "bg-slate-50/55 text-slate-400 border-slate-100";
+                              pillStyle = "bg-slate-50/55 text-escult-ink-3 border-slate-100";
                             } else if (pend.includes('Termo de Compromisso')) {
                               pillStyle = "bg-red-50 text-red-700 border-red-200 font-bold";
                             } else {
                               pillStyle = "bg-amber-50 text-amber-800 border-amber-200 font-bold";
                             }
                             return (
-                              <span key={idx} className={`px-2 py-0.5 border rounded-md text-[9px] uppercase tracking-tight ${pillStyle}`}>
+                              <span key={idx} className={`px-2 py-0.5 border rounded-md text-sobretitulo uppercase ${pillStyle}`}>
                                 {pend}
                               </span>
                             );
@@ -2576,13 +2950,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
                           <button
                             onClick={() => setSendMessageInfo({ name: st.name, email: st.email })}
-                            className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
+                            className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-[10px] text-sobretitulo uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
                           >
                             Mensagem
                           </button>
                           <button
-                            onClick={() => setResetPassInfo({ name: st.name, email: st.email })}
-                            className="w-full py-2 bg-slate-55 hover:bg-slate-100 text-slate-700 rounded-[10px] text-[10px] font-extrabold uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
+                            onClick={() => setResetPassInfo({ id: st.id, name: st.name, email: st.email })}
+                            className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-[10px] text-sobretitulo uppercase transition-colors text-center cursor-pointer border border-slate-200/80"
                           >
                             Nova Senha
                           </button>
@@ -2611,14 +2985,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
               <button 
                 onClick={() => setShowCoursePickerModal(false)}
-                className="p-1 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-slate-400"
+                className="p-1 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-escult-ink-3"
               >
                 <X className="h-4 w-4" />
               </button>
             </header>
 
             <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
-              <p className="text-[10px] text-slate-500 font-medium leading-relaxed mb-4">
+              <p className="text-apoio text-escult-ink-2 font-medium leading-relaxed mb-4">
                 Selecione abaixo a disciplina na qual o aluno será matriculado. O professor correspondente será vinculado automaticamente para acompanhamento pedagógico.
               </p>
 
@@ -2638,10 +3012,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="space-y-1">
                     <p className="text-xs font-bold text-slate-900 group-hover:text-blue-700 transition-colors">{course.title}</p>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-500 font-mono">
+                      <span className="text-apoio bg-white border border-slate-200 px-1.5 py-0.5 rounded text-escult-ink-2">
                         {course.category}
                       </span>
-                      <span className="text-[9px] text-slate-400">
+                      <span className="text-apoio text-escult-ink-2">
                         Instrutor: <span className="font-bold text-slate-600 underline decoration-slate-300">{course.instructorName}</span>
                       </span>
                     </div>
@@ -2654,7 +3028,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <footer className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setShowCoursePickerModal(false)}
-                className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 transition-colors uppercase tracking-widest cursor-pointer"
+                className="px-4 py-2 text-sobretitulo text-slate-600 hover:text-slate-900 transition-colors uppercase cursor-pointer"
               >
                 Cancelar
               </button>
@@ -2666,16 +3040,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {activeTab === 'requests' && (
         <div className="space-y-6 text-left animate-in fade-in duration-300">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           
           {/* Header instructions card */}
           <div className="bg-white border border-slate-200 rounded-[10px] p-5 space-y-2">
-            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+            <h3 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-2">
               <FileCheck className="h-4.5 w-4.5 text-blue-600" />
               <span>Central de Requerimentos Curriculares e Emissões Eletrônicas</span>
             </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
+            <p className="text-xs text-escult-ink-2 leading-relaxed">
               Analise, autorize ou indefira as solicitações de documentos protocoladas por alunos. Você também pode emitir vias avulsas diretamente utilizando o emissor rápido ao lado.
             </p>
           </div>
@@ -2685,8 +3058,8 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             {/* Direct Issuance fast tool panel */}
             <div className="lg:col-span-4 bg-white border border-slate-200 p-5 rounded-[10px] h-fit space-y-4">
               <div>
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">Emissor Manual Rápido</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Emita documentos oficiais avulsos para qualquer aluno sem necessidade de pedido prévio.</p>
+                <h4 className="text-sobretitulo text-slate-900 uppercase">Emissor Manual Rápido</h4>
+                <p className="text-rotulo text-escult-ink-3 mt-0.5">Emita documentos oficiais avulsos para qualquer aluno sem necessidade de pedido prévio.</p>
               </div>
 
               <form onSubmit={(e) => {
@@ -2706,7 +3079,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 }
               }} className="space-y-3">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Escolher Aluno</label>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Escolher Aluno</label>
                   <select
                     name="directStudent"
                     required
@@ -2721,7 +3094,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo de Documento</label>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Tipo de Documento</label>
                   <select name="directType" required className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white focus:outline-hidden">
                     <option value="historico">Histórico Curricular Escolar</option>
                     <option value="certificado">Certificado Oficial</option>
@@ -2730,7 +3103,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Vincular a Qual Curso? (Opcional)</label>
+                  <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Vincular a Qual Curso? (Opcional)</label>
                   <select name="directCourse" className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 bg-white focus:outline-hidden">
                     <option value="">Geral / Integral</option>
                     {courses.map((c, idx) => (
@@ -2751,10 +3124,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               {/* Seção de Geração Rápida de Requerimentos de Exemplo */}
               <div className="border-t border-slate-100 pt-4 mt-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider font-mono">Simulador de Requerimentos</span>
-                  <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-bold">1-Clique</span>
+                  <span className="text-sobretitulo uppercase text-blue-600">Simulador de Requerimentos</span>
+                  <span className="text-apoio text-escult-ink-2 bg-slate-100 px-1.5 py-0.5 rounded font-bold">1-Clique</span>
                 </div>
-                <p className="text-[10px] text-slate-500 leading-normal">
+                <p className="text-apoio text-escult-ink-2 leading-normal">
                   Crie requerimentos de exemplo para o aluno selecionado acima para simular a homologação imediatamente.
                 </p>
                 <div className="grid grid-cols-1 gap-2">
@@ -2774,9 +3147,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <div className="flex items-center gap-1.5 font-bold">
                       <FileText className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                       <span>Histórico Escolar</span>
-                      <span className="ml-auto text-[9px] font-extrabold text-blue-500 group-hover:translate-x-0.5 transition-transform">+ Criar</span>
+                      <span className="ml-auto text-apoio font-extrabold text-blue-500 group-hover:translate-x-0.5 transition-transform">+ Criar</span>
                     </div>
-                    <span className="text-[9px] text-slate-500 line-clamp-1 font-medium">Histórico acadêmico completo em formato PDF oficial.</span>
+                    <span className="text-apoio text-escult-ink-2 line-clamp-1 font-medium">Histórico acadêmico completo em formato PDF oficial.</span>
                   </button>
 
                   <button
@@ -2795,9 +3168,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <div className="flex items-center gap-1.5 font-bold">
                       <Award className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
                       <span>Certificado Oficial</span>
-                      <span className="ml-auto text-[9px] font-extrabold text-emerald-500 group-hover:translate-x-0.5 transition-transform">+ Criar</span>
+                      <span className="ml-auto text-apoio font-extrabold text-emerald-500 group-hover:translate-x-0.5 transition-transform">+ Criar</span>
                     </div>
-                    <span className="text-[9px] text-slate-500 line-clamp-1 font-medium">Certificado formal com validação de carga horária.</span>
+                    <span className="text-apoio text-escult-ink-2 line-clamp-1 font-medium">Certificado formal com validação de carga horária.</span>
                   </button>
 
                   <button
@@ -2816,9 +3189,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     <div className="flex items-center gap-1.5 font-bold">
                       <BookOpen className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                       <span>Declaração de Matrícula</span>
-                      <span className="ml-auto text-[9px] font-extrabold text-amber-500 group-hover:translate-x-0.5 transition-transform">+ Criar</span>
+                      <span className="ml-auto text-apoio font-extrabold text-amber-500 group-hover:translate-x-0.5 transition-transform">+ Criar</span>
                     </div>
-                    <span className="text-[9px] text-slate-500 line-clamp-1 font-medium">Comprovante de vínculo regular para passe-estudantil.</span>
+                    <span className="text-apoio text-escult-ink-2 line-clamp-1 font-medium">Comprovante de vínculo regular para passe-estudantil.</span>
                   </button>
                 </div>
               </div>
@@ -2826,12 +3199,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
             {/* List of Incoming Requests */}
             <div className="lg:col-span-8 bg-white border border-slate-200 p-5 rounded-[10px] space-y-4">
-              <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2">
+              <h4 className="text-sobretitulo text-slate-900 uppercase border-b border-slate-100 pb-2">
                 Requerimentos Registrados por Alunos ({academicRequests?.length || 0})
               </h4>
 
               {!academicRequests || academicRequests.length === 0 ? (
-                <div className="p-8 text-center bg-slate-50 border border-slate-200 border-dashed rounded-[10px] text-xs text-slate-500">
+                <div className="p-8 text-center bg-slate-50 border border-slate-200 border-dashed rounded-[10px] text-xs text-escult-ink-2">
                   Nenhum requerimento curricular cadastrado na memória local. Adicione solicitações através de contas de alunos para visualizá-los e homologá-los.
                 </div>
               ) : (
@@ -2841,7 +3214,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       <div className="space-y-1.5 text-left text-xs leading-relaxed max-w-lg">
                         <div className="flex flex-wrap items-center gap-2">
                           <strong className="font-extrabold text-sm text-slate-900 leading-none">{req.studentName}</strong>
-                          <span className={`text-[8.5px] font-black uppercase px-2 py-0.5 rounded-full ${
+                          <span className={`text-sobretitulo font-black uppercase px-2 py-0.5 rounded-full ${
                             req.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
                             req.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
                             'bg-red-50 text-red-600 border border-red-200'
@@ -2851,7 +3224,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             {req.status === 'rejected' && 'Indeferido'}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-700 flex items-center gap-1.5">
+                        <div className="text-rotulo text-slate-700 flex items-center gap-1.5">
                           <span>Tipo Solicitado:</span>
                           <span className="font-extrabold text-slate-800 uppercase flex items-center gap-1">
                             {req.type === 'certificado' && (
@@ -2874,19 +3247,19 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             )}
                             {req.type === 'outro' && (
                               <>
-                                <Layers className="h-3.5 w-3.5 text-slate-500" />
+                                <Layers className="h-3.5 w-3.5 text-escult-ink-2" />
                                 <span>Outro Pedido</span>
                               </>
                             )}
                           </span>
                         </div>
                         {req.courseTitle && (
-                          <div className="text-[10px] text-slate-600 font-medium">
+                          <div className="text-apoio text-slate-600 font-medium">
                             Curso Vinculado: <span className="font-semibold text-slate-800">{req.courseTitle}</span>
                           </div>
                         )}
-                        <p className="text-[10.5px] text-slate-500 italic">"Justificativa: {req.description}"</p>
-                        <div className="text-[9.5px] text-slate-400 font-mono">Data de Abertura: {req.submittedAt}</div>
+                        <p className="text-apoio text-escult-ink-2 italic">"Justificativa: {req.description}"</p>
+                        <div className="text-apoio text-escult-ink-2">Data de Abertura: {req.submittedAt}</div>
                       </div>
 
                       {/* Admin action controls */}
@@ -2901,7 +3274,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 }
                                 showToast(`Solicitação de ${req.studentName} DEFERIDA com sucesso!`);
                               }}
-                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-2.5 py-1.5 rounded-md text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-2.5 py-1.5 rounded-md text-apoio transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                             >
                               <Check className="h-3.5 w-3.5" />
                               <span>Deferir</span>
@@ -2911,7 +3284,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 updateRequestStatus(req.id, 'rejected');
                                 showToast(`Solicitação de ${req.studentName} INDEFERIDA.`);
                               }}
-                              className="bg-red-600 hover:bg-red-500 text-white font-extrabold px-2.5 py-1.5 rounded-md text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                              className="bg-red-600 hover:bg-red-500 text-white font-extrabold px-2.5 py-1.5 rounded-md text-apoio transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                             >
                               <X className="h-3.5 w-3.5" />
                               <span>Indeferir</span>
@@ -2928,7 +3301,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 courseTitle: req.courseTitle
                               });
                             }}
-                            className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-2.5 py-1.5 rounded-md text-[10px] transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                            className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold px-2.5 py-1.5 rounded-md text-apoio transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap"
                           >
                             <FileText className="h-3.5 w-3.5" />
                             <span>Visualizar / Homologar</span>
@@ -2950,7 +3323,6 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {activeTab === 'exercicios' && (
         <div className="space-y-6 text-left">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           
           {/* Header */}
@@ -2960,7 +3332,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <CheckSquare className="h-5 w-5 text-blue-600" />
                 <span>Gestão de Exercícios Práticos & Avaliação</span>
               </h3>
-              <p className="text-[11px] text-slate-505 text-slate-500 mt-1">
+              <p className="text-rotulo text-escult-ink-2 text-escult-ink-2 mt-1">
                 Cadastre tarefas de entrega, consulte arquivos enviados por alunos e realize a correção direta com feedback acadêmico personalizado.
               </p>
             </div>
@@ -2985,13 +3357,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
           {/* Exercise Form (Create / Edit) */}
           {showExForm && (
             <div className="bg-white border border-slate-200 rounded-[10px] p-5 space-y-4 animate-in slide-in-from-top-4 duration-200 shadow-2xs">
-              <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2">
+              <h4 className="text-sobretitulo text-slate-800 uppercase border-b border-slate-100 pb-2">
                 {editingExId ? 'Editar Exercício Acadêmico' : 'Lançar Novo Exercício Acadêmico'}
               </h4>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10.5px] font-bold text-slate-700 block">Curso Alvo:</label>
+                  <label className="text-apoio font-bold text-slate-700 block">Curso Alvo:</label>
                   <select
                     value={exCourseId}
                     onChange={(e) => setExCourseId(e.target.value)}
@@ -3005,7 +3377,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10.5px] font-bold text-slate-700 block">Título do Exercício:</label>
+                  <label className="text-apoio font-bold text-slate-700 block">Título do Exercício:</label>
                   <input
                     type="text"
                     value={exTitle}
@@ -3016,7 +3388,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10.5px] font-bold text-slate-700 block">Descrição Geral (Objetivo):</label>
+                  <label className="text-apoio font-bold text-slate-700 block">Descrição Geral (Objetivo):</label>
                   <textarea
                     value={exDescription}
                     onChange={(e) => setExDescription(e.target.value)}
@@ -3027,7 +3399,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 <div className="space-y-1 md:col-span-2">
-                  <label className="text-[10.5px] font-bold text-slate-700 block">Instruções de Execução e Entrega (Passo a passo):</label>
+                  <label className="text-apoio font-bold text-slate-700 block">Instruções de Execução e Entrega (Passo a passo):</label>
                   <textarea
                     value={exInstructions}
                     onChange={(e) => setExInstructions(e.target.value)}
@@ -3038,7 +3410,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10.5px] font-bold text-slate-700 block">Nota Máxima:</label>
+                  <label className="text-apoio font-bold text-slate-700 block">Nota Máxima:</label>
                   <input
                     type="number"
                     value={exMaxPoints}
@@ -3048,7 +3420,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10.5px] font-bold text-slate-700 block">Prazo de Entrega (Opcional):</label>
+                  <label className="text-apoio font-bold text-slate-700 block">Prazo de Entrega (Opcional):</label>
                   <input
                     type="text"
                     value={exDueDate}
@@ -3067,25 +3439,33 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   Cancelar
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (!exCourseId || !exTitle.trim() || !exDescription.trim() || !exInstructions.trim()) {
-                      alert('Por favor, preencha todos os campos obrigatórios.');
+                      showToast('Preencha curso, título, descrição e instruções.');
                       return;
                     }
-                    if (editingExId) {
-                      updatePracticalExercise(editingExId, {
+                    // Prazo é texto livre no banco: sem esta checagem um "julho"
+                    // entrava e a página do aluno nunca mostrava vencimento.
+                    if (exDueDate.trim() !== '' && parseDataBr(exDueDate.trim()) === null) {
+                      showToast('O prazo deve estar no formato dd/mm/aaaa.');
+                      return;
+                    }
+                    const dueDate = exDueDate.trim() || undefined;
+                    const res = editingExId
+                      ? await updatePracticalExercise(editingExId, {
                         courseId: exCourseId,
                         title: exTitle.trim(),
                         description: exDescription.trim(),
                         instructions: exInstructions.trim(),
                         maxPoints: exMaxPoints,
-                        dueDate: exDueDate.trim() || undefined
-                      });
-                      alert('Exercício atualizado com sucesso!');
-                    } else {
-                      addPracticalExercise(exCourseId, exTitle.trim(), exDescription.trim(), exInstructions.trim(), exMaxPoints, exDueDate.trim() || undefined);
-                      alert('Novo exercício lançado com sucesso!');
+                        dueDate
+                      })
+                      : await addPracticalExercise(exCourseId, exTitle.trim(), exDescription.trim(), exInstructions.trim(), exMaxPoints, dueDate);
+                    if (!res.ok) {
+                      showToast(res.error ?? 'Não foi possível salvar o exercício.');
+                      return;
                     }
+                    showToast(editingExId ? 'Exercício atualizado.' : 'Exercício publicado para a turma.');
                     setShowExForm(false);
                     setEditingExId(null);
                   }}
@@ -3103,37 +3483,37 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             {/* Column 1: List of Exercises (lg:col-span-5) */}
             <div className="lg:col-span-5 space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <h4 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-1.5">
                   <Layers className="h-4 w-4 text-blue-600" />
                   <span>Exercícios Cadastrados</span>
                 </h4>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{practicalExercises.length}</span>
+                <span className="text-apoio font-bold text-escult-ink-2 bg-slate-100 px-2 py-0.5 rounded-full">{practicalExercises.length}</span>
               </div>
 
               <div className="space-y-3">
                 {practicalExercises.length === 0 ? (
-                  <div className="bg-white border border-slate-200 rounded-[10px] p-6 text-center text-slate-400 text-[11px]">
+                  <div className="bg-white border border-slate-200 rounded-[10px] p-6 text-center text-escult-ink-3 text-rotulo">
                     Nenhum exercício lançado para as disciplinas de ensino.
                   </div>
                 ) : (
                   practicalExercises.map((ex, idx) => {
                     const course = courses.find(c => c.id === ex.courseId);
                     return (
-                      <div key={`${ex.id}-${idx}`} className="bg-white border border-slate-200 rounded-[10px] p-3.5 leading-relaxed text-[11px] space-y-3 shadow-sm">
+                      <div key={`${ex.id}-${idx}`} className="bg-white border border-slate-200 rounded-[10px] p-3.5 leading-relaxed text-rotulo space-y-3 shadow-sm">
                         <div className="flex items-start justify-between gap-1.5 border-b border-slate-50 pb-2">
                           <div>
-                            <span className="text-[9px] font-extrabold uppercase text-blue-700 block leading-tight">{course?.title || 'Curso Não Identificado'}</span>
+                            <span className="text-sobretitulo uppercase text-blue-700 block leading-tight">{course?.title || 'Curso Não Identificado'}</span>
                             <strong className="font-bold text-slate-900 block mt-0.5">{ex.title}</strong>
                           </div>
-                          <span className="bg-amber-50 text-amber-800 text-[9px] font-black px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
+                          <span className="bg-amber-50 text-amber-800 text-apoio font-black px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
                             {ex.maxPoints} pts
                           </span>
                         </div>
 
-                        <p className="text-slate-500 leading-normal line-clamp-2">{ex.description}</p>
+                        <p className="text-escult-ink-2 leading-normal line-clamp-2">{ex.description}</p>
 
                         <div className="flex items-center justify-between pt-1 border-t border-slate-50">
-                          <span className="text-[10px] text-slate-400">{ex.dueDate ? `Prazo: ${ex.dueDate}` : 'Sem prazo determinado'}</span>
+                          <span className="text-apoio text-escult-ink-2">{ex.dueDate ? `Prazo: ${ex.dueDate}` : 'Sem prazo determinado'}</span>
                           
                           <div className="flex items-center gap-1">
                             <button
@@ -3147,17 +3527,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 setExDueDate(ex.dueDate || '');
                                 setShowExForm(true);
                               }}
-                              className="bg-slate-50 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded text-[10px] border border-slate-200 transition-colors cursor-pointer font-bold"
+                              className="bg-slate-50 hover:bg-slate-100 text-slate-700 px-2 py-1 rounded text-apoio border border-slate-200 transition-colors cursor-pointer font-bold"
                             >
                               Editar
                             </button>
                             <button
-                              onClick={() => {
-                                if (confirm('Tem certeza de que deseja remover este exercício? Todas as entregas de alunos associadas serão excluídas.')) {
-                                  deletePracticalExercise(ex.id);
-                                }
+                              onClick={async () => {
+                                if (!confirm('Tem certeza de que deseja remover este exercício? Todas as entregas de alunos associadas serão excluídas.')) return;
+                                const res = await deletePracticalExercise(ex.id);
+                                showToast(res.ok ? 'Exercício removido.' : (res.error ?? 'Não foi possível remover.'));
                               }}
-                              className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded text-[10px] border border-red-200/50 transition-colors cursor-pointer font-bold"
+                              className="bg-red-50 hover:bg-red-100 text-red-600 px-2 py-1 rounded text-apoio border border-red-200/50 transition-colors cursor-pointer font-bold"
                             >
                               Excluir
                             </button>
@@ -3173,18 +3553,18 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             {/* Column 2: Student submissions awaiting grading (lg:col-span-7) */}
             <div className="lg:col-span-7 space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <h4 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-1.5">
                   <FileText className="h-4 w-4 text-blue-600" />
                   <span>Entregas de Alunos para Correção</span>
                 </h4>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                <span className="text-apoio font-bold text-escult-ink-2 bg-slate-100 px-2 py-0.5 rounded-full">
                   {exerciseSubmissions.filter(s => s.status === 'pending').length} pendentes
                 </span>
               </div>
 
               <div className="space-y-4">
                 {exerciseSubmissions.length === 0 ? (
-                  <div className="bg-white border border-slate-200 rounded-[10px] p-8 text-center text-slate-400 text-[11px]">
+                  <div className="bg-white border border-slate-200 rounded-[10px] p-8 text-center text-escult-ink-3 text-rotulo">
                     Nenhum aluno realizou entregas de exercícios práticos até o momento.
                   </div>
                 ) : (
@@ -3194,21 +3574,21 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     const isGrading = gradingSubId === sub.id;
 
                     return (
-                      <div key={`${sub.id}-${idx}`} className="bg-white border border-slate-200 rounded-[10px] p-4 leading-relaxed text-[11px] space-y-4 shadow-sm">
+                      <div key={`${sub.id}-${idx}`} className="bg-white border border-slate-200 rounded-[10px] p-4 leading-relaxed text-rotulo space-y-4 shadow-sm">
                         
                         {/* Grader Header Info */}
                         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-900 text-xs">{sub.studentName}</span>
-                              <span className="text-[9px] text-slate-400">Trabalho enviado em {sub.submittedAt}</span>
+                              <span className="text-apoio text-escult-ink-2">Trabalho enviado em {sub.submittedAt}</span>
                             </div>
-                            <span className="text-[10px] text-slate-500 mt-1 block">
-                              Curso: <strong className="font-semibold text-slate-700">{course?.title || 'Fórum / Desconhecido'}</strong> ➔ <strong className="font-semibold text-slate-700">{ex?.title || 'Atividade Excluída'}</strong>
+                            <span className="text-apoio text-escult-ink-2 mt-1 block">
+                              Curso: <strong className="font-semibold text-slate-700">{course?.title || 'Fórum / Desconhecido'}</strong> <ArrowRight className="h-3 w-3 inline-block -mt-px" /> <strong className="font-semibold text-slate-700">{ex?.title || 'Atividade Excluída'}</strong>
                             </span>
                           </div>
 
-                          <span className={`text-[8px] font-extrabold uppercase px-2 py-0.5 rounded border self-start sm:self-auto ${
+                          <span className={`text-sobretitulo font-extrabold uppercase px-2 py-0.5 rounded border self-start sm:self-auto ${
                             sub.status === 'approved' 
                               ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
                               : sub.status === 'rejected'
@@ -3227,11 +3607,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                         {/* Student submission text */}
                         <div className="bg-slate-50 p-3 rounded-md border border-slate-100 space-y-1.5">
-                          <strong className="text-slate-800 font-bold block text-[10px] uppercase tracking-wide text-slate-400">Trabalho Escrito:</strong>
-                          <p className="whitespace-pre-wrap font-mono text-[10px] leading-relaxed text-slate-700 max-h-48 overflow-y-auto bg-white p-2.5 rounded-md border border-slate-100">{sub.submissionText}</p>
+                          <strong className="text-slate-800 block text-sobretitulo uppercase text-escult-ink-2">Trabalho Escrito:</strong>
+                          <p className="whitespace-pre-wrap text-apoio leading-relaxed text-slate-700 max-h-48 overflow-y-auto bg-white p-2.5 rounded-md border border-slate-100">{sub.submissionText}</p>
                           
                           {sub.fileName && (
-                            <div className="flex items-center gap-1.5 text-[10px] bg-blue-50/50 p-1.5 rounded border border-blue-100 mt-1">
+                            <div className="flex items-center gap-1.5 text-apoio bg-blue-50/50 p-1.5 rounded border border-blue-100 mt-1">
                               <FileText className="h-3.5 w-3.5 text-blue-600" />
                               <span>Anexo: <strong className="text-slate-800">{sub.fileName}</strong></span>
                               <button
@@ -3249,7 +3629,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                         {/* Existing grader comments if graded */}
                         {sub.feedback && !isGrading && (
-                          <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3 text-[10.5px]">
+                          <div className="bg-slate-50 border border-slate-200 rounded-[10px] p-3 text-apoio">
                             <strong className="text-slate-900 font-bold block flex items-center gap-1">
                               <User className="h-3.5 w-3.5 text-blue-600" /> Nota & Avaliação Concedida (por {sub.gradedBy} em {sub.gradedAt}):
                             </strong>
@@ -3260,13 +3640,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         {/* Evaluate form trigger / fields */}
                         {isGrading ? (
                           <div className="bg-blue-50/20 border border-blue-100 rounded-[10px] p-4.5 space-y-3.5 animate-in slide-in-from-top-1.5 duration-150">
-                            <h5 className="font-bold text-xs text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <h5 className="text-sobretitulo text-blue-900 uppercase flex items-center gap-1.5">
                               <Check className="h-4 w-4" /> Formular Avaliação Acadêmica
                             </h5>
 
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                               <div className="space-y-1 sm:col-span-1">
-                                <label className="text-[10.5px] font-bold text-slate-700 block">Nota:</label>
+                                <label className="text-apoio font-bold text-slate-700 block">Nota:</label>
                                 <input
                                   type="number"
                                   min="0"
@@ -3275,11 +3655,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                   onChange={(e) => setGradeScore(Math.min(ex?.maxPoints || 100, Number(e.target.value)))}
                                   className="w-full text-xs rounded-md border border-slate-300 p-2 text-slate-800 bg-white"
                                 />
-                                <span className="text-[9px] text-slate-400 mt-0.5 block">Máximo: {ex?.maxPoints || 100} pontos</span>
+                                <span className="text-apoio text-escult-ink-2 mt-0.5 block">Máximo: {ex?.maxPoints || 100} pontos</span>
                               </div>
 
                               <div className="space-y-1 sm:col-span-2">
-                                <label className="text-[10.5px] font-bold text-slate-700 block">Feedback / Comentários:</label>
+                                <label className="text-apoio font-bold text-slate-700 block">Feedback / Comentários:</label>
                                 <textarea
                                   value={gradeFeedback}
                                   onChange={(e) => setGradeFeedback(e.target.value)}
@@ -3293,37 +3673,53 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             <div className="flex justify-end gap-1.5 pt-2 border-t border-slate-100">
                               <button
                                 onClick={() => setGradingSubId(null)}
-                                className="bg-white hover:bg-slate-100 text-slate-700 font-bold px-2.5 py-1.2 rounded-md border border-slate-200 text-[10.5px] cursor-pointer"
+                                className="bg-white hover:bg-slate-100 text-slate-700 font-bold px-2.5 py-1.2 rounded-md border border-slate-200 text-apoio cursor-pointer"
                               >
                                 Cancelar
                               </button>
 
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   if (!gradeFeedback.trim()) {
-                                    alert('Por favor, inclua considerações e comentários de feedback pedagógico para o aluno.');
+                                    showToast('Inclua o feedback pedagógico para o aluno.');
                                     return;
                                   }
-                                  gradeSubmission(sub.id, gradeScore, gradeFeedback.trim(), 'Gestor de Conteúdos', 'revision');
+                                  // O nome de quem corrigiu saiu do cliente: o servidor
+                                  // grava `gradedBy` a partir do token. O valor fixo que
+                                  // estava aqui era ignorado pela API e mentia quando
+                                  // outra pessoa da coordenação corrigia.
+                                  const res = await gradeSubmission(sub.id, gradeScore, gradeFeedback.trim(), 'revision');
+                                  if (!res.ok) {
+                                    showToast(res.error ?? 'Não foi possível lançar a correção.');
+                                    return;
+                                  }
                                   setGradingSubId(null);
-                                  alert('Foi solicitado ajustes e revisão de trabalho com sucesso!');
+                                  showToast('Ajustes solicitados. O aluno já vê o pedido e o feedback.');
                                 }}
-                                className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.2 rounded-md text-[10.5px] cursor-pointer"
+                                className="bg-amber-600 hover:bg-amber-500 text-white font-bold px-3 py-1.2 rounded-md text-apoio cursor-pointer"
                               >
                                 Solicitar Ajustes
                               </button>
 
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   if (!gradeFeedback.trim()) {
-                                    alert('Por favor, inclua considerações e comentários de feedback pedagógico para o aluno.');
+                                    showToast('Inclua o feedback pedagógico para o aluno.');
                                     return;
                                   }
-                                  gradeSubmission(sub.id, gradeScore, gradeFeedback.trim(), 'Gestor de Conteúdos', 'approved');
+                                  // O nome de quem corrigiu saiu do cliente: o servidor
+                                  // grava `gradedBy` a partir do token. O valor fixo que
+                                  // estava aqui era ignorado pela API e mentia quando
+                                  // outra pessoa da coordenação corrigia.
+                                  const res = await gradeSubmission(sub.id, gradeScore, gradeFeedback.trim(), 'approved');
+                                  if (!res.ok) {
+                                    showToast(res.error ?? 'Não foi possível lançar a correção.');
+                                    return;
+                                  }
                                   setGradingSubId(null);
-                                  alert('Trabalho avaliado, homologado e nota lançada com sucesso!');
+                                  showToast('Nota lançada. O aluno já vê a nota e o feedback.');
                                 }}
-                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.2 rounded-md text-[10.5px] cursor-pointer"
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.2 rounded-md text-apoio cursor-pointer"
                               >
                                 Aprovar & Lançar Nota
                               </button>
@@ -3337,7 +3733,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                 setGradeScore(sub.score || ex?.maxPoints || 100);
                                 setGradeFeedback(sub.feedback || '');
                               }}
-                              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-[10px] text-[10px] transition-colors flex items-center gap-1 cursor-pointer"
+                              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-[10px] text-apoio transition-colors flex items-center gap-1 cursor-pointer"
                             >
                               <CheckSquare className="h-3.5 w-3.5" />
                               <span>{sub.status === 'pending' ? 'Avaliar Trabalho' : 'Reavaliar Atividade'}</span>
@@ -3360,15 +3756,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       {activeTab === 'settings' && (
         <div className="space-y-4 text-left">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           <div className="bg-white border border-slate-200 rounded-[10px] p-5 text-left space-y-6 settings-tab-content">
           <div>
-            <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-2 flex items-center gap-1.5">
-              <Settings className="h-4 w-4 text-slate-505" />
+            <h3 className="text-sobretitulo text-slate-900 uppercase border-b border-slate-100 pb-2 flex items-center gap-1.5">
+              <Settings className="h-4 w-4 text-escult-ink-2" />
               <span>Configurações Teóricas e Parâmetros Letivos</span>
             </h3>
-            <p className="text-[11px] text-slate-500 mt-1">
+            <p className="text-rotulo text-escult-ink-2 mt-1">
               Gerencie a política de emissão automática de atestados do AVA.
             </p>
           </div>
@@ -3386,17 +3781,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   onChange={(e) => setAttendanceBarrier(Number(e.target.value))}
                   className="w-full accent-slate-800"
                 />
-                <span className="font-mono font-black text-sm text-slate-800 shrink-0 bg-slate-100 px-2 py-1 rounded">
+                <span className="font-black text-sm text-slate-800 shrink-0 bg-slate-100 px-2 py-1 rounded">
                   {attendanceBarrier}%
                 </span>
               </div>
-              <p className="text-[10px] text-slate-400 leading-normal">
-                Modificar esta régua atualiza dinamicamente o gatilho automático que concede as certificações virtuais assinadas criptograficamente aos alunos (Global Attendance Threshold Customizer).
+              <p className="text-apoio text-escult-ink-2 leading-normal">
+                Modificar esta régua atualiza dinamicamente o gatilho automático que concede as certificações virtuais assinadas criptograficamente aos alunos (Personalizador Global do Limite de Presença).
               </p>
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex flex-col gap-4">
-              <h4 className="text-[11px] font-bold text-slate-900 uppercase tracking-wider mb-1">Permissões e Funcionalidades Globais</h4>
+              <h4 className="text-sobretitulo text-slate-900 uppercase mb-1">Permissões e Funcionalidades Globais</h4>
               
               <label className="flex items-center gap-3 cursor-pointer">
                 <div className="relative">
@@ -3406,7 +3801,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-800 tracking-tight">Habilitar Mensagens Diretas (DMs)</span>
-                  <p className="text-[9px] text-slate-400">Permitir que alunos enviem mensagens diretas para professores e administradores.</p>
+                  <p className="text-apoio text-escult-ink-2">Permitir que alunos enviem mensagens diretas para professores e administradores.</p>
                 </div>
               </label>
 
@@ -3418,7 +3813,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-800 tracking-tight">Habilitar Chat Global</span>
-                  <p className="text-[9px] text-slate-400">Exibe uma sala de bate-papo global onde todos da instituição podem conversar livremente.</p>
+                  <p className="text-apoio text-escult-ink-2">Exibe uma sala de bate-papo global onde todos da instituição podem conversar livremente.</p>
                 </div>
               </label>
 
@@ -3430,7 +3825,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-800 tracking-tight">Inscrições Abertas p/ Novos Ciclos</span>
-                  <p className="text-[9px] text-slate-400">Quando ativado, os alunos podem buscar e se matricular em novos cursos no catálogo.</p>
+                  <p className="text-apoio text-escult-ink-2">Quando ativado, os alunos podem buscar e se matricular em novos cursos no catálogo.</p>
                 </div>
               </label>
 
@@ -3442,7 +3837,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-800 tracking-tight">Emissão Automática de Certificados</span>
-                  <p className="text-[9px] text-slate-400">Permitir que o Document Viewer emita os certificados automaticamente ao atingir os requisitos.</p>
+                  <p className="text-apoio text-escult-ink-2">Permitir que o Visualizador de Documentos emita os certificados automaticamente ao atingir os requisitos.</p>
                 </div>
               </label>
 
@@ -3454,7 +3849,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 </div>
                 <div>
                   <span className="text-xs font-bold text-slate-800 tracking-tight">Gravação Automática de Aulas Ao Vivo</span>
-                  <p className="text-[9px] text-slate-400">Gravar automaticamente os encontros síncronos e arquivar no curso.</p>
+                  <p className="text-apoio text-escult-ink-2">Gravar automaticamente os encontros síncronos e arquivar no curso.</p>
                 </div>
               </label>
 
@@ -3471,11 +3866,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <option value="6_meses">6 meses após inatividade</option>
                   <option value="12_meses">1 ano após inatividade</option>
                 </select>
-                <p className="text-[9px] text-slate-400 mt-1">Defina quando turmas inativas devem ser arquivadas do catálogo.</p>
+                <p className="text-apoio text-escult-ink-2 mt-1">Defina quando turmas inativas devem ser arquivadas do catálogo.</p>
               </div>
             </div>
 
-            <div className="bg-slate-50/70 rounded-[10px] p-4 border border-slate-200 border-dashed text-xs text-slate-500 mt-2">
+            <div className="bg-slate-50/70 rounded-[10px] p-4 border border-slate-200 border-dashed text-xs text-escult-ink-2 mt-2">
               <strong className="text-slate-800 block mb-1">Nota da Assessoria de T.I:</strong>
               <p className="leading-relaxed">Novas rotas letivas criadas tanto pelo Administrador quanto pelos Professores cadastrados são adicionadas em tempo real em bancos na memória do navegador.</p>
             </div>
@@ -3483,7 +3878,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             <div className="pt-6 mt-2 border-t border-slate-100">
               <button
                 onClick={() => showToast('Configurações salvas com sucesso!')}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-[10px] text-xs transition-colors flex items-center justify-center gap-2 shadow-sm uppercase tracking-wide"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-[10px] text-sobretitulo transition-colors flex items-center justify-center gap-2 shadow-sm uppercase"
               >
                 <Save className="h-4 w-4" />
                 <span>Salvar Configurações</span>
@@ -3494,10 +3889,175 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
         </div>
       )}
 
+      {activeTab === 'site_content' && features.gestaoConteudoSite && (
+        <SiteContentPanel
+          onPreviewPage={(pageKey) => onPreviewPage?.(pageKey)}
+          speakText={speakText}
+          showToast={showToast}
+        />
+      )}
+
+      {activeTab === 'templates' && (
+        <div className="space-y-5 text-left">
+          <div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-[#540D6E]" />
+                Templates de Documentos
+              </h3>
+              <p className="text-xs text-escult-ink-2 mt-1 max-w-xl">
+                Edite os dados institucionais e as assinaturas dos documentos oficiais, ou escreva o layout completo em HTML.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex gap-2 bg-slate-100 p-1.5 rounded-xl">
+                {(['certificado', 'historico'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTemplateDocType(t)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      templateDocType === t ? 'bg-[#540D6E] text-white shadow-sm' : 'text-escult-ink-2 hover:text-slate-800'
+                    }`}
+                  >
+                    {t === 'certificado' ? 'Certificado de Conclusão' : 'Histórico Escolar'}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handlePreviewTemplate}
+                disabled={templatePreviewLoading || templateDocType !== 'certificado'}
+                title={templateDocType !== 'certificado' ? 'Pré-visualização em PDF ainda não disponível para este tipo de documento.' : 'Abre em uma nova aba o PDF do template atualmente salvo, com dados de exemplo.'}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-sobretitulo uppercase transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              >
+                <Eye className="h-4 w-4" />
+                {templatePreviewLoading ? 'Gerando...' : 'Visualizar Documento Atual'}
+              </button>
+            </div>
+          </div>
+
+          {templateDocType === 'historico' && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-rotulo text-amber-900 leading-relaxed">
+              <AlertTriangle className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5" />O histórico escolar ainda não tem emissão de PDF própria na plataforma — este template fica
+              pronto e salvo para quando essa emissão for construída, mas por enquanto não afeta nenhum
+              documento gerado.
+            </div>
+          )}
+
+          {templateLoading ? (
+            <div className="text-center py-16 text-escult-ink-3 text-sm">Carregando template...</div>
+          ) : !templateDraft ? (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs text-rose-800">
+              {templateError || 'Não foi possível carregar o template.'}
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5 shadow-xs">
+              {/*
+                REMOVIDO: aba "Layout Livre (HTML)". Ela aceitava o HTML cru do
+                documento num textarea, e sobrando uma opção só a barra de abas
+                não tem função. Mesma decisão do bloco de código no editor de
+                aula (bd5e842): campo que aceita marcação arbitrária num
+                documento gerado pela escola é superfície de injeção, e o
+                template estruturado cobre o uso real.
+              */}
+              <div className="space-y-4">
+                  <div>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Nome da Instituição</label>
+                    <input
+                      type="text"
+                      value={templateDraft.institutionName}
+                      onChange={(e) => setTemplateDraft({ ...templateDraft, institutionName: e.target.value })}
+                      className="w-full bg-white border border-slate-200 p-2.5 text-sm rounded-lg text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Texto de Rodapé</label>
+                    <textarea
+                      value={templateDraft.footerText}
+                      onChange={(e) => setTemplateDraft({ ...templateDraft, footerText: e.target.value })}
+                      rows={2}
+                      className="w-full bg-white border border-slate-200 p-2.5 text-sm rounded-lg text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sobretitulo text-escult-ink-2 uppercase">Assinaturas</label>
+                    {templateDraft.signatories.map((sig, idx) => (
+                      <div key={idx} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          placeholder="Nome"
+                          value={sig.name}
+                          onChange={(e) => {
+                            const next = [...templateDraft.signatories];
+                            next[idx] = { ...next[idx], name: e.target.value };
+                            setTemplateDraft({ ...templateDraft, signatories: next });
+                          }}
+                          className="flex-1 bg-white border border-slate-200 p-2 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Cargo"
+                          value={sig.role}
+                          onChange={(e) => {
+                            const next = [...templateDraft.signatories];
+                            next[idx] = { ...next[idx], role: e.target.value };
+                            setTemplateDraft({ ...templateDraft, signatories: next });
+                          }}
+                          className="flex-1 bg-white border border-slate-200 p-2 text-xs rounded-lg text-slate-700 focus:outline-hidden"
+                        />
+                        <button
+                          onClick={() => {
+                            const next = templateDraft.signatories.filter((_, i) => i !== idx);
+                            setTemplateDraft({ ...templateDraft, signatories: next });
+                          }}
+                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer shrink-0"
+                          title="Remover assinatura"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setTemplateDraft({ ...templateDraft, signatories: [...templateDraft.signatories, { name: '', role: '' }] })}
+                      className="text-rotulo font-bold text-teal-600 hover:text-teal-700 cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Adicionar Assinatura
+                    </button>
+                  </div>
+                </div>
+
+              {templateError && (
+                <p className="text-xs text-rose-600 font-semibold">{templateError}</p>
+              )}
+              {templateSaved && (
+                <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                  <Check className="h-3.5 w-3.5" /> Template salvo com sucesso.
+                </p>
+              )}
+
+              <div className="flex justify-end pt-2 border-t border-slate-100">
+                <button
+                  onClick={handleSaveTemplate}
+                  disabled={templateSaving}
+                  className="flex items-center gap-2 bg-[#540D6E] hover:bg-[#430858] text-white text-sobretitulo uppercase px-5 py-2.5 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                >
+                  <Save className="h-4 w-4" />
+                  {templateSaving ? 'Salvando...' : 'Salvar Template'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'export_bi' && (
         <div className="space-y-4 text-left">
           <div>
-            <BackButton onClick={() => setActiveTab('analytics')} text="Voltar ao Painel Administrativo" />
           </div>
           <div className="bg-white border border-slate-200 rounded-[10px] p-6 text-left space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -3506,7 +4066,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <Database className="h-5 w-5 text-blue-600" />
                 <span>Integração de Dados e Exportação de Bases para BI</span>
               </h3>
-              <p className="text-[11px] text-slate-500 mt-1">
+              <p className="text-rotulo text-escult-ink-2 mt-1">
                 Estruturas de dados otimizadas para alimentação e modelagem em Power BI, Excel e relatórios analíticos de gestão.
               </p>
             </div>
@@ -3536,7 +4096,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               { id: 'alunos', label: '1. Base de Alunos' },
               { id: 'cursos', label: '2. Base de Cursos' },
               { id: 'matriculas', label: '3. Base de Matrículas' },
-              { id: 'progresso', label: '4. Progresso por Módulo' },
+              { id: 'progresso', label: '4. Progresso por Aula' },
               { id: 'certificados', label: '5. Base de Certificados' }
             ].map((base) => {
               const isSel = selectedBiBase === base.id;
@@ -3547,7 +4107,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   className={`px-4 py-2 border-b-2 font-bold text-xs transition-all whitespace-nowrap cursor-pointer ${
                     isSel 
                       ? 'border-blue-600 text-blue-700' 
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                      : 'border-transparent text-escult-ink-3 hover:text-slate-600'
                   }`}
                 >
                   {base.label}
@@ -3713,7 +4273,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             } else if (selectedBiBase === 'progresso') {
               currentData = ProgressoData;
               currentFilename = 'base_progresso_modulo.csv';
-              currentTitle = 'Progresso por Módulo';
+              currentTitle = 'Progresso por Aula';
               currentDesc = 'Granularidade fina de progresso módulo por módulo (ou aula por aula). Ideal para analisar em que parte do curso o aluno está demorando mais tempo.';
             } else {
               currentData = CertificadosData;
@@ -3739,12 +4299,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 border border-slate-100 rounded-[10px] p-4">
                   <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider">Visualizando estrutura de dados</span>
-                    <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight flex items-center gap-1.5">
+                    <span className="text-sobretitulo uppercase text-blue-600">Visualizando estrutura de dados</span>
+                    <h4 className="text-sobretitulo text-slate-800 uppercase flex items-center gap-1.5">
                       <span>{currentTitle}</span>
-                      <span className="text-[10px] text-slate-400 font-normal">({currentData.length} registros no total)</span>
+                      <span className="text-apoio text-escult-ink-2 font-normal">({currentData.length} registros no total)</span>
                     </h4>
-                    <p className="text-[10px] text-slate-500 leading-relaxed max-w-2xl">{currentDesc}</p>
+                    <p className="text-apoio text-escult-ink-2 leading-relaxed max-w-2xl">{currentDesc}</p>
                   </div>
                   <button
                     onClick={exportSingleCSV}
@@ -3759,20 +4319,20 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 {/* Live Preview Table */}
                 <div className="border border-slate-200 rounded-[10px] overflow-hidden bg-white">
                   <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Visualização Prévia (Top 5 Registros)</span>
-                    <span className="text-[9px] text-slate-400">Total de colunas mapeadas: {keys.length}</span>
+                    <span className="text-sobretitulo text-escult-ink-2 uppercase">Visualização Prévia (Top 5 Registros)</span>
+                    <span className="text-apoio text-escult-ink-2">Total de colunas mapeadas: {keys.length}</span>
                   </div>
                   {currentData.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-xs font-medium">
+                    <div className="p-8 text-center text-escult-ink-3 text-xs font-medium">
                       Nenhum registro encontrado nesta base de dados atualmente.
                     </div>
                   ) : (
                     <div className="overflow-x-auto">
-                      <table className="w-full text-[11px] text-slate-700 text-left">
-                        <thead className="bg-slate-50 border-b border-slate-100 font-black text-slate-500">
+                      <table className="w-full text-rotulo text-slate-700 text-left">
+                        <thead className="bg-slate-50 border-b border-slate-100 font-black text-escult-ink-2">
                           <tr>
                             {keys.map(k => (
-                              <th key={k} className="p-3 whitespace-nowrap uppercase tracking-wider text-[9px] font-black">{k}</th>
+                              <th key={k} className="p-3 whitespace-nowrap uppercase text-sobretitulo">{k}</th>
                             ))}
                           </tr>
                         </thead>
@@ -3782,9 +4342,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                               {keys.map(k => (
                                 <td key={`${rIdx}-${k}`} className="p-3 whitespace-nowrap font-medium text-slate-800">
                                   {row[k] === '—' || !row[k] ? (
-                                    <span className="text-slate-355">—</span>
+                                    <span className="text-slate-350">—</span>
                                   ) : k.includes('id_') || k.includes('codigo') ? (
-                                    <code className="bg-slate-100 px-1 py-0.5 rounded text-blue-700 font-mono text-[10px]">{row[k]}</code>
+                                    <code className="bg-slate-100 px-1 py-0.5 rounded text-blue-700 text-apoio">{row[k]}</code>
                                   ) : (
                                     String(row[k])
                                   )}
@@ -3812,33 +4372,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
             if (e.target === e.currentTarget) setActiveDocViewer(null);
           }}
         >
-          <style>{`
-            @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              #printable-doc, #printable-doc * {
-                visibility: visible !important;
-              }
-              #printable-doc {
-                position: fixed !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                height: auto !important;
-                max-height: 100% !important;
-                padding: 2.5rem !important;
-                background: white !important;
-                box-shadow: none !important;
-                border: none !important;
-                margin: 0 !important;
-                border-radius: 0.5rem !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-            }
-          `}</style>
-
+          {/* Impressão via DocumentoImprimivel (ver a Área Imprimível abaixo). A
+              regra antiga punha position: fixed no próprio documento, e documento
+              com mais de uma página saía truncado. Ver .ai/planejamento/09. */}
           <div className="bg-white rounded-[10px] shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
             
             {/* Modal Top Controls */}
@@ -3846,14 +4382,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <div className="flex items-center gap-2">
                 <Shield className="h-4.5 w-4.5 text-amber-500" />
                 <div>
-                  <span className="text-xs font-black tracking-wider uppercase font-mono block">Emissor de Documentos Oficiais AVA</span>
-                  <span className="text-[9px] text-slate-400 block leading-none">Baixe selecionando "Salvar como PDF" no prompt.</span>
+                  <span className="text-sobretitulo uppercase block">Emissor de Documentos Oficiais AVA</span>
+                  <span className="text-apoio text-escult-ink-2 block leading-none">Baixe selecionando "Salvar como PDF" no prompt.</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => window.print()}
-                  className="text-[10px] bg-blue-600 hover:bg-blue-500 font-extrabold text-white px-2.5 py-1.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                  className="text-apoio bg-blue-600 hover:bg-blue-500 font-extrabold text-white px-2.5 py-1.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
                 >
                   <Printer className="h-3 w-3 text-white" />
                   <span>Imprimir / PDF</span>
@@ -3862,22 +4398,23 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   onClick={() => {
                     showToast(`Salvando ${activeDocViewer.type} de ${activeDocViewer.studentName} no Computador...`);
                   }}
-                  className="text-[10px] bg-slate-800 hover:bg-slate-700 font-extrabold text-white px-2.5 py-1.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                  className="text-apoio bg-slate-800 hover:bg-slate-700 font-extrabold text-white px-2.5 py-1.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Download className="h-3 w-3 text-blue-400" />
                   <span>Descarregar</span>
                 </button>
                 <button 
                   onClick={() => setActiveDocViewer(null)}
-                  className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="text-escult-ink-3 hover:text-white transition-colors cursor-pointer"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            {/* Dynamic Printable Area */}
-            <div className="p-8 bg-white text-slate-900 overflow-y-auto max-h-[70vh]" id="printable-doc">
+            {/* Dynamic Printable Area — na tela (com rolagem) e, sem recorte, na impressão */}
+            <DocumentoImprimivel>
+            <div className="p-8 bg-white text-slate-900 overflow-y-auto max-h-[70vh]">
               <div className="border border-slate-200 p-8 rounded-[10px] space-y-6 text-left relative overflow-hidden bg-slate-50/10">
                 
                 {/* Watermark design background */}
@@ -3887,9 +4424,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                 {/* Official Header */}
                 <div className="border-b border-double border-slate-300 pb-5 text-center space-y-2">
-                  <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded font-mono font-bold uppercase tracking-widest">Via Homologada de Autenticidade</span>
+                  <span className="text-sobretitulo bg-slate-900 text-white px-2.5 py-0.5 rounded uppercase">Via Homologada de Autenticidade</span>
                   <h3 className="text-base font-black uppercase text-slate-950 tracking-tight leading-none mt-1">Escola Estadual da Cultura</h3>
-                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mt-1.5">Setor de Registros e Certificações</p>
+                  <p className="text-sobretitulo text-escult-ink-2 uppercase mt-1.5">Setor de Registros e Certificações</p>
                 </div>
 
                 {/* Document Specific Content */}
@@ -3897,17 +4434,17 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="space-y-4">
                     <div className="text-center space-y-1">
                       <h4 className="font-extrabold text-sm text-slate-900 uppercase tracking-tight">Histórico Escolar Acadêmico Integral</h4>
-                      <p className="text-[9px] text-slate-400 font-mono">Protocolo de Consulta: HIST-{Date.now().toString().substring(6)}</p>
+                      <p className="text-apoio text-escult-ink-2">Protocolo de Consulta: HIST-{Date.now().toString().substring(6)}</p>
                     </div>
 
                     {/* Student Info block */}
-                    <div className="grid grid-cols-2 gap-4 bg-white border border-slate-100 p-3 rounded-md text-[11px] leading-relaxed">
+                    <div className="grid grid-cols-2 gap-4 bg-white border border-slate-100 p-3 rounded-md text-rotulo leading-relaxed">
                       <div>
-                        <span className="text-slate-400 block font-medium">Nome do Aluno(a):</span>
+                        <span className="text-escult-ink-3 block font-medium">Nome do Aluno(a):</span>
                         <strong className="text-slate-900 text-xs font-bold">{activeDocViewer.studentName}</strong>
                       </div>
                       <div>
-                        <span className="text-slate-400 block font-medium">Situação Acadêmica:</span>
+                        <span className="text-escult-ink-3 block font-medium">Situação Acadêmica:</span>
                         <strong className="text-emerald-700 font-extrabold flex items-center gap-1 mt-0.5">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" /> Regularmente Matriculado
                         </strong>
@@ -3916,11 +4453,11 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                     {/* Grades and attendance table */}
                     <div className="space-y-2 pt-2">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Disciplinas Cursadas e Frequência</span>
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase block">Disciplinas Cursadas e Frequência</span>
                       <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
-                        <table className="w-full text-left border-collapse text-[11px]">
+                        <table className="w-full text-left border-collapse text-rotulo">
                           <thead>
-                            <tr className="border-b border-slate-200 bg-slate-50 text-[9px] font-bold text-slate-500 uppercase">
+                            <tr className="border-b border-slate-200 bg-slate-50 text-sobretitulo text-escult-ink-2 uppercase">
                               <th className="p-2.5">Trilha / Curso</th>
                               <th className="p-2.5">Professor Adjunto</th>
                               <th className="p-2.5 text-center">Frequência</th>
@@ -3940,8 +4477,14 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                               // average quiz score (resolve o id do aluno exibido no documento — ADR 10)
                               const docStudentId = studentsList.find(s => s.name === activeDocViewer.studentName)?.id;
-                              const subs = quizSubmissions.filter(s => s.userId === docStudentId && s.courseId === course.id);
-                              const quizScore = subs.length > 0 ? `${subs[0].scorePercent}%` : 'Pendente';
+                              // Documento impresso: a nota vem da tentativa VIGENTE de
+                              // cada avaliação. Era `subs[0]`, que valia enquanto havia uma
+                              // tentativa por aluno+avaliação — com o histórico no ar,
+                              // passaria a imprimir uma tentativa qualquer numa declaração.
+                              const media = docStudentId === undefined
+                                ? null
+                                : mediaDoAlunoNoCurso(quizSubmissions, docStudentId, course.id);
+                              const quizScore = media === null ? 'Pendente' : `${media}%`;
 
                               return (
                                 <tr key={`${course.id}-${idx}`} className="border-b border-slate-100 hover:bg-slate-50/30">
@@ -3949,10 +4492,10 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                                     <span className="font-bold text-slate-900 block">{course.title}</span>
                                   </td>
                                   <td className="p-2.5 text-slate-600">{course.instructorName}</td>
-                                  <td className="p-2.5 text-center font-mono font-bold">
+                                  <td className="p-2.5 text-center font-bold">
                                     {studentAttendance}%
                                   </td>
-                                  <td className="p-2.5 text-right font-mono text-slate-800">
+                                  <td className="p-2.5 text-right text-slate-800">
                                     {quizScore}
                                   </td>
                                 </tr>
@@ -3963,25 +4506,25 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       </div>
                     </div>
 
-                    <div className="text-[10px] text-slate-500 bg-slate-50/80 border border-slate-100 p-2.5 rounded-md leading-relaxed mt-4">
+                    <div className="text-apoio text-escult-ink-2 bg-slate-50/80 border border-slate-100 p-2.5 rounded-md leading-relaxed mt-4">
                       * Este histórico reflete integralmente os registros eletrônicos armazenados na Central AVA em {new Date().toLocaleDateString('pt-BR')}. A presença de 70% ou mais outorga a emissão eletrônica de certificados de habilidade prática.
                     </div>
                   </div>
                 ) : activeDocViewer.type === 'certificado' ? (
                   <div className="space-y-6 text-center py-4">
                     <div className="space-y-1">
-                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest block">Certificação Profissional</span>
+                      <span className="text-sobretitulo text-escult-ink-2 uppercase block">Certificação Profissional</span>
                       <h4 className="font-black text-xl italic text-slate-950 antialiased font-serif">Certificado de Conclusão Técnica</h4>
                     </div>
 
-                    <div className="text-slate-700 text-[13px] leading-relaxed max-w-md mx-auto space-y-4">
+                    <div className="text-slate-700 text-apoio leading-relaxed max-w-md mx-auto space-y-4">
                       <p>
                         Certificamos de forma solene para os devidos fins legais, de competências e de complementação acadêmica que o aluno
                       </p>
-                      <p className="text-lg font-black text-slate-905 border-b border-slate-200 py-1.5 w-fit mx-auto px-4 uppercase tracking-normal">
+                      <p className="text-lg font-black text-slate-900 border-b border-slate-200 py-1.5 w-fit mx-auto px-4 uppercase tracking-normal">
                         {activeDocViewer.studentName}
                       </p>
-                      <p className="text-[11px] leading-normal text-slate-400">
+                      <p className="text-rotulo leading-normal text-escult-ink-3">
                         concluiu com êxito os requisitos teóricos, testes práticos e obteve aproveitamento curricular superior a <strong className="font-semibold text-slate-800">70% de presença letiva</strong> nas aulas, assessorias síncronas e atividades do curso didático de:
                       </p>
                       <p className="text-sm font-black text-blue-900 uppercase">
@@ -3991,15 +4534,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                     <div className="flex justify-between items-end border-t border-slate-200 pt-8 mt-6">
                       <div className="text-left space-y-1">
-                        <span className="text-[9px] text-slate-405 block font-mono">Registro Criptográfico Único:</span>
-                        <strong className="text-[10px] text-slate-800 font-mono block uppercase">
+                        <span className="text-apoio text-escult-ink-2 block">Registro Criptográfico Único:</span>
+                        <strong className="text-sobretitulo text-slate-800 block uppercase">
                           AVA-CERT-{Date.now().toString().substring(5)}
                         </strong>
                       </div>
                       <div className="text-right flex flex-col items-center">
                         <div className="w-16 h-0.5 bg-slate-300 mb-1" />
-                        <span className="text-[9px] text-slate-400 block">Chave Securitária AVA</span>
-                        <span className="text-[8px] text-slate-300 block">Homologado e Gravado</span>
+                        <span className="text-apoio text-escult-ink-2 block">Chave Securitária AVA</span>
+                        <span className="text-apoio text-slate-300 block">Homologado e Gravado</span>
                       </div>
                     </div>
                   </div>
@@ -4007,18 +4550,18 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   <div className="space-y-5">
                     <div className="text-center space-y-1">
                       <h4 className="font-extrabold text-sm text-slate-900 uppercase tracking-tight">Atestado de Matrícula e Frequência Ativa</h4>
-                      <p className="text-[9px] text-slate-400 font-mono">Protocolo de Expedição: ADM-{Date.now().toString().substring(7)}</p>
+                      <p className="text-apoio text-escult-ink-2">Protocolo de Expedição: ADM-{Date.now().toString().substring(7)}</p>
                     </div>
 
-                    <p className="text-[11px] text-slate-705 leading-relaxed text-justify indent-8 pt-2">
+                    <p className="text-rotulo text-slate-700 leading-relaxed text-justify indent-8 pt-2">
                       Declaramos, para os devidos fins de direito e comprovação institucional acadêmica, que o estudante <strong className="font-bold text-slate-950 uppercase">{activeDocViewer.studentName}</strong> encontra-se regularmente cadastrado e ativamente matriculado nos sistemas desta Escola Estadual da Cultura, participando da grade didática atual no ano letivo corrente de 2026.
                     </p>
 
-                    <p className="text-[11px] text-slate-705 leading-normal text-justify">
+                    <p className="text-rotulo text-slate-700 leading-normal text-justify">
                       O aluno mantém status regular, frequentando as conferências de mentoria de forma remota, e submetendo-se a baterias de testes didáticos sob supervisão dos professores cadastrados.
                     </p>
 
-                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-md border border-slate-100 text-[10px] text-slate-500 leading-normal mt-4">
+                    <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3 rounded-md border border-slate-100 text-apoio text-escult-ink-2 leading-normal mt-4">
                       <div>
                         <span className="block font-semibold">Data de Expedição:</span>
                         <span>{new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}</span>
@@ -4030,14 +4573,15 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     </div>
 
                     <div className="text-center pt-8">
-                      <span className="text-[9px] text-slate-300 block">________________________________________________</span>
-                      <span className="text-[10px] font-bold text-slate-700 block mt-1">Diretoria de Registros Escolares Secundários</span>
-                      <span className="text-[8.5px] text-slate-400 block">Portal do AVA LMS Institucional</span>
+                      <span className="text-apoio text-slate-300 block">________________________________________________</span>
+                      <span className="text-apoio font-bold text-slate-700 block mt-1">Diretoria de Registros Escolares Secundários</span>
+                      <span className="text-apoio text-escult-ink-2 block">Portal do AVA LMS Institucional</span>
                     </div>
                   </div>
                 )}
               </div>
             </div>
+            </DocumentoImprimivel>
 
             {/* Modal Footer */}
             <div className="bg-slate-50 border-t border-slate-200 px-5 py-3 flex justify-end">
@@ -4055,7 +4599,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
       {/* DETAILED STUDENT PROFILE / EDIT PARAMETERS MODAL */}
       {activeStudentProfile && (() => {
-        const rawStudent = mockStudents.find(s => s.name === activeStudentProfile);
+        const rawStudent = mockStudents.find(s => chaveDoAluno(s) === activeStudentProfile);
         if (!rawStudent) return null;
         const st = getEnrichedStudent(rawStudent);
         const initials = st.name.split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
@@ -4070,12 +4614,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                   </div>
                   <div>
                     <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">{st.name}</h3>
-                    <p className="text-[10px] text-slate-400 font-mono leading-none mt-0.5">RA: {st.ra} • {st.email}</p>
+                    <p className="text-apoio text-escult-ink-2 leading-none mt-0.5">RA: {st.ra} • {st.email}</p>
                   </div>
                 </div>
                 <button 
                   onClick={() => setActiveStudentProfile(null)}
-                  className="p-1.5 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-slate-400"
+                  className="p-1.5 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-escult-ink-3"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -4086,34 +4630,34 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 {/* Real-time statistics banner */}
                 <div className="grid grid-cols-2 gap-3 bg-slate-50 border border-slate-200 p-3.5 rounded-[10px] text-xs">
                   <div className="space-y-0.5">
-                    <span className="text-[9px] text-slate-400 font-black uppercase font-mono">Último Acesso Registrado</span>
+                    <span className="text-sobretitulo text-escult-ink-2 uppercase">Último Acesso Registrado</span>
                     <p className="font-extrabold text-slate-800 flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                       <span>{st.lastAccess}</span>
                     </p>
-                    <span className="text-[8.5px] text-slate-400 block">Nível de Risco: {st.riskLevel}</span>
+                    <span className="text-apoio text-escult-ink-2 block">Nível de Risco: {st.riskLevel}</span>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="text-[9px] text-slate-400 font-black uppercase font-mono">Status da Conta</span>
+                    <span className="text-sobretitulo text-escult-ink-2 uppercase">Status da Conta</span>
                     <p className="font-extrabold text-slate-800 flex items-center gap-1">
                       <ShieldCheck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
                       <span>Conta {st.statusConta || 'Ativa'}</span>
                     </p>
-                    <span className="text-[8.5px] text-slate-400 block flex items-center gap-1">
+                    <span className="text-apoio text-escult-ink-2 block flex items-center gap-1">
                       <span>Senha de acesso:</span>
-                      <span className="font-mono font-bold text-slate-600">••••••••</span>
+                      <span className="font-bold text-slate-600">••••••••</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Quick configuration forms */}
                 <div className="space-y-3.5">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Parâmetros de Matrícula & Acesso</span>
+                  <span className="text-sobretitulo text-escult-ink-2 uppercase block">Parâmetros de Matrícula & Acesso</span>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Status da matrícula select */}
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status da Matrícula</label>
+                      <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Status da Matrícula</label>
                       <select
                         value={st.statusMatricula}
                         onChange={(e) => {
@@ -4132,7 +4676,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
 
                     {/* Status da Conta select */}
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Status da Conta</label>
+                      <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Status da Conta</label>
                       <select
                         value={st.statusConta || 'Ativa'}
                         onChange={(e) => {
@@ -4150,7 +4694,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                      {/* Progress Control */}
                     {st.statusMatricula !== 'Sem matrícula' && (
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Progresso Manual (%)</label>
+                        <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Progresso Manual (%)</label>
                         <div className="flex items-center gap-2">
                           <input
                             type="range"
@@ -4165,16 +4709,46 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                             }}
                             className="grow"
                           />
-                          <span className="text-xs font-mono font-black text-slate-700 w-8 text-right">{st.progresso}%</span>
+                          <span className="text-xs font-black text-slate-700 w-8 text-right">{st.progresso}%</span>
                         </div>
                       </div>
                     )}
                   </div>
                 </div>
 
+                {/* Matrícula múltipla simultânea (feature matriculasMultiplas) — só o Admin
+                    Superior concede; nunca ligado por padrão. */}
+                {features.matriculasMultiplas && (
+                  <div className="bg-purple-50/50 border border-purple-150 rounded-[10px] p-3.5 flex items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <span className="text-apoio font-bold text-slate-800 block">Permitir Matrícula Múltipla Simultânea</span>
+                      <span className="text-apoio text-escult-ink-2 block leading-snug">
+                        Quando ativo, {st.name.split(' ')[0]} pode cursar mais de uma disciplina ao mesmo tempo.
+                      </span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={!!(st.id && studentEnrollments?.[st.id]?.canMultiEnroll)}
+                        onChange={(e) => {
+                          if (!st.id) return;
+                          setStudentMultiEnrollPermission(st.id, e.target.checked);
+                          showToast(
+                            e.target.checked
+                              ? `${st.name} agora pode cursar mais de uma disciplina ao mesmo tempo.`
+                              : `Matrícula múltipla revogada para ${st.name}.`
+                          );
+                        }}
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+                )}
+
                 {/* Pendencies checklist */}
                 <div className="space-y-2.5">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Gerenciamento de Pendências & Restrições</span>
+                  <span className="text-sobretitulo text-escult-ink-2 uppercase block">Gerenciamento de Pendências & Restrições</span>
                   
                   <div className="grid grid-cols-2 gap-2.5 bg-slate-50/50 p-4 border border-slate-200 rounded-[10px]">
                     {['Termo de Compromisso', 'Documento', 'Atividade', 'Matrícula pendente', 'Contrato'].map((pend) => {
@@ -4215,7 +4789,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                         updateOverride(st.name, { pendencias: ['Nenhuma'] });
                         showToast(`Todas as restrições e pendências de ${st.name} foram zeradas.`);
                       }}
-                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
+                      className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-sobretitulo uppercase rounded-md transition-colors cursor-pointer"
                     >
                       Resolver Tudo
                     </button>
@@ -4228,7 +4802,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                           updateOverride(st.name, { pendencias: updated.length === 0 ? ['Nenhuma'] : updated });
                           showToast(`A pendência do termo de compromisso de ${st.name} foi resolvida.`);
                         }}
-                        className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-blue-800 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
+                        className="px-3 py-1.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-blue-800 text-sobretitulo uppercase rounded-md transition-colors cursor-pointer"
                       >
                         Aprovar Termo
                       </button>
@@ -4240,9 +4814,9 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <div className="pt-2 border-t border-slate-100 flex flex-wrap gap-2">
                   <button
                     onClick={() => {
-                      setResetPassInfo({ name: st.name, email: st.email });
+                      setResetPassInfo({ id: st.id, name: st.name, email: st.email });
                     }}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sobretitulo uppercase rounded-md transition-colors cursor-pointer"
                   >
                     Mudar Senha
                   </button>
@@ -4250,7 +4824,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                     onClick={() => {
                       setSendMessageInfo({ name: st.name, email: st.email });
                     }}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sobretitulo uppercase rounded-md transition-colors cursor-pointer"
                   >
                     Enviar Notificação
                   </button>
@@ -4260,7 +4834,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                       navigator.clipboard.writeText(magicLink);
                       showToast(`Link de acesso seguro de ${st.name} copiado.`);
                     }}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] uppercase rounded-md transition-colors cursor-pointer"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sobretitulo uppercase rounded-md transition-colors cursor-pointer"
                   >
                     Copiar Link Mágico
                   </button>
@@ -4271,7 +4845,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               <footer className="p-4 bg-slate-50 border-t border-slate-100 flex justify-end shrink-0">
                 <button
                   onClick={() => setActiveStudentProfile(null)}
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-md transition-colors uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sobretitulo rounded-md transition-colors uppercase cursor-pointer"
                 >
                   Salvar e Fechar
                 </button>
@@ -4282,6 +4856,42 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
       })()}
 
       {/* RESET PASSWORD MODAL */}
+      {/* SENHA INICIAL GERADA — exibida uma única vez */}
+      {senhaGerada && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-white rounded-[10px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100">
+            <header className="p-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50/50">
+              <Key className="h-4 w-4 text-emerald-600" />
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">Senha Inicial Gerada</h3>
+            </header>
+
+            <div className="p-4 space-y-4">
+              <p className="text-rotulo text-escult-ink-2 leading-relaxed">
+                Repasse esta senha a <strong className="font-bold text-slate-800">{senhaGerada.nome}</strong> por
+                canal seguro. Ela <strong className="font-bold text-slate-800">não será exibida novamente</strong> —
+                o sistema guarda apenas o hash. Se for perdida, use "Redefinir Senha" na lista de alunos.
+              </p>
+
+              <div className="bg-slate-50 border border-slate-200 rounded-md p-3 text-center">
+                <span className="text-base font-black tracking-widest text-slate-900 select-all">
+                  {senhaGerada.senha}
+                </span>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setSenhaGerada(null)}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sobretitulo rounded-md transition-colors uppercase cursor-pointer"
+                >
+                  Já anotei
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {resetPassInfo && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-white rounded-[10px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 text-left border border-slate-100">
@@ -4292,34 +4902,50 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
               <button 
                 onClick={() => setResetPassInfo(null)}
-                className="p-1 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-slate-400"
+                className="p-1 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-escult-ink-3"
               >
                 <X className="h-4 w-4" />
               </button>
             </header>
 
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               const form = e.currentTarget;
               const newPasswordValue = (form.elements.namedItem('newPassword') as HTMLInputElement).value;
-              updateOverride(resetPassInfo.name, { password: newPasswordValue });
-              showToast(`A senha de ${resetPassInfo.name} foi redefinida para: ${newPasswordValue}`);
-              speakText(`A senha de ${resetPassInfo.name} foi atualizada.`);
+              const problema = passwordProblem(newPasswordValue);
+              if (problema !== null) {
+                showToast(problema);
+                return;
+              }
+              // Sem id não há como endereçar o usuário no servidor. Antes isso passava
+              // batido porque nada era enviado: a "redefinição" era só estado local.
+              if (!resetPassInfo.id) {
+                showToast('Cadastro ainda sincronizando com o servidor. Recarregue a página e tente de novo.');
+                return;
+              }
+              const alvo = resetPassInfo.name;
+              const res = await adminResetPassword(resetPassInfo.id, newPasswordValue);
+              if (!res.ok) {
+                showToast(res.error ?? 'Falha ao redefinir a senha.');
+                return;
+              }
               setResetPassInfo(null);
+              setSenhaGerada({ nome: alvo, senha: newPasswordValue });
+              speakText(`A senha de ${alvo} foi atualizada.`);
             }} className="p-4 space-y-4">
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-rotulo text-escult-ink-2 leading-relaxed">
                 Insira abaixo a nova credencial de segurança para o aluno <strong className="font-bold text-slate-800">{resetPassInfo.name}</strong>. Esta ação revogará qualquer senha anterior de acesso.
               </p>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Nova Senha</label>
+                <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Nova Senha</label>
                 <input
                   name="newPassword"
                   type="text"
                   required
-                  placeholder="Ex: 5678"
-                  defaultValue={Math.floor(1000 + Math.random() * 9000).toString()}
-                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 font-mono focus:outline-hidden focus:ring-1 focus:ring-slate-400"
+                  placeholder="Mín. 8, com letra e número"
+                  defaultValue={generateInitialPassword()}
+                  className="w-full border border-slate-200 p-2 text-xs rounded-md text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-slate-400"
                 />
               </div>
 
@@ -4327,13 +4953,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <button
                   type="button"
                   onClick={() => setResetPassInfo(null)}
-                  className="px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors uppercase tracking-widest cursor-pointer"
+                  className="px-3 py-2 text-sobretitulo text-escult-ink-2 hover:text-slate-800 transition-colors uppercase cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-md transition-colors uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sobretitulo rounded-md transition-colors uppercase cursor-pointer"
                 >
                   Definir Senha
                 </button>
@@ -4354,7 +4980,7 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               </div>
               <button 
                 onClick={() => setSendMessageInfo(null)}
-                className="p-1 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-slate-400"
+                className="p-1 hover:bg-slate-200 rounded-full transition-colors cursor-pointer text-escult-ink-3"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -4366,12 +4992,12 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
               speakText(`Mensagem despachada.`);
               setSendMessageInfo(null);
             }} className="p-4 space-y-4">
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-rotulo text-escult-ink-2 leading-relaxed">
                 Escreva abaixo a notificação push ou e-mail que será disparado para <strong className="font-bold text-slate-800">{sendMessageInfo.name}</strong> ({sendMessageInfo.email}).
               </p>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Conteúdo da Notificação</label>
+                <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Conteúdo da Notificação</label>
                 <textarea
                   required
                   rows={4}
@@ -4384,13 +5010,13 @@ export function AdminDashboard({ onBackToLanding, speakText }: AdminDashboardPro
                 <button
                   type="button"
                   onClick={() => setSendMessageInfo(null)}
-                  className="px-3 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors uppercase tracking-widest cursor-pointer"
+                  className="px-3 py-2 text-sobretitulo text-escult-ink-2 hover:text-slate-800 transition-colors uppercase cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-md transition-colors uppercase tracking-wider cursor-pointer"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sobretitulo rounded-md transition-colors uppercase cursor-pointer"
                 >
                   Enviar
                 </button>

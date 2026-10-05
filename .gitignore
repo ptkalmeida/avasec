@@ -6,7 +6,29 @@ coverage/
 *.log
 .env*
 !.env.example
+!.env.production.example
 uploads/
 logs/
 .claude/settings.local.json
-SKILL.md
+
+# SKILL.md solto na raiz (skill pessoal colada no diretório de trabalho) fica fora
+# do versionamento. O padrão sem barra, porém, casa esse nome em QUALQUER pasta — e
+# skill do projeto precisa ser versionada, senão cada pessoa redescobre o ambiente.
+/SKILL.md
+!.claude/skills/**/SKILL.md
+
+# Processo de IA (planejamento, skills, guidelines, ADRs de processo).
+# Fica NO repositorio por conveniencia de quem trabalha aqui, e NUNCA e
+# versionado: decisao explicita de 08/09/2026. Consequencia aceita: a
+# rastreabilidade que o AGENTS.md exige nao fica visivel para quem revisa o PR,
+# e um clone em outra maquina nao traz nada disto.
+.ai/
+
+# Handoff de design (navegacao/identidade visual, set/2026).
+#
+# Fora do git pela mesma razao da pasta .ai: material de trabalho que fica na
+# maquina de quem conduz, nao no repositorio. Custo aceito e declarado: as ADRs
+# e os commits citam um documento que quem revisar o PR nao alcanca — a
+# justificativa das mudancas tem de estar no proprio commit e na ADR, nao so no
+# handoff.
+design_handoff_avasec_navegacao/

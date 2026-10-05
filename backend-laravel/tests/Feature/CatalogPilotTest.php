@@ -43,6 +43,12 @@ final class CatalogPilotTest extends TestCase
         );
     }
 
+    /** @return array<string, string> */
+    private function auth(string $token): array
+    {
+        return ['Accept' => 'application/json', 'Authorization' => "Bearer {$token}"];
+    }
+
     public function test_get_library_is_public_and_returns_json_array(): void
     {
         $response = $this->getJson('/api/library');
@@ -113,11 +119,95 @@ final class CatalogPilotTest extends TestCase
             ->assertJson(['error' => true, 'code' => 'VALIDATION_ERROR']);
     }
 
-    public function test_get_webinars_is_disabled_by_feature_flag(): void
+    public function test_route_behind_a_disabled_feature_flag_returns_404(): void
     {
-        $response = $this->getJson('/api/webinars');
+        // O objeto do teste é o FeatureGate: flag desligada some da API, não só do menu.
+        // A flag é desligada AQUI de propósito — antes o teste dependia de
+        // eventosWebinars estar false em config/features.php, então virava vermelho
+        // quando o produto decidia ligar o recurso, sem nada ter quebrado.
+        config(['features.eventosWebinars' => false]);
 
-        $response->assertStatus(404)
+        $this->getJson('/api/webinars')
+            ->assertStatus(404)
             ->assertJson(['error' => true, 'code' => 'FEATURE_DISABLED']);
+    }
+
+    public function test_get_webinars_responds_when_the_flag_is_on(): void
+    {
+        config(['features.eventosWebinars' => true]);
+
+        $this->getJson('/api/webinars')->assertOk();
+    }
+
+    /**
+     * O formulário de agendamento enviava `description: ''` e data em texto livre
+     * ("25 de Junho"). Resultado: TODO agendamento era recusado, e como o cliente
+     * inseria na lista local antes de chamar a API e engolia o erro, quem agendava
+     * via a confirmação e o webinar nunca chegava ao site.
+     */
+    public function test_webinar_requires_description(): void
+    {
+        config(['features.eventosWebinars' => true]);
+        $token = $this->tokenForRole('instructor');
+
+        $this->postJson('/api/webinars', [
+            'title' => 'Masterclass de Fotografia',
+            'date' => '15/09/2026',
+            'time' => '19:00',
+            'description' => '',
+            'link' => 'https://meet.google.com/abc-defg-hij',
+        ], $this->auth($token))->assertStatus(400);
+    }
+
+    public function test_webinar_can_be_scheduled_and_removed_by_staff(): void
+    {
+        config(['features.eventosWebinars' => true]);
+        $token = $this->tokenForRole('instructor');
+        $id = 'web-teste-'.uniqid();
+
+        $this->postJson('/api/webinars', [
+            'id' => $id,
+            'title' => 'Masterclass de Fotografia',
+            'date' => '15/09/2026',
+            'time' => '19:00',
+            'description' => 'Composição e luz natural para registro cultural.',
+            'link' => 'https://meet.google.com/abc-defg-hij',
+        ], $this->auth($token))->assertStatus(201)->assertJsonPath('date', '15/09/2026');
+
+        $this->assertDatabaseHas('WebinarEvent', ['id' => $id]);
+
+        // Exclusão existe para a área de gestão poder desmarcar: antes só havia criar
+        // e listar, e um webinar agendado por engano ficava na agenda para sempre.
+        $this->deleteJson("/api/webinars/{$id}", [], $this->auth($token))->assertOk();
+        // ADR 12: o webinar desmarcado NÃO sai do banco — sai do ar. A
+        // asserção antiga (`assertDatabaseMissing`) exigia o contrário.
+        $this->assertDatabaseHas('WebinarEvent', ['id' => $id]);
+        $this->assertNotNull(
+            DB::table('WebinarEvent')->where('id', $id)->value('inativadoEm'),
+            'Webinar removido tem de ficar registrado como inativado.'
+        );
+    }
+
+    public function test_webinar_rejects_javascript_link(): void
+    {
+        config(['features.eventosWebinars' => true]);
+
+        // O link vai para um href no botao "Acessar sala" da aba Calendario.
+        $this->postJson('/api/webinars', [
+            'title' => 'Webinar XSS',
+            'date' => '15/09/2026',
+            'time' => '19:00',
+            'description' => 'Descricao.',
+            'link' => 'javascript:alert(1)',
+        ], $this->auth($this->tokenForRole('instructor')))->assertStatus(400);
+    }
+
+    public function test_student_cannot_remove_a_webinar(): void
+    {
+        config(['features.eventosWebinars' => true]);
+
+        $this->deleteJson('/api/webinars/web-1', [], $this->auth($this->tokenForRole('student')))
+            ->assertStatus(403);
+        $this->assertDatabaseHas('WebinarEvent', ['id' => 'web-1']);
     }
 }

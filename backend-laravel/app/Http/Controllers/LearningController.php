@@ -16,9 +16,9 @@ final class LearningController extends Controller
     public function __construct(private readonly LearningService $learning) {}
 
     // Quizzes
-    public function listQuizzes(): JsonResponse
+    public function listQuizzes(Request $request): JsonResponse
     {
-        return response()->json($this->learning->listQuizzes());
+        return response()->json($this->learning->listQuizzes($this->requester($request)));
     }
 
     public function createQuiz(Request $request): JsonResponse
@@ -39,12 +39,12 @@ final class LearningController extends Controller
             'questions.*.allowRetry' => ['sometimes', 'boolean'],
         ]);
 
-        return response()->json($this->learning->createQuiz($data), 201);
+        return response()->json($this->learning->createQuiz($data, $this->requester($request)), 201);
     }
 
-    public function deleteQuiz(string $id): JsonResponse
+    public function deleteQuiz(Request $request, string $id): JsonResponse
     {
-        $this->learning->deleteQuiz($id);
+        $this->learning->deleteQuiz($id, $this->requester($request));
 
         return response()->json(['success' => true]);
     }
@@ -57,20 +57,29 @@ final class LearningController extends Controller
 
     public function submitQuiz(Request $request): JsonResponse
     {
-        $data = $this->validateKeepingAll($request, [
-            'courseId' => ['required', 'string', 'max:191'],
+        // A nota é recalculada no servidor a partir de `answers` (questionId => índice
+        // escolhido). scorePercent/passed do corpo, se enviados, são ignorados; courseId
+        // é derivado do quiz. Aceita-se `courseId` legado no payload sem usá-lo.
+        $data = $this->validateInput($request, [
+            'courseId' => ['sometimes', 'nullable', 'string', 'max:191'],
             'quizId' => ['required', 'string', 'max:191'],
-            'scorePercent' => ['required', 'numeric', 'min:0', 'max:100'],
-            'passed' => ['required', 'boolean'],
+            'answers' => ['required', 'array', 'max:200'],
+            'answers.*' => ['integer', 'min:0', 'max:100'],
         ]);
 
-        return response()->json($this->learning->submitQuiz($data, $this->requester($request)), 201);
+        /** @var array<string,int> $answers */
+        $answers = is_array($data['answers'] ?? null) ? $data['answers'] : [];
+
+        return response()->json($this->learning->submitQuiz([
+            'quizId' => $this->stringField($data, 'quizId'),
+            'answers' => $answers,
+        ], $this->requester($request)), 201);
     }
 
     // Fórum
-    public function listForumMessages(): JsonResponse
+    public function listForumMessages(Request $request): JsonResponse
     {
-        return response()->json($this->learning->listForumMessages());
+        return response()->json($this->learning->listForumMessages($this->requester($request)));
     }
 
     public function createForumMessage(Request $request): JsonResponse
@@ -99,28 +108,28 @@ final class LearningController extends Controller
     }
 
     // Exercícios
-    public function listExercises(): JsonResponse
+    public function listExercises(Request $request): JsonResponse
     {
-        return response()->json($this->learning->listExercises());
+        return response()->json($this->learning->listExercises($this->requester($request)));
     }
 
     public function createExercise(Request $request): JsonResponse
     {
         $data = $this->validateKeepingAll($request, $this->exerciseRules(false));
 
-        return response()->json($this->learning->createExercise($data), 201);
+        return response()->json($this->learning->createExercise($data, $this->requester($request)), 201);
     }
 
     public function updateExercise(Request $request, string $id): JsonResponse
     {
         $data = $this->validateKeepingAll($request, $this->exerciseRules(true));
 
-        return response()->json($this->learning->updateExercise($id, $data));
+        return response()->json($this->learning->updateExercise($id, $data, $this->requester($request)));
     }
 
-    public function deleteExercise(string $id): JsonResponse
+    public function deleteExercise(Request $request, string $id): JsonResponse
     {
-        $this->learning->deleteExercise($id);
+        $this->learning->deleteExercise($id, $this->requester($request));
 
         return response()->json(['success' => true]);
     }
@@ -167,7 +176,12 @@ final class LearningController extends Controller
             'description' => [$req, 'string', 'min:1', 'max:5000'],
             'instructions' => [$req, 'string', 'min:1', 'max:5000'],
             'maxPoints' => [$req, 'integer', 'min:1', 'max:1000'],
-            'dueDate' => ['sometimes', 'nullable', 'string', 'max:30'],
+            // Prazo precisa ser parseavel: a pagina de exercicios do aluno calcula
+            // "vence em N dias" / "atrasado" a partir dele (src/utils/exerciseStatus.ts).
+            // Como texto livre, um "julho de 2026" entrava no banco e a tela nunca
+            // mostrava vencimento nenhum. dd/mm/aaaa e o formato que as linhas
+            // existentes ja usam.
+            'dueDate' => ['sometimes', 'nullable', 'string', 'max:30', 'date_format:d/m/Y'],
         ];
     }
 }
