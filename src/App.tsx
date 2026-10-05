@@ -971,7 +971,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             */}
             {isPublicPage && (
               <div className="relative z-50 hidden xl:block">
-                <div className="flex items-center bg-[#f4f2ef] ava:bg-ava-faixa rounded-[10px] border border-[#e4e1dc] ava:border-ava-borda w-[230px] pl-3 pr-2 py-2.5 focus-within:border-ava-acao transition-colors">
+                <div className="flex items-center bg-[#f4f2ef] ava:bg-ava-faixa rounded-[10px] border border-[#e4e1dc] ava:border-ava-borda w-[230px] pl-3 pr-2 py-2.5 focus-within:border-ava-acao ava:focus-within:ring-2 ava:focus-within:ring-ava-acao/40 transition-colors">
                   <Search className="h-4 w-4 text-[#6b7385] shrink-0 mr-2" aria-hidden="true" />
                   <input
                     type="text"
