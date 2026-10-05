@@ -51,7 +51,7 @@ export const ProjetoPage: React.FC<ProjetoPageProps> = ({ content }) => {
         {/* Imagem decorativa */}
         <div className="lg:col-span-5 relative flex items-center justify-center">
           <div className="relative w-80 h-80 sm:w-90 sm:h-90 shrink-0 flex items-center justify-center">
-            <div className="absolute top-4 left-4 w-full h-full border-4 border-escult-ciano/30 rounded-3xl pointer-events-none" />
+            <div className="absolute top-4 left-4 w-full h-full border-4 border-ava-ciano/30 rounded-3xl pointer-events-none" />
             <div className="w-full h-full rounded-3xl overflow-hidden border-4 border-white shadow-xl relative bg-slate-900">
               <img
                 src={imageUrl}
@@ -72,7 +72,7 @@ export const ProjetoPage: React.FC<ProjetoPageProps> = ({ content }) => {
           <div className="space-y-4 pt-2">
             {items.map((p, index) => (
               <div key={p.id} className="flex gap-3.5">
-                <div className="h-6.5 w-6.5 rounded-full bg-escult-purple/10 flex items-center justify-center text-escult-purple text-xs font-black shrink-0 mt-0.5">
+                <div className="h-6.5 w-6.5 rounded-full bg-ava-acao/10 flex items-center justify-center text-ava-acao text-xs font-black shrink-0 mt-0.5">
                   {index + 1}
                 </div>
                 <div className="space-y-0.5">

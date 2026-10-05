@@ -39,13 +39,20 @@
   --color-escult-purple-dark: #42095a;
 
   /*
-   * Ciano do redesenho (planejamento 12), medido na referencia aprovada.
-   * `escult-ciano` (#07AEBC) e barra de progresso e enfeite: branco sobre ele
-   * da 2,70:1, entao ele NAO carrega texto. `escult-ciano-texto` (#007C86) e o
-   * que carrega: branco sobre ele 4,97:1, e ele sobre branco o mesmo.
+   * Tokens do portal, com nome de PAPEL (planejamento 13). Fora de `.tema-ava`
+   * valem exatamente as cores de antes do redesenho -- e isso que mantem o
+   * painel do admin identico, porque cabecalho, rodape e menu sao os mesmos
+   * componentes. Os valores do portal ficam em `.tema-ava`, mais abaixo.
+   *
+   * `ava-acao` e botao, link e estado ativo. `ava-tinta` e titulo.
+   * `ava-ciano` e enfeite e indicador: NAO carrega texto (2,88:1 sobre
+   * branco). `ava-ciano-texto` e o que carrega (4,97:1).
    */
-  --color-escult-ciano: #07AEBC;
-  --color-escult-ciano-texto: #007C86;
+  --color-ava-acao: #540D6E;
+  --color-ava-acao-escuro: #42095a;
+  --color-ava-tinta: #1d2432;
+  --color-ava-ciano: #07AEBC;
+  --color-ava-ciano-texto: #007C86;
 
   /*
    * Fonte de titulo, com papel declarado em vez de familia. Fora do tema do
@@ -182,6 +189,8 @@
   --color-escult-purple: #5B24D2;
   --color-escult-blue: #5B24D2;
   --color-escult-purple-dark: #4A1CB0;
+  --color-ava-acao: #5B24D2;
+  --color-ava-acao-escuro: #4A1CB0;
   --font-titulo: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -199,7 +208,7 @@
  * contraste, onde um gradiente fino so atrapalha.
  */
 .linha-assinatura {
-  background: linear-gradient(90deg, var(--color-escult-purple), #80D7EF);
+  background: linear-gradient(90deg, var(--color-ava-acao), #80D7EF);
 }
 
 .high-contrast-active .linha-assinatura-wrap {

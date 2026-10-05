@@ -35,9 +35,9 @@ const DEFAULT_ITEMS: SitePageItem[] = [
 
 /** Ícone e cor são decoração cíclica — não são campos editáveis. */
 const DECORACOES = [
-  { icon: Video, accent: 'var(--color-escult-purple)' },
-  { icon: Users, accent: 'var(--color-escult-ciano-texto)' },
-  { icon: Award, accent: 'var(--color-escult-purple-dark)' }
+  { icon: Video, accent: 'var(--color-ava-acao)' },
+  { icon: Users, accent: 'var(--color-ava-ciano-texto)' },
+  { icon: Award, accent: 'var(--color-ava-acao-escuro)' }
 ];
 
 export const AvaPage: React.FC<AvaPageProps> = ({ content }) => {
