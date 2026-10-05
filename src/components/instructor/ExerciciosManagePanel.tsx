@@ -220,7 +220,7 @@ const CorrigirEntrega: React.FC<{
         <button
           type="button"
           onClick={() => setAberto(true)}
-          className="cursor-pointer text-sobretitulo uppercase text-[#540D6E] hover:underline"
+          className="cursor-pointer text-sobretitulo uppercase text-ava-acao hover:underline"
         >
           {submissao.status === 'pending' ? 'Corrigir entrega' : 'Rever correção'}
         </button>
@@ -437,7 +437,7 @@ export const ExerciciosManagePanel: React.FC<ExerciciosManagePanelProps> = ({
               type="button"
               onClick={salvar}
               disabled={salvando}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-[#540D6E] px-4 py-1.5 text-xs font-bold text-white hover:bg-purple-950 disabled:opacity-60"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-ava-acao px-4 py-1.5 text-xs font-bold text-white hover:bg-purple-950 disabled:opacity-60"
             >
               <Save className="h-3.5 w-3.5" />
               {salvando ? 'Salvando...' : editandoId === null ? 'Publicar' : 'Salvar'}

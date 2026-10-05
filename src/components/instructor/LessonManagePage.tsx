@@ -58,7 +58,7 @@ const ZoneHeader: React.FC<{
       className={`shrink-0 inline-flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-sobretitulo font-black uppercase tracking-wider transition-colors cursor-pointer ${
         editing
           ? 'border-slate-300 bg-slate-900 text-white hover:bg-slate-800'
-          : 'border-slate-200 bg-white text-slate-600 hover:border-[#540D6E]/40 hover:text-[#540D6E]'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-ava-acao/40 hover:text-ava-acao'
       }`}
     >
       {editing ? <X className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
@@ -126,7 +126,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
             className={`rounded-full px-3 py-1 text-sobretitulo font-black uppercase tracking-wider transition-colors cursor-pointer ${
               lesson.isOptional
                 ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                : 'bg-[#540D6E]/10 text-[#540D6E] border border-purple-300/30 hover:bg-[#540D6E]/15'
+                : 'bg-ava-acao/10 text-ava-acao border border-purple-300/30 hover:bg-ava-acao/15'
             }`}
           >
             {lesson.isOptional ? 'Aula opcional' : 'Aula obrigatória'}

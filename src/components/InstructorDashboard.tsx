@@ -737,11 +737,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           )}
 
           {/* Live student preview shortcut */}
-          <div className="bg-gradient-to-r from-[#540D6E]/5 to-teal-500/5 rounded-xl p-3 border border-[#540D6E]/10 flex items-center justify-between text-xs">
+          <div className="bg-gradient-to-r from-ava-acao/5 to-teal-500/5 rounded-xl p-3 border border-ava-acao/10 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-[#540D6E]" />
+              <Sparkles className="h-4 w-4 text-ava-acao" />
               <div>
-                <p className="font-bold text-[#540D6E]">Pré-visualização do Aluno</p>
+                <p className="font-bold text-ava-acao">Pré-visualização do Aluno</p>
                 <p className="text-apoio text-escult-ink-2">Veja exatamente como o aluno visualizará o material de estudos.</p>
               </div>
             </div>
@@ -749,7 +749,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               onClick={() => {
                 setPreviewLesson(lesson);
               }}
-              className="bg-white text-[#540D6E] font-extrabold hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-purple-200/50 text-apoio cursor-pointer"
+              className="bg-white text-ava-acao font-extrabold hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-purple-200/50 text-apoio cursor-pointer"
             >
               Olhar Prévia
             </button>
@@ -758,7 +758,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
         {/* Col 2: Formulation input to attach new document */}
         <div className="lg:col-span-5 bg-white border border-slate-200/80 rounded-2xl p-4 shadow-3xs space-y-3">
-          <span className="text-sobretitulo text-[#540D6E] uppercase block mb-1">Anexar Novo Arquivo / Link</span>
+          <span className="text-sobretitulo text-ava-acao uppercase block mb-1">Anexar Novo Arquivo / Link</span>
 
           <div className="space-y-3 text-xs">
             {/* File Upload Dropzone */}
@@ -933,7 +933,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 className={`px-3 py-1 rounded-full text-sobretitulo font-black uppercase cursor-pointer transition-all ${
                   lesson.isOptional 
                     ? 'bg-slate-200 text-slate-700' 
-                    : 'bg-[#540D6E]/10 text-[#540D6E] border border-purple-300/30'
+                    : 'bg-ava-acao/10 text-ava-acao border border-purple-300/30'
                 }`}
               >
                 {lesson.isOptional ? "Desativar" : "Ativar"}
@@ -1158,7 +1158,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             onClick={() => setActiveDashboardTab('general')}
             className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
               activeDashboardTab === 'general'
-                ? 'bg-[#540D6E] text-white shadow-sm'
+                ? 'bg-ava-acao text-white shadow-sm'
                 : 'text-escult-ink-2 hover:text-slate-800 hover:bg-slate-50 font-bold'
             }`}
           >
@@ -1171,7 +1171,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               onClick={() => setActiveDashboardTab('curriculum')}
               className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                 activeDashboardTab === 'curriculum'
-                  ? 'bg-[#540D6E] text-white shadow-sm'
+                  ? 'bg-ava-acao text-white shadow-sm'
                   : 'text-escult-ink-2 hover:text-slate-800 hover:bg-slate-50 font-bold'
               }`}
             >
@@ -1185,7 +1185,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               onClick={() => setActiveDashboardTab('avaliacoes')}
               className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                 activeDashboardTab === 'avaliacoes'
-                  ? 'bg-[#540D6E] text-white shadow-sm'
+                  ? 'bg-ava-acao text-white shadow-sm'
                   : 'text-escult-ink-2 hover:text-slate-800 hover:bg-slate-50 font-bold'
               }`}
             >
@@ -1199,7 +1199,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               onClick={() => setActiveDashboardTab('messages')}
               className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer relative ${
                 activeDashboardTab === 'messages'
-                  ? 'bg-[#540D6E] text-white shadow-sm'
+                  ? 'bg-ava-acao text-white shadow-sm'
                   : 'text-escult-ink-2 hover:text-slate-800 hover:bg-slate-50 font-bold'
               }`}
             >
@@ -1218,7 +1218,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               onClick={() => setActiveDashboardTab('students')}
               className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer ${
                 activeDashboardTab === 'students'
-                  ? 'bg-[#540D6E] text-white shadow-sm'
+                  ? 'bg-ava-acao text-white shadow-sm'
                   : 'text-escult-ink-2 hover:text-slate-800 hover:bg-slate-50 font-bold'
               }`}
             >
@@ -1493,7 +1493,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                             <div className="flex items-center gap-1.5">
                               <button
                                 onClick={() => setActiveLiveSession(session)}
-                                className="px-2.5 py-1 rounded text-apoio font-bold bg-[#540D6E]/95 hover:bg-[#540D6E] text-white transition-all flex items-center gap-1 cursor-pointer shadow-3xs"
+                                className="px-2.5 py-1 rounded text-apoio font-bold bg-ava-acao/95 hover:bg-ava-acao text-white transition-all flex items-center gap-1 cursor-pointer shadow-3xs"
                                 title="Entrar na Sala de Aula Virtual interna"
                               >
                                 <Video className="h-3 w-3 shrink-0" />
@@ -1695,7 +1695,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   onClick={() => irParaSubAba(id)}
                   className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-wider transition-all ${
                     subAbaAvaliacoes === id
-                      ? 'bg-[#540D6E] text-white shadow-sm'
+                      ? 'bg-ava-acao text-white shadow-sm'
                       : 'font-bold text-escult-ink-2 hover:bg-slate-50 hover:text-slate-800'
                   }`}
                 >
@@ -1806,7 +1806,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               */}
               <button
                 onClick={() => setIsCreatingLesson(true)}
-                className="bg-[#540D6E] hover:bg-[#430a58] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-purple-900/10 flex items-center gap-2 transition-all cursor-pointer"
+                className="bg-ava-acao hover:bg-[#430a58] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-purple-900/10 flex items-center gap-2 transition-all cursor-pointer"
               >
                 <Plus className="h-5 w-5" />
                 <span>Criar Nova Aula</span>
@@ -1840,7 +1840,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           <button
                             disabled={index === 0}
                             onClick={() => handleMoveLesson(index, 'up')}
-                            className="p-1 text-escult-ink-2 hover:text-[#540D6E] disabled:opacity-30 disabled:hover:text-escult-ink-3 cursor-pointer"
+                            className="p-1 text-escult-ink-2 hover:text-ava-acao disabled:opacity-30 disabled:hover:text-escult-ink-3 cursor-pointer"
                             title="Mover para cima"
                           >
                             <ArrowUp className="h-3.5 w-3.5" />
@@ -1851,7 +1851,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           <button
                             disabled={index === activeCourse.lessons.length - 1}
                             onClick={() => handleMoveLesson(index, 'down')}
-                            className="p-1 text-escult-ink-2 hover:text-[#540D6E] disabled:opacity-30 disabled:hover:text-escult-ink-3 cursor-pointer"
+                            className="p-1 text-escult-ink-2 hover:text-ava-acao disabled:opacity-30 disabled:hover:text-escult-ink-3 cursor-pointer"
                             title="Mover para baixo"
                           >
                             <ArrowDown className="h-3.5 w-3.5" />
@@ -1979,7 +1979,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           <div className="bg-white border border-slate-200 rounded-2xl p-6 md:p-8 shadow-xs space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div className="space-y-1">
-              <span className="text-sobretitulo text-[#540D6E] uppercase">Central Pedagógica de Comunicação</span>
+              <span className="text-sobretitulo text-ava-acao uppercase">Central Pedagógica de Comunicação</span>
               <h3 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-tight">Atendimento a Estudantes</h3>
               <p className="text-xs text-escult-ink-2 font-medium">Responda a dúvidas, valide exercícios práticos e controle o engajamento individual de cada estudante.</p>
             </div>
@@ -2021,13 +2021,13 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                       onClick={() => setSelectedStudentUserId(student.id ?? '')}
                       className={`w-full p-3.5 rounded-xl border text-left transition-all duration-150 flex items-start gap-3 cursor-pointer ${
                         isSelected 
-                          ? 'bg-[#540D6E] text-white border-[#540D6E] shadow-sm' 
+                          ? 'bg-ava-acao text-white border-ava-acao shadow-sm' 
                           : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-700'
                       }`}
                     >
                       <div className="relative shrink-0 mt-0.5">
                         <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-[#540D6E]'
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-ava-acao'
                         }`}>
                           {student.name.substring(0, 2).toUpperCase()}
                         </div>
@@ -2223,10 +2223,10 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sobretitulo text-slate-900 uppercase flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-[#540D6E]" />
+                  <Clock className="h-4 w-4 text-ava-acao" />
                   <span>Solicitações de Matrícula</span>
                 </h3>
-                <span className="bg-[#540D6E] text-white text-apoio font-black px-2 py-0.5 rounded-full">
+                <span className="bg-ava-acao text-white text-apoio font-black px-2 py-0.5 rounded-full">
                   {admissionRequests.filter(r => r.status === 'pending' && courses.find(c => c.id === r.courseId)?.instructorId === activeUser.id).length} Pendentes
                 </span>
               </div>
@@ -2255,7 +2255,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                             <div>
                               <p className="text-sm font-bold text-slate-900">{req.studentName}</p>
                               <p className="text-rotulo text-escult-ink-2">
-                                Deseja cursar: <span className="font-bold text-[#540D6E]">{course?.title}</span>
+                                Deseja cursar: <span className="font-bold text-ava-acao">{course?.title}</span>
                               </p>
                               <p className="text-sobretitulo text-escult-ink-2 mt-0.5 uppercase">{req.submittedAt}</p>
                             </div>

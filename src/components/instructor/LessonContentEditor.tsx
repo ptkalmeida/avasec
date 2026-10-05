@@ -717,7 +717,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                         onClick={() => { setEditando(i); setAdicionandoEm(null); }}
                         aria-label={`Editar ${ROTULO[block.kind].toLowerCase()}`}
                         title={`Editar ${ROTULO[block.kind].toLowerCase()}`}
-                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-[#540D6E]/40 hover:text-[#540D6E] transition-colors cursor-pointer"
+                        className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-ava-acao/40 hover:text-ava-acao transition-colors cursor-pointer"
                       >
                         <Pencil className="h-3 w-3" />
                       </button>

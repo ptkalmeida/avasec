@@ -529,7 +529,7 @@ export function ProfileView({
                 setCurrentTab('profile');
                 setIsResetSuccess(false);
               }}
-              className="px-6 py-2.5 bg-[#540D6E] hover:bg-[#3D0A50] text-[#FFFFFF] rounded-xl text-sobretitulo transition-colors cursor-pointer uppercase"
+              className="px-6 py-2.5 bg-ava-acao hover:bg-[#3D0A50] text-[#FFFFFF] rounded-xl text-sobretitulo transition-colors cursor-pointer uppercase"
             >
               Concluir e Voltar
             </button>
@@ -592,7 +592,7 @@ export function ProfileView({
             className="bg-white border border-slate-200 rounded-2xl shadow-3xs p-6 sm:p-8 space-y-6 text-left"
           >
             <div className="border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-2.5 text-[#540D6E] mb-1">
+              <div className="flex items-center gap-2.5 text-ava-acao mb-1">
                 <Key className="h-5 w-5" />
                 <h2 className="text-base font-black text-slate-900 leading-none">
                   Alteração de Senha de Segurança
@@ -630,7 +630,7 @@ export function ProfileView({
                       isDocVerified ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                     } ${
                       docType === 'cpf'
-                        ? 'border-[#540D6E] bg-purple-50/20 text-[#540D6E]'
+                        ? 'border-ava-acao bg-purple-50/20 text-ava-acao'
                         : 'border-slate-100 bg-slate-50/55 text-escult-ink-2 hover:border-slate-200'
                     }`}
                   >
@@ -650,7 +650,7 @@ export function ProfileView({
                       isDocVerified ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                     } ${
                       docType === 'rg'
-                        ? 'border-[#540D6E] bg-purple-50/20 text-[#540D6E]'
+                        ? 'border-ava-acao bg-purple-50/20 text-ava-acao'
                         : 'border-slate-100 bg-slate-50/55 text-escult-ink-2 hover:border-slate-200'
                     }`}
                   >
@@ -676,7 +676,7 @@ export function ProfileView({
                       const val = formatDocument(e.target.value, docType);
                       setDocNumber(val);
                     }}
-                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-[#540D6E] outline-none transition-all disabled:opacity-70 disabled:bg-slate-100"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-ava-acao outline-none transition-all disabled:opacity-70 disabled:bg-slate-100"
                   />
                 </div>
                 <span className="text-apoio text-escult-ink-2 block mt-1">
@@ -724,7 +724,7 @@ export function ProfileView({
                   setIsDocVerified(true);
                   speakText("Documento validado com sucesso! Os campos de alteração de senha foram habilitados.");
                 }}
-                className="w-full bg-[#540D6E] hover:bg-[#3D0A50] text-[#FFFFFF] py-2.5 rounded-xl text-sobretitulo transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-3xs uppercase"
+                className="w-full bg-ava-acao hover:bg-[#3D0A50] text-[#FFFFFF] py-2.5 rounded-xl text-sobretitulo transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-3xs uppercase"
               >
                 <Fingerprint className="h-4 w-4 text-white" />
                 <span>Validar Documento para Prosseguir</span>
@@ -759,7 +759,7 @@ export function ProfileView({
                     placeholder={isDocVerified ? "Sua senha em uso hoje" : "Autentique o documento acima"}
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    className="w-full pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-[#540D6E] outline-none transition-all"
+                    className="w-full pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-ava-acao outline-none transition-all"
                   />
                   <button
                     type="button"
@@ -786,7 +786,7 @@ export function ProfileView({
                       placeholder={isDocVerified ? "Mínimo 6 caracteres" : "Autentique o documento acima"}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-[#540D6E] outline-none transition-all"
+                      className="w-full pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-ava-acao outline-none transition-all"
                     />
                     <button
                       type="button"
@@ -825,7 +825,7 @@ export function ProfileView({
                       placeholder={isDocVerified ? "Igual à senha anterior" : "Autentique o documento acima"}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-[#540D6E] outline-none transition-all"
+                      className="w-full pl-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-ava-acao outline-none transition-all"
                     />
                     <button
                       type="button"
@@ -857,7 +857,7 @@ export function ProfileView({
                 disabled={!isDocVerified}
                 className={`order-1 xs:order-2 flex-1 font-semibold py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-3xs uppercase tracking-wider ${
                   isDocVerified 
-                    ? 'bg-[#540D6E] hover:bg-[#3D0A50] text-[#FFFFFF] cursor-pointer' 
+                    ? 'bg-ava-acao hover:bg-[#3D0A50] text-[#FFFFFF] cursor-pointer' 
                     : 'bg-slate-100 text-escult-ink-2 border border-slate-200 cursor-not-allowed opacity-50'
                 }`}
               >
@@ -1383,7 +1383,7 @@ export function ProfileView({
                       <button
                         type="button"
                         onClick={capturePhoto}
-                        className="px-3 py-1.5 bg-[#540D6E] hover:bg-[#3D0A50] text-[#FFFFFF] text-sobretitulo rounded-lg uppercase cursor-pointer"
+                        className="px-3 py-1.5 bg-ava-acao hover:bg-[#3D0A50] text-[#FFFFFF] text-sobretitulo rounded-lg uppercase cursor-pointer"
                       >
                         Capturar Agora
                       </button>
@@ -1462,7 +1462,7 @@ export function ProfileView({
               </div>
 
               <div className="pt-2 border-t border-slate-100">
-                <label className="text-sobretitulo text-[#540D6E] uppercase block mb-1 flex items-center justify-between">
+                <label className="text-sobretitulo text-ava-acao uppercase block mb-1 flex items-center justify-between">
                   <span>Confirmação de Segurança</span>
                   <span className="text-apoio text-escult-ink-2 font-normal normal-case">Necessário para salvar alterações</span>
                 </label>
@@ -1521,7 +1521,7 @@ export function ProfileView({
                 }}
                 className="w-full bg-slate-100 hover:bg-slate-200 border border-slate-200 hover:border-slate-350 text-slate-800 py-2.5 rounded-xl text-sobretitulo transition-all flex items-center justify-center gap-2 cursor-pointer shadow-3xs uppercase mt-2.5"
               >
-                <Lock className="h-4 w-4 text-[#540D6E]" />
+                <Lock className="h-4 w-4 text-ava-acao" />
                 <span>Alterar Senha de Acesso</span>
               </button>
 
@@ -1880,7 +1880,7 @@ export function ProfileView({
             {/* List Certificates Cryptographic Hashes styled */}
             {activeUser.role === 'student' && studentCerts.length > 0 && (
               <div className="mt-6 space-y-3.5 border-t border-slate-100 pt-5">
-                <span className="text-sobretitulo text-[#540D6E] uppercase block">
+                <span className="text-sobretitulo text-ava-acao uppercase block">
                   Chaves de Autenticidade Curricular ({studentCerts.length})
                 </span>
                 <div className="space-y-2">
@@ -1897,7 +1897,7 @@ export function ProfileView({
                       </div>
                       <button
                         onClick={() => copyToClipboard(`SEC-${cert.verificationHash}`, index)}
-                        className="bg-white border border-slate-200 text-slate-600 hover:text-[#540D6E] p-2 rounded-xl text-apoio font-bold shadow-3xs flex items-center gap-1 shrink-0 transition-all cursor-pointer"
+                        className="bg-white border border-slate-200 text-slate-600 hover:text-ava-acao p-2 rounded-xl text-apoio font-bold shadow-3xs flex items-center gap-1 shrink-0 transition-all cursor-pointer"
                         title="Copiar Hash"
                       >
                         {copiedIndex === index ? (
@@ -2014,10 +2014,10 @@ export function ProfileView({
                 <div className="border-b-4 border-escult-purple pb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                   <div>
                     <div className="flex items-center gap-2 mb-1.5">
-                      <div className="bg-[#540D6E] text-[#FFD23F] font-sans font-black tracking-widest text-apoio py-1 px-2.5 rounded">
+                      <div className="bg-ava-acao text-[#FFD23F] font-sans font-black tracking-widest text-apoio py-1 px-2.5 rounded">
                         AVASEC
                       </div>
-                      <span className="text-sobretitulo uppercase text-[#540D6E]">
+                      <span className="text-sobretitulo uppercase text-ava-acao">
                         Escola Estadual da Cultura
                       </span>
                     </div>
@@ -2055,7 +2055,7 @@ export function ProfileView({
                   </div>
                   
                   <div className="md:col-span-6 space-y-1 text-center md:text-left">
-                    <span className="text-sobretitulo uppercase text-[#540D6E]">Registro Civil do Aluno</span>
+                    <span className="text-sobretitulo uppercase text-ava-acao">Registro Civil do Aluno</span>
                     <h3 className="text-lg font-black text-slate-900 leading-none">{activeUser.name}</h3>
                     <p className="text-xs text-escult-ink-2 font-medium">{simulatedEmail}</p>
                   </div>
@@ -2077,7 +2077,7 @@ export function ProfileView({
 
                 {/* Courses Detail Table */}
                 <div className="my-6">
-                  <h3 className="text-sobretitulo text-[#540D6E] uppercase mb-3.5 font-serif border-b border-slate-200/60 pb-1.5">
+                  <h3 className="text-sobretitulo text-ava-acao uppercase mb-3.5 font-serif border-b border-slate-200/60 pb-1.5">
                     1. Trilha Curricular e Aproveitamento Escolar
                   </h3>
                   
@@ -2110,7 +2110,7 @@ export function ProfileView({
                               <div className="flex items-center justify-center gap-1.5">
                                 <span className="text-rotulo text-slate-900 font-bold">{item.percent}%</span>
                                 <div className="w-12 bg-slate-100 border border-slate-200 rounded-full h-1.5 overflow-hidden shrink-0 hidden sm:block">
-                                  <div className="bg-[#540D6E] h-1.5" style={{ width: `${item.percent}%` }} />
+                                  <div className="bg-ava-acao h-1.5" style={{ width: `${item.percent}%` }} />
                                 </div>
                               </div>
                             </td>
@@ -2131,7 +2131,7 @@ export function ProfileView({
 
                 {/* Certificates Validation Registry */}
                 <div className="my-6 pt-2">
-                  <h3 className="text-sobretitulo text-[#540D6E] uppercase mb-4 font-serif border-b border-slate-200/60 pb-1.5">
+                  <h3 className="text-sobretitulo text-ava-acao uppercase mb-4 font-serif border-b border-slate-200/60 pb-1.5">
                     2. Certificados de Qualificação Emitidos
                   </h3>
 
@@ -2190,8 +2190,8 @@ export function ProfileView({
                       <div className="w-[3px] h-3 bg-slate-800" />
                       <div className="w-[0.5px] h-3 bg-slate-800" />
                       <div className="w-[2px] h-3 bg-slate-800" />
-                      <div className="w-[1px] h-3 bg-[#540D6E]" />
-                      <div className="w-[3px] h-3 bg-[#540D6E]" />
+                      <div className="w-[1px] h-3 bg-ava-acao" />
+                      <div className="w-[3px] h-3 bg-ava-acao" />
                       <div className="w-[1.5px] h-3 bg-slate-800" />
                       <div className="w-[0.5px] h-3 bg-slate-800" />
                       <div className="w-[2px] h-3 bg-slate-800" />
