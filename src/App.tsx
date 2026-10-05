@@ -30,7 +30,7 @@ import {
   GraduationCap, User, Award, Video, CheckSquare,
   ArrowRight, ArrowLeft, ShieldCheck, Flame, LogOut, Lock,
   Shield, Activity, Settings, HelpCircle, BookOpen, Palette,
-  Search, Menu, Star, Play, FileText,
+  Search, Menu, Star, Play, FileText, Users, Lightbulb, ChartColumn, MousePointer2, MessagesSquare,
   Mail, ExternalLink, X, Sparkles, Calendar, Info,
   Printer, Download, Monitor, CheckCircle, Instagram, Youtube, Facebook, Twitter, Home, Bell, MessageSquare,
   Fingerprint, AlertTriangle, Check, Eye, EyeOff
@@ -1234,7 +1234,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                           speakText("Acessando o seu Ambiente de Estudos.");
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao ava:max-sm:flex-[2] ava:max-sm:justify-center px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao ava:max-sm:flex-[2] ava:max-sm:justify-center ava:whitespace-nowrap ava:normal-case ava:tracking-normal ava:text-rotulo ava:font-semibold px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title="Ir para seu Ambiente de Estudos"
                       >
                         <BookOpen className="h-4 w-4 text-slate-900 ava:text-white shrink-0" />
@@ -1252,7 +1252,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             speakText("Acessando a sua Gestão de Cursos.");
                           }
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao ava:max-sm:flex-[2] ava:max-sm:justify-center px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao ava:max-sm:flex-[2] ava:max-sm:justify-center ava:whitespace-nowrap ava:normal-case ava:tracking-normal ava:text-rotulo ava:font-semibold px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title={activeUser.role === 'admin' ? "Acessar Coordenação / Gestão da Plataforma" : "Acessar Gestão de Cursos e Conteúdos"}
                       >
                         <GraduationCap className="h-4 w-4 text-slate-900 ava:text-white shrink-0" />
@@ -1398,17 +1398,18 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           <div className="animate-in fade-in duration-300">
             
             {/*
-              Heroi no desenho do redesenho (planejamento 12): superficie branca,
-              titulo escuro com o destaque em violeta, botao cheio violeta. Os
+              Heroi no desenho da tela 13 da skill ava-frontend-redesign
+              (planejamento 13): superficie clara, sobretitulo com filete
+              dourado, titulo marinho com a segunda linha no azul de acao. Os
               textos, os dois botoes e o que eles fazem sao os de antes.
             */}
-            <section 
-              id="hero-section" 
+            <section
+              id="hero-section"
               ref={heroRef}
               onMouseMove={handleHeroMouseMove}
               onMouseEnter={() => { if (!movimentoReduzido) setIsMouseInHero(true); }}
               onMouseLeave={() => setIsMouseInHero(false)}
-              className="bg-white text-escult-ink py-14 lg:py-20 relative overflow-hidden flex flex-col items-center"
+              className="bg-white text-ava-tinta py-12 lg:py-20 relative overflow-hidden flex flex-col items-center"
             >
               {/* Ambient Mouse-following background glow */}
               <motion.div
@@ -1420,227 +1421,223 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 }}
                 transition={{ type: 'spring', damping: 35, stiffness: 100, mass: 0.6 }}
               >
-                <div className="h-80 w-80 -translate-x-1/2 -translate-y-1/2 bg-ava-acao/[0.07] rounded-full blur-3xl" />
+                <div className="h-80 w-80 -translate-x-1/2 -translate-y-1/2 bg-ava-acao/[0.06] rounded-full blur-3xl" />
               </motion.div>
 
-              <div className="mx-auto max-w-7xl px-4 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center text-left w-full">
-                
-                {/* Hero Left Content */}
-                <div className="lg:col-span-7 space-y-6 relative z-10">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-ava-acao/5 border border-ava-acao/15 text-ava-acao text-sobretitulo uppercase px-3.5 py-1.5">
-                    <Sparkles className="h-3 w-3 animate-spin duration-1000" />
-                    <span>{translations[currentLang].heroBadge}</span>
-                  </div>
+              <div className="mx-auto max-w-7xl px-4 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center text-left w-full">
 
-                  <h1 className="text-3xl md:text-5xl lg:text-[54px] tracking-tight leading-[1.08] font-titulo text-escult-ink">
+                {/* Hero Left Content */}
+                <div className="lg:col-span-7 space-y-6 relative z-10 min-w-0">
+                  <p className="filete text-sobretitulo uppercase text-ava-tinta">
+                    <span>{translations[currentLang].heroBadge}</span>
+                  </p>
+
+                  <h1 className="text-[2rem] sm:text-5xl lg:text-[54px] tracking-tight leading-[1.08] font-titulo text-ava-tinta break-words">
                     Escola Estadual da Cultura <br className="hidden sm:inline" />
                     <span className="text-ava-acao">Ambiente Virtual de Aprendizagem (AVASEC)</span>
                   </h1>
 
-                  <p className="text-escult-ink-2 text-sm md:text-base leading-relaxed max-w-2xl">
+                  <p className="text-escult-ink-2 text-corpo leading-relaxed max-w-2xl">
                     A AVASEC é o portal de capacitação e qualificação profissional da Escola Estadual da Cultura. Oferecemos cursos livres e de excelência em Cultura, Gestão Cultural, Economia Criativa e Linguagens Artísticas com certificação digital homologada.
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                    <button 
+                    <button
                       onClick={() => goToPage('cursos', translations[currentLang].btnDiscover)}
-                      className="rounded-[10px] bg-ava-acao hover:bg-ava-acao-escuro text-white px-7 py-3 text-sobretitulo uppercase transition-all cursor-pointer flex items-center justify-center gap-2 group shadow-sm"
+                      className="rounded-[10px] bg-ava-acao hover:bg-ava-acao-escuro text-white px-7 py-3 text-rotulo font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 group shadow-sm"
                     >
                       <span>{translations[currentLang].btnDiscover}</span>
                       <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                     </button>
-                    <button 
+                    <button
                       onClick={() => { setIsLoginModalOpen(true); speakText(translations[currentLang].btnStart); }}
-                      className="rounded-[10px] border border-ava-acao bg-white hover:bg-ava-acao/5 text-ava-acao px-7 py-3 text-sobretitulo uppercase transition-all cursor-pointer flex items-center justify-center gap-2"
+                      className="rounded-[10px] border border-ava-acao bg-white hover:bg-ava-faixa text-ava-acao px-7 py-3 text-rotulo font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
                     >
-                      <Star className="h-4 w-4 text-ava-acao" />
+                      <Play className="h-4 w-4" />
                       <span>{translations[currentLang].btnStart}</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Hero Right Content: composicao geometrica, sem foto (ver nota abaixo) */}
-                <div className="lg:col-span-5 relative flex items-center justify-center">
-                  <div className="relative w-72 h-72 sm:w-96 sm:h-96 shrink-0 z-10 flex items-center justify-center">
-                    
-                    {/* Aneis finos violeta e ciano: o mesmo par da linha de assinatura. */}
-                    <div className="absolute inset-0 border-2 border-ava-acao/15 rounded-full pointer-events-none" />
-                    <div className="absolute -inset-3 border border-dashed border-ava-ciano/40 rounded-full pointer-events-none animate-spin" style={{ animationDuration: '40s' }} />
-                    
-                    {/* Os tres selos, agora etiquetas: o circulo de 96px cortava "Criatividade". */}
-                    <div className="absolute top-2 -left-2 sm:-left-6 z-20 rounded-full bg-white border border-ava-acao/25 text-ava-acao text-sobretitulo uppercase px-3.5 py-1.5 shadow-sm">
-                      ✦ Criatividade
-                    </div>
-                    <div className="absolute bottom-4 right-0 sm:right-4 z-20 rounded-full bg-ava-acao text-white text-sobretitulo uppercase px-3.5 py-1.5 shadow-sm">
-                      ▲ Inovação
-                    </div>
-                    <div className="absolute -right-2 sm:-right-6 top-1/4 z-20 rounded-full bg-white border border-ava-ciano-texto/30 text-ava-ciano-texto text-apoio font-semibold px-3 py-1 shadow-sm">
-                      ● Arte
-                    </div>
+                {/*
+                  Composicao geometrica da tela 13 (meio-circulo marinho, meio
+                  disco dourado, quadrados rosa e azul), SEM a foto da tela.
 
-                    {/*
-                      Aqui havia o retrato de um educador homenageado. A mencao
-                      nominal saiu de todo o site por decisao da coordenacao
-                      (10/09/2026), e no lugar entra uma referencia a educacao,
-                      sem pessoa nenhuma.
+                  Aqui havia o retrato de um educador homenageado. A mencao
+                  nominal saiu de todo o site por decisao da coordenacao
+                  (10/09/2026), e no lugar entra uma referencia a educacao,
+                  sem pessoa nenhuma. Sem imagem, e nao com uma foto de banco
+                  de imagens: uma foto de estudantes que nao sao desta escola
+                  seria outra afirmacao falsa, do mesmo tipo que a que acabou
+                  de sair. Por isso o lugar da foto e um cartao com o texto.
+                */}
+                <div className="lg:col-span-5 relative flex items-center justify-center min-w-0">
+                  <div className="relative w-full max-w-[420px] h-[340px] sm:h-[380px] shrink-0">
+                    <div aria-hidden="true" className="absolute left-6 top-0 h-36 w-[72px] rounded-r-full bg-ava-marinho" />
+                    <div aria-hidden="true" className="absolute left-0 top-10 h-20 w-10 rounded-l-full bg-ava-dourado" />
+                    <div aria-hidden="true" className="absolute right-4 top-2 h-20 w-20 bg-ava-rosa" />
+                    <div aria-hidden="true" className="absolute right-0 bottom-0 h-28 w-28 rounded-tl-full bg-ava-faixa" />
+                    <div aria-hidden="true" className="absolute right-20 bottom-4 h-16 w-16 bg-ava-acao" />
 
-                      Sem imagem, e nao com uma foto de banco de imagens: uma foto
-                      de estudantes que nao sao desta escola seria outra afirmacao
-                      falsa, do mesmo tipo que a que acabou de sair.
-                    */}
-                    <div className="w-60 h-60 sm:w-80 sm:h-80 rounded-full bg-white border border-escult-line shadow-xl relative z-10 flex flex-col items-center justify-center gap-3 text-center px-10">
-                      <div className="h-16 w-16 rounded-2xl bg-ava-acao/[0.08] flex items-center justify-center">
-                        <GraduationCap className="h-9 w-9 text-ava-acao" aria-hidden="true" />
+                    <div className="absolute inset-x-6 sm:inset-x-10 top-12 bottom-12 z-10 rounded-3xl bg-white border border-ava-borda shadow-xl flex flex-col items-center justify-center gap-3 text-center px-6">
+                      <div className="h-14 w-14 rounded-full bg-ava-icone-fundo flex items-center justify-center">
+                        <GraduationCap className="h-7 w-7 text-ava-acao" aria-hidden="true" />
                       </div>
-                      <span className="text-escult-ink font-titulo text-lg leading-tight">
+                      <span className="text-ava-tinta font-titulo text-lg leading-tight">
                         Educação pública, gratuita e de qualidade
                       </span>
                       <span className="text-escult-ink-2 text-nota">
                         Escola Estadual da Cultura
                       </span>
+                      <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+                        <span className="rounded-full border border-ava-acao/30 text-ava-acao text-nota font-semibold px-2.5 py-0.5">✦ Criatividade</span>
+                        <span className="rounded-full bg-ava-marinho text-white text-nota font-semibold px-2.5 py-0.5">▲ Inovação</span>
+                        <span className="rounded-full border border-ava-rosa/30 text-ava-rosa text-nota font-semibold px-2.5 py-0.5">● Arte</span>
+                      </div>
                     </div>
-
                   </div>
                 </div>
 
               </div>
             </section>
 
-            {/* SECTION: MINHA APRENDIZAGEM (Condicional quando logado) */}
+            {/* SECTION: MINHA APRENDIZAGEM (Condicional quando logado) — cartao da tela 13 */}
             {isUserLoggedIn && activeUser.role === 'student' && (
-              <section id="minha-aprendizagem" className="bg-slate-50 py-10 px-4 border-b border-slate-200">
+              <section id="minha-aprendizagem" className="bg-white pb-10 px-4">
                 <div className="mx-auto max-w-7xl animate-in fade-in duration-200">
-                  <div className="bg-white rounded-3xl border border-slate-250/75 p-6 md:p-8 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
-                    <div className="space-y-4 text-left w-full">
-                      <div className="inline-flex items-center gap-2 rounded-full bg-ava-acao/10 border border-ava-acao/20 text-ava-acao text-sobretitulo uppercase px-3 py-1">
-                        <span className="h-2 w-2 rounded-full bg-ava-ciano animate-pulse" />
-                        <span>Sua Área de Estudos</span>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <h3 className="text-xl md:text-2xl text-escult-ink font-titulo">
+                  <div className="bg-ava-faixa/60 rounded-3xl border border-ava-borda p-5 md:p-8 space-y-5">
+                    <div className="flex flex-col md:flex-row justify-between md:items-center gap-5">
+                      <div className="space-y-2 text-left min-w-0">
+                        <p className="filete text-sobretitulo uppercase text-ava-tinta">
+                          <span>Sua Área de Estudos</span>
+                        </p>
+                        <h3 className="text-xl md:text-2xl text-ava-tinta font-titulo break-words">
                           Olá, {activeUser.name}!
                         </h3>
-                        <p className="text-xs text-escult-ink-2 max-w-2xl">
+                        <p className="text-apoio text-escult-ink-2 max-w-2xl">
                           Continue de onde você parou. Acesse seu curso ativo ou acompanhe suas notas, presenças síncronas de mentoria e certificados homologados.
                         </p>
                       </div>
 
-                      {/* Display current active course if there is one */}
-                      {(() => {
-                        const enrollment = studentEnrollments[activeUser.id];
-                        const activeCourseId = enrollment?.enrolledCourseId;
-                        const activeCourse = activeCourseId ? courses.find(c => c.id === activeCourseId) : null;
-                        
-                        if (activeCourse) {
-                          return (
-                            <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-150 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-2">
-                              <div className="space-y-1">
-                                <span className="text-sobretitulo uppercase text-escult-ink-2 block">CURSO ATIVO</span>
-                                <strong className="text-sm text-ava-acao block font-titulo">{activeCourse.title}</strong>
-                                <span className="text-xs text-escult-ink-2 block">Ministrado por: Prof. {activeCourse.instructorName}</span>
-                              </div>
-                              <button 
-                                onClick={() => { setCurrentView('active_app'); speakText(`Iniciando estudos no curso ${activeCourse.title}`); }}
-                                className="w-full sm:w-auto shrink-0 bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase py-2.5 px-5 rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                              >
-                                <span>Continuar Aula</span>
-                                <ArrowRight className="h-4 w-4" />
-                              </button>
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div className="p-4 bg-ava-acao/5 rounded-2xl border border-ava-acao/15 mt-2 text-xs text-escult-ink-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                              <p>Você não tem nenhuma matrícula ativa de curso no momento. Explore nosso catálogo e matricule-se!</p>
-                              <button 
-                                onClick={() => goToPage('cursos', "Cursos disponíveis")}
-                                className="shrink-0 text-sobretitulo uppercase text-ava-acao hover:underline"
-                              >
-                                <span className="inline-flex items-center gap-1">Ver Cursos <ArrowRight className="h-3 w-3" /></span>
-                              </button>
-                            </div>
-                          );
-                        }
-                      })()}
+                      <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-3 w-full md:w-[26rem] shrink-0">
+                        <div className="p-3.5 bg-white rounded-2xl border border-ava-borda flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-ava-icone-fundo flex items-center justify-center shrink-0">
+                            <GraduationCap className="h-5 w-5 text-ava-acao" aria-hidden="true" />
+                          </div>
+                          <div className="min-w-0">
+                            <strong className="text-2xl font-black text-ava-acao block leading-none">
+                              {studentEnrollments[activeUser.id]?.completedCourseIds?.length || 0}
+                            </strong>
+                            <span className="text-nota font-semibold text-escult-ink-2 uppercase tracking-wide mt-1 block">Cursos Concluídos</span>
+                          </div>
+                        </div>
+                        <div className="p-3.5 bg-white rounded-2xl border border-ava-borda flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-ava-icone-fundo flex items-center justify-center shrink-0">
+                            <Award className="h-5 w-5 text-ava-acao" aria-hidden="true" />
+                          </div>
+                          <div className="min-w-0">
+                            <strong className="text-2xl font-black text-ava-acao block leading-none">
+                              {certificates.filter(c => c.userId === activeUser.id).length || 0}
+                            </strong>
+                            <span className="text-nota font-semibold text-escult-ink-2 uppercase tracking-wide mt-1 block">Certificados Emitidos</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4 w-full md:w-80 shrink-0">
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
-                        <strong className="text-2xl font-black text-ava-acao block">
-                          {studentEnrollments[activeUser.id]?.completedCourseIds?.length || 0}
-                        </strong>
-                        <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Cursos Concluídos</span>
-                      </div>
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center">
-                        <strong className="text-2xl font-black text-ava-acao block">
-                          {certificates.filter(c => c.userId === activeUser.id).length || 0}
-                        </strong>
-                        <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Certificados Emitidos</span>
-                      </div>
-                    </div>
+                    {/* Display current active course if there is one */}
+                    {(() => {
+                      const enrollment = studentEnrollments[activeUser.id];
+                      const activeCourseId = enrollment?.enrolledCourseId;
+                      const activeCourse = activeCourseId ? courses.find(c => c.id === activeCourseId) : null;
+
+                      if (activeCourse) {
+                        return (
+                          <div className="bg-white p-4.5 rounded-2xl border border-ava-borda flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <div className="space-y-1 min-w-0">
+                              <span className="text-sobretitulo uppercase text-escult-ink-2 block">CURSO ATIVO</span>
+                              <strong className="text-base text-ava-tinta block font-titulo break-words">{activeCourse.title}</strong>
+                              <span className="text-apoio text-escult-ink-2 block">Ministrado por: Prof. {activeCourse.instructorName}</span>
+                            </div>
+                            <button
+                              onClick={() => { setCurrentView('active_app'); speakText(`Iniciando estudos no curso ${activeCourse.title}`); }}
+                              className="w-full sm:w-auto shrink-0 bg-ava-acao hover:bg-ava-acao-escuro text-white text-rotulo font-semibold py-3 px-6 rounded-[10px] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                            >
+                              <span>Continuar Aula</span>
+                              <ArrowRight className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <div className="p-4 bg-white rounded-2xl border border-ava-borda text-apoio text-escult-ink-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                            <p>Você não tem nenhuma matrícula ativa de curso no momento. Explore nosso catálogo e matricule-se!</p>
+                            <button
+                              onClick={() => goToPage('cursos', "Cursos disponíveis")}
+                              className="shrink-0 text-rotulo font-semibold text-ava-acao hover:underline cursor-pointer"
+                            >
+                              <span className="inline-flex items-center gap-1">Ver Cursos <ArrowRight className="h-3.5 w-3.5" /></span>
+                            </button>
+                          </div>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
               </section>
             )}
 
-            {/* STATS SECTION: Escult em Dados (Image 4) */}
-            <section className="bg-white py-16 px-4 overflow-hidden relative border-y border-slate-100">
-              <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-                
-                {/* Stats Text & Indicators (Left) */}
-                <div className="lg:col-span-6 space-y-6 text-left">
-                  <div className="space-y-2">
-                    <h3 className="text-3xl text-escult-ink tracking-tight font-titulo flex items-center gap-1.5">
+            {/* STATS SECTION: AVASEC em dados (tela 13) */}
+            <section className="bg-white py-14 px-4 overflow-hidden relative border-t border-ava-borda">
+              <div className="mx-auto max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+
+                <div className="lg:col-span-6 space-y-6 text-left min-w-0">
+                  <div className="space-y-3">
+                    <div className="h-[3px] w-7 rounded-full bg-ava-dourado" aria-hidden="true" />
+                    <h3 className="text-3xl text-ava-tinta tracking-tight font-titulo">
                       <span>AVASEC em dados</span>
                     </h3>
-                    <div className="linha-assinatura h-1 w-12 rounded-full" aria-hidden="true" />
                   </div>
 
-                  <p className="text-xs md:text-[13px] text-escult-ink-2 leading-relaxed">
+                  <p className="text-apoio text-escult-ink-2 leading-relaxed">
                     A Escola Estadual da Cultura foi lançada em janeiro de 2024 e é promovida pela Diretoria de Políticas para Trabalhadores da Cultura e da Economia Criativa por meio da Coordenação de Capacitação e Qualificação Profissional. Veja aqui os resultados já alcançados de nossa rede:
                   </p>
 
-                  <div className="grid grid-cols-2 gap-6 pt-4">
-                    <div className="p-5 bg-white border border-escult-line rounded-2xl shadow-3xs">
-                      <strong className="text-3xl font-black text-ava-acao block">188K</strong>
-                      <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Estudantes cadastrados</span>
-                    </div>
-                    <div className="p-5 bg-white border border-escult-line rounded-2xl shadow-3xs">
-                      <strong className="text-3xl font-black text-ava-acao block">300K</strong>
-                      <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Inscrições nos cursos</span>
-                    </div>
-                    <div className="p-5 bg-white border border-escult-line rounded-2xl shadow-3xs">
-                      <strong className="text-3xl font-black text-ava-acao block">66K</strong>
-                      <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Mil concluintes</span>
-                    </div>
-                    <div className="p-5 bg-white border border-escult-line rounded-2xl shadow-3xs">
-                      <strong className="text-3xl font-black text-ava-acao block">4M+</strong>
-                      <span className="text-sobretitulo text-escult-ink-2 uppercase mt-1 block">Visitas à plataforma</span>
-                    </div>
+                  <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4 pt-2">
+                    {([
+                      { Icone: Users, numero: '188K', rotulo: 'Estudantes cadastrados' },
+                      { Icone: FileText, numero: '300K', rotulo: 'Inscrições nos cursos' },
+                      { Icone: ChartColumn, numero: '66K', rotulo: 'Mil concluintes' },
+                      { Icone: MousePointer2, numero: '4M+', rotulo: 'Visitas à plataforma' },
+                    ] as const).map(({ Icone, numero, rotulo }) => (
+                      <div key={rotulo} className="p-4 bg-white border border-ava-borda rounded-2xl shadow-3xs flex items-center gap-3.5">
+                        <div className="h-11 w-11 rounded-full bg-ava-icone-fundo flex items-center justify-center shrink-0">
+                          <Icone className="h-5 w-5 text-ava-acao" aria-hidden="true" />
+                        </div>
+                        <div className="min-w-0">
+                          <strong className="text-2xl font-black text-ava-acao block leading-none">{numero}</strong>
+                          <span className="text-nota font-semibold text-escult-ink-2 uppercase tracking-wide mt-1.5 block">{rotulo}</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Arts Showcase (Right) featuring traditional circus performer and graphic alignments */}
-                <div className="lg:col-span-6 relative flex justify-center items-center">
-                  <div className="relative w-full max-w-md h-96 bg-ava-acao/[0.04] rounded-3xl overflow-hidden border border-escult-line p-6 flex flex-col justify-end">
-                    
-                    {/* Grayscale/colored performer image simulating theater circus characters */}
-                    <div className="absolute inset-0 flex items-center justify-center p-4">
-                      <img 
-                        src="https://images.unsplash.com/photo-1514306191717-452ec28c7814?w=600&auto=format&fit=crop&q=70" 
-                        alt="Estudantes em atividade prática de arte e cultura" 
-                        className="max-h-80 object-contain rounded-2xl hover:scale-105 transition-transform duration-500"
-                        referrerPolicy="no-referrer"
-                      />
+                {/* Destaque escuro da tela 13: texto a esquerda, imagem a direita sob um degrade marinho. */}
+                <div className="lg:col-span-6 min-w-0">
+                  <div className="relative w-full min-h-[300px] rounded-2xl overflow-hidden bg-ava-marinho text-white flex items-end">
+                    <img
+                      src="https://images.unsplash.com/photo-1514306191717-452ec28c7814?w=600&auto=format&fit=crop&q=70"
+                      alt="Estudantes em atividade prática de arte e cultura"
+                      className="absolute inset-y-0 right-0 h-full w-full sm:w-3/5 object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t sm:bg-gradient-to-r from-ava-marinho via-ava-marinho/90 to-ava-marinho/10" aria-hidden="true" />
+                    <div className="relative z-10 p-6 sm:p-8 text-left space-y-2 sm:max-w-[60%]">
+                      <span className="text-sobretitulo uppercase text-ava-dourado block">Patrimônio Vivo</span>
+                      <strong className="text-lg font-titulo block">Fazer Artístico Decolonial</strong>
+                      <p className="text-apoio text-white/85">Oficinas ministradas de maneira autônoma com apoio das comunidades locais e certificadas em nossa rede.</p>
                     </div>
-
-                    <div className="bg-slate-900/90 text-white p-4.5 rounded-2xl relative z-10 text-left space-y-1">
-                      <span className="text-sobretitulo uppercase text-ava-ciano">Patrimônio Vivo</span>
-                      <strong className="text-xs font-bold block">Fazer Artístico Decolonial</strong>
-                      <p className="text-apoio text-slate-300">Oficinas ministradas de maneira autônoma com apoio das comunidades locais e certificadas em nossa rede.</p>
-                    </div>
-
                   </div>
                 </div>
 
@@ -1648,15 +1645,15 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             </section>
 
 
-            {/* SUGGESTION BANNER & MEMORIAL SECTION: Celebrating Solano Trindade (Image 7) */}
-            <section className="bg-ava-acao/[0.04] border-y border-escult-line py-4 px-4 text-center">
-              <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 font-sans py-2">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-ava-acao/10 text-ava-acao flex items-center justify-center shrink-0">
-                    <HelpCircle className="h-5 w-5" />
+            {/* Faixa de sugestao (tela 13) */}
+            <section className="bg-ava-faixa border-y border-ava-borda py-5 px-4">
+              <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 font-sans">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="h-12 w-12 rounded-full bg-white text-ava-acao flex items-center justify-center shrink-0">
+                    <Lightbulb className="h-5 w-5" aria-hidden="true" />
                   </div>
-                  <div className="text-left leading-tight">
-                    <strong className="text-slate-950 font-sans tracking-wide font-black block">Sentiu falta de algum curso?</strong>
+                  <div className="leading-tight min-w-0">
+                    <strong className="text-ava-tinta font-sans font-black block">Sentiu falta de algum curso?</strong>
                     <span className="text-apoio text-escult-ink-2">Envie a sua sugestão para nós.</span>
                   </div>
                 </div>
@@ -1669,11 +1666,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                     placeholder="Sugira um tema ou trilha..."
                     value={suggestedCourseName}
                     onChange={(e) => setSuggestedCourseName(e.target.value)}
-                    className="min-w-0 flex-1 md:flex-none bg-white border border-escult-line text-escult-ink rounded-lg px-4.5 py-2.5 text-corpo focus:outline-none focus:ring-2 focus:ring-ava-acao"
+                    className="min-w-0 flex-1 md:flex-none md:w-72 bg-white border border-ava-borda text-ava-tinta rounded-[10px] px-4.5 py-2.5 text-corpo focus:outline-none focus:ring-2 focus:ring-ava-acao"
                   />
-                  <button 
+                  <button
                     type="submit"
-                    className="rounded-lg bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo px-5 py-2.5 uppercase transition-colors shadow-xs shrink-0 cursor-pointer"
+                    className="rounded-[10px] bg-ava-acao hover:bg-ava-acao-escuro text-white text-rotulo font-semibold px-5 py-2.5 transition-colors shadow-xs shrink-0 cursor-pointer"
                   >
                     {suggestionSubmitted ? 'Enviado!' : 'Sugerir'}
                   </button>
@@ -1695,53 +1692,40 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               da concepcao pedagogica. Isso tambem corrige o defeito de rotulo:
               antes o botao prometia um assunto e entregava outro.
             */}
-            <section id="quem-somos" className="bg-white text-escult-ink py-16 px-4">
-              <div className="mx-auto max-w-4xl space-y-8 text-left">
+            <section id="quem-somos" className="bg-white text-ava-tinta py-16 px-4">
+              <div className="mx-auto max-w-5xl space-y-10 text-left">
 
-                <div className="space-y-2 text-center">
-                  <span className="text-sobretitulo text-ava-acao uppercase block">Nossa concepção</span>
-                  <h2 className="text-3xl md:text-secao tracking-tight font-titulo text-escult-ink">A educação que orienta esta escola</h2>
+                <div className="space-y-3 text-center">
+                  <p className="filete text-sobretitulo text-ava-tinta uppercase">Nossa concepção</p>
+                  <h2 className="text-3xl md:text-secao tracking-tight font-titulo text-ava-tinta">A educação que orienta esta escola</h2>
                   <p className="text-escult-ink-2 font-sans tracking-wide text-nota">Escola Estadual da Cultura</p>
-                  <div className="linha-assinatura h-1 w-20 mt-2 mx-auto rounded-full" aria-hidden="true" />
                 </div>
 
-                <p className="text-escult-ink-2 text-xs md:text-[12.5px] leading-relaxed max-w-2xl mx-auto text-center">
+                <p className="text-escult-ink-2 text-apoio leading-relaxed max-w-2xl mx-auto text-center">
                   Ensinar é uma prática que começa pelo que o estudante já sabe. Nesta escola,
                   arte, cultura e economia criativa são o caminho para desenvolver leitura crítica
                   da realidade, autonomia e capacidade de transformar o próprio contexto — dentro e
                   fora da sala de aula.
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-2">
-                  <div className="space-y-1.5">
-                    <span className="text-ava-ciano text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-sobretitulo text-escult-ink uppercase block">Centrada em quem aprende</strong>
-                    <p className="text-escult-ink-2 text-apoio leading-relaxed">
-                      O processo parte do respeito e da bagagem que cada estudante já traz consigo.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <span className="text-ava-ciano text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-sobretitulo text-escult-ink uppercase block">Diálogo, não transmissão</strong>
-                    <p className="text-escult-ink-2 text-apoio leading-relaxed">
-                      Aprender é via de mão dupla: quem ensina também aprende com a turma.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <span className="text-ava-ciano text-xs block" aria-hidden="true">●</span>
-                    <strong className="text-sobretitulo text-escult-ink uppercase block">Leitura crítica</strong>
-                    <p className="text-escult-ink-2 text-apoio leading-relaxed">
-                      Educar para a autonomia e a cidadania ativa, com reflexão sobre a realidade.
-                    </p>
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-0 sm:divide-x sm:divide-ava-borda">
+                  {([
+                    { Icone: Users, titulo: 'Centrada em quem aprende', texto: 'O processo parte do respeito e da bagagem que cada estudante já traz consigo.' },
+                    { Icone: MessagesSquare, titulo: 'Diálogo, não transmissão', texto: 'Aprender é via de mão dupla: quem ensina também aprende com a turma.' },
+                    { Icone: BookOpen, titulo: 'Leitura crítica', texto: 'Educar para a autonomia e a cidadania ativa, com reflexão sobre a realidade.' },
+                  ] as const).map(({ Icone, titulo, texto }) => (
+                    <div key={titulo} className="space-y-2 sm:px-8 sm:first:pl-0 sm:last:pr-0">
+                      <Icone className="h-7 w-7 text-ava-acao" aria-hidden="true" />
+                      <strong className="text-cartao font-titulo text-ava-tinta block">{titulo}</strong>
+                      <p className="text-escult-ink-2 text-apoio leading-relaxed">{texto}</p>
+                    </div>
+                  ))}
                 </div>
 
                 <div className="pt-2 flex justify-center">
                   <button
                     onClick={() => goToPage('o-projeto', "O Projeto")}
-                    className="rounded-[10px] border border-ava-acao hover:bg-ava-acao hover:text-white text-ava-acao px-6 py-2.5 text-sobretitulo uppercase transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                    className="rounded-[10px] border border-ava-acao hover:bg-ava-acao hover:text-white text-ava-acao px-6 py-2.5 text-rotulo font-semibold transition-all cursor-pointer flex items-center gap-2"
                   >
                     <BookOpen className="h-4 w-4" aria-hidden="true" />
                     <span>Conheça o projeto</span>
