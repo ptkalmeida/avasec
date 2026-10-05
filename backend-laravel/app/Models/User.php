@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Model;
  */
 final class User extends Model
 {
+    use Inativavel;
+
     protected $table = 'User';
 
     protected $keyType = 'string';
@@ -28,6 +31,8 @@ final class User extends Model
     protected $fillable = [
         'id', 'name', 'email', 'passwordHash', 'role', 'status',
         'cpf', 'municipio', 'uf', 'areaInteresse', 'dataCadastro',
+        // Dados cadastrais completos do aluno (ADR 11).
+        'celular', 'cep', 'endereco', 'nomeSocial', 'identidade',
         'failedLoginAttempts', 'lockedUntil',
     ];
 

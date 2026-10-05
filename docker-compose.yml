@@ -9,7 +9,10 @@ services:
     container_name: avasec-mysql
     restart: unless-stopped
     ports:
-      - "3306:3306"
+      # Bind só no localhost: o MySQL de dev fica acessível para o Laravel na
+      # própria máquina, mas NÃO exposto à rede local (evita que alguém no mesmo
+      # Wi-Fi alcance o banco com as credenciais de dev).
+      - "127.0.0.1:3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: avasec

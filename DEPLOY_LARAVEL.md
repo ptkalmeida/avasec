@@ -87,6 +87,12 @@ php artisan key:generate
 #   QUEUE_CONNECTION=sync
 #   UPLOADS_ROOT=/var/www/avasec/uploads   (pasta compartilhada, ver seção 5)
 #   UPLOAD_MAX_SIZE_MB=15
+#   LOG_CHANNEL=stack
+#   LOG_STACK=daily        (um arquivo por dia, nunca um laravel.log único crescendo)
+#   LOG_DAILY_DAYS=14      (retenção: arquivos mais antigos são descartados)
+#   LOG_LEVEL=warning      (em produção; debug só em desenvolvimento)
+#   Em container (Norma TI-SECEC C.7.2): LOG_STACK=stderr_json e LOG_APLICACAO=ava —
+#   uma linha JSON por registro, com app e env, coletada pelo Grafana Alloy.
 
 php artisan config:cache
 php artisan route:cache
@@ -100,6 +106,13 @@ backend Node — ver `HARDENING.md`):
 - `APP_DEBUG=false` (nunca expor stack trace).
 - `BCRYPT_ROUNDS=10` — mudar isso invalida a comparação com hashes antigos só se você
   também mudar o algoritmo; manter em 10 preserva compatibilidade.
+- **Log com rotação** (`LOG_STACK=daily` + `LOG_DAILY_DAYS`). Com o canal `single`, o
+  `laravel.log` cresce sem limite: no ambiente de desenvolvimento chegou a 955 MB, a
+  ~100 MB por dia, com um único usuário testando. Disco cheio em produção derruba a
+  aplicação inteira. As negativas de acesso (401/403) já são gravadas como `warning`
+  sem stack trace (`bootstrap/app.php`), o que corta a maior parte do volume; a rotação
+  é a segunda barreira. Se preferir o `logrotate` do sistema, aponte-o para
+  `storage/logs/*.log` e mantenha `LOG_STACK=single`.
 
 ## 4. Build do frontend (React/Vite)
 
@@ -157,19 +170,44 @@ server {
     # CSP espelhando a política de produção anterior: bundle próprio, estilos inline
     # (o app injeta <style> de acessibilidade), imagens/vídeos de catálogo em https
     # (Unsplash/CDNs) e embeds do YouTube nas aulas.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https://www.youtube.com; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-ancestors 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-ancestors 'self'" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     # Arquivos públicos enviados pelos usuários (materiais, biblioteca).
+    # IMPORTANTE: um bloco `location` com `add_header` próprio DESCARTA todos os
+    # add_header herdados do server (inclusive os `always`). Como este conteúdo é
+    # controlado por terceiros e servido na MESMA origem do SPA (onde vive o cookie
+    # ava_session), os cabeçalhos de segurança precisam ser repetidos aqui — sem o
+    # `nosniff`, um arquivo malicioso viraria XSS same-origin. Servir como attachment
+    # (download) em vez de inline reduz ainda mais o risco de renderização no navegador.
     location /uploads/ {
         alias /var/www/avasec/uploads/public/;
-        add_header Content-Disposition "inline";
+        add_header Content-Security-Policy "default-src 'none'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Content-Disposition "attachment" always;
     }
 
     # API — encaminha para o PHP-FPM (Laravel).
     location /api/ {
+        root /var/www/avasec/backend-laravel/public;
+        try_files $uri /index.php?$query_string;
+
+        location ~ \.php$ {
+            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+        }
+    }
+
+    # Saúde e página de status (Norma TI-SECEC C.8) moram no Laravel, fora de /api.
+    # Sem estes blocos, o fallback do SPA abaixo devolveria o index.html do React
+    # com status 200 — e o monitor acharia que está tudo bem com o banco fora.
+    location ~ ^/(health/(live|ready)|sistema/status)$ {
         root /var/www/avasec/backend-laravel/public;
         try_files $uri /index.php?$query_string;
 
@@ -230,6 +268,8 @@ qualquer outro serviço padrão do Linux.
 
 - [ ] `curl https://seu-dominio.com/` retorna o HTML do React.
 - [ ] `curl https://seu-dominio.com/api/health-laravel` retorna `{"status":"ok","database":"ok"}`.
+- [ ] `curl -i https://seu-dominio.com/health/ready` retorna **JSON** com status 200 (se vier
+      HTML do React, o Nginx está sem o bloco de saúde) e `/sistema/status` abre a página.
 - [ ] Login funciona no navegador e o cookie `ava_session` aparece como HttpOnly/Secure
       (inspecionar em DevTools → Application → Cookies).
 - [ ] Upload de um arquivo público funciona e a URL retornada carrega via `/uploads/...`.
@@ -243,20 +283,24 @@ qualquer outro serviço padrão do Linux.
 
 ## 9. Rollback
 
-Como o Passo 5 (desligar o Node) é a única parte irreversível do corte, o rollback
-mais simples **antes** de descartar o Node é: apontar o Nginx de volta para o
-processo Node (`server.ts` + PM2, como documentado em `HARDENING.md`) enquanto
-investiga o problema no lado Laravel. Depois de desligar o Node de vez, o rollback
-passa a ser: restaurar o backup do banco (feito antes do corte) e reverter o deploy
-do Nginx/Laravel para a versão anterior.
+O Node foi descartado em 26/08/2026 (código removido do repositório — ver
+`MIGRACAO_LARAVEL.md`), então **não existe mais rollback para o backend Node**.
+O rollback hoje é: restaurar o backup do banco e reverter o deploy do
+Nginx/Laravel para a versão anterior.
 
 ## 10. Pendências conhecidas (fora do escopo deste corte)
 
 - **`POST /api/dev/reset`** (reset do banco para o seed, só em dev): ferramenta do
   Node/Prisma, não migrada — não faz parte da API de produção. Se precisar do
   equivalente em Laravel, criar um `php artisan db:seed --class=...` dedicado.
-- **Redis para rate limiting em cluster**: se um dia rodar múltiplas instâncias de
-  PHP-FPM atrás de um load balancer, o rate limiter baseado em cache `file` deixa de
-  ser preciso — trocar para `CACHE_STORE=redis` nesse cenário.
+- **Redis** (Norma TI-SECEC C.4): com mais de uma instância atrás do balanceador, o
+  limite de tentativas de login em cache `file` deixa de ser compartilhado. A troca é
+  só de configuração — `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`, `REDIS_PREFIX` no
+  padrão `secec:ava:<ambiente>:` (já é o padrão do código) e `CACHE_PREFIX=cache:`. Ver
+  `.env.example`. Sessão em Redis não se aplica: não há sessão no servidor (JWT).
+- **Plano de implantação vs. Protocolo TI-SECEC**: este guia descreve um VPS com
+  PHP-FPM. A norma pede Docker, imagem versionada no Harbor e a mesma imagem de HML
+  para PRD (C.11, F.4). A reescrita deste guia está no plano futuro
+  (`.ai/planejamento/11`, item F9) e depende da topologia definida pela TI.
 - **Serviço de vídeo dedicado**: continua fora do escopo do backend (Cloudflare
   Stream/Bunny), como já documentado desde o início do projeto.

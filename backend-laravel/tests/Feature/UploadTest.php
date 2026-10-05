@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Support\CourseAccess;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File as Files;
+use Illuminate\Support\Facades\Storage;
+use Tests\Support\GeneratesCpf;
 use Tests\TestCase;
 
 /**
@@ -19,6 +22,7 @@ use Tests\TestCase;
 final class UploadTest extends TestCase
 {
     use DatabaseTransactions;
+    use GeneratesCpf;
 
     private string $tmpRoot;
 
@@ -26,7 +30,12 @@ final class UploadTest extends TestCase
     {
         parent::setUp();
         $this->tmpRoot = storage_path('framework/testing/uploads-'.uniqid());
-        config(['uploads.root' => $this->tmpRoot]);
+        // Os discos de upload (config/filesystems.php) apontam para a pasta temporária:
+        // o teste nunca grava na pasta real de uploads.
+        config([
+            'filesystems.disks.publico.root' => $this->tmpRoot.DIRECTORY_SEPARATOR.'public',
+            'filesystems.disks.privado.root' => $this->tmpRoot.DIRECTORY_SEPARATOR.'private',
+        ]);
     }
 
     protected function tearDown(): void
@@ -97,6 +106,74 @@ final class UploadTest extends TestCase
         $this->assertDatabaseHas('StoredFile', ['id' => $name, 'visibility' => 'public']);
     }
 
+    public function test_cada_visibilidade_grava_no_seu_disco_do_laravel_filesystem(): void
+    {
+        // Norma TI-SECEC C.5.2: o arquivo passa pelo Laravel Filesystem. É isto que
+        // deixa a troca para MinIO ser só de configuração do disco.
+        Storage::fake('publico');
+        Storage::fake('privado');
+        $auth = ['Authorization' => 'Bearer '.$this->studentToken(), 'Accept' => 'application/json'];
+
+        $publico = $this->post('/api/upload', ['file' => $this->realPng('capa.png')], $auth)->assertStatus(201);
+        $privado = $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth)->assertStatus(201);
+
+        $nomePublico = basename((string) $publico->json('url'));
+        $nomePrivado = basename((string) $privado->json('url'));
+        Storage::disk('publico')->assertExists($nomePublico);
+        Storage::disk('privado')->assertExists($nomePrivado);
+        // E nunca no disco da outra visibilidade.
+        Storage::disk('publico')->assertMissing($nomePrivado);
+        Storage::disk('privado')->assertMissing($nomePublico);
+    }
+
+    public function test_public_file_is_served_statically_without_auth(): void
+    {
+        $token = $this->studentToken();
+
+        $upload = $this->withHeader('Authorization', "Bearer $token")
+            ->post('/api/upload', ['file' => $this->realPng('material.png')], ['Accept' => 'application/json']);
+        $url = $upload->json('url');
+
+        $this->get($url)->assertOk()->assertHeader('content-type', 'image/png');
+    }
+
+    public function test_public_file_is_cacheable_so_it_does_not_hit_php_on_every_load(): void
+    {
+        // O nome gravado nunca é reaproveitado, então a URL pode ser imutável. Sem
+        // max-age o navegador revalidava a cada carga e cada revalidação subia o PHP.
+        $token = $this->studentToken();
+
+        $upload = $this->withHeader('Authorization', "Bearer $token")
+            ->post('/api/upload', ['file' => $this->realPng('cacheavel.png')], ['Accept' => 'application/json']);
+
+        $cacheControl = (string) $this->get($upload->json('url'))->assertOk()->headers->get('Cache-Control');
+
+        $this->assertStringContainsString('max-age=31536000', $cacheControl);
+        $this->assertStringContainsString('immutable', $cacheControl);
+        $this->assertStringContainsString('public', $cacheControl);
+    }
+
+    public function test_public_file_revalidation_answers_304_without_resending_the_body(): void
+    {
+        $token = $this->studentToken();
+        $upload = $this->withHeader('Authorization', "Bearer $token")
+            ->post('/api/upload', ['file' => $this->realPng('revalida.png')], ['Accept' => 'application/json']);
+        $url = $upload->json('url');
+
+        $lastModified = (string) $this->get($url)->assertOk()->headers->get('Last-Modified');
+        $this->assertNotSame('', $lastModified);
+
+        // Sem a checagem explícita de If-Modified-Since, o Laravel reenviava o arquivo
+        // inteiro com 200 em cada revalidação.
+        $this->withHeader('If-Modified-Since', $lastModified)->get($url)->assertStatus(304);
+    }
+
+    public function test_static_upload_route_rejects_traversal_and_missing_file(): void
+    {
+        $this->get('/uploads/'.rawurlencode('../../.env'))->assertStatus(404);
+        $this->get('/uploads/arquivo-inexistente.png')->assertStatus(404);
+    }
+
     public function test_private_download_authorization(): void
     {
         // Headers inline por requisição (withHeader persiste entre requests no mesmo teste).
@@ -124,15 +201,53 @@ final class UploadTest extends TestCase
             'email' => 'outro-'.uniqid().'@example.com',
             'password' => 'senha123456',
             'role' => 'student',
+            'cpf' => $this->makeCpf(),
         ], $auth(Jwt::issue($admin->id, $admin->name, 'admin')));
         $otherToken = Jwt::issue($reg->json('user.id'), $reg->json('user.name'), 'student');
         $this->get($fileUrl, $auth($otherToken))->assertStatus(403);
 
-        // Instrutor (staff): 200.
+        // Instrutor do curso do dono: 200. (Não é "por ser staff": o escopo é o vínculo
+        // com a turma — ver o caso seguinte, que era o furo.)
         $inst = DB::table('User')->where('role', 'instructor')->where('status', 'active')->first(['id', 'name']);
+        $this->assertNotEmpty(
+            array_intersect(
+                DB::table('Course')->where('instructorId', $inst->id)->pluck('id')->all(),
+                CourseAccess::accessibleCourseIds(['sub' => $ownerId, 'name' => '', 'role' => 'student'])
+            ),
+            'Dono do arquivo não é aluno deste instrutor — o 200 abaixo não provaria escopo.'
+        );
         $this->get($fileUrl, $auth(Jwt::issue($inst->id, $inst->name, 'instructor')))->assertOk();
 
         // Sem token: 401.
         $this->get($fileUrl, $json)->assertStatus(401);
+    }
+
+    // Entrega privada é documento pessoal do aluno. Antes bastava ter papel de
+    // instrutor — sem escopo algum — para baixar a de qualquer aluno da escola.
+    public function test_instructor_of_another_course_cannot_download_private_file(): void
+    {
+        $auth = fn (string $token) => ['Accept' => 'application/json', 'Authorization' => "Bearer $token"];
+
+        $ownerId = null;
+        $ownerName = null;
+        $ownerToken = $this->studentToken($ownerId, $ownerName);
+
+        $up = $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth($ownerToken));
+        $fileUrl = $up->assertStatus(201)->json('url');
+
+        // Instrutor sem curso nenhum atribuído: não alcança aluno algum.
+        $alheio = DB::table('User')->where('role', 'instructor')->where('status', 'active')
+            ->whereNotIn('id', DB::table('Course')->distinct()->select('instructorId'))
+            ->first(['id', 'name']);
+        if ($alheio === null) {
+            $this->markTestSkipped('Seed sem instrutor fora da titularidade dos cursos.');
+        }
+
+        $this->get($fileUrl, $auth(Jwt::issue($alheio->id, $alheio->name, 'instructor')))
+            ->assertStatus(403);
+
+        // Admin segue irrestrito (coordenação).
+        $admin = DB::table('User')->where('role', 'admin')->first(['id', 'name']);
+        $this->get($fileUrl, $auth(Jwt::issue($admin->id, $admin->name, 'admin')))->assertOk();
     }
 }

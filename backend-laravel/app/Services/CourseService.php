@@ -9,9 +9,15 @@ use App\Models\Course;
 use App\Models\Lesson;
 use App\Models\LessonDocument;
 use App\Models\LiveSession;
+use App\Models\StudentProgress;
 use App\Models\User;
+use App\Support\BusinessRules;
+use App\Support\CourseAccess;
+use App\Support\CursoSlug;
 use App\Support\Payload;
 use App\Support\VideoSource;
+use App\Support\Visibilidade;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -22,11 +28,88 @@ use Illuminate\Support\Str;
  */
 final class CourseService
 {
-    /** @return array<int, array<string, mixed>> */
-    public function listCourses(): array
+    /**
+     * Catálogo com o material protegido. O catálogo é PÚBLICO por escopo declarado
+     * (01-visao-geral.md), mas devolvia o curso inteiro — texto de estudo de cada
+     * aula, videoUrl, documentos e o link do Meet — para qualquer visitante sem
+     * login. O que era indevido não é a rota ser aberta: é o tamanho do payload.
+     *
+     * Vitrine (todos): título, descrição, categoria, capa, carga horária, instrutor,
+     * e a lista de aulas apenas com título/duração/ordem — o programa do curso é
+     * argumento de matrícula, não material.
+     * Completo: admin; instrutor nos cursos que leciona; aluno nos cursos a que
+     * pertence (matriculado, concluído ou admissão aprovada) — via CourseAccess,
+     * a mesma fonte usada pelo chat e pelos certificados.
+     *
+     * @param  array{sub:string,name:string,role:string}|null  $requester
+     * @return array<int, array<string, mixed>>
+     */
+    public function listCoursesFor(?array $requester): array
     {
-        return Course::query()->with($this->courseInclude())->get()
-            ->map(fn (Course $c) => $c->toArray())->all();
+        $irrestrito = $requester !== null && $requester['role'] === 'admin';
+        $liberados = ($requester === null || $irrestrito)
+            ? []
+            : CourseAccess::accessibleCourseIds($requester);
+
+        /*
+         * Escada de audiência da ADR 12: `status` 1 publicado (aluno vê),
+         * 2 restrito (gestor e admin), 3 rascunho (só admin). Sem este filtro a
+         * coluna seria decoração — foi o que aconteceu com `statusCurso`, que
+         * existe com 'Ativo'/NULL e nenhuma consulta lê.
+         *
+         * Curso INATIVADO não precisa de filtro aqui: o SoftDeletes o exclui de
+         * toda consulta automaticamente, e é essa a razão de tê-lo escolhido.
+         */
+        $consulta = Course::query()->with($this->courseInclude());
+        Visibilidade::aplicar($consulta, $requester['role'] ?? null);
+
+        $catalogo = [];
+        foreach ($consulta->get() as $course) {
+            $curso = $course->toArray();
+            $catalogo[] = ($irrestrito || in_array($course->id, $liberados, true))
+                ? $curso
+                : self::semMaterial($curso);
+        }
+
+        return $catalogo;
+    }
+
+    /**
+     * Remove do curso o que só quem tem acesso deve receber. Os campos são zerados
+     * em vez de removidos para o contrato não mudar de forma: o cliente continua
+     * lendo `lessons[].content`, só que vazio, e não precisa de dois caminhos.
+     *
+     * @param  array<string, mixed>  $curso
+     * @return array<string, mixed>
+     */
+    private static function semMaterial(array $curso): array
+    {
+        if (is_array($curso['lessons'] ?? null)) {
+            $curso['lessons'] = array_map(static function (mixed $aula): mixed {
+                if (! is_array($aula)) {
+                    return $aula;
+                }
+                $aula['content'] = '';
+                $aula['videoUrl'] = null;
+                $aula['documents'] = [];
+
+                return $aula;
+            }, $curso['lessons']);
+        }
+
+        if (is_array($curso['liveSessions'] ?? null)) {
+            $curso['liveSessions'] = array_map(static function (mixed $sessao): mixed {
+                if (! is_array($sessao)) {
+                    return $sessao;
+                }
+                // Link do Meet é a chave da sala: com ele, qualquer um entra na aula.
+                $sessao['meetingLink'] = '';
+
+                return $sessao;
+            }, $curso['liveSessions']);
+        }
+
+        return $curso;
     }
 
     /** @return array<string, mixed> */
@@ -38,6 +121,121 @@ final class CourseService
         }
 
         return $course->toArray();
+    }
+
+    /**
+     * Curso a partir de um slug, de um slug aposentado ou de um id.
+     *
+     * A ordem é slug atual -> slug aposentado -> id, e as três formas resolvem
+     * porque as três circulam em link salvo: o slug é o endereço de hoje, o
+     * aposentado é o endereço de antes de alguém renomear o curso, e o id é o
+     * endereço de antes desta mudança existir (ADR 13). Um link que já funcionou
+     * não pode passar a dar 404 por causa de uma melhoria de URL.
+     *
+     * `canonico` diz se o valor recebido É o endereço de hoje. Quando é false, o
+     * cliente troca a URL da barra pela canônica — senão o endereço antigo se
+     * propaga para sempre, copiado de tela em tela.
+     *
+     * A escada de visibilidade vale AQUI TAMBÉM (`Visibilidade::aplicar`). Sem
+     * ela a rota responderia "existe, e o id é este" para o slug de um curso em
+     * rascunho, e passaria a ser o único jeito de um visitante confirmar que um
+     * curso não publicado existe — o catálogo já filtra por papel. Resolver id é
+     * pouca informação, mas é informação.
+     *
+     * @return array{id:string, slug:string, canonico:bool}
+     */
+    public function resolverCurso(string $valor, ?string $role = null): array
+    {
+        if ($valor === '') {
+            throw ApiException::notFound('Curso não encontrado.');
+        }
+
+        $visivel = function (string $coluna, string $busca) use ($role): ?Course {
+            $q = Course::query()->where($coluna, $busca);
+            Visibilidade::aplicar($q, $role);
+
+            return $q->first(['id', 'slug']);
+        };
+
+        $porSlug = $visivel('slug', $valor);
+        if ($porSlug !== null) {
+            return ['id' => (string) $porSlug->id, 'slug' => (string) $porSlug->slug, 'canonico' => true];
+        }
+
+        $aposentado = DB::table('CourseSlugHistory')->where('slug', $valor)->value('courseId');
+        if (is_string($aposentado)) {
+            $atual = $visivel('id', $aposentado);
+            if ($atual !== null) {
+                return ['id' => (string) $atual->id, 'slug' => (string) $atual->slug, 'canonico' => false];
+            }
+        }
+
+        $porId = $visivel('id', $valor);
+        if ($porId !== null) {
+            return ['id' => (string) $porId->id, 'slug' => (string) $porId->slug, 'canonico' => false];
+        }
+
+        throw ApiException::notFound('Curso não encontrado.');
+    }
+
+    /**
+     * Todo slug que não está livre: os em uso e os aposentados.
+     *
+     * Os aposentados entram porque continuam resolvendo para o curso antigo
+     * (`resolverCurso`). Reaproveitar um faria o link salvo de um curso abrir
+     * outro — o pior defeito possível numa mudança feita para melhorar endereços.
+     *
+     * Lê `Course` com SQL cru para incluir curso INATIVADO: o SoftDeletes o
+     * esconderia, e é a mesma armadilha de upsert registrada na ADR 12 — o id
+     * (aqui, o slug) continua ocupado no banco mesmo invisível na consulta.
+     *
+     * @return array<int, string>
+     */
+    private function slugsTomados(): array
+    {
+        /** @var array<int, string> $emUso */
+        $emUso = DB::table('Course')->whereNotNull('slug')->pluck('slug')->all();
+        /** @var array<int, string> $aposentados */
+        $aposentados = DB::table('CourseSlugHistory')->pluck('slug')->all();
+
+        return array_merge($emUso, $aposentados);
+    }
+
+    /**
+     * Aposenta o slug atual do curso, se o título mudou de verdade.
+     *
+     * Devolve o slug novo, ou null quando não há nada a trocar. Título igual não
+     * gera slug novo — senão salvar o formulário sem tocar no título aposentaria
+     * o endereço e encheria o histórico de linhas iguais.
+     */
+    private function trocarSlugPorTitulo(string $courseId, string $tituloNovo): ?string
+    {
+        $atual = DB::table('Course')->where('id', $courseId)->first(['title', 'slug']);
+        if ($atual === null) {
+            return null;
+        }
+
+        $slugAtual = is_string($atual->slug) ? $atual->slug : '';
+        if (is_string($atual->title) && $atual->title === $tituloNovo && $slugAtual !== '') {
+            return null;
+        }
+
+        $novo = CursoSlug::unico($tituloNovo, $this->slugsTomados());
+        if ($novo === $slugAtual) {
+            return null;
+        }
+
+        if ($slugAtual !== '') {
+            // insertOrIgnore: o mesmo slug pode voltar a ser aposentado depois de
+            // um rename de ida e volta, e a segunda vez não pode estourar a PK.
+            DB::table('CourseSlugHistory')->insertOrIgnore([
+                'slug' => $slugAtual,
+                'courseId' => $courseId,
+                'aposentadoEm' => CarbonImmutable::now()->toDateTimeString(),
+            ]);
+        }
+
+        return $novo;
     }
 
     /**
@@ -75,6 +273,13 @@ final class CourseService
         DB::transaction(function () use ($input, $id, $instructorName, $instructorId, $lessons, $liveSessions): void {
             $courseData = $this->scalarCourseData($input);
             $courseData['id'] = $id;
+            // Slug é DERIVADO do título, nunca aceito do cliente — mesma regra de
+            // instructorName. Slug escolhido pelo requisitante seria um campo de
+            // identidade editável por quem manda o JSON.
+            $courseData['slug'] = CursoSlug::unico(
+                is_string($input['title'] ?? null) ? $input['title'] : '',
+                $this->slugsTomados(),
+            );
             $courseData['instructorName'] = $instructorName;
             $courseData['instructorId'] = $instructorId;
             Course::query()->create($courseData);
@@ -122,6 +327,12 @@ final class CourseService
 
         DB::transaction(function () use ($courseId, $updates, $instructorIdUpdate, $lessons, $liveSessions): void {
             $scalar = array_merge($this->scalarCourseData($updates), $instructorIdUpdate);
+            if (is_string($updates['title'] ?? null) && $updates['title'] !== '') {
+                $slugNovo = $this->trocarSlugPorTitulo($courseId, $updates['title']);
+                if ($slugNovo !== null) {
+                    $scalar['slug'] = $slugNovo;
+                }
+            }
             if (count($scalar) > 0) {
                 Course::query()->where('id', $courseId)->update($scalar);
             }
@@ -131,17 +342,28 @@ final class CourseService
             if ($liveSessions !== null) {
                 $this->syncLiveSessions($courseId, $liveSessions);
             }
+            if ($lessons !== null || $liveSessions !== null) {
+                $this->limparProgressoOrfao($courseId);
+            }
         });
 
         return $this->getCourseById($courseId);
     }
 
     /** @param array{sub:string,name:string,role:string} $requester */
-    public function deleteCourse(string $courseId, array $requester): void
+    public function deleteCourse(string $courseId, array $requester, ?string $motivo = null): void
     {
         $this->assertCourseOwnership($courseId, $requester);
-        // FK onDelete: Cascade no banco remove aulas/documentos/sessões atomicamente.
-        Course::query()->where('id', $courseId)->delete();
+        /*
+         * Inativa a disciplina (ADR 12). Antes era exclusão física, e o
+         * ON DELETE CASCADE do banco levava aulas, documentos e encontros junto
+         * — junto com o histórico de quem cursou.
+         *
+         * Aulas e encontros continuam ativos por baixo, de propósito: ficam
+         * inalcançáveis porque a disciplina está fora do ar, e reativar a
+         * disciplina devolve o conteúdo inteiro sem precisar recompor nada.
+         */
+        Course::query()->find($courseId)?->inativar($requester['sub'] ?? null, $motivo);
     }
 
     /** @param array{sub:string,name:string,role:string} $requester */
@@ -162,10 +384,59 @@ final class CourseService
         throw ApiException::forbidden('Você só pode gerenciar cursos vinculados ao seu próprio perfil de instrutor.');
     }
 
+    /**
+     * Remove do progresso dos alunos os ids de aula/encontro que acabaram de
+     * deixar de existir.
+     *
+     * A escrita de progresso já filtrava ids invalidos (EnrollmentService::
+     * sanitizeProgressIds), mas nada limpava o que ja estava gravado quando uma
+     * aula era APAGADA depois. O residuo era contado como aula concluida: um
+     * curso com 1 aula e 2 ids orfaos dava 200% de progresso, e o Perfil chegou
+     * a exibir "113% de progresso medio". Pior, a frequencia inflada e o gatilho
+     * da emissao automatica de certificado.
+     */
+    private function limparProgressoOrfao(string $courseId): void
+    {
+        $aulasValidas = $this->somenteStrings(Lesson::query()->where('courseId', $courseId)->pluck('id')->all());
+        $encontrosValidos = $this->somenteStrings(LiveSession::query()->where('courseId', $courseId)->pluck('id')->all());
+
+        foreach (StudentProgress::query()->where('courseId', $courseId)->get() as $registro) {
+            $aulas = $this->somenteStrings(is_array($registro->completedLessons) ? $registro->completedLessons : []);
+            $encontros = $this->somenteStrings(is_array($registro->attendedLiveSessions) ? $registro->attendedLiveSessions : []);
+
+            $aulasLimpas = array_values(array_intersect($aulas, $aulasValidas));
+            $encontrosLimpos = array_values(array_intersect($encontros, $encontrosValidos));
+
+            if ($aulasLimpas === $aulas && $encontrosLimpos === $encontros) {
+                continue;
+            }
+
+            $registro->completedLessons = $aulasLimpas;
+            $registro->attendedLiveSessions = $encontrosLimpos;
+            $registro->save();
+        }
+    }
+
+    /**
+     * Descarta o que não é string. Id é sempre string aqui; a checagem existe
+     * porque o valor vem de coluna JSON, onde qualquer coisa pode ter sido
+     * gravada por uma versão antiga.
+     *
+     * @param  array<mixed>  $valores
+     * @return list<string>
+     */
+    private function somenteStrings(array $valores): array
+    {
+        return array_values(array_filter($valores, static fn ($v): bool => is_string($v)));
+    }
+
     /** @param list<array<string, mixed>> $lessons */
     private function syncLessons(string $courseId, array $lessons): void
     {
         $keptIds = array_values(array_filter(array_map(fn ($l) => $l['id'] ?? null, $lessons)));
+        // Aula que saiu da edição é INATIVADA, não apagada (ADR 12): com o trait
+        // Inativavel no model, este ->delete() do builder grava `inativadoEm`.
+        // Readicionar a mesma aula depois a reativa (ver withTrashed abaixo).
         Lesson::query()->where('courseId', $courseId)
             ->when(count($keptIds) > 0, fn ($q) => $q->whereNotIn('id', $keptIds))
             ->delete();
@@ -175,8 +446,14 @@ final class CourseService
                 ? $lesson['id']
                 : ('lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = $this->lessonScalar($lesson, $courseId);
-            $existing = Lesson::query()->find($lessonId);
+            // withTrashed é OBRIGATÓRIO aqui: com a inativação da ADR 12, uma
+            // aula retirada e depois readicionada com o mesmo id não seria
+            // encontrada por find(), e o create() estouraria a chave primária.
+            $existing = Lesson::query()->withTrashed()->find($lessonId);
             if ($existing !== null) {
+                if ($existing->estaInativo()) {
+                    $existing->reativar();
+                }
                 $existing->fill($data)->save();
             } else {
                 $data['id'] = $lessonId;
@@ -193,8 +470,11 @@ final class CourseService
                     ? $doc['id']
                     : ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
                 $docData = $this->documentScalar($doc, $lessonId);
-                $existingDoc = LessonDocument::query()->find($docId);
+                $existingDoc = LessonDocument::query()->withTrashed()->find($docId);
                 if ($existingDoc !== null) {
+                    if ($existingDoc->estaInativo()) {
+                        $existingDoc->reativar();
+                    }
                     $existingDoc->fill($docData)->save();
                 } else {
                     $docData['id'] = $docId;
@@ -218,9 +498,12 @@ final class CourseService
                 : ('live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = $this->liveSessionData($session, $courseId);
             $data['id'] = $sessionId;
-            $existing = LiveSession::query()->find($sessionId);
+            $existing = LiveSession::query()->withTrashed()->find($sessionId);
             if ($existing !== null) {
                 unset($data['id']);
+                if ($existing->estaInativo()) {
+                    $existing->reativar();
+                }
                 $existing->fill($data)->save();
             } else {
                 LiveSession::query()->create($data);
@@ -293,7 +576,13 @@ final class CourseService
             'scheduledAt' => $session['scheduledAt'],
             'durationMinutes' => is_numeric($session['durationMinutes'] ?? null) ? (int) $session['durationMinutes'] : 0,
             'meetingLink' => $session['meetingLink'],
-            'isLive' => (bool) ($session['isLive'] ?? false),
+            // Encontro que a regra das 24h já encerrou não pode voltar a ser
+            // marcado como ao vivo: o painel não oferece mais o botão, mas o
+            // servidor é quem tem de garantir — um PUT direto reabriria a sala.
+            'isLive' => (bool) ($session['isLive'] ?? false)
+                && ! BusinessRules::liveSessionExpired(
+                    is_string($session['scheduledAt'] ?? null) ? $session['scheduledAt'] : null
+                ),
         ];
     }
 

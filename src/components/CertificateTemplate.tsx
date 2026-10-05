@@ -3,26 +3,48 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { DocumentoImprimivel } from './shared/AreaDeImpressao';
 import { Award, Check, Download, Printer, ShieldCheck, X } from 'lucide-react';
-import { Certificate } from '../types';
+import { Certificate, DocumentTemplate } from '../types';
 import { downloadCertificatePdf } from '../utils/fileDownload';
+import { useLMS } from '../context/LMSContext';
 
 interface CertificateTemplateProps {
   certificate: Certificate;
   onClose: () => void;
 }
 
+const DEFAULT_TEMPLATE: Pick<DocumentTemplate, 'institutionName' | 'signatories' | 'footerText' | 'customHtml'> = {
+  institutionName: 'República Federativa do Brasil • AVA LMS',
+  signatories: [
+    { name: 'Alessandro Pinto', role: 'Diretor de Tecnologia & AVA' },
+    { name: 'Mariana Santos', role: 'Professora Responsável (Coordenação Acadêmica)' },
+  ],
+  footerText: 'A emissão de certificados na plataforma AVA respeita a presença mínima e obrigatória nas atividades letivas e transmissões ao vivo.',
+  customHtml: null,
+};
+
 export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certificate, onClose }) => {
-  const printRef = useRef<HTMLDivElement>(null);
+  const { getDocumentTemplate } = useLMS();
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
 
-  const handlePrint = () => {
-    if (printRef.current) {
-      window.print();
-    }
-  };
+  useEffect(() => {
+    let cancelled = false;
+    getDocumentTemplate('certificado').then((res) => {
+      if (!cancelled && res.ok && res.template) {
+        setTemplate(res.template);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [getDocumentTemplate]);
+
+  // O antigo `if (printRef.current)` era guarda morta — o certificado sempre
+  // existe enquanto o modal está aberto — e a ref não pode ficar no documento,
+  // que agora é renderizado duas vezes (tela e cópia de impressão).
+  const handlePrint = () => window.print();
 
   const handleDownloadPdf = async () => {
     setIsDownloading(true);
@@ -39,32 +61,10 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden !important;
-          }
-          #printable-certificate, #printable-certificate * {
-            visibility: visible !important;
-          }
-          #printable-certificate {
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            height: auto !important;
-            max-height: 100% !important;
-            border: 8px double #78350f !important;
-            background: #fffcf9 !important;
-            padding: 2.5rem !important;
-            box-shadow: none !important;
-            margin: 0 !important;
-            border-radius: 0.5rem !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-        }
-      `}</style>
+      {/* Impressão via DocumentoImprimivel (ver o certificado abaixo). A regra
+          antiga punha position: fixed no próprio certificado, repetido pelo
+          navegador em cada página. O PDF oficial continua sendo o do servidor
+          (ADR 09, botão "Baixar PDF"); esta é a impressão da prévia. */}
 
       <div className="relative my-8 w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl md:p-8 animate-in fade-in zoom-in-95 duration-200">
         
@@ -107,10 +107,9 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
           </div>
         </div>
 
-        {/* The Printable Certificate Design */}
+        {/* The Printable Certificate Design — na tela e, idêntico, na impressão */}
+        <DocumentoImprimivel>
         <div
-          ref={printRef}
-          id="printable-certificate"
           className="relative overflow-hidden rounded-xl border-12 border-double border-amber-800 bg-linear-to-b from-amber-50/50 to-orange-50/30 p-8 md:p-12 text-center shadow-inner"
           style={{ fontFamily: 'Georgia, serif' }}
         >
@@ -132,7 +131,7 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
                 <Award className="h-10 w-10 text-amber-700" />
               </div>
               <p className="text-xs uppercase tracking-widest text-amber-800 font-semibold font-sans">
-                República Federativa do Brasil • AVA LMS
+                {template.institutionName}
               </p>
             </div>
 
@@ -163,21 +162,25 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
             </p>
 
             {/* Signatures */}
-            <div className="mt-12 grid w-full grid-cols-2 gap-8 border-t border-amber-900/10 pt-8 font-sans">
-              <div className="flex flex-col items-center">
-                <div className="h-8 text-slate-400 italic font-serif">Alessandro Pinto</div>
-                <div className="w-40 border-t border-slate-300 my-1" />
-                <span className="text-xs font-semibold text-slate-700">Alessandro Pinto</span>
-                <span className="text-[10px] text-slate-500">Diretor de Tecnologia & AVA</span>
-              </div>
-
-              <div className="flex flex-col items-center">
-                <div className="h-8 text-slate-400 italic font-serif">Mariana Santos</div>
-                <div className="w-40 border-t border-slate-300 my-1" />
-                <span className="text-xs font-semibold text-slate-700">Coordenação Acadêmica</span>
-                <span className="text-[10px] text-slate-500">Professora Responsável</span>
-              </div>
+            <div className={`mt-12 grid w-full gap-8 border-t border-amber-900/10 pt-8 font-sans ${
+              template.signatories.length >= 3 ? 'grid-cols-3' : template.signatories.length === 2 ? 'grid-cols-2' : 'grid-cols-1'
+            }`}>
+              {template.signatories.map((sig, idx) => (
+                <div key={idx} className="flex flex-col items-center">
+                  <div className="h-8 text-slate-400 italic font-serif">{sig.name}</div>
+                  <div className="w-40 border-t border-slate-300 my-1" />
+                  <span className="text-xs font-semibold text-slate-700">{sig.name}</span>
+                  <span className="text-[10px] text-slate-500">{sig.role}</span>
+                </div>
+              ))}
             </div>
+
+            {template.customHtml && (
+              <p className="mt-6 text-[10.5px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-xl">
+                Este documento usa um layout HTML personalizado — o PDF baixado pode ter uma aparência
+                diferente desta prévia. Use "Baixar PDF" para ver o resultado final.
+              </p>
+            )}
 
             {/* Validation Hash Block code */}
             <div className="mt-8 flex flex-col items-center gap-1 font-mono text-[10px] text-slate-400">
@@ -189,10 +192,11 @@ export const CertificateTemplate: React.FC<CertificateTemplateProps> = ({ certif
             </div>
           </div>
         </div>
+        </DocumentoImprimivel>
 
         {/* Info footer */}
         <div className="mt-5 text-center text-xs text-slate-500">
-          * A emissão de certificados na plataforma AVA respeita a presença mínima e obrigatória de 70% nas atividades letivas e transmissões ao vivo.
+          * {template.footerText}
         </div>
       </div>
     </div>

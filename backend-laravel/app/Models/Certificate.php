@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
 final class Certificate extends Model
 {
+    use Inativavel;
+
     protected $table = 'Certificate';
 
     protected $keyType = 'string';
@@ -23,5 +26,8 @@ final class Certificate extends Model
 
     protected $casts = [
         'attendancePercent' => 'float',
+        // Armazenado como DATE, mas serializado no contrato como d/m/Y (frontend
+        // exibe direto, sem new Date). Ordenação passa a ser cronológica correta.
+        'issueDate' => 'date:d/m/Y',
     ];
 }

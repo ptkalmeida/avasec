@@ -1,5 +1,0 @@
-ALTER TABLE `User`
-    ADD COLUMN `municipio` VARCHAR(191) NULL,
-    ADD COLUMN `uf` VARCHAR(191) NULL,
-    ADD COLUMN `areaInteresse` VARCHAR(191) NULL,
-    ADD COLUMN `dataCadastro` VARCHAR(191) NULL;

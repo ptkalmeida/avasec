@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 final class Course extends Model
 {
+    use Inativavel;
+
     protected $table = 'Course';
 
     protected $keyType = 'string';
@@ -22,7 +25,7 @@ final class Course extends Model
     public static $snakeAttributes = false;
 
     protected $fillable = [
-        'id', 'title', 'description', 'category', 'thumbnail', 'instructorName', 'instructorId',
+        'id', 'title', 'slug', 'description', 'category', 'thumbnail', 'instructorName', 'instructorId',
         'coverImage', 'courseType', 'hasChat', 'minAttendance', 'contractExpirationDate',
         'areaTematica', 'cargaHoraria', 'modalidade', 'nivel', 'emiteCertificado', 'statusCurso',
     ];

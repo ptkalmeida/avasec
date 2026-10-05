@@ -59,6 +59,18 @@ final class CatalogService
     }
 
     /**
+     * Remove um webinar. Existe para a área de gestão de webinars poder desmarcar um
+     * evento — antes só havia criar e listar, então um webinar agendado por engano
+     * ficava na agenda pública para sempre.
+     */
+    public function deleteWebinar(string $id, ?string $porUserId = null, ?string $motivo = null): void
+    {
+        // Inativa em vez de apagar (ADR 12): o evento sai da agenda pública, mas
+        // fica registrado que existiu, quem desmarcou e por quê.
+        WebinarEvent::query()->find($id)?->inativar($porUserId, $motivo);
+    }
+
+    /**
      * @template TModel of \Illuminate\Database\Eloquent\Model
      *
      * @param  class-string<TModel>  $modelClass

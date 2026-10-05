@@ -1,0 +1,208 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { Suspense } from 'react';
+import { LessonBlock, TamanhoTexto, AlinhamentoTexto } from '../../utils/lessonContent';
+import { LessonImage } from './LessonImage';
+import { VideoPlayer } from '../shared/VideoPlayer';
+
+// O realce de sintaxe (Prism + linguagens) pesa ~140kB e a maioria das aulas
+// não tem código — então o bloco só é baixado quando uma aula realmente usa.
+const LessonCodeBlock = React.lazy(() =>
+  import('./LessonCodeBlock').then((m) => ({ default: m.LessonCodeBlock }))
+);
+
+/** Placeholder enquanto o bloco de código chega, para o texto não "pular". */
+const CodeFallback: React.FC = () => (
+  <div className="my-5 rounded-xl border border-slate-800 bg-slate-950 px-4 py-6">
+    <span className="text-rotulo text-escult-ink-2">Carregando código...</span>
+  </div>
+);
+
+/** Paletas por contexto: aula do aluno (claro) e prévia do instrutor (escuro). */
+/*
+ * Formatação do autor traduzida em classes do design system — o conteúdo só diz
+ * QUAL opção, nunca o estilo. Os tamanhos são tokens da escala (index.css), e o
+ * menor deles é o piso de 12px travado em escadaTipografica.test.ts. O "normal" é
+ * o `text-apoio` que o corpo da aula já herda.
+ */
+export const CLASSE_TAMANHO: Record<TamanhoTexto, string> = {
+  pequeno: 'text-nota',
+  normal: '',
+  grande: 'text-corpo',
+  'muito-grande': 'text-cartao',
+};
+
+// Justificado hifeniza: sem isso, em coluna estreita, o texto abre buracos entre
+// as palavras. A hifenização segue o `lang="pt-BR"` do documento.
+export const CLASSE_ALINHAMENTO: Record<AlinhamentoTexto, string> = {
+  esquerda: '',
+  centro: 'text-center',
+  direita: 'text-right',
+  justificado: 'text-justify hyphens-auto',
+};
+
+const TONES = {
+  light: {
+    body: 'text-slate-700',
+    strong: 'text-slate-900',
+    section: 'text-slate-900',
+    sectionNumber: 'text-[#540D6E]',
+    subsection: 'text-teal-700',
+    orderedMarker: 'marker:text-[#540D6E]',
+    bulletMarker: 'marker:text-teal-700',
+    mediaFrame: 'border-slate-200 bg-slate-50',
+    mediaCaption: 'text-teal-700',
+  },
+  dark: {
+    body: 'text-slate-300',
+    strong: 'text-white',
+    section: 'text-white',
+    sectionNumber: 'text-purple-400',
+    subsection: 'text-teal-400',
+    orderedMarker: 'marker:text-purple-400',
+    bulletMarker: 'marker:text-teal-400',
+    mediaFrame: 'border-slate-800 bg-slate-950',
+    mediaCaption: 'text-teal-400',
+  },
+} as const;
+
+/** Aplica **negrito** montando nós React — nunca HTML. */
+const renderInline = (
+  text: string,
+  keyPrefix: string,
+  strongClass: string
+): React.ReactNode[] =>
+  text.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={`${keyPrefix}-${i}`} className={`font-bold ${strongClass}`}>{part.slice(2, -2)}</strong>;
+    }
+
+    return <React.Fragment key={`${keyPrefix}-${i}`}>{part}</React.Fragment>;
+  });
+
+interface LessonContentProps {
+  blocks: LessonBlock[];
+  /** 'dark' para uso sobre fundo escuro (prévia do instrutor). */
+  tone?: 'light' | 'dark';
+}
+
+/**
+ * Renderiza o conteúdo da aula na medida de leitura confortável. Títulos
+ * recebem `id` para o índice ancorar, e `scroll-mt` para o cabeçalho fixo não
+ * cobrir o alvo depois do salto.
+ */
+export const LessonContent: React.FC<LessonContentProps> = ({ blocks, tone = 'light' }) => {
+  const t = TONES[tone];
+
+  return (
+  <div className={`text-apoio leading-[1.75] ${t.body}`}>
+    {blocks.map((block, i) => {
+      switch (block.kind) {
+        case 'section':
+          return (
+            <h3
+              key={`s-${i}`}
+              id={block.id}
+              className={`scroll-mt-28 mt-9 mb-4 first:mt-0 flex items-baseline gap-2.5 text-base md:text-lg font-black font-serif ${t.section}`}
+            >
+              <span className={`text-sm shrink-0 ${t.sectionNumber}`}>{block.index}.</span>
+              <span>{renderInline(block.text, `s-${i}`, t.strong)}</span>
+            </h3>
+          );
+
+        case 'subsection':
+          return (
+            <h4
+              key={`ss-${i}`}
+              id={block.id}
+              className={`scroll-mt-28 mt-7 mb-2.5 text-sm font-extrabold ${t.subsection} ${CLASSE_ALINHAMENTO[block.alinhamento ?? 'esquerda']}`}
+            >
+              {renderInline(block.text, `ss-${i}`, t.strong)}
+            </h4>
+          );
+
+        case 'paragraph':
+          return (
+            <p
+              key={`p-${i}`}
+              className={`mb-3.5 ${CLASSE_TAMANHO[block.tamanho ?? 'normal']} ${CLASSE_ALINHAMENTO[block.alinhamento ?? 'esquerda']}`}
+            >
+              {renderInline(block.text, `p-${i}`, t.strong)}
+            </p>
+          );
+
+        case 'orderedList':
+          return (
+            <ol key={`ol-${i}`} className={`list-decimal pl-5 space-y-1.5 mb-4 marker:font-bold ${t.orderedMarker}`}>
+              {block.items.map((item, j) => (
+                <li key={j}>{renderInline(item, `ol-${i}-${j}`, t.strong)}</li>
+              ))}
+            </ol>
+          );
+
+        case 'bulletList':
+          return (
+            <ul key={`ul-${i}`} className={`list-disc pl-5 space-y-1.5 mb-4 ${t.bulletMarker}`}>
+              {block.items.map((item, j) => (
+                <li key={j}>{renderInline(item, `ul-${i}-${j}`, t.strong)}</li>
+              ))}
+            </ul>
+          );
+
+        case 'code':
+          return (
+            <Suspense key={`code-${i}`} fallback={<CodeFallback />}>
+              <LessonCodeBlock
+                code={block.code}
+                language={block.language}
+                caption={block.caption}
+              />
+            </Suspense>
+          );
+
+        case 'image':
+          return (
+            <LessonImage
+              key={`img-${i}`}
+              url={block.url}
+              alt={block.alt}
+              caption={block.caption}
+              frameClass={t.mediaFrame}
+              captionClass={t.mediaCaption}
+            />
+          );
+
+        case 'video':
+          return (
+            <figure key={`vid-${i}`} className="my-5 space-y-2">
+              {/* aspect-video fixa a caixa antes de o vídeo chegar: aqui não há
+                  salto de layout, ao contrário da imagem. */}
+              <div className="aspect-video w-full overflow-hidden rounded-xl border border-slate-800 bg-slate-950">
+                <VideoPlayer
+                  videoUrl={block.url}
+                  title={block.title === '' ? 'Vídeo da aula' : block.title}
+                  controls
+                />
+              </div>
+              {block.caption !== null && (
+                <figcaption className={`text-apoio font-bold ${t.mediaCaption}`}>{block.caption}</figcaption>
+              )}
+            </figure>
+          );
+
+        // Sem este ramo, um tipo de bloco novo sem `case` sairia daqui como
+        // `undefined` e sumiria da tela SEM erro de compilação — o `map` não
+        // declara retorno. O `never` transforma o esquecimento em erro de build.
+        default: {
+          const naoTratado: never = block;
+
+          return naoTratado;
+        }
+      }
+    })}
+  </div>
+  );
+};

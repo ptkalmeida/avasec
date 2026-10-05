@@ -11,6 +11,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -19,8 +21,22 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // Saúde e status da Norma TI-SECEC (C.8), sem o grupo "web": ver routes/saude.php.
+        then: function (): void {
+            Route::group([], base_path('routes/saude.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Confia apenas no proxy reverso local (Nginx -> PHP-FPM no mesmo host, ver
+        // DEPLOY_LARAVEL.md). Sem isto: (a) $request->ip() retorna sempre o IP do proxy,
+        // colapsando todos os rate limiters (por IP) num balde único — um atacante trava
+        // o login de todos; (b) o X-Forwarded-For do cliente seria aceito, falsificando
+        // o IP da auditoria. Com TrustProxies, o XFF só é honrado vindo destes IPs.
+        $middleware->trustProxies(at: [
+            '127.0.0.1',
+            '::1',
+        ]);
+
         $middleware->alias([
             'feature' => FeatureGate::class,
             'jwt' => JwtAuthenticate::class,
@@ -40,6 +56,31 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // 401/403 são o controle de acesso FUNCIONANDO (visitante deslogado numa rota
+        // protegida, perfil sem permissão), não falha de sistema. O registro padrão os
+        // gravava como ERROR com stack trace completo — ~45 linhas cada —, e o
+        // laravel.log crescia ~100 MB/dia (ver .ai/planejamento/08). Aqui viram
+        // WARNING, sem trace, com o caminho da requisição: o volume continua visível
+        // (tentativa de acesso indevido, cliente em laço) sem soterrar erro de verdade.
+        // `return false` interrompe só o registro padrão; a resposta HTTP é montada
+        // pelo render() abaixo e não muda. Qualquer outra exceção segue como ERROR.
+        $exceptions->report(function (ApiException $e): ?bool {
+            if ($e->status !== 401 && $e->status !== 403) {
+                return null;
+            }
+
+            $request = request();
+            Log::warning($e->getMessage(), [
+                'status' => $e->status,
+                'code' => $e->errorCode,
+                'method' => $request->method(),
+                'path' => $request->path(),
+                'ip' => $request->ip(),
+            ]);
+
+            return false;
+        });
 
         // Todas as respostas de erro sob /api/* seguem o contrato do Node:
         // { error: true, code, message } — nunca stack trace.

@@ -1,5 +1,7 @@
 <?php
 
+use App\Logging\IdentificaAplicacao;
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -19,6 +21,12 @@ return [
     */
 
     'default' => env('LOG_CHANNEL', 'stack'),
+
+    /*
+    | Identificação da aplicação nos logs (Norma TI-SECEC, C.7.2): vai em todo
+    | registro do canal `stderr_json`, junto com o ambiente (APP_ENV).
+    */
+    'aplicacao' => env('LOG_APLICACAO', 'ava'),
 
     /*
     |--------------------------------------------------------------------------
@@ -94,6 +102,24 @@ return [
             'processors' => [PsrLogMessageProcessor::class],
         ],
 
+        /*
+        | Log estruturado para container (Norma TI-SECEC, C.7.2): uma linha JSON
+        | por registro na saída de erro, com `app` e `env`, que é o que o Grafana
+        | Alloy coleta. Uso em HML/PRD: LOG_STACK=stderr_json. Em desenvolvimento
+        | continua o `daily` — nada muda na máquina local.
+        */
+        'stderr_json' => [
+            'driver' => 'monolog',
+            'level' => env('LOG_LEVEL', 'debug'),
+            'handler' => StreamHandler::class,
+            'handler_with' => [
+                'stream' => 'php://stderr',
+            ],
+            'formatter' => JsonFormatter::class,
+            'tap' => [IdentificaAplicacao::class],
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
         'stderr' => [
             'driver' => 'monolog',
             'level' => env('LOG_LEVEL', 'debug'),
@@ -119,6 +145,16 @@ return [
         ],
 
         'null' => [
+            'driver' => 'monolog',
+            'handler' => NullHandler::class,
+        ],
+
+        /*
+        | Mesmo efeito do `null`, com nome que o `env()` não transforma em nulo:
+        | LOG_CHANNEL=null vira o VALOR nulo, o Laravel não acha canal nenhum e
+        | grava num log de emergência — o contrário de descartar. Usado pelos testes.
+        */
+        'descartado' => [
             'driver' => 'monolog',
             'handler' => NullHandler::class,
         ],

@@ -1,0 +1,366 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, X, Upload, AlertCircle, CheckCircle2, Loader2, ImageOff } from 'lucide-react';
+import { ehLegenda, parseLessonContent, serializeLessonBlock } from '../../utils/lessonContent';
+import { parseVideoSource, VideoSource } from '../../utils/videoSource';
+import { safeUrl } from '../../utils/safeUrl';
+import { LessonContent } from '../student/LessonContent';
+
+/** Extensões aceitas: espelha a allowlist de config/uploads.php do backend. */
+const ACCEPT_IMAGEM = 'image/png,image/jpeg,image/webp,image/gif';
+
+/**
+ * Acima disto o aluno sente no celular. O servidor aceita até 15 MB e não
+ * redimensiona nada, então o arquivo é baixado inteiro por quem abrir a aula —
+ * daí o aviso. É aviso, não bloqueio: quem escreve pode ter um bom motivo.
+ */
+const BYTES_PESADO = 2 * 1024 * 1024;
+
+const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-apoio text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500';
+const rotuloCampo = 'block text-sobretitulo text-escult-ink-2 uppercase mb-1';
+
+export interface MediaInicial {
+  url: string;
+  /** Descrição da imagem ou título do vídeo. */
+  texto: string;
+  caption: string | null;
+}
+
+interface LessonMediaFormProps {
+  tipo: 'image' | 'video';
+  inicial?: MediaInicial;
+  /** Mesma assinatura de `uploadArquivo` do LMSContext. */
+  onUpload?: (file: File) => Promise<{ ok: boolean; url?: string; error?: string }>;
+  /** Vídeo principal (o do topo da aula). Ausente = a tela não sabe, e não avisa. */
+  videoUrlDaAula?: string;
+  onCancel: () => void;
+  /** Recebe o trecho JÁ serializado, pronto para entrar no conteúdo. */
+  onConfirm: (texto: string) => void;
+}
+
+const formatarTamanho = (bytes: number): string =>
+  bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+
+/** Mesmo vídeo? YouTube compara pelo id; arquivo, pelo endereço. */
+const mesmaFonte = (a: VideoSource, b: VideoSource): boolean => {
+  if (a.provider === 'youtube' && b.provider === 'youtube') return a.videoId === b.videoId;
+  if (a.provider === 'file' && b.provider === 'file') return a.url === b.url;
+
+  return false;
+};
+
+/**
+ * Libera a miniatura local. Checa a função pela mesma razão que a criação checa
+ * a sua: em ambiente sem object URL nenhuma miniatura local chega a existir.
+ */
+const liberarMiniatura = (url: string | null) => {
+  if (url !== null && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
+};
+
+/** "Evidência.png" -> "PNG". Sem extensão, não inventa: devolve "imagem". */
+const extensao = (nome: string): string => {
+  const ponto = nome.lastIndexOf('.');
+
+  return ponto > 0 && ponto < nome.length - 1 ? nome.slice(ponto + 1).toUpperCase() : 'imagem';
+};
+
+/**
+ * Formulário de imagem e vídeo do corpo da aula, com dois pontos de entrada: o
+ * menu "+" (criar) e o lápis (editar). Um só formulário para os dois casos, para
+ * a validação da descrição e da legenda não existir em duplicata.
+ *
+ * Imagem entra por ENVIO DE ARQUIVO, não por endereço colado: assim o material
+ * fica no servidor da escola, não depende de site de terceiro continuar no ar e
+ * não expõe o IP do aluno a quem hospeda a figura.
+ *
+ * Vídeo é o oposto — entra por LINK do YouTube, porque `/api/upload` não aceita
+ * mp4/webm (config/uploads.php) e o ADR 08 define o YouTube como origem.
+ */
+export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
+  tipo, inicial, onUpload, videoUrlDaAula, onCancel, onConfirm,
+}) => {
+  const [url, setUrl] = useState(inicial?.url ?? '');
+  const [texto, setTexto] = useState(inicial?.texto ?? '');
+  const [legenda, setLegenda] = useState(inicial?.caption ?? '');
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const [pesado, setPesado] = useState<string | null>(null);
+  const inputArquivo = useRef<HTMLInputElement>(null);
+
+  // Conferência do arquivo: nome e miniatura de QUAL imagem subiu. O nome vem do
+  // próprio File (é o original, "Evidência.png"), não do servidor, que guarda um
+  // nome sorteado; assim não é preciso alargar o retorno de `uploadArquivo`.
+  const [arquivo, setArquivo] = useState<{ nome: string; detalhe: string } | null>(null);
+  const [miniatura, setMiniatura] = useState<string | null>(null);
+  const [miniaturaFalhou, setMiniaturaFalhou] = useState(false);
+  const miniaturaAtual = useRef<string | null>(null);
+
+  // Object URL segura o arquivo na memória até ser liberado: sem isto, cada troca
+  // de imagem e cada formulário fechado deixariam uma cópia para trás.
+  useEffect(() => () => liberarMiniatura(miniaturaAtual.current), []);
+
+  const trocarMiniatura = (proxima: string | null) => {
+    liberarMiniatura(miniaturaAtual.current);
+    miniaturaAtual.current = proxima;
+    setMiniatura(proxima);
+    setMiniaturaFalhou(false);
+  };
+
+  const ehImagem = tipo === 'image';
+  const videoReconhecido = ehImagem ? null : parseVideoSource(url.trim());
+
+  // Dois lugares para pôr vídeo confundem: o do topo (principal) e o do corpo
+  // (complemento). A comparação é pela fonte interpretada, não pelo texto do link
+  // — youtu.be/X e youtube.com/watch?v=X são o mesmo vídeo.
+  const topoInformado = videoUrlDaAula !== undefined;
+  const fonteDoTopo = topoInformado ? parseVideoSource(videoUrlDaAula.trim()) : null;
+  const repeteOTopo = videoReconhecido !== null && fonteDoTopo !== null && mesmaFonte(videoReconhecido, fonteDoTopo);
+  const aulaSemVideoPrincipal = topoInformado && fonteDoTopo === null;
+
+  // Recém-enviada: miniatura do arquivo local, instantânea e sem rede. Bloco
+  // reaberto pelo lápis: não há File, só o endereço gravado — que passa pelo
+  // safeUrl como qualquer `src` de conteúdo autorado.
+  const srcMiniatura = miniatura ?? safeUrl(url);
+
+  const enviarArquivo = async (file: File) => {
+    if (onUpload === undefined) return;
+    setErro(null);
+    setPesado(file.size > BYTES_PESADO ? formatarTamanho(file.size) : null);
+    setEnviando(true);
+    const r = await onUpload(file);
+    setEnviando(false);
+
+    if (!r.ok || r.url === undefined) {
+      setErro(r.error ?? 'Falha ao enviar a imagem.');
+
+      return;
+    }
+    setUrl(r.url);
+    // A descrição NUNCA é preenchida com o nome do arquivo: "IMG_20240712.jpg"
+    // lido em voz alta por um leitor de tela é ruído, não informação. O nome
+    // aparece só no cartão de conferência, para quem está escrevendo.
+    setArquivo({ nome: file.name, detalhe: `${formatarTamanho(file.size)} · ${extensao(file.name)}` });
+    trocarMiniatura(typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : null);
+  };
+
+  const legendaLimpa = legenda.trim();
+  const legendaForaDoPadrao = legendaLimpa !== '' && !ehLegenda(legendaLimpa);
+
+  const bloco = {
+    ...(ehImagem
+      ? { kind: 'image' as const, url: url.trim(), alt: texto.trim() }
+      : { kind: 'video' as const, url: url.trim(), title: texto.trim() }),
+    caption: legendaLimpa === '' ? null : legendaLimpa,
+    range: { start: 0, end: 0 },
+  };
+  const serializado = serializeLessonBlock(bloco);
+
+  const faltaDescricao = texto.trim() === '';
+  const podeAplicar = url.trim() !== '' && !faltaDescricao && !enviando && !legendaForaDoPadrao;
+
+  return (
+    <div className="rounded-xl border-2 border-teal-500/60 bg-teal-50/20 p-3 space-y-2.5">
+      <span className="text-sobretitulo uppercase text-teal-700">
+        {inicial ? 'Editando' : 'Adicionar'}: {ehImagem ? 'Imagem' : 'Vídeo complementar'}
+      </span>
+
+      {ehImagem ? (
+        <div>
+          <label className={rotuloCampo}>Arquivo da imagem</label>
+          <input
+            ref={inputArquivo}
+            type="file"
+            accept={ACCEPT_IMAGEM}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void enviarArquivo(file);
+              e.target.value = '';
+            }}
+          />
+          <button
+            type="button"
+            disabled={enviando || onUpload === undefined}
+            onClick={() => inputArquivo.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-apoio font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:text-escult-ink-2"
+          >
+            {enviando
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando...</>
+              : <><Upload className="h-3.5 w-3.5" /> {url === '' ? 'Escolher imagem' : 'Trocar imagem'}</>}
+          </button>
+
+          {onUpload === undefined && (
+            <p className="mt-1 text-apoio text-escult-ink-2">
+              O envio de arquivos não está disponível nesta tela.
+            </p>
+          )}
+          {url !== '' && !enviando && (
+            // O cartão confere QUAL arquivo; a prévia lá embaixo, que usa o
+            // endereço do servidor, confere que ele CHEGOU. Papéis diferentes.
+            <div className="mt-2 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50/50 p-2.5">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
+                {srcMiniatura !== null && !miniaturaFalhou ? (
+                  <img
+                    data-testid="miniatura"
+                    src={srcMiniatura}
+                    // Decorativa: o nome ao lado já diz qual é a imagem.
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={() => setMiniaturaFalhou(true)}
+                  />
+                ) : (
+                  <ImageOff className="h-5 w-5 text-escult-ink-2" aria-hidden />
+                )}
+              </div>
+              <div className="min-w-0">
+                {arquivo !== null ? (
+                  <>
+                    <p className="truncate text-apoio font-bold text-slate-800" title={arquivo.nome}>{arquivo.nome}</p>
+                    <p className="text-apoio text-escult-ink-2">{arquivo.detalhe}</p>
+                  </>
+                ) : (
+                  // Bloco reaberto: o nome original está só no banco
+                  // (StoredFile.originalName) e nenhuma rota o devolve.
+                  <p className="text-apoio font-bold text-slate-800">Imagem atual da aula</p>
+                )}
+                <p className="mt-0.5 inline-flex items-center gap-1 text-apoio font-bold text-emerald-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {arquivo !== null ? 'Imagem enviada' : 'Já está na aula'}
+                </p>
+              </div>
+            </div>
+          )}
+          {pesado !== null && (
+            <p className="mt-1 flex items-start gap-1.5 text-apoio font-bold text-amber-700">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+              <span>Esta imagem é pesada ({pesado}) e pode demorar para abrir no celular do aluno.</span>
+            </p>
+          )}
+        </div>
+      ) : (
+        <div>
+          <label className={rotuloCampo}>Link do vídeo no YouTube</label>
+          <p className="mb-1.5 text-apoio text-escult-ink-2">
+            Vídeo complementar, no meio da explicação. O vídeo principal da aula fica no campo do
+            topo desta página e abre antes do texto.
+          </p>
+          <input
+            type="text"
+            inputMode="url"
+            autoFocus
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="Cole o link do YouTube aqui (ex.: https://youtu.be/...)"
+            className={campo}
+          />
+          {url.trim() !== '' && videoReconhecido === null && (
+            <p className="mt-1 flex items-start gap-1.5 text-apoio font-bold text-amber-700">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+              <span>
+                Não reconhecemos esse link. Copie o endereço direto do vídeo no YouTube — ele
+                começa com https://www.youtube.com ou https://youtu.be.
+              </span>
+            </p>
+          )}
+          {/* Avisos, não bloqueios: quem escreve pode ter motivo para repetir. */}
+          {repeteOTopo && (
+            <p className="mt-1 flex items-start gap-1.5 text-apoio font-bold text-amber-700">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+              <span>
+                Este já é o vídeo principal da aula, no topo. Repetir aqui faz o aluno ver o mesmo
+                vídeo duas vezes.
+              </span>
+            </p>
+          )}
+          {videoReconhecido !== null && aulaSemVideoPrincipal && (
+            <p className="mt-1 flex items-start gap-1.5 text-apoio text-escult-ink-2">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+              <span>
+                Esta aula ainda não tem vídeo principal. Se este for o vídeo principal, use o campo
+                do topo da página — ele abre antes do texto.
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {erro !== null && (
+        <p className="flex items-start gap-1.5 text-apoio font-bold text-red-700">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" /> {erro}
+        </p>
+      )}
+
+      <div>
+        <label className={rotuloCampo}>
+          {ehImagem ? 'Descrição da imagem (obrigatória)' : 'Título do vídeo (obrigatório)'}
+        </label>
+        <input
+          type="text"
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder={ehImagem ? 'Ex.: hierarquia das classes Pessoa, Física e Aluno' : 'Ex.: demonstração do cadastro'}
+          className={campo}
+        />
+        {ehImagem && (
+          <p className="mt-1 text-apoio text-escult-ink-2">
+            Descreva o que a imagem mostra. Quem usa leitor de tela, ou está com a internet ruim,
+            recebe esta descrição no lugar da figura.
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className={rotuloCampo}>Legenda (opcional)</label>
+        <input
+          type="text"
+          value={legenda}
+          onChange={(e) => setLegenda(e.target.value)}
+          placeholder={ehImagem ? 'Ex.: Figura 1 - fluxo de matrícula' : 'Ex.: Vídeo 1 - demonstração'}
+          className={campo}
+        />
+        {legendaForaDoPadrao ? (
+          <p className="mt-1 flex items-start gap-1.5 text-apoio font-bold text-amber-700">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-px" />
+            <span>
+              Comece a legenda por Figura, Imagem, Gráfico, Vídeo, Tabela ou Quadro, seguido do
+              número — senão ela vira um parágrafo solto em vez de legenda.
+            </span>
+          </p>
+        ) : (
+          <p className="mt-1 text-apoio text-escult-ink-2">Aparece abaixo da figura, na aula.</p>
+        )}
+      </div>
+
+      {url.trim() !== '' && !faltaDescricao && (
+        <div>
+          <span className={rotuloCampo}>Prévia (é assim que o aluno vai ver)</span>
+          <div className="rounded-lg border border-slate-200 bg-white p-3">
+            <LessonContent blocks={parseLessonContent(serializado).blocks} />
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2 pt-0.5">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-apoio font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+        >
+          <X className="h-3 w-3" /> Cancelar
+        </button>
+        <button
+          type="button"
+          disabled={!podeAplicar}
+          title={faltaDescricao ? 'Descreva a mídia antes de aplicar' : undefined}
+          onClick={() => onConfirm(serializado)}
+          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-500 px-3.5 py-1.5 text-sobretitulo uppercase text-white transition-colors cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
+        >
+          <Check className="h-3 w-3" /> Aplicar
+        </button>
+      </div>
+    </div>
+  );
+};

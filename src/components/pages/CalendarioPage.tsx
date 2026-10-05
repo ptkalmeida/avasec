@@ -1,0 +1,194 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { Clock, ExternalLink, CalendarOff, Video, Globe } from 'lucide-react';
+import { PageShell } from './PageShell';
+import { SitePageContent, Course, WebinarEvent } from '../../types';
+import { pageField } from '../../utils/sitePageContent';
+import { features } from '../../config/features';
+import { safeHref } from '../../utils/safeUrl';
+import {
+  buildAgenda,
+  formatDia,
+  formatMes,
+  formatHora,
+  distanciaEmDias,
+  AgendaEvent,
+} from '../../utils/liveSchedule';
+
+/** Janela da agenda. Também aparece no texto, para a página não prometer outra coisa. */
+const DIAS_DA_AGENDA = 30;
+
+interface CalendarioPageProps {
+  isUserLoggedIn: boolean;
+  /** Abre o modal de login quando o visitante ainda não está autenticado. */
+  onRequireLogin: () => void;
+  speakText: (text: string) => void;
+  /** Conteúdo editado pelo admin — só o cabeçalho da página; a agenda vem dos dados. */
+  content?: SitePageContent;
+  /** Cursos do catálogo: as aulas ao vivo agendadas pelos gestores vêm daqui. */
+  courses: Course[];
+  /** Webinars globais agendados pela coordenação. */
+  webinars: WebinarEvent[];
+}
+
+/*
+ * Faixa colorida à esquerda do card. Era decoração cíclica (três cores em
+ * rodízio, sem significado); na tela 09 da skill a cor diz o TIPO do evento, e
+ * aqui há dois tipos reais. Aula ao vivo = azul, webinar aberto = dourado. A
+ * etiqueta escrita continua no card: a cor nunca é a única pista.
+ */
+const faixaDoTipo = (kind: AgendaEvent['kind']): string =>
+  kind === 'webinar' ? 'border-l-4 border-l-ava-dourado' : 'border-l-4 border-l-ava-acao';
+
+const EventoCard: React.FC<{
+  evento: AgendaEvent;
+  agora: Date;
+  isUserLoggedIn: boolean;
+  onParticipar: () => void;
+  onAcessarSala: () => void;
+}> = ({ evento, agora, isUserLoggedIn, onParticipar, onAcessarSala }) => (
+  <div
+    className={`bg-white rounded-2xl p-5 border border-ava-borda ${faixaDoTipo(evento.kind)} shadow-3xs hover:shadow-md transition-all flex flex-col justify-between text-left h-full`}
+  >
+    <div className="space-y-4">
+      <div className="flex justify-between items-center gap-2">
+        <span className="text-nota font-bold uppercase tracking-wide bg-ava-icone-fundo text-ava-tinta px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
+          {evento.kind === 'webinar'
+            ? <><Globe className="h-3 w-3" /> Webinar aberto</>
+            : <><Video className="h-3 w-3" /> Aula ao vivo</>}
+        </span>
+        <span className="text-apoio text-escult-ink-2 flex items-center gap-1 shrink-0">
+          <Clock className="h-3.5 w-3.5" />
+          {formatHora(evento.quando)}
+        </span>
+      </div>
+
+      <div className="flex gap-4 items-start">
+        <div className="h-14 w-14 shrink-0 bg-white rounded-xl border border-ava-borda flex flex-col items-center justify-center">
+          <span className="text-xl font-black text-ava-tinta leading-none">{formatDia(evento.quando)}</span>
+          <span className="text-apoio text-escult-ink-2 font-extrabold">{formatMes(evento.quando)}</span>
+        </div>
+        <div className="space-y-1">
+          <strong className="text-rotulo font-bold text-ava-tinta line-clamp-2 leading-snug">{evento.titulo}</strong>
+          <span className="text-rotulo text-slate-550 block">{evento.contexto}</span>
+        </div>
+      </div>
+    </div>
+
+    <div className="pt-4 mt-4 border-t border-ava-borda flex items-center justify-between gap-2">
+      <span className="text-sobretitulo text-escult-ink-2 uppercase">
+        {distanciaEmDias(evento.quando, agora)}
+        {evento.durationMinutes !== null && ` · ${evento.durationMinutes} min`}
+      </span>
+
+      {/*
+        Webinar aberto é evento público e o link é o convite dele: quem está
+        autenticado vai direto para a sala que a coordenação cadastrou.
+
+        Aula ao vivo NÃO ganha link aqui. O meetingLink é a chave da sala de uma
+        turma, o catálogo anônimo já vem sem ele (ISO-01), e quem está matriculado
+        acessa pelo painel do curso. Publicar esse link nesta página aberta
+        desfaria a correção.
+
+        safeHref filtra `javascript:` e afins, e devolve undefined para o link "#"
+        dos webinars antigos — nesse caso cai no botão, não num link morto.
+      */}
+      {evento.kind === 'webinar' && isUserLoggedIn && safeHref(evento.link) !== undefined ? (
+        <a
+          href={safeHref(evento.link)}
+          target="_blank"
+          rel="noreferrer noopener"
+          onClick={onAcessarSala}
+          className="text-sobretitulo uppercase text-ava-acao hover:text-ava-acao-escuro flex items-center gap-1 cursor-pointer shrink-0"
+        >
+          <span>Acessar sala</span>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      ) : (
+        <button
+          onClick={onParticipar}
+          className="text-sobretitulo uppercase text-ava-acao hover:text-ava-acao-escuro flex items-center gap-1 cursor-pointer shrink-0"
+        >
+          <span>{isUserLoggedIn ? 'Ir ao painel' : 'Participar'}</span>
+          <ExternalLink className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  </div>
+);
+
+export const CalendarioPage: React.FC<CalendarioPageProps> = ({
+  isUserLoggedIn,
+  onRequireLogin,
+  speakText,
+  content,
+  courses,
+  webinars,
+}) => {
+  // Um único "agora" por render: usar new Date() dentro do map faria dois cards da
+  // mesma lista comparados a instantes diferentes.
+  const agora = React.useMemo(() => new Date(), [courses, webinars]);
+
+  const agenda = React.useMemo(
+    () => buildAgenda(courses, features.eventosWebinars ? webinars : [], agora, DIAS_DA_AGENDA),
+    [courses, webinars, agora]
+  );
+
+  return (
+    <PageShell
+      eyebrow={pageField(content, 'eyebrow', 'Encontros Síncronos Interativos')}
+      title={pageField(content, 'title', 'Calendário de Aulas ao Vivo')}
+      description={pageField(
+        content,
+        'description',
+        `Nossos cursos livres oferecem encontros ao vivo periódicos para tirar dúvidas, realizar mentorias de projetos e debater temas contemporâneos da cultura. Veja o que está agendado para os próximos ${DIAS_DA_AGENDA} dias:`
+      )}
+      align="center"
+    >
+      {agenda.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-ava-borda bg-ava-faixa/50 p-10 text-center">
+          <div className="h-14 w-14 rounded-full bg-white text-ava-acao flex items-center justify-center mx-auto mb-3">
+            <CalendarOff className="h-7 w-7" aria-hidden="true" />
+          </div>
+          <strong className="block text-rotulo font-bold text-ava-tinta">
+            Nenhum encontro agendado para os próximos {DIAS_DA_AGENDA} dias.
+          </strong>
+          <span className="mt-1 block text-apoio text-escult-ink-2 max-w-md mx-auto leading-relaxed">
+            Esta agenda mostra apenas encontros realmente marcados pelos gestores dos
+            cursos. Assim que uma nova aula ao vivo for agendada, ela aparece aqui.
+          </span>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {agenda.map((evento) => (
+              <EventoCard
+                key={`${evento.kind}-${evento.id}`}
+                evento={evento}
+                agora={agora}
+                isUserLoggedIn={isUserLoggedIn}
+                onParticipar={() => {
+                  if (isUserLoggedIn) {
+                    speakText('O link da sala fica no seu painel de estudos, na aula correspondente.');
+                  } else {
+                    onRequireLogin();
+                    speakText('Acesso restrito. Faça login para participar dos encontros ao vivo.');
+                  }
+                }}
+                onAcessarSala={() => speakText(`Abrindo a sala do webinar ${evento.titulo}.`)}
+              />
+            ))}
+          </div>
+          <p className="mt-6 text-center text-rotulo text-escult-ink-2">
+            {agenda.length} {agenda.length === 1 ? 'encontro' : 'encontros'} nos próximos {DIAS_DA_AGENDA} dias.
+            O link de acesso fica disponível no painel de quem está matriculado.
+          </p>
+        </>
+      )}
+    </PageShell>
+  );
+};

@@ -7,7 +7,9 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\Certificate;
 use App\Models\Course;
+use App\Support\Fuso;
 use App\Support\Identity;
+use App\Support\InstructorScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use chillerlan\QRCode\QRCode;
 use RuntimeException;
@@ -19,6 +21,10 @@ use RuntimeException;
  */
 final class CertificatePdfService
 {
+    public function __construct(
+        private readonly DocumentTemplateService $templates,
+    ) {}
+
     /**
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array{content: string, filename: string}
@@ -32,28 +38,115 @@ final class CertificatePdfService
         if ($requester['role'] === 'student' && ! Identity::ownsRow($cert->userId, $requester)) {
             throw ApiException::forbidden('Você só pode baixar o próprio certificado.');
         }
+        // Instrutor só baixa PDF de certificado de curso que leciona (antes: qualquer um).
+        if ($requester['role'] === 'instructor'
+            && ! in_array($cert->courseId, InstructorScope::courseIds($requester), true)) {
+            throw ApiException::forbidden('Você só pode baixar certificados dos seus cursos.');
+        }
 
         $verificationUrl = $this->verificationUrl($cert->verificationHash);
         $cargaHoraria = Course::query()->find($cert->courseId)?->cargaHoraria;
+        $template = $this->templates->get('certificado');
 
-        $pdf = Pdf::loadView('certificates.pdf', [
+        $vars = [
             'studentName' => $cert->studentName,
             'courseTitle' => $cert->courseTitle,
             'cargaHoraria' => is_numeric($cargaHoraria) ? (int) $cargaHoraria : null,
             'attendancePercent' => $cert->attendancePercent,
-            'issueDate' => $cert->issueDate,
+            // Acesso direto devolve Carbon (cast date) — formata para o Blade.
+            'issueDate' => $cert->issueDate?->format('d/m/Y'),
             'verificationHash' => $cert->verificationHash,
             'verificationUrl' => $verificationUrl,
             'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
-        ])
-            ->setPaper('a4', 'landscape')
+            'institutionName' => $template['institutionName'],
+            'signatories' => $template['signatories'],
+            'footerText' => $template['footerText'],
+        ];
+
+        $customHtml = $template['customHtml'] ?? null;
+
+        return [
+            'content' => $this->renderFromVars($vars, is_string($customHtml) ? $customHtml : null),
+            'filename' => "certificado-{$cert->verificationHash}.pdf",
+        ];
+    }
+
+    /**
+     * Pré-visualização do template ATUALMENTE SALVO (não o rascunho em edição na
+     * tela do Admin) com dados de exemplo — só para o tipo 'certificado', o único
+     * com pipeline de PDF hoje. Admin-only (o controller já garante o papel).
+     *
+     * @return array{content: string, filename: string}
+     */
+    public function renderPreviewPdf(): array
+    {
+        $template = $this->templates->get('certificado');
+        $verificationUrl = $this->verificationUrl('PREVIEW');
+
+        $vars = [
+            'studentName' => 'Aluno(a) Exemplo',
+            'courseTitle' => 'Curso Modelo de Demonstração',
+            'cargaHoraria' => 40,
+            'attendancePercent' => 100,
+            // Data local: emitir às 22h BRT datava o certificado do dia seguinte.
+            'issueDate' => Fuso::agora()->format('d/m/Y'),
+            'verificationHash' => 'PREVIEW-'.strtoupper(substr(md5((string) microtime()), 0, 8)),
+            'verificationUrl' => $verificationUrl,
+            'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
+            'institutionName' => $template['institutionName'],
+            'signatories' => $template['signatories'],
+            'footerText' => $template['footerText'],
+        ];
+
+        $customHtml = $template['customHtml'] ?? null;
+
+        return [
+            'content' => $this->renderFromVars($vars, is_string($customHtml) ? $customHtml : null),
+            'filename' => 'preview-certificado.pdf',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $vars
+     */
+    private function renderFromVars(array $vars, ?string $customHtml): string
+    {
+        $pdf = is_string($customHtml) && trim($customHtml) !== ''
+            ? Pdf::loadHTML($this->renderCustomHtml($customHtml, $vars))
+            : Pdf::loadView('certificates.pdf', $vars);
+
+        $pdf->setPaper('a4', 'landscape')
             // isRemoteEnabled=false (default) impede fetch de recursos externos via HTML/CSS.
             ->setOptions(['isRemoteEnabled' => false, 'defaultFont' => 'DejaVu Serif']);
 
-        return [
-            'content' => $pdf->output(),
-            'filename' => "certificado-{$cert->verificationHash}.pdf",
-        ];
+        return $pdf->output();
+    }
+
+    /**
+     * Modo "layout livre": o HTML vem de um campo editável pelo Admin Superior
+     * (DocumentTemplate.customHtml), então NUNCA passa por Blade::render() —
+     * isso executaria diretivas PHP arbitrárias armazenadas no banco. Em vez
+     * disso, os placeholders documentados na tela de edição são substituídos
+     * por texto puro (str_replace), o que é inerte.
+     *
+     * @param  array<string, mixed>  $vars
+     */
+    private function renderCustomHtml(string $html, array $vars): string
+    {
+        $search = [];
+        $replace = [];
+        foreach ($vars as $key => $value) {
+            if ($key === 'signatories' || $value === null) {
+                continue;
+            }
+            $search[] = '{{'.$key.'}}';
+            $replace[] = is_scalar($value) ? htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') : '';
+        }
+        $qrDataUri = $vars['qrDataUri'] ?? '';
+        $search[] = '{{qrImg}}';
+        $replace[] = '<img src="'.htmlspecialchars(is_string($qrDataUri) ? $qrDataUri : '', ENT_QUOTES, 'UTF-8').'" width="76" height="76" alt="QR de verificação">';
+
+        return str_replace($search, $replace, $html);
     }
 
     private function verificationUrl(string $hash): string

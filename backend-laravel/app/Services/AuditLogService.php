@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Exceptions\ApiException;
 use App\Models\ClientEvent;
 use App\Models\SecurityLog;
 use Carbon\CarbonImmutable;
@@ -26,9 +27,23 @@ final class AuditLogService
         return ['items' => $items, 'total' => $total];
     }
 
+    /**
+     * O expurgo da trilha de auditoria NÃO existe mais (ADR 12).
+     *
+     * Isto fazia `SecurityLog::query()->delete()` — apagava a trilha inteira,
+     * inclusive o registro de quem a apagou. Uma trilha que se apaga a si mesma
+     * não serve de auditoria: bastava um clique para sumir com a evidência de
+     * qualquer ação anterior.
+     *
+     * Se algum dia houver exigência legal de expurgo (LGPD, retenção), será
+     * procedimento administrativo documentado com autorização humana
+     * registrada — não um botão de tela.
+     */
     public function clearSecurityLogs(): void
     {
-        SecurityLog::query()->delete();
+        throw ApiException::forbidden(
+            'A trilha de auditoria não pode ser apagada. Registro de segurança é permanente (ADR 12).'
+        );
     }
 
     /**

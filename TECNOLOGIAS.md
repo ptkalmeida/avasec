@@ -79,10 +79,10 @@ FK-first, `BusinessRules`, `Jwt`).
 
 ## Legado e observações
 
-- **`legacy-node/`**: backend Node/Express/Prisma anterior, arquivado no corte
-  da migração — mantido como referência e rota de rollback (ver README na pasta).
-  As dependências npm dele (express, prisma, etc.) seguem no `package.json` de
-  propósito; remover quando o time dispensar o rollback.
+- **Backend Node/Express/Prisma anterior**: removido do repositório em
+  26/08/2026, junto com as dependências npm dele e o `deploy/` (PM2). A rota de
+  rollback foi descartada — não há intenção de voltar ao Node. O histórico está
+  em `MIGRACAO_LARAVEL.md` e o código, no histórico do git.
 - **Vídeo das aulas**: URLs externas (YouTube/CDN), validadas e canonicalizadas
   no backend com provider derivado por parsing (`app/Support/VideoSource.php` ↔
   `src/utils/videoSource.ts`, ADR 08). Se confidencialidade virar requisito, o

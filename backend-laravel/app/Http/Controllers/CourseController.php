@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Rules\SafeUrlRule;
 use App\Rules\VideoUrlRule;
 use App\Services\AuditLogger;
 use App\Services\CourseService;
@@ -20,9 +21,33 @@ final class CourseController extends Controller
         private readonly AuditLogger $audit,
     ) {}
 
-    public function index(): JsonResponse
+    /**
+     * Catálogo. Segue público (escopo declarado em 01-visao-geral.md), mas o material
+     * de estudo sai só para quem tem acesso — a rota usa `jwt.optional`, então aqui o
+     * requester pode ser nulo (visitante) e isso NÃO é erro.
+     */
+    public function index(Request $request): JsonResponse
     {
-        return response()->json($this->courses->listCourses());
+        return response()->json($this->courses->listCoursesFor($this->optionalRequester($request)));
+    }
+
+    /**
+     * Resolve um endereço de curso: slug de hoje, slug aposentado ou id antigo.
+     *
+     * Existe para o link salvo não morrer. O frontend usa o slug no endereço,
+     * mas precisa do id para falar com a API — e quando o valor recebido não é o
+     * canônico (rename, ou link de antes desta mudança), a resposta diz qual é,
+     * para a barra de endereços ser corrigida em vez de propagar o antigo.
+     *
+     * `jwt.optional` como o catálogo: sem sessão resolve só curso publicado.
+     */
+    public function resolve(Request $request, string $valor): JsonResponse
+    {
+        $requester = $this->optionalRequester($request);
+
+        return response()->json(
+            $this->courses->resolverCurso($valor, $requester['role'] ?? null)
+        );
     }
 
     public function store(Request $request): JsonResponse
@@ -47,8 +72,13 @@ final class CourseController extends Controller
 
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $this->courses->deleteCourse($id, $this->requester($request));
-        $this->audit->log($request, 'Exclusão de Curso', "Curso {$id} excluído.", 'WARNING');
+        $motivo = $request->input('motivo');
+        $this->courses->deleteCourse(
+            $id,
+            $this->requester($request),
+            is_string($motivo) && trim($motivo) !== '' ? trim($motivo) : null
+        );
+        $this->audit->log($request, 'Inativação de Curso', "Curso {$id} inativado (registro preservado).", 'WARNING');
 
         return response()->json(['success' => true]);
     }
@@ -66,12 +96,12 @@ final class CourseController extends Controller
             'title' => [$req, 'string', 'min:3', 'max:200'],
             'description' => [$req, 'string', 'min:10', 'max:5000'],
             'category' => [$req, 'string', 'min:1', 'max:120'],
-            'thumbnail' => [$req, 'string', 'min:1', 'max:2000'],
+            'thumbnail' => [$req, 'string', 'min:1', 'max:2000', new SafeUrlRule],
             // ADR 10: autoria por instructorId (admin); instructorName é aceito
             // apenas por compat de payload e IGNORADO — display deriva do User.
             'instructorId' => ['sometimes', 'nullable', 'string', 'max:191'],
             'instructorName' => ['sometimes', 'nullable', 'string', 'max:150'],
-            'coverImage' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'coverImage' => ['sometimes', 'nullable', 'string', 'max:2000', new SafeUrlRule],
             'courseType' => ['sometimes', 'in:fixo,ao_vivo'],
             'hasChat' => ['sometimes', 'boolean'],
             'minAttendance' => ['sometimes', 'numeric', 'min:0', 'max:100'],
@@ -93,15 +123,23 @@ final class CourseController extends Controller
             'lessons.*.documents' => ['sometimes', 'array'],
             'lessons.*.documents.*.title' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:200'],
             'lessons.*.documents.*.type' => ['required_with:lessons.*.documents', 'in:pdf,doc,url,drive,outro'],
-            'lessons.*.documents.*.url' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:2000'],
+            'lessons.*.documents.*.url' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:2000', new SafeUrlRule],
             'lessons.*.documents.*.size' => ['sometimes', 'nullable', 'string', 'max:30'],
             // Sessões ao vivo aninhadas
             'liveSessions' => ['sometimes', 'array'],
             'liveSessions.*.id' => ['sometimes', 'string', 'max:191'],
             'liveSessions.*.title' => ['required_with:liveSessions', 'string', 'min:1', 'max:200'],
-            'liveSessions.*.scheduledAt' => ['required_with:liveSessions', 'string', 'min:1', 'max:100'],
+            // Data real, no formato do <input type="datetime-local"> (ISO local, sem fuso).
+            // Antes era texto livre e chegavam valores como "Hoje, as 19:30" ou "Proxima
+            // Segunda, as 20:00" — impossivel de ordenar ou filtrar, o que impedia a
+            // agenda dos proximos 30 dias na aba Calendario. Fuso literal e deliberado:
+            // a escola opera num unico fuso (ver src/utils/liveSchedule.ts).
+            'liveSessions.*.scheduledAt' => [
+                'required_with:liveSessions', 'string', 'max:100',
+                'date_format:Y-m-d\TH:i,Y-m-d\TH:i:s',
+            ],
             'liveSessions.*.durationMinutes' => ['required_with:liveSessions', 'integer', 'min:1', 'max:600'],
-            'liveSessions.*.meetingLink' => ['required_with:liveSessions', 'string', 'min:1', 'max:2000'],
+            'liveSessions.*.meetingLink' => ['required_with:liveSessions', 'string', 'min:1', 'max:2000', new SafeUrlRule],
             'liveSessions.*.isLive' => ['sometimes', 'boolean'],
         ];
 

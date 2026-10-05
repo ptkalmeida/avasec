@@ -9,6 +9,24 @@ export const features = {
   forum: false,
   
   // Exercícios práticos e envio de atividades para correção (Tarefas avançadas)
+  //
+  // Desligada em 14/09/2026 por decisão de produto: a coordenação não vai usar
+  // exercícios práticos nesta fase. Nada foi removido — o modelo, as rotas, a
+  // página de entrega do aluno, a área de lançamento e correção do professor e
+  // a seção do admin continuam no código e nos testes (ADR 12). Voltar ao ar é
+  // trocar este false por true, junto com o espelho em
+  // backend-laravel/config/features.php, que o FeatureFlagParityTest confere.
+  //
+  // Com ela desligada: /api/exercises e /api/exercise-submissions respondem 404
+  // FEATURE_DISABLED, o front não busca os dados na hidratação, o item
+  // "Exercícios Práticos" some do menu do admin, as sub-abas de exercício do
+  // professor não existem, a fila "A fazer" não conta entregas, e o aluno não
+  // vê o bloco nem alcança /aluno/curso/<slug>/exercicios.
+  //
+  // Atenção ao reativar: `practicalExercises` e `exerciseSubmissions` nascem do
+  // localStorage ou de uma lista embutida em `LMSContext` — eles NÃO ficam
+  // vazios com a flag desligada. Por isso o aluno é guardado pela flag, e não
+  // por "a lista está vazia".
   atividadesPraticasAvancadas: false,
   
   // Upload de arquivos (como documentos, PDFs e comprovantes de matrícula)
@@ -39,7 +57,18 @@ export const features = {
   // Biblioteca Digital de arquivos adicionais globais
   bibliotecaDigital: false,
 
-  // Eventos, Webinars e palestras integradas ao vivo
+  // Eventos, Webinars e palestras integradas ao vivo.
+  //
+  // Desligada por decisao de produto em 04/09/2026: webinar nao entra nesta
+  // fase. Nada foi removido — o modelo, as rotas, a área de gestão do professor,
+  // a aba do aluno e a entrada no calendário público continuam no código e nos
+  // testes. Voltar ao ar é trocar este false por true (e o espelho em
+  // backend-laravel/config/features.php, que o FeatureFlagParityTest confere).
+  //
+  // Com ela desligada: as três rotas /api/webinars respondem 404
+  // FEATURE_DISABLED, o front não busca os dados na hidratação, a aba
+  // "Eventos & Webinars" do aluno não existe, o painel do professor não oferece
+  // agendar nem gerenciar, e o calendário público monta só com aulas ao vivo.
   eventosWebinars: false,
 
   // Sala de Transmissão ao Vivo (LiveClassroom) e aulas síncronas integradas
@@ -52,7 +81,28 @@ export const features = {
   penalidadesCancelamento: false,
 
   // Sistema de mensagens diretas e chats de suporte internos
-  mensagensDiretas: false,
+  mensagensDiretas: true,
+
+  // Permite que o Admin Superior conceda a alunos específicos a possibilidade
+  // de cursar mais de uma disciplina simultaneamente (por padrão, 1 por vez)
+  matriculasMultiplas: true,
+
+  // Aprovação automática de matrícula (decisão da coordenação em 14/09/2026).
+  //
+  // Ligada: a solicitação já nasce aprovada e matricula o aluno na mesma
+  // transação, sem passar pela fila do professor. A tela "Solicitações de
+  // Matrícula" e o aviso de aprovação pendente somem, porque não haverá
+  // pendência — item de fila que nunca enche ensina a pessoa a ignorar a fila.
+  //
+  // As travas do caminho normal CONTINUAM valendo: quem já tem curso ativo, já
+  // concluiu aquele curso ou está em restrição por cancelamento é recusado na
+  // hora, com a razão escrita. Automática é "sem espera humana", não "sem
+  // regra" — sem isso o sistema tiraria o aluno do curso em que ele tem
+  // progresso só porque clicou em outro.
+  //
+  // Desligar devolve a fila de aprovação ao professor. Espelho em
+  // backend-laravel/config/features.php.
+  aprovacaoAutomaticaMatricula: true,
 
   // --- FUNCIONALIDADES ATIVADAS POR PADRÃO NO MVP ---
   
@@ -84,6 +134,11 @@ export const features = {
   dadosGerenciais: true,
   
   // Visualização do perfil básico do usuário (dados pessoais essenciais)
-  perfilBasico: true
+  perfilBasico: true,
+
+  // Gestão do conteúdo das páginas públicas do portal pelo Admin Superior
+  // (textos e listas de O AVA, O Projeto, Cursos, Certificados, Calendário,
+  // Notícias, Dúvidas e Orientações). Desligada = páginas usam os defaults.
+  gestaoConteudoSite: true
 };
 

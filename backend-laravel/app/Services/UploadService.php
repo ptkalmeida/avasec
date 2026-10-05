@@ -6,9 +6,13 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\StoredFile;
+use App\Support\CourseAccess;
+use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
 use finfo;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Upload de arquivos — espelha src/server/upload.ts. Valida a extensão e confere os
@@ -51,12 +55,10 @@ final class UploadService
 
         // Nome gerado no servidor — fecha path traversal / sobrescrita.
         $safeName = CarbonImmutable::now()->getTimestampMs().'-'.bin2hex(random_bytes(8)).'.'.$ext;
-        $targetDir = $this->dir($visibility);
-        if (! is_dir($targetDir)) {
-            mkdir($targetDir, 0o755, true);
-        }
-        file_put_contents($targetDir.DIRECTORY_SEPARATOR.$safeName, $contents);
-        @chmod($targetDir.DIRECTORY_SEPARATOR.$safeName, 0o644);
+        // Pelo Laravel Filesystem (Norma TI-SECEC C.5.2): o disco cria a pasta que
+        // faltar e aplica a permissão da visibilidade. Com `throw` ligado no disco,
+        // falha de escrita vira exceção, e nada é registrado sem o arquivo existir.
+        $this->disco($visibility)->put($safeName, $contents);
 
         StoredFile::query()->create([
             'id' => $safeName,
@@ -78,8 +80,12 @@ final class UploadService
      * Resolve caminho físico de um arquivo para download autorizado, aplicando as mesmas
      * regras do Node (anti-traversal, existência, autorização por dono/staff).
      *
+     * Devolve o DISCO e a CHAVE, não um caminho físico: o controlador baixa pelo
+     * disco, o que funciona igual com o disco local de hoje e com o S3/MinIO de
+     * amanhã (Norma TI-SECEC C.5.2).
+     *
      * @param  array{sub:string,name:string,role:string}  $requester
-     * @return array{path:string, mime:string, originalName:string}
+     * @return array{disco:FilesystemAdapter, chave:string, mime:string, originalName:string}
      */
     public function resolveForDownload(string $id, array $requester): array
     {
@@ -92,14 +98,12 @@ final class UploadService
             throw ApiException::notFound('Arquivo não encontrado.');
         }
 
-        $isOwner = $record->ownerUserId === $requester['sub'];
-        $isStaff = in_array($requester['role'] ?? null, ['instructor', 'admin'], true);
-        if ($record->visibility === 'private' && ! $isOwner && ! $isStaff) {
+        if ($record->visibility === 'private' && ! $this->podeBaixar($record, $requester)) {
             throw ApiException::forbidden('Você não tem permissão para acessar este arquivo.');
         }
 
-        $path = $this->dir($record->visibility).DIRECTORY_SEPARATOR.$record->id;
-        if (! is_file($path)) {
+        $disco = $this->disco($record->visibility);
+        if (! $disco->fileExists($record->id)) {
             throw ApiException::notFound('Arquivo não encontrado no armazenamento.');
         }
 
@@ -107,16 +111,95 @@ final class UploadService
         $mime = config("uploads.mime_by_ext.$ext", 'application/octet-stream');
 
         return [
-            'path' => $path,
+            'disco' => $disco,
+            'chave' => $record->id,
             'mime' => is_string($mime) ? $mime : 'application/octet-stream',
             'originalName' => $record->originalName,
         ];
     }
 
-    private function dir(string $visibility): string
+    /**
+     * Quem pode baixar um arquivo PRIVADO.
+     *
+     * Antes bastava ser instrutor: `$isStaff` valia para qualquer um deles, sem escopo,
+     * então um instrutor baixava a entrega privada de aluno de turma alheia. Arquivo
+     * privado aqui é entrega de atividade — documento pessoal, às vezes com dado
+     * sensível. O escopo agora é o mesmo do resto do sistema: instrutor alcança quem
+     * é aluno de um curso que ele leciona.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    private function podeBaixar(StoredFile $record, array $requester): bool
     {
-        $root = config('uploads.root');
+        if ($record->ownerUserId === $requester['sub']) {
+            return true;
+        }
 
-        return rtrim(is_string($root) ? $root : '', '/\\').DIRECTORY_SEPARATOR.($visibility === 'private' ? 'private' : 'public');
+        $role = $requester['role'] ?? null;
+        if ($role === 'admin') {
+            return true;
+        }
+        if ($role !== 'instructor' || ! is_string($record->ownerUserId) || $record->ownerUserId === '') {
+            return false;
+        }
+
+        // Cursos do dono do arquivo, vistos como aluno — reaproveita CourseAccess em vez
+        // de reescrever a consulta de vínculo (matrícula + concluídos + admissão aprovada).
+        $cursosDoDono = CourseAccess::accessibleCourseIds([
+            'sub' => $record->ownerUserId,
+            'name' => '',
+            'role' => 'student',
+        ]);
+
+        return array_intersect($cursosDoDono, InstructorScope::courseIds($requester)) !== [];
+    }
+
+    /**
+     * Resolve caminho físico de um arquivo PÚBLICO para servir estaticamente em
+     * /uploads/<nome> (equivalente ao express.static do Node legado). Sem checagem de
+     * dono/StoredFile — arquivos públicos, incluindo os colocados manualmente na pasta
+     * (ex.: vídeo de teste), são acessíveis por qualquer um, como no comportamento antigo.
+     *
+     * @return array{path:string, mime:string}
+     */
+    public function resolvePublicFile(string $filename): array
+    {
+        if ($filename === '' || str_contains($filename, '/') || str_contains($filename, '\\') || str_contains($filename, '..')) {
+            throw ApiException::notFound('Arquivo não encontrado.');
+        }
+
+        /*
+         * O público continua sendo servido pelo CAMINHO do disco local: é o que
+         * mantém o Range (o <video> avança no arquivo) e o 304 do cache. Com o
+         * MinIO, arquivo público passa a sair do próprio storage ou por URL
+         * temporária — muda a forma de servir, não a regra (plano 11, item F3).
+         */
+        $disco = $this->disco('public');
+        if (! $disco->fileExists($filename)) {
+            throw ApiException::notFound('Arquivo não encontrado.');
+        }
+        $path = $disco->path($filename);
+
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        $mime = config("uploads.mime_by_ext.$ext", 'application/octet-stream');
+
+        return [
+            'path' => $path,
+            'mime' => is_string($mime) ? $mime : 'application/octet-stream',
+        ];
+    }
+
+    /** Disco de cada visibilidade (config/filesystems.php). */
+    public static function nomeDoDisco(string $visibility): string
+    {
+        return $visibility === 'private' ? 'privado' : 'publico';
+    }
+
+    private function disco(string $visibility): FilesystemAdapter
+    {
+        $disco = Storage::disk(self::nomeDoDisco($visibility));
+        assert($disco instanceof FilesystemAdapter);
+
+        return $disco;
     }
 }
