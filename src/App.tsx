@@ -1789,14 +1789,14 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             title={pageField(certContent, 'title', 'Certificados e Emissão')}
             description={pageField(certContent, 'description', 'Todos os cursos da Escola Estadual da Cultura dão direito a certificados de conclusão oficiais. Entenda os critérios necessários para emissão e valide certificados existentes abaixo.')}
             align="center"
-            background="bg-slate-50"
+            background="bg-white"
           >
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
             {/* Left Column: Guidelines */}
             <div className="lg:col-span-6 space-y-6 text-left">
-              <div className="bg-white p-6.5 rounded-3xl border border-slate-200 shadow-2xs space-y-4">
-                <h4 className="text-base font-extrabold text-slate-900 font-titulo flex items-center gap-2">
+              <div className="bg-white p-6.5 rounded-2xl border border-ava-borda shadow-3xs space-y-4">
+                <h4 className="text-cartao text-ava-tinta font-titulo flex items-center gap-2.5">
                   <Award className="h-5 w-5 text-ava-acao" />
                   <span>{pageField(certContent, 'criteriaTitle', 'Orientações de Aprovação & Emissão')}</span>
                 </h4>
@@ -1807,9 +1807,9 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="space-y-4 pt-2">
                   {certCriteria.map((criterio) => (
                     <div key={criterio.id} className="flex gap-3 items-start">
-                      <CheckCircle className="h-4.5 w-4.5 text-ava-ciano-texto shrink-0 mt-0.5" />
+                      <CheckCircle className="h-4.5 w-4.5 text-ava-acao shrink-0 mt-0.5" />
                       <div className="text-xs">
-                        <strong className="text-slate-800 block">{criterio.title}</strong>
+                        <strong className="text-ava-tinta block">{criterio.title}</strong>
                         <span className="text-escult-ink-2 text-rotulo leading-normal block">{criterio.description}</span>
                       </div>
                     </div>
@@ -1817,19 +1817,19 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </div>
               </div>
 
-              <div className="bg-ava-acao/5 border border-ava-acao/15 p-5 rounded-2xl flex gap-3.5 items-start">
-                <Info className="h-5 w-5 text-ava-acao shrink-0 mt-0.5" />
-                <p className="text-rotulo text-slate-700 leading-relaxed">
+              <div className="bg-ava-faixa border border-ava-borda p-5 rounded-2xl flex gap-3.5 items-start">
+                <ShieldCheck className="h-6 w-6 text-ava-marinho shrink-0 mt-0.5" aria-hidden="true" />
+                <p className="text-rotulo text-ava-tinta leading-relaxed">
                   {pageField(certContent, 'noticeText', 'Validação por Terceiros: Qualquer instituição pública ou parceira pode validar os certificados emitidos utilizando o nosso autenticador ao lado com o código de registro ou nome completo.')}
                 </p>
               </div>
             </div>
 
             {/* Right Column: Autenticador form */}
-            <div className="lg:col-span-6 bg-white p-6.5 rounded-3xl border border-slate-200 shadow-2xs space-y-6 text-left">
+            <div className="lg:col-span-6 bg-white p-6.5 rounded-2xl border border-ava-borda shadow-3xs space-y-6 text-left">
               <div className="space-y-1.5">
-                <h4 className="text-base font-extrabold text-slate-900 font-titulo flex items-center gap-2">
-                  <ShieldCheck className="h-5 w-5 text-ava-ciano-texto" />
+                <h4 className="text-cartao text-ava-tinta font-titulo flex items-center gap-2.5">
+                  <ShieldCheck className="h-5 w-5 text-ava-acao" />
                   <span>{pageField(certContent, 'authenticatorTitle', 'Autenticador de Certificados')}</span>
                 </h4>
                 <p className="text-xs text-escult-ink-2">
@@ -1843,11 +1843,11 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   placeholder="Ex: CERT-JOAO-123 ou João Silva..."
                   value={certQuery}
                   onChange={(e) => setCertQuery(e.target.value)}
-                  className="flex-1 min-w-0 bg-slate-50 border border-slate-250 text-slate-850 rounded-xl px-4 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-ava-acao placeholder-slate-400"
+                  className="flex-1 min-w-0 bg-white border border-ava-borda text-ava-tinta rounded-[10px] px-4 py-3 text-apoio font-medium focus:outline-none focus:ring-2 focus:ring-ava-acao/30 focus:border-ava-acao placeholder:text-escult-ink-3"
                 />
                 <button
                   type="submit"
-                  className="rounded-xl bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo px-5 py-2.5 uppercase transition-all shadow-xs cursor-pointer shrink-0"
+                  className="rounded-[10px] bg-ava-acao hover:bg-ava-acao-escuro text-white text-rotulo font-semibold px-5 py-3 transition-all shadow-xs cursor-pointer shrink-0"
                 >
                   Verificar
                 </button>
@@ -1951,64 +1951,75 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           </div>
           </PageShell>
         ) : currentView === 'cursos' ? (
-          /* PÁGINA DEDICADA: Catálogo completo de cursos, com busca e filtro por categoria */
-          <div className="bg-white min-h-[70vh] py-10 px-4 animate-in fade-in duration-300">
-            <div className="mx-auto max-w-7xl space-y-8">
-              {/*
-                Aqui havia o botao "Voltar" do PageShell COPIADO A MAO — mesmo
-                markup, mesmo texto, destino fixo na Inicio. Era o quinto dos
-                cinco desenhos do mesmo botao. Quem diz onde a pessoa esta e a
-                trilha, logo abaixo do cabecalho.
-              */}
+          /*
+            Catalogo no desenho da tela 04 da skill ava-frontend-redesign
+            (planejamento 13). A busca e a MESMA de antes (`courseSearch`, filtra
+            ao digitar) e as categorias sao as mesmas; nao entram contagem por
+            categoria, "Ordenar por", carga horaria nem nivel — os cartoes vem de
+            `featuredCoursesData`, que nao tem esses campos.
 
-              <div className="text-left space-y-1 border-b border-slate-200 pb-6">
-                <span className="text-sobretitulo text-ava-acao uppercase block">Catálogo</span>
-                <h2 className="text-2xl md:text-secao text-escult-ink tracking-tight font-titulo">Cursos Disponíveis</h2>
-                <p className="text-apoio text-escult-ink-2 leading-relaxed max-w-2xl">
+            Aqui havia o botao "Voltar" do PageShell COPIADO A MAO — mesmo
+            markup, mesmo texto, destino fixo na Inicio. Era o quinto dos
+            cinco desenhos do mesmo botao. Quem diz onde a pessoa esta e a
+            trilha, logo abaixo do cabecalho.
+          */
+          <div className="bg-white min-h-[70vh] animate-in fade-in duration-300">
+            <section className="relative overflow-hidden border-b border-ava-borda bg-gradient-to-b from-white to-ava-faixa/60 px-4 py-10 md:py-14">
+              <div aria-hidden="true" className="hidden lg:block absolute right-24 top-8 h-40 w-20 rounded-r-full bg-ava-marinho" />
+              <div aria-hidden="true" className="hidden lg:block absolute right-[11.5rem] top-16 h-20 w-10 rounded-l-full bg-ava-dourado" />
+              <div aria-hidden="true" className="hidden lg:block absolute right-8 top-6 h-16 w-16 bg-ava-rosa" />
+              <div aria-hidden="true" className="hidden lg:block absolute right-10 bottom-8 h-20 w-20 bg-ava-acao" />
+
+              <div className="relative mx-auto max-w-7xl text-left space-y-4">
+                <p className="filete text-sobretitulo text-ava-tinta uppercase">Catálogo</p>
+                <h2 className="text-3xl md:text-pagina text-ava-tinta tracking-tight font-titulo max-w-2xl">Cursos Disponíveis</h2>
+                <p className="text-corpo text-escult-ink-2 leading-relaxed max-w-2xl">
                   Conheça os cursos oferecidos pela Escola Estadual da Cultura. Use os filtros para encontrar por área ou por nome.
                 </p>
-              </div>
 
-              {/* Barra de filtros: busca por texto + categoria */}
-              <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
-                <div className="relative w-full md:max-w-xs">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-escult-ink-2" />
+                <div className="relative w-full max-w-xl pt-2">
+                  <Search className="absolute left-4 top-1/2 translate-y-[calc(-50%+4px)] h-5 w-5 text-escult-ink-2" aria-hidden="true" />
                   <input
                     type="text"
                     value={courseSearch}
                     onChange={(e) => setCourseSearch(e.target.value)}
                     placeholder="Buscar curso pelo nome..."
                     aria-label="Buscar curso"
-                    className="w-full bg-white border border-slate-200 focus:ring-2 focus:ring-ava-acao/15 focus:border-ava-acao focus:outline-none rounded-xl py-2.5 pl-10 pr-4 text-xs font-medium text-slate-800 shadow-3xs"
+                    className="w-full bg-white border border-ava-borda focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao focus:outline-none rounded-2xl py-3.5 pl-12 pr-4 text-corpo text-ava-tinta shadow-sm"
                   />
                 </div>
+              </div>
+            </section>
 
-                <div className="flex gap-2 flex-wrap">
-                  {courseCategories.map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setCourseCategory(cat)}
-                      className={`px-3.5 py-1.5 rounded-full text-sobretitulo uppercase transition-all cursor-pointer border ${
-                        courseCategory === cat
-                          ? 'bg-ava-acao text-white border-transparent'
-                          : 'bg-white text-escult-ink-2 border-slate-200 hover:text-slate-800 hover:border-slate-300'
-                      }`}
-                    >
-                      {cat === 'all' ? 'Todas' : cat}
-                    </button>
-                  ))}
-                </div>
+            <div className="mx-auto max-w-7xl px-4 py-8 md:py-10 space-y-8">
+              {/* Categorias: as mesmas de antes, como cartoes-filtro da tela 04. */}
+              <div className="flex gap-2.5 flex-wrap" role="group" aria-label="Filtrar por categoria">
+                {courseCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setCourseCategory(cat)}
+                    aria-pressed={courseCategory === cat}
+                    className={`px-4 py-2.5 rounded-xl text-rotulo font-semibold transition-all cursor-pointer border flex items-center gap-2 ${
+                      courseCategory === cat
+                        ? 'bg-ava-acao text-white border-ava-acao shadow-sm'
+                        : 'bg-white text-ava-tinta border-ava-borda hover:border-ava-acao/40 hover:bg-ava-faixa'
+                    }`}
+                  >
+                    {cat === 'all' && <BookOpen className="h-4 w-4" aria-hidden="true" />}
+                    {cat === 'all' ? 'Todas' : cat}
+                  </button>
+                ))}
               </div>
 
               {/* Lista de cursos disponíveis em cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-left">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 text-left">
                 {filteredCourses.length === 0 ? (
-                  <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-slate-50 shadow-3xs">
-                    <h4 className="text-ava-acao font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
-                    <p className="text-escult-ink-2 text-xs leading-relaxed max-w-md mx-auto">Nenhum curso encontrado com os filtros atuais.</p>
+                  <div className="col-span-full rounded-2xl border border-dashed border-ava-borda p-12 text-center bg-ava-faixa/50">
+                    <h4 className="text-ava-tinta font-titulo text-cartao mb-2">Sem Resultados</h4>
+                    <p className="text-escult-ink-2 text-apoio leading-relaxed max-w-md mx-auto">Nenhum curso encontrado com os filtros atuais.</p>
                     <button
                       onClick={() => { setCourseSearch(''); setCourseCategory('all'); }}
-                      className="mt-4 px-4 py-2 bg-ava-acao text-white text-sobretitulo rounded-xl hover:bg-ava-acao-escuro transition-colors uppercase cursor-pointer font-sans"
+                      className="mt-4 px-5 py-2.5 bg-ava-acao text-white text-rotulo font-semibold rounded-[10px] hover:bg-ava-acao-escuro transition-colors cursor-pointer font-sans"
                     >
                       Limpar Filtros
                     </button>
@@ -2017,32 +2028,23 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   filteredCourses.map((course, idx) => (
                     <div
                       key={`${course.title}-${idx}`}
-                      className="bg-white rounded-2xl border border-slate-200 transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-2xs hover:shadow-md hover:border-ava-acao"
+                      className="bg-white rounded-2xl border border-ava-borda transition-all duration-300 flex flex-col justify-between overflow-hidden shadow-3xs hover:shadow-md hover:border-ava-acao/40"
                     >
-                      <div className="h-44 overflow-hidden relative bg-slate-800">
+                      <div className="h-44 overflow-hidden relative bg-ava-marinho">
                         <img
                           src={course.image}
                           alt={course.title}
-                          className="w-full h-full object-cover filter grayscale contrast-125 saturate-50 hover:grayscale-0 transition-all duration-500"
+                          className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
-
-                        <div className="absolute top-4 right-4 h-11 w-11 rounded-xl bg-slate-900/90 text-white flex items-center justify-center shadow-md">
-                          {course.iconType === 'mic' && <Award className="h-5 w-5 text-ava-ciano" />}
-                          {course.iconType === 'video' && <Video className="h-5 w-5 text-ava-ciano" />}
-                          {course.iconType === 'building' && <Play className="h-5 w-5 text-ava-ciano translate-x-[1px]" />}
-                          {course.iconType === 'columns' && <BookOpen className="h-5 w-5 text-ava-ciano" />}
-                        </div>
-
-                        <span className="absolute bottom-3 left-3 text-sobretitulo uppercase bg-white/10 backdrop-blur-md text-white border border-white/20 py-0.8 px-2 rounded-md">
+                        <span className="absolute top-3 left-3 text-nota font-semibold uppercase tracking-wide bg-white text-ava-acao py-1 px-2.5 rounded-full shadow-sm max-w-[calc(100%-1.5rem)] truncate">
                           {course.category}
                         </span>
                       </div>
 
-                      <div className="p-4.5 space-y-3 flex-1 flex flex-col justify-between">
-                        <div className="space-y-1.5">
-                          <h4 className="text-xs font-bold text-slate-900 leading-snug transition-colors line-clamp-2 h-9 font-titulo">
+                      <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <h4 className="text-cartao text-ava-tinta leading-snug line-clamp-2 font-titulo">
                             {course.title}
                           </h4>
                           <p className="text-apoio text-escult-ink-2 font-semibold">Tutorado por: Prof. {course.instructor}</p>
@@ -2053,10 +2055,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                         <button
                           onClick={() => setIsLoginModalOpen(true)}
-                          className="w-full text-center mt-3 py-2 rounded-xl bg-slate-50 hover:bg-ava-acao hover:text-white transition-all text-slate-600 border border-slate-150 text-sobretitulo uppercase cursor-pointer flex items-center justify-center gap-1"
+                          className="w-full text-center mt-3 py-2.5 rounded-[10px] bg-ava-acao hover:bg-ava-acao-escuro text-white transition-all text-rotulo font-semibold cursor-pointer flex items-center justify-center gap-1.5"
                         >
                           <span>Inscrever-se</span>
-                          <ArrowRight className="h-3 w-3" />
+                          <ArrowRight className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
