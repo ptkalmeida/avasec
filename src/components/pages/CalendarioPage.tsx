@@ -37,9 +37,9 @@ interface CalendarioPageProps {
 
 /** Faixa colorida à esquerda do card — decoração cíclica, não é campo editável. */
 const FAIXAS = [
-  'border-l-4 border-l-escult-purple',
-  'border-l-4 border-l-escult-ciano',
-  'border-l-4 border-l-escult-purple-dark',
+  'border-l-4 border-l-ava-acao',
+  'border-l-4 border-l-ava-ciano',
+  'border-l-4 border-l-ava-acao-escuro',
 ];
 
 const EventoCard: React.FC<{
@@ -68,7 +68,7 @@ const EventoCard: React.FC<{
 
       <div className="flex gap-4 items-start">
         <div className="h-14 w-14 shrink-0 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center">
-          <span className="text-xl font-black text-escult-purple leading-none">{formatDia(evento.quando)}</span>
+          <span className="text-xl font-black text-ava-acao leading-none">{formatDia(evento.quando)}</span>
           <span className="text-apoio text-escult-ink-2 font-extrabold">{formatMes(evento.quando)}</span>
         </div>
         <div className="space-y-1">
@@ -102,7 +102,7 @@ const EventoCard: React.FC<{
           target="_blank"
           rel="noreferrer noopener"
           onClick={onAcessarSala}
-          className="text-sobretitulo uppercase text-escult-purple hover:text-escult-purple-dark flex items-center gap-1 cursor-pointer shrink-0"
+          className="text-sobretitulo uppercase text-ava-acao hover:text-ava-acao-escuro flex items-center gap-1 cursor-pointer shrink-0"
         >
           <span>Acessar sala</span>
           <ExternalLink className="h-3.5 w-3.5" />
@@ -110,7 +110,7 @@ const EventoCard: React.FC<{
       ) : (
         <button
           onClick={onParticipar}
-          className="text-sobretitulo uppercase text-escult-purple hover:text-escult-purple-dark flex items-center gap-1 cursor-pointer shrink-0"
+          className="text-sobretitulo uppercase text-ava-acao hover:text-ava-acao-escuro flex items-center gap-1 cursor-pointer shrink-0"
         >
           <span>{isUserLoggedIn ? 'Ir ao painel' : 'Participar'}</span>
           <ExternalLink className="h-3.5 w-3.5" />

@@ -49,7 +49,7 @@ export const OrientacoesPage: React.FC<OrientacoesPageProps> = ({ content }) => 
       title={pageField(content, 'title', 'Orientações Gerais')}
       description={pageField(content, 'description', 'Consulte as orientações e diretrizes de como interagir com o AVA da Escola Estadual da Cultura e garanta uma experiência de aprendizado transformadora.')}
       align="center"
-      background="bg-escult-purple/5"
+      background="bg-ava-acao/5"
     >
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
         {items.map((o, index) => (

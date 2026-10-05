@@ -101,7 +101,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
         {displayedNews.length === 0 ? (
           <div className="col-span-full rounded-2xl border border-dashed border-slate-300 p-12 text-center bg-white shadow-3xs">
-            <h4 className="text-escult-purple font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
+            <h4 className="text-ava-acao font-black text-sm uppercase tracking-wider mb-2">Sem Resultados</h4>
             <p className="text-escult-ink-2 text-xs leading-relaxed max-w-md mx-auto">
               Nenhuma notícia coincide com a sua busca por "
               <strong className="text-slate-800 font-bold">{searchQuery}</strong>".
@@ -121,7 +121,7 @@ export const NoticiasPage: React.FC<NoticiasPageProps> = ({
               <div
                 key={news.id}
                 className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden shadow-2xs hover:shadow-md flex flex-col justify-between ${
-                  isFocus ? 'border-escult-purple ring-1 ring-escult-purple' : 'border-slate-200'
+                  isFocus ? 'border-ava-acao ring-1 ring-ava-acao' : 'border-slate-200'
                 }`}
               >
                 {news.image && (
