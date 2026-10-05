@@ -55,6 +55,20 @@
   --color-ava-ciano-texto: #007C86;
 
   /*
+   * Cores so do portal, medidas nas telas aprovadas da skill
+   * ava-frontend-redesign (planejamento 13, aprovado em 05/10/2026). Nao tem
+   * valor "de antes": so aparecem em pagina do portal ou atras de `ava:`.
+   * `ava-dourado` e filete e marcador -- 1,75:1 sobre branco, nunca texto.
+   */
+  --color-ava-marinho: #003070;
+  --color-ava-dourado: #FCB814;
+  --color-ava-rosa: #D0005C;
+  --color-ava-faixa: #ECF4FC;
+  --color-ava-icone-fundo: #E8F0FC;
+  --color-ava-borda: #E4E8F0;
+  --color-ava-linha: #C8ECF8;
+
+  /*
    * Fonte de titulo, com papel declarado em vez de familia. Fora do tema do
    * portal continua a Playfair de sempre; dentro de `.tema-ava` vira a Inter
    * pesada da referencia. `font-serif` nao e redefinido para o nome nao mentir.
@@ -186,11 +200,18 @@
 @custom-variant ava (&:where(.tema-ava, .tema-ava *));
 
 .tema-ava {
-  --color-escult-purple: #5B24D2;
-  --color-escult-blue: #5B24D2;
-  --color-escult-purple-dark: #4A1CB0;
-  --color-ava-acao: #5B24D2;
-  --color-ava-acao-escuro: #4A1CB0;
+  /* Paleta azul aprovada em 05/10/2026 (planejamento 13), medida nas telas da
+     skill: acao #0068FC (branco sobre ela 4,79:1), titulo #04185C (16,27:1),
+     hover no marinho #003070 (12,68:1), ciano da skill para estado ativo. */
+  --color-ava-acao: #0068FC;
+  --color-ava-acao-escuro: #003070;
+  --color-ava-tinta: #04185C;
+  --color-ava-ciano: #00A6C7;
+  /* Quem ainda usa o nome antigo dentro do portal (componente compartilhado)
+     recebe o azul, e nao um roxo solto no meio da pagina. */
+  --color-escult-purple: #0068FC;
+  --color-escult-blue: #0068FC;
+  --color-escult-purple-dark: #003070;
   --font-titulo: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -203,16 +224,19 @@
 }
 
 /*
- * Linha de assinatura: fio violeta -> ciano com dois losangos no fim, como na
- * referencia. E enfeite — `aria-hidden` no componente — e some no alto
- * contraste, onde um gradiente fino so atrapalha.
+ * Filete dourado antes do sobretitulo, como nas telas aprovadas: o sinal
+ * institucional discreto da skill. Substitui a linha com losangos do plano 12.
+ * E pseudo-elemento: nao e lido por leitor de tela e nao entra no texto.
  */
-.linha-assinatura {
-  background: linear-gradient(90deg, var(--color-ava-acao), #80D7EF);
-}
-
-.high-contrast-active .linha-assinatura-wrap {
-  display: none !important;
+.filete::before {
+  content: "";
+  display: inline-block;
+  width: 1.75rem;
+  height: 3px;
+  margin-right: 0.75rem;
+  vertical-align: middle;
+  border-radius: 2px;
+  background-color: var(--color-ava-dourado);
 }
 
 /* Custom styles mimicking Brazilian cultural/creative sector styling */

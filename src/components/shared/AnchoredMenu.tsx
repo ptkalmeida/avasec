@@ -107,6 +107,12 @@ export const AnchoredMenu: React.FC<AnchoredMenuProps> = ({
 
   if (!anchor) return null;
 
+  // O painel vai para o <body>, fora da raiz do app: sem isto ele perderia o
+  // tema do portal (`.tema-ava`, planejamento 13) e abriria com as cores de
+  // fora dele. Herda o tema de quem o abriu — no painel do admin o gatilho
+  // nao esta no tema, e nada muda ali.
+  const tema = anchor.closest('.tema-ava') ? 'tema-ava' : '';
+
   return createPortal(
     <>
       {/* Camada de clique-fora: cobre a tela toda e fica atrás do painel. */}
@@ -118,7 +124,7 @@ export const AnchoredMenu: React.FC<AnchoredMenuProps> = ({
         // anunciar um menu vazio. Melhor não prometer o padrão do que prometê-lo
         // pela metade.
         style={{ top: pos?.top ?? 0, left: pos?.left ?? 0, width, visibility: pos ? 'visible' : 'hidden' }}
-        className="fixed z-[61] bg-white border border-slate-200 rounded-[10px] shadow-xl py-1.5 text-left animate-in fade-in duration-150"
+        className={`${tema} fixed z-[61] bg-white border border-slate-200 rounded-[10px] shadow-xl py-1.5 text-left animate-in fade-in duration-150`}
       >
         {children}
       </div>

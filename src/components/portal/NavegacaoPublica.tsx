@@ -33,6 +33,15 @@ interface NavegacaoPublicaProps {
   irPara: (view: PortalView, anuncio: string) => void;
 }
 
+/*
+ * Pagina atual no tema do portal (planejamento 13): texto em azul de acao e
+ * sublinhado em ciano, como nas telas aprovadas -- o ponto vermelho sai ali.
+ * O ciano nao carrega texto (2,88:1); aqui e so o traco, e o estado tambem
+ * vai por `aria-current` e pela cor do texto, nunca so pela cor do traco.
+ * Fora do tema (Perfil) segue o ponto de antes.
+ */
+const ATIVO_NO_TEMA = 'ava:text-ava-acao ava:rounded-b-none ava:shadow-[inset_0_-3px_0_0_var(--color-ava-ciano)]';
+
 export const NavegacaoPublica: React.FC<NavegacaoPublicaProps> = ({ view, irPara }) => {
   const [aberto, setAberto] = React.useState<'escola' | 'ajuda' | null>(null);
   const gatilhos = React.useRef<Record<string, HTMLButtonElement | null>>({});
@@ -56,7 +65,7 @@ export const NavegacaoPublica: React.FC<NavegacaoPublicaProps> = ({ view, irPara
               key={entrada.rotulo}
               onClick={() => navegar(entrada.view, entrada.rotulo)}
               aria-current={estaAtiva ? 'page' : undefined}
-              className="px-4 py-2.5 rounded-[10px] text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] transition-colors cursor-pointer whitespace-nowrap flex items-center gap-2"
+              className={`px-4 py-2.5 rounded-[10px] text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] transition-colors cursor-pointer whitespace-nowrap flex items-center ava:hover:bg-ava-faixa gap-2 ${estaAtiva ? ATIVO_NO_TEMA : 'ava:text-ava-tinta'}`}
             >
               <span>{entrada.rotulo}</span>
               {/*
@@ -65,7 +74,7 @@ export const NavegacaoPublica: React.FC<NavegacaoPublicaProps> = ({ view, irPara
                 `aria-hidden` porque quem usa leitor de tela recebe a mesma
                 informacao por `aria-current`, e nao por uma bolinha.
               */}
-              {estaAtiva && <span className="h-1.5 w-1.5 rounded-full bg-[#EE4266] ava:bg-ava-acao" aria-hidden="true" />}
+              {estaAtiva && <span className="h-1.5 w-1.5 rounded-full bg-[#EE4266] ava:hidden" aria-hidden="true" />}
             </button>
           );
         }
@@ -80,10 +89,10 @@ export const NavegacaoPublica: React.FC<NavegacaoPublicaProps> = ({ view, irPara
               aria-haspopup="true"
               aria-expanded={estaAberto}
               aria-current={estaAtiva ? 'page' : undefined}
-              className="px-4 py-2.5 rounded-[10px] text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5"
+              className={`px-4 py-2.5 rounded-[10px] text-[15px] font-semibold text-[#1d2432] hover:bg-[#f4f2ef] transition-colors cursor-pointer whitespace-nowrap flex items-center ava:hover:bg-ava-faixa gap-1.5 ${estaAtiva ? ATIVO_NO_TEMA : 'ava:text-ava-tinta'}`}
             >
               <span>{entrada.rotulo}</span>
-              {estaAtiva && <span className="h-1.5 w-1.5 rounded-full bg-[#EE4266] ava:bg-ava-acao" aria-hidden="true" />}
+              {estaAtiva && <span className="h-1.5 w-1.5 rounded-full bg-[#EE4266] ava:hidden" aria-hidden="true" />}
               <ChevronDown
                 className={`h-4 w-4 text-[#6b7385] transition-transform ${estaAberto ? 'rotate-180' : ''}`}
                 aria-hidden="true"
@@ -102,9 +111,9 @@ export const NavegacaoPublica: React.FC<NavegacaoPublicaProps> = ({ view, irPara
                     <button
                       key={item.rotulo}
                       onClick={() => navegar(item.view, item.rotulo)}
-                      className="w-full text-left px-3.5 py-3 rounded-[10px] hover:bg-[#f4f2ef] transition-colors cursor-pointer"
+                      className="w-full text-left px-3.5 py-3 rounded-[10px] hover:bg-[#f4f2ef] ava:hover:bg-ava-faixa transition-colors cursor-pointer"
                     >
-                      <span className="block text-[15px] font-semibold text-[#1d2432] leading-snug">
+                      <span className="block text-[15px] font-semibold text-[#1d2432] ava:text-ava-tinta leading-snug">
                         {item.rotulo}
                       </span>
                       <span className="block text-[13px] text-[#6b7385] leading-snug mt-0.5">
