@@ -40,7 +40,6 @@ import { features } from './config/features';
 import { NavegacaoPublica } from './components/portal/NavegacaoPublica';
 import { MENU_PUBLICO } from './config/menuPublico';
 import { Breadcrumb } from './components/shared/Breadcrumb';
-import { LinhaAssinatura } from './components/shared/LinhaAssinatura';
 import { demoProfiles } from './dev/demoProfiles';
 // @ts-ignore
 
@@ -902,12 +901,16 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
         que rolava atras. Fundo solido resolve, e a altura vai a 84px para caber
         o menu de 15px sem aperto.
       */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#e4e1dc] shadow-3xs">
-        {/* Assinatura do portal: so dentro do tema, o painel do admin nao a recebe. */}
-        <div className="hidden ava:block mx-auto max-w-7xl px-4 md:px-6 pt-2">
-          <LinhaAssinatura />
-        </div>
-        <div className="mx-auto max-w-7xl px-4 h-[84px] md:px-6 flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 bg-white border-b border-[#e4e1dc] ava:border-ava-borda shadow-3xs">
+        {/*
+          Celular com a pessoa logada (planejamento 13): logotipo e menu numa
+          linha, "Sair" e "Ambiente de Estudos" na de baixo, com o nome inteiro.
+          Antes os tres disputavam 375px e a pagina rolava para o lado. So no
+          tema do portal: no painel do admin o cabecalho segue como era.
+        */}
+        <div className={`mx-auto max-w-7xl px-4 h-[84px] md:px-6 flex items-center justify-between gap-4 ${
+          isUserLoggedIn ? 'ava:max-sm:h-auto ava:max-sm:min-h-[72px] ava:max-sm:flex-wrap ava:max-sm:py-3 ava:max-sm:gap-y-3' : ''
+        }`}>
           
           {/*
             Logo & Brand title.
@@ -936,7 +939,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           {isPublicPage && <NavegacaoPublica view={currentView} irPara={goToPage} />}
 
           {/* Right Header Controls / Sign In or Sign Out buttons */}
-          <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-3 ${isUserLoggedIn ? 'ava:max-sm:contents' : ''}`}>
             {/*
               Busca PERMANENTE, e nao uma lupa de 18px que expande um campo.
 
@@ -968,7 +971,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             */}
             {isPublicPage && (
               <div className="relative z-50 hidden xl:block">
-                <div className="flex items-center bg-[#f4f2ef] rounded-[10px] border border-[#e4e1dc] w-[230px] pl-3 pr-2 py-2.5 focus-within:border-ava-acao transition-colors">
+                <div className="flex items-center bg-[#f4f2ef] ava:bg-ava-faixa rounded-[10px] border border-[#e4e1dc] ava:border-ava-borda w-[230px] pl-3 pr-2 py-2.5 focus-within:border-ava-acao transition-colors">
                   <Search className="h-4 w-4 text-[#6b7385] shrink-0 mr-2" aria-hidden="true" />
                   <input
                     type="text"
@@ -1190,7 +1193,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 ${isUserLoggedIn ? 'ava:max-sm:order-last ava:max-sm:w-full' : ''}`}>
                 {/* Padlock and User icons (already interactive login triggers) */}
                 {(
                   <div className="hidden sm:flex items-center gap-3.5 mr-2 text-escult-ink-2 border-r border-slate-200 pr-4">
@@ -1215,10 +1218,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 {/* If the user is technically logged in but on the landing view, provide an instant "Ir p/ Painel" button */}
                 {isUserLoggedIn ? (
-                  <div className="flex items-center gap-2 animate-in fade-in transition-all">
+                  <div className="flex items-center gap-2 animate-in fade-in transition-all ava:max-sm:w-full">
                     <button
                       onClick={handleLogout}
-                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-2 text-sobretitulo transition-all flex items-center gap-1.5 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
+                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-2 text-sobretitulo transition-all flex items-center ava:max-sm:justify-center gap-1.5 ava:max-sm:flex-1 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
                       title="Sair do Portal e encerrar sessão"
                     >
                       <LogOut className="h-3.5 w-3.5 text-rose-500" />
@@ -1231,10 +1234,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                           speakText("Acessando o seu Ambiente de Estudos.");
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-white ava:hover:bg-ava-acao/5 ava:text-ava-acao ava:border-ava-acao px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao ava:max-sm:flex-[2] ava:max-sm:justify-center px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title="Ir para seu Ambiente de Estudos"
                       >
-                        <BookOpen className="h-4 w-4 text-slate-900 ava:text-ava-acao shrink-0" />
+                        <BookOpen className="h-4 w-4 text-slate-900 ava:text-white shrink-0" />
                         <span className="hidden sm:inline">Ambiente de Estudos</span>
                         <span className="inline sm:hidden">Estudos</span>
                       </button>
@@ -1249,10 +1252,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             speakText("Acessando a sua Gestão de Cursos.");
                           }
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-white ava:hover:bg-ava-acao/5 ava:text-ava-acao ava:border-ava-acao px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao ava:max-sm:flex-[2] ava:max-sm:justify-center px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title={activeUser.role === 'admin' ? "Acessar Coordenação / Gestão da Plataforma" : "Acessar Gestão de Cursos e Conteúdos"}
                       >
-                        <GraduationCap className="h-4 w-4 text-slate-900 ava:text-ava-acao shrink-0" />
+                        <GraduationCap className="h-4 w-4 text-slate-900 ava:text-white shrink-0" />
                         <span className="hidden sm:inline">
                           {activeUser.role === 'admin' ? "Gestão da Plataforma" : "Gestão de Cursos/Alunos"}
                         </span>
@@ -2115,16 +2118,13 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
         Os alvos sao os mesmos de `PORTAL_PATHS`; nada aqui inventa destino.
       */}
-      <footer className="bg-[#1d2432] text-[#c3c8d2] ava:bg-white ava:text-escult-ink-2 font-sans">
-        <div className="hidden ava:block mx-auto max-w-7xl px-8 pt-6">
-          <LinhaAssinatura />
-        </div>
+      <footer className="bg-[#1d2432] text-[#c3c8d2] ava:bg-white ava:text-escult-ink-2 ava:border-t ava:border-ava-linha font-sans">
         {/* Alturas enxugadas: o rodapé é mapa do site, não seção de conteúdo. */}
         <div className="mx-auto max-w-7xl px-8 pt-9 pb-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr] gap-x-10 gap-y-7">
 
             <div className="space-y-3">
-              <strong className="block text-[22px] font-extrabold text-white ava:text-escult-ink tracking-tight">AVASEC</strong>
+              <strong className="block text-[22px] font-extrabold text-white ava:text-ava-tinta tracking-tight">AVASEC</strong>
               <p className="text-rotulo leading-relaxed text-[#c3c8d2] ava:text-escult-ink-2 max-w-xs">
                 Ambiente virtual de aprendizagem da Escola Estadual da Cultura.
               </p>
@@ -2158,7 +2158,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               },
             ].map((coluna) => (
               <nav key={coluna.titulo} aria-label={coluna.titulo} className="space-y-3">
-                <strong className="block text-rotulo font-semibold text-white ava:text-escult-ink">{coluna.titulo}</strong>
+                <strong className="block text-rotulo font-semibold text-white ava:text-ava-tinta">{coluna.titulo}</strong>
                 <ul className="space-y-2">
                   {coluna.itens.map((item) => (
                     <li key={item.rotulo}>
@@ -2189,7 +2189,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             os tres idiomas continuam, agora em caixa mista, no `text-apoio` e no
             mesmo cinza que o copyright ja usava (5,28:1 sobre `#1d2432`).
           */}
-          <div className="mt-7 pt-4 border-t border-[#313a4a] ava:border-escult-line flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="mt-7 pt-4 border-t border-[#313a4a] ava:border-ava-borda flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-apoio text-[#8b93a3] ava:text-escult-ink-2">
               © 2026 AVASEC — Escola Estadual da Cultura. Todos os direitos reservados.
             </p>
@@ -2238,7 +2238,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
               <div
                 role="group"
                 aria-label="Idioma do portal"
-                className="flex items-center gap-3 border-l border-[#313a4a] ava:border-escult-line pl-5"
+                className="flex items-center gap-3 border-l border-[#313a4a] ava:border-ava-borda pl-5"
               >
                 {([
                   { id: 'pt', rotulo: 'PT-BR', titulo: 'Português (Brasil)', fala: 'Idioma alterado para Português' },

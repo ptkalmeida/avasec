@@ -55,7 +55,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, onHome, rotuloIni
   return (
     <nav
       aria-label="Trilha de navegação"
-      className="w-full bg-[#f4f2ef] border-t border-[#e4e1dc]"
+      className="w-full bg-[#f4f2ef] border-t border-[#e4e1dc] ava:bg-ava-faixa ava:border-ava-borda"
     >
       <ol className="mx-auto max-w-[1280px] px-8 h-12 flex items-center gap-2.5 overflow-x-auto no-scrollbar">
         {degraus.map((degrau, i) => {
@@ -70,7 +70,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, onHome, rotuloIni
 
               {ehAtual || degrau.onClick === undefined ? (
                 <span
-                  className="text-rotulo font-semibold text-[#1d2432] whitespace-nowrap"
+                  className="text-rotulo font-semibold text-[#1d2432] ava:text-ava-tinta whitespace-nowrap"
                   aria-current={ehAtual ? 'page' : undefined}
                 >
                   {degrau.rotulo}
@@ -78,7 +78,7 @@ export const Breadcrumb: React.FC<BreadcrumbProps> = ({ items, onHome, rotuloIni
               ) : (
                 <button
                   onClick={degrau.onClick}
-                  className="text-rotulo font-medium text-[#540D6E] underline underline-offset-[3px] hover:text-[#42095a] transition-colors cursor-pointer whitespace-nowrap"
+                  className="text-rotulo font-medium text-[#540D6E] ava:text-ava-acao-escuro underline underline-offset-[3px] hover:text-[#42095a] ava:hover:text-ava-acao transition-colors cursor-pointer whitespace-nowrap"
                 >
                   {degrau.rotulo}
                 </button>
