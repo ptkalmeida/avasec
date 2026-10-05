@@ -1965,10 +1965,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           */
           <div className="bg-white min-h-[70vh] animate-in fade-in duration-300">
             <section className="relative overflow-hidden border-b border-ava-borda bg-gradient-to-b from-white to-ava-faixa/60 px-4 py-10 md:py-14">
-              <div aria-hidden="true" className="hidden lg:block absolute right-24 top-8 h-40 w-20 rounded-r-full bg-ava-marinho" />
-              <div aria-hidden="true" className="hidden lg:block absolute right-[11.5rem] top-16 h-20 w-10 rounded-l-full bg-ava-dourado" />
-              <div aria-hidden="true" className="hidden lg:block absolute right-8 top-6 h-16 w-16 bg-ava-rosa" />
-              <div aria-hidden="true" className="hidden lg:block absolute right-10 bottom-8 h-20 w-20 bg-ava-acao" />
+              <div aria-hidden="true" className="hidden xl:block absolute right-24 top-8 h-40 w-20 rounded-r-full bg-ava-marinho" />
+              <div aria-hidden="true" className="hidden xl:block absolute right-[11.5rem] top-16 h-20 w-10 rounded-l-full bg-ava-dourado" />
+              <div aria-hidden="true" className="hidden xl:block absolute right-8 top-6 h-16 w-16 bg-ava-rosa" />
+              <div aria-hidden="true" className="hidden xl:block absolute right-10 bottom-8 h-20 w-20 bg-ava-acao" />
 
               <div className="relative mx-auto max-w-7xl text-left space-y-4">
                 <p className="filete text-sobretitulo text-ava-tinta uppercase">Catálogo</p>

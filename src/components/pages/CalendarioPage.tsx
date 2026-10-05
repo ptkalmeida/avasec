@@ -35,27 +35,28 @@ interface CalendarioPageProps {
   webinars: WebinarEvent[];
 }
 
-/** Faixa colorida à esquerda do card — decoração cíclica, não é campo editável. */
-const FAIXAS = [
-  'border-l-4 border-l-ava-acao',
-  'border-l-4 border-l-ava-ciano',
-  'border-l-4 border-l-ava-acao-escuro',
-];
+/*
+ * Faixa colorida à esquerda do card. Era decoração cíclica (três cores em
+ * rodízio, sem significado); na tela 09 da skill a cor diz o TIPO do evento, e
+ * aqui há dois tipos reais. Aula ao vivo = azul, webinar aberto = dourado. A
+ * etiqueta escrita continua no card: a cor nunca é a única pista.
+ */
+const faixaDoTipo = (kind: AgendaEvent['kind']): string =>
+  kind === 'webinar' ? 'border-l-4 border-l-ava-dourado' : 'border-l-4 border-l-ava-acao';
 
 const EventoCard: React.FC<{
   evento: AgendaEvent;
-  faixa: string;
   agora: Date;
   isUserLoggedIn: boolean;
   onParticipar: () => void;
   onAcessarSala: () => void;
-}> = ({ evento, faixa, agora, isUserLoggedIn, onParticipar, onAcessarSala }) => (
+}> = ({ evento, agora, isUserLoggedIn, onParticipar, onAcessarSala }) => (
   <div
-    className={`bg-slate-50 rounded-2xl p-5 border border-slate-200/60 ${faixa} hover:shadow-md transition-all flex flex-col justify-between text-left h-full`}
+    className={`bg-white rounded-2xl p-5 border border-ava-borda ${faixaDoTipo(evento.kind)} shadow-3xs hover:shadow-md transition-all flex flex-col justify-between text-left h-full`}
   >
     <div className="space-y-4">
       <div className="flex justify-between items-center gap-2">
-        <span className="text-sobretitulo uppercase bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded-md inline-flex items-center gap-1.5">
+        <span className="text-nota font-bold uppercase tracking-wide bg-ava-icone-fundo text-ava-tinta px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
           {evento.kind === 'webinar'
             ? <><Globe className="h-3 w-3" /> Webinar aberto</>
             : <><Video className="h-3 w-3" /> Aula ao vivo</>}
@@ -67,18 +68,18 @@ const EventoCard: React.FC<{
       </div>
 
       <div className="flex gap-4 items-start">
-        <div className="h-14 w-14 shrink-0 bg-white rounded-xl border border-slate-200 flex flex-col items-center justify-center">
-          <span className="text-xl font-black text-ava-acao leading-none">{formatDia(evento.quando)}</span>
+        <div className="h-14 w-14 shrink-0 bg-white rounded-xl border border-ava-borda flex flex-col items-center justify-center">
+          <span className="text-xl font-black text-ava-tinta leading-none">{formatDia(evento.quando)}</span>
           <span className="text-apoio text-escult-ink-2 font-extrabold">{formatMes(evento.quando)}</span>
         </div>
         <div className="space-y-1">
-          <strong className="text-xs font-bold text-slate-800 line-clamp-2 leading-snug">{evento.titulo}</strong>
+          <strong className="text-rotulo font-bold text-ava-tinta line-clamp-2 leading-snug">{evento.titulo}</strong>
           <span className="text-rotulo text-slate-550 block">{evento.contexto}</span>
         </div>
       </div>
     </div>
 
-    <div className="pt-4 mt-4 border-t border-slate-200/50 flex items-center justify-between gap-2">
+    <div className="pt-4 mt-4 border-t border-ava-borda flex items-center justify-between gap-2">
       <span className="text-sobretitulo text-escult-ink-2 uppercase">
         {distanciaEmDias(evento.quando, agora)}
         {evento.durationMinutes !== null && ` · ${evento.durationMinutes} min`}
@@ -149,12 +150,14 @@ export const CalendarioPage: React.FC<CalendarioPageProps> = ({
       align="center"
     >
       {agenda.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-250 bg-slate-50/60 p-10 text-center">
-          <CalendarOff className="h-8 w-8 text-slate-300 mx-auto mb-3" />
-          <strong className="block text-sm font-bold text-slate-700">
+        <div className="rounded-2xl border border-dashed border-ava-borda bg-ava-faixa/50 p-10 text-center">
+          <div className="h-14 w-14 rounded-full bg-white text-ava-acao flex items-center justify-center mx-auto mb-3">
+            <CalendarOff className="h-7 w-7" aria-hidden="true" />
+          </div>
+          <strong className="block text-rotulo font-bold text-ava-tinta">
             Nenhum encontro agendado para os próximos {DIAS_DA_AGENDA} dias.
           </strong>
-          <span className="mt-1 block text-xs text-escult-ink-2 max-w-md mx-auto leading-relaxed">
+          <span className="mt-1 block text-apoio text-escult-ink-2 max-w-md mx-auto leading-relaxed">
             Esta agenda mostra apenas encontros realmente marcados pelos gestores dos
             cursos. Assim que uma nova aula ao vivo for agendada, ela aparece aqui.
           </span>
@@ -162,11 +165,10 @@ export const CalendarioPage: React.FC<CalendarioPageProps> = ({
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {agenda.map((evento, index) => (
+            {agenda.map((evento) => (
               <EventoCard
                 key={`${evento.kind}-${evento.id}`}
                 evento={evento}
-                faixa={FAIXAS[index % FAIXAS.length]}
                 agora={agora}
                 isUserLoggedIn={isUserLoggedIn}
                 onParticipar={() => {
