@@ -2270,7 +2270,7 @@ ${html}
                       ← Voltar à Vitrine / Catálogo de Cursos
                     </button>
                     <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-slate-100 border border-slate-200 px-3 py-1 text-sobretitulo text-slate-600 uppercase text-sobretitulo">
+                      <span className="rounded-full bg-ava-icone-fundo border border-ava-borda px-3 py-1 text-sobretitulo text-ava-marinho uppercase text-sobretitulo">
                         {viewingCatalogCourse.category}
                       </span>
                       <span className="rounded-full bg-amber-50 text-amber-700 border border-amber-100 px-3 py-1 text-sobretitulo uppercase text-sobretitulo flex items-center gap-1">
@@ -2279,9 +2279,9 @@ ${html}
                     </div>
                   </div>
 
-                  {/* Main Header Presentation */}
+                  {/* Abertura no formato da tela 14: area, titulo grande, resumo. */}
                   <div className="space-y-3">
-                    <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight tracking-tight">
+                    <h2 className="font-titulo text-2xl md:text-3xl font-black text-ava-tinta leading-tight tracking-tight">
                       {viewingCatalogCourse.title}
                     </h2>
                     <p className="text-xs md:text-sm text-slate-600 leading-relaxed max-w-4xl">
@@ -2297,7 +2297,7 @@ ${html}
                       {/* Short "Sobre o curso" Section */}
                       <div className="border border-slate-200 rounded-xl bg-slate-50/20 p-5 space-y-4 text-left">
                         <div>
-                          <h3 className="text-sm font-black text-slate-850 uppercase tracking-wider">Sobre o curso</h3>
+                          <h3 className="text-sm font-black text-ava-tinta uppercase tracking-wider">Sobre o curso</h3>
                           <p className="text-xs text-slate-600 leading-relaxed mt-2 font-medium">
                             Aprenda a construir aplicações full-stack modernas, integrando frontend, backend, APIs REST, autenticação e boas práticas de organização do código.
                           </p>
@@ -2401,8 +2401,8 @@ ${html}
                     <div className="space-y-4">
                       
                       {/* Teacher Profile & Direct Availability Details */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
-                        <h4 className="text-sm font-black text-slate-800 uppercase tracking-wider border-b border-slate-150 pb-2">Resumo do curso</h4>
+                      <div className="bg-white border border-ava-borda rounded-xl p-5 space-y-4 lg:sticky lg:top-24">
+                        <h4 className="text-sm font-black text-ava-tinta uppercase tracking-wider border-b border-ava-borda pb-2">Resumo do curso</h4>
                         <div className="flex items-center gap-2.5">
                           <div className="h-10 w-10 rounded-full bg-ava-acao text-white flex items-center justify-center text-xs font-black shrink-0 shadow-xs">
                             {viewingCatalogCourse.instructorName ? viewingCatalogCourse.instructorName.charAt(0) : 'P'}
@@ -2412,28 +2412,89 @@ ${html}
                           </div>
                         </div>
 
-                        {/* Quality Specifications - Simple list with light dividers and less heavy boxes */}
+                        {/*
+                          Ficha do curso, no formato da tela 14 aprovada.
+
+                          DOIS valores aqui eram fixos no codigo e diziam coisa
+                          errada: "Aulas: 20" (o curso tem `lessons.length` — 4
+                          nos cursos de hoje) e "Modalidade: EAD
+                          autoinstrucional" (a coluna `modalidade` existe e e
+                          preenchida pelo admin). Decisao do humano em
+                          05/10/2026: "usa somente o que ja temos, nao deixe de
+                          fora nem invente nada".
+
+                          Por isso cada linha abaixo sai do curso, e a que o
+                          curso nao tiver preenchida simplesmente nao aparece —
+                          em vez de aparecer com um valor de enfeite.
+                        */}
                         <div className="space-y-2.5 pt-2 text-xs font-medium text-slate-600 border-t border-slate-100">
-                          <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                            <span>Aulas:</span>
+                          <div className="flex justify-between items-center gap-3 py-1.5 border-b border-slate-100">
+                            <span className="flex items-center gap-1.5">
+                              <BookOpen className="h-3.5 w-3.5 text-ava-ciano shrink-0" aria-hidden="true" />
+                              Aulas:
+                            </span>
                             <strong className="text-slate-800 font-bold text-rotulo">
-                              20
+                              {viewingCatalogCourse.lessons?.length ?? 0}
                             </strong>
                           </div>
-                          <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                            <span>Frequência mínima:</span>
+                          <div className="flex justify-between items-center gap-3 py-1.5 border-b border-slate-100">
+                            <span className="flex items-center gap-1.5">
+                              <CheckCircle className="h-3.5 w-3.5 text-ava-ciano shrink-0" aria-hidden="true" />
+                              Frequência mínima:
+                            </span>
                             <strong className="text-emerald-700 font-bold text-rotulo">
                               {courseMinAttendance(viewingCatalogCourse)}%
                             </strong>
                           </div>
-                          <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                            <span>Modalidade:</span>
-                            <strong className="text-slate-700 font-bold font-sans text-rotulo">
-                              EAD autoinstrucional
-                            </strong>
-                          </div>
-                          <div className="flex justify-between items-center py-1.5">
-                            <span>Idioma:</span>
+                          {viewingCatalogCourse.cargaHoraria != null && (
+                            <div className="flex justify-between items-center gap-3 py-1.5 border-b border-slate-100">
+                              <span className="flex items-center gap-1.5">
+                                <Clock className="h-3.5 w-3.5 text-ava-ciano shrink-0" aria-hidden="true" />
+                                Carga horária:
+                              </span>
+                              <strong className="text-slate-700 font-bold font-sans text-rotulo">
+                                {viewingCatalogCourse.cargaHoraria}h
+                              </strong>
+                            </div>
+                          )}
+                          {viewingCatalogCourse.modalidade && (
+                            <div className="flex justify-between items-center gap-3 py-1.5 border-b border-slate-100">
+                              <span className="flex items-center gap-1.5">
+                                <Monitor className="h-3.5 w-3.5 text-ava-ciano shrink-0" aria-hidden="true" />
+                                Modalidade:
+                              </span>
+                              <strong className="text-slate-700 font-bold font-sans text-rotulo text-right">
+                                {viewingCatalogCourse.modalidade}
+                              </strong>
+                            </div>
+                          )}
+                          {viewingCatalogCourse.nivel && (
+                            <div className="flex justify-between items-center gap-3 py-1.5 border-b border-slate-100">
+                              <span className="flex items-center gap-1.5">
+                                <Layers className="h-3.5 w-3.5 text-ava-ciano shrink-0" aria-hidden="true" />
+                                Nível:
+                              </span>
+                              <strong className="text-slate-700 font-bold font-sans text-rotulo text-right">
+                                {viewingCatalogCourse.nivel}
+                              </strong>
+                            </div>
+                          )}
+                          {viewingCatalogCourse.emiteCertificado && (
+                            <div className="flex justify-between items-center gap-3 py-1.5 border-b border-slate-100">
+                              <span className="flex items-center gap-1.5">
+                                <Award className="h-3.5 w-3.5 text-ava-ciano shrink-0" aria-hidden="true" />
+                                Certificado:
+                              </span>
+                              <strong className="text-slate-700 font-bold font-sans text-rotulo text-right">
+                                Ao concluir o curso
+                              </strong>
+                            </div>
+                          )}
+                          <div className="flex justify-between items-center gap-3 py-1.5">
+                            <span className="flex items-center gap-1.5">
+                              <Globe className="h-3.5 w-3.5 text-ava-ciano shrink-0" aria-hidden="true" />
+                              Idioma:
+                            </span>
                             <strong className="text-slate-700 font-bold font-sans text-rotulo">
                               Português (Brasil)
                             </strong>
