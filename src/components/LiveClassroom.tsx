@@ -246,16 +246,16 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   </p>
                 </div>
               ) : isScreenSharing ? (
-                <div className="absolute inset-0 bg-slate-900 flex flex-col p-6 text-left border border-teal-500/40">
-                  <div className="flex items-center justify-between border-b border-teal-950 pb-3 mb-4">
-                    <span className="text-xs font-semibold text-teal-400 flex items-center gap-2">
+                <div className="absolute inset-0 bg-slate-900 flex flex-col p-6 text-left border border-ava-acao/40">
+                  <div className="flex items-center justify-between border-b border-ava-borda pb-3 mb-4">
+                    <span className="text-xs font-semibold text-ava-ciano flex items-center gap-2">
                       <Monitor className="h-4 w-4" />
                       Compartilhando Tela — {course.instructorName}
                     </span>
                     <span className="text-apoio bg-slate-800 px-2 py-0.5 rounded text-slate-300">Apresentação_Final.pdf</span>
                   </div>
                   <div className="flex-1 rounded-lg bg-slate-950/80 p-6 flex flex-col justify-center border border-slate-800">
-                    <span className="text-sobretitulo uppercase text-teal-400 mb-2">Estrutura Estratégica do AVA</span>
+                    <span className="text-sobretitulo uppercase text-ava-ciano mb-2">Estrutura Estratégica do AVA</span>
                     <h3 className="text-xl md:text-2xl font-bold mb-4 text-white">REQUISITOS METRICOS DE SUCESSO</h3>
                     <div className="space-y-2 text-sm text-slate-300">
                       <div className="flex items-center gap-2">
@@ -274,10 +274,10 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   </div>
                 </div>
               ) : (
-                <div className="absolute inset-0 bg-linear-to-b from-teal-950/40 to-slate-950/80 flex flex-col justify-center items-center p-4">
+                <div className="absolute inset-0 bg-linear-to-b from-ava-marinho/40 to-slate-950/80 flex flex-col justify-center items-center p-4">
                   
                   {/* Speaker webcam frame simulation */}
-                  <div className="relative h-60 w-60 rounded-full border-4 border-teal-500/20 overflow-hidden flex items-center justify-center bg-slate-800 shadow-2xl">
+                  <div className="relative h-60 w-60 rounded-full border-4 border-ava-acao/20 overflow-hidden flex items-center justify-center bg-slate-800 shadow-2xl">
                     <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&auto=format&fit=crop&q=60')] bg-cover bg-center opacity-85" />
                     {!cameraOn && (
                       <div className="absolute inset-0 bg-slate-800 flex items-center justify-center">
@@ -292,7 +292,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   
                   <div className="mt-4 text-center">
                     <h4 className="font-semibold text-slate-100">{course.instructorName}</h4>
-                    <span className="text-xs text-teal-300">
+                    <span className="text-xs text-ava-ciano">
                       {isSessionLive ? 'Instrutor Responsável • Transmitindo ao Vivo' : 'Prévia da Câmera (Você está Offline)'}
                     </span>
                   </div>
@@ -308,14 +308,14 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
 
               {/* Attendance quick reminder banner inside feed if not marked */}
               {!isPresent && activeUser.role === 'student' && (
-                <div className="absolute top-4 left-4 right-4 bg-teal-600/90 text-white text-xs px-4 py-3 rounded-lg flex items-center justify-between gap-4 backdrop-blur-md shadow-lg border border-teal-400/30 animate-bounce">
+                <div className="absolute top-4 left-4 right-4 bg-ava-acao/90 text-white text-xs px-4 py-3 rounded-lg flex items-center justify-between gap-4 backdrop-blur-md shadow-lg border border-ava-acao/30 animate-bounce">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-amber-300" />
                     <span>Marque sua presença para garantir seu certificado! Necessário <strong>70% de participação</strong>.</span>
                   </div>
                   <button
                     onClick={handleConfirmAttendance}
-                    className="shrink-0 bg-white text-teal-700 hover:bg-slate-100 px-3 py-1.5 rounded-md font-semibold text-xs shadow-xs transition-all"
+                    className="shrink-0 bg-white text-ava-ciano-texto hover:bg-slate-100 px-3 py-1.5 rounded-md font-semibold text-xs shadow-xs transition-all"
                   >
                     Confirmar Presença
                   </button>
@@ -325,10 +325,10 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
               {/* Audio visualizer bar in low part */}
               {micOn && (
                 <div className="absolute bottom-4 left-4 flex items-end gap-1 h-6">
-                  <div className="w-1 bg-teal-500 rounded animate-[bounce_1s_infinite]" style={{ height: '40%' }}></div>
-                  <div className="w-1 bg-teal-500 rounded animate-[bounce_1.4s_infinite]" style={{ height: '70%' }}></div>
-                  <div className="w-1 bg-teal-500 rounded animate-[bounce_0.8s_infinite]" style={{ height: '30%' }}></div>
-                  <div className="w-1 bg-teal-500 rounded animate-[bounce_1.2s_infinite]" style={{ height: '90%' }}></div>
+                  <div className="w-1 bg-ava-ciano rounded animate-[bounce_1s_infinite]" style={{ height: '40%' }}></div>
+                  <div className="w-1 bg-ava-ciano rounded animate-[bounce_1.4s_infinite]" style={{ height: '70%' }}></div>
+                  <div className="w-1 bg-ava-ciano rounded animate-[bounce_0.8s_infinite]" style={{ height: '30%' }}></div>
+                  <div className="w-1 bg-ava-ciano rounded animate-[bounce_1.2s_infinite]" style={{ height: '90%' }}></div>
                   <span className="text-apoio text-escult-ink-2 ml-1.5">Áudio ao vivo</span>
                 </div>
               )}
@@ -376,7 +376,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                 onClick={() => setIsScreenSharing(!isScreenSharing)}
                 title="Compartilhar Tela"
                 className={`p-3 rounded-full transition-colors ${
-                  isScreenSharing ? 'bg-teal-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                  isScreenSharing ? 'bg-ava-ciano text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
                 }`}
               >
                 <Monitor className="h-5 w-5" />
@@ -410,7 +410,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   <span>Confirmar Minha Presença</span>
                 </button>
               ) : (
-                <div className="bg-slate-800 px-3 py-2 rounded text-xs text-teal-300">
+                <div className="bg-slate-800 px-3 py-2 rounded text-xs text-ava-ciano">
                   Modo Instrutor • Presença desativada
                 </div>
               )}
@@ -424,8 +424,8 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
           {/* Sub Navigation */}
           {isFocusMode ? (
             <div className="flex h-14 items-center justify-between border-b border-slate-800 bg-slate-950 px-4 shrink-0 shadow-2xs">
-              <span className="text-sobretitulo text-teal-400 uppercase flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-teal-500 animate-pulse" />
+              <span className="text-sobretitulo text-ava-ciano uppercase flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-ava-ciano animate-pulse" />
                 <span>Bate-papo da Aula ao Vivo</span>
               </span>
               <span className="text-sobretitulo text-escult-ink-2 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded uppercase">
@@ -439,7 +439,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   onClick={() => setActiveTab('chat')}
                   className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 ${
                     activeTab === 'chat' 
-                      ? 'border-teal-500 text-teal-400 bg-slate-950/20' 
+                      ? 'border-ava-acao text-ava-ciano bg-slate-950/20' 
                       : 'border-transparent text-escult-ink-2 hover:text-slate-200'
                   }`}
                 >
@@ -453,7 +453,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                 onClick={() => setActiveTab('info')}
                 className={`flex-1 py-3 text-xs font-bold transition-all border-b-2 ${
                   activeTab === 'info' 
-                    ? 'border-teal-500 text-teal-400 bg-slate-950/20' 
+                    ? 'border-ava-acao text-ava-ciano bg-slate-950/20' 
                     : 'border-transparent text-escult-ink-2 hover:text-slate-200'
                 }`}
               >
@@ -479,7 +479,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                     return (
                       <div key={msg.id} className="flex flex-col text-left">
                         <div className="flex items-baseline gap-1.5">
-                          <span className={`text-rotulo font-bold ${isInstructor ? 'text-amber-400' : 'text-teal-400'}`}>
+                          <span className={`text-rotulo font-bold ${isInstructor ? 'text-amber-400' : 'text-ava-ciano'}`}>
                             {msg.senderName}
                           </span>
                           {isInstructor && (
@@ -508,11 +508,11 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder="Envie uma mensagem..."
-                  className="flex-1 rounded-lg bg-slate-800 px-3 py-2 text-xs placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-teal-500 border border-slate-700/60"
+                  className="flex-1 rounded-lg bg-slate-800 px-3 py-2 text-xs placeholder-slate-500 focus:outline-hidden focus:ring-1 focus:ring-ava-acao border border-slate-700/60"
                 />
                 <button
                   type="submit"
-                  className="rounded-lg bg-teal-600 p-2 hover:bg-teal-500 transition-colors cursor-pointer"
+                  className="rounded-lg bg-ava-acao p-2 hover:bg-ava-acao-escuro transition-colors cursor-pointer"
                 >
                   <Send className="h-4 w-4" />
                 </button>
@@ -521,7 +521,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
           ) : (
             /* External Integrations Info Panel */
             <div className="flex-1 p-5 space-y-4 text-left text-xs leading-relaxed overflow-y-auto">
-              <div className="p-3.5 rounded-lg bg-teal-950/20 border border-teal-900 text-teal-300">
+              <div className="p-3.5 rounded-lg bg-ava-marinho/20 border border-ava-borda text-ava-ciano">
                 <div className="flex items-center gap-2 font-bold mb-1">
                   <ExternalLink className="h-4 w-4" />
                   <span>Ambiente de Transmissão Real</span>
@@ -536,7 +536,7 @@ export const LiveClassroom: React.FC<LiveClassroomProps> = ({ course, session, o
                   href={safeHref(session.meetingLink)}
                   target="_blank"
                   referrerPolicy="no-referrer"
-                  className="mt-2 inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white font-semibold px-3 py-1.5 rounded text-rotulo transition-all"
+                  className="mt-2 inline-flex items-center gap-1.5 bg-ava-acao hover:bg-ava-acao-escuro text-white font-semibold px-3 py-1.5 rounded text-rotulo transition-all"
                 >
                   <span>Abrir em Nova Aba</span>
                   <ExternalLink className="h-3 w-3" />
