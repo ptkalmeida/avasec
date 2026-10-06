@@ -100,7 +100,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
 
   const toggle = (alvo: Zone) => setZone((atual) => (atual === alvo ? null : alvo));
   const caixa = 'rounded-2xl border border-slate-200 bg-white shadow-3xs overflow-hidden';
-  const salvar = 'inline-flex items-center gap-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 px-4 py-2 text-sobretitulo uppercase text-white shadow-xs transition-colors cursor-pointer';
+  const salvar = 'inline-flex items-center gap-1.5 rounded-xl bg-ava-acao hover:bg-ava-acao-escuro px-4 py-2 text-sobretitulo uppercase text-white shadow-xs transition-colors cursor-pointer';
 
   return (
     <div className="space-y-5 text-left animate-in fade-in duration-200">
@@ -137,7 +137,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       {/* 1. Cabeçalho da aula */}
       <div className={caixa}>
         <ZoneHeader
-          icon={<BookOpen className="h-3.5 w-3.5 text-teal-700" />}
+          icon={<BookOpen className="h-3.5 w-3.5 text-ava-ciano-texto" />}
           title="Identificação da aula"
           hint={`${courseTitle} • aula ${lesson.order} de ${totalLessons}`}
           editing={zone === 'header'}
@@ -153,7 +153,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao"
                 />
               </div>
               <div>
@@ -163,7 +163,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
                   placeholder="20 min"
-                  className="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 text-sm focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao"
                 />
               </div>
             </div>
@@ -183,7 +183,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
         ) : (
           <div className="p-4">
             <h3 className="text-lg md:text-xl font-black text-slate-900 font-serif leading-tight">{lesson.title}</h3>
-            <div className="mt-1 flex flex-wrap items-center gap-3 text-rotulo font-bold text-teal-700">
+            <div className="mt-1 flex flex-wrap items-center gap-3 text-rotulo font-bold text-ava-ciano-texto">
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 {lesson.duration || 'sem carga definida'}
@@ -200,7 +200,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       {/* 2. Vídeo */}
       <div className={caixa}>
         <ZoneHeader
-          icon={<Video className="h-3.5 w-3.5 text-teal-700" />}
+          icon={<Video className="h-3.5 w-3.5 text-ava-ciano-texto" />}
           title="Vídeo principal da aula"
           hint={temVideo ? 'O aluno vê o player no topo da aula.' : 'Sem vídeo: a aula abre como conteúdo de leitura.'}
           editing={zone === 'video'}
@@ -245,7 +245,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       {/* 3. Material didático */}
       <div className={caixa}>
         <ZoneHeader
-          icon={<FileText className="h-3.5 w-3.5 text-teal-700" />}
+          icon={<FileText className="h-3.5 w-3.5 text-ava-ciano-texto" />}
           title="Material didático"
           hint={`${parsed.sections.filter((s) => s.level === 2).length} seções${parsed.hasCode ? ' • contém bloco de código' : ''}`}
           editing={zone === 'content'}
@@ -294,7 +294,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
       {/* 4. Documentos anexos */}
       <div className={caixa}>
         <ZoneHeader
-          icon={<Paperclip className="h-3.5 w-3.5 text-teal-700" />}
+          icon={<Paperclip className="h-3.5 w-3.5 text-ava-ciano-texto" />}
           title={`Material de apoio (${docs.length})`}
           hint="Arquivos e links que o aluno abre no fim da aula."
           editing={zone === 'docs'}

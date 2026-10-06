@@ -345,7 +345,7 @@ export const ExerciciosManagePanel: React.FC<ExerciciosManagePanelProps> = ({
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-3">
         <div className="space-y-1">
           <h4 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-slate-800">
-            <FileCheck className="h-4 w-4 text-teal-700" />
+            <FileCheck className="h-4 w-4 text-ava-ciano-texto" />
             <span>Exercícios Práticos</span>
           </h4>
           <p className="text-rotulo leading-relaxed text-escult-ink-2">

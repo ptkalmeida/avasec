@@ -248,7 +248,7 @@ const EditorQuestao: React.FC<{
           <button
             type="button"
             onClick={() => alterar({ options: [...questao.options, ''] })}
-            className="cursor-pointer text-apoio font-bold text-teal-700 hover:underline"
+            className="cursor-pointer text-apoio font-bold text-ava-ciano-texto hover:underline"
           >
             + Acrescentar alternativa
           </button>
@@ -434,7 +434,7 @@ const EditorAvaliacao: React.FC<{
       <button
         type="button"
         onClick={() => setQuestoes((prev) => [...prev, questaoVazia()])}
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-rotulo font-bold text-slate-600 transition-colors hover:border-teal-400 hover:text-teal-700"
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-rotulo font-bold text-slate-600 transition-colors hover:border-ava-acao/40 hover:text-ava-ciano-texto"
       >
         <Plus className="h-3.5 w-3.5" /> Acrescentar questão
       </button>
@@ -579,7 +579,7 @@ export const AvaliacoesManagePanel: React.FC<AvaliacoesManagePanelProps> = ({
                 className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-3xs"
               >
                 <div className="min-w-0">
-                  <span className="block text-sobretitulo uppercase text-teal-700">
+                  <span className="block text-sobretitulo uppercase text-ava-ciano-texto">
                     {curso?.title ?? 'Disciplina'}
                   </span>
                   <strong className="mt-0.5 block text-xs font-black text-slate-900">
