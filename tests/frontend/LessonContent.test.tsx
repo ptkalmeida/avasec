@@ -156,7 +156,17 @@ describe('LessonContent — mídia no corpo da aula', () => {
       />
     );
 
-    expect(screen.getByText('Figura 1 - o diagrama').className).toContain('text-teal-400');
+    /*
+     * O petróleo saiu da paleta no plano 14; a legenda escura agora usa
+     * `ava-ciano`. A verificação é a mesma: o tom escuro NÃO pode cair no
+     * token de texto do tom claro (`ava-ciano-texto`, calibrado para fundo
+     * branco). Por isso a classe é conferida inteira, e não por trecho —
+     * `toContain('text-ava-ciano')` passaria com o token claro.
+     */
+    const classes = screen.getByText('Figura 1 - o diagrama').className.split(/\s+/);
+
+    expect(classes).toContain('text-ava-ciano');
+    expect(classes).not.toContain('text-ava-ciano-texto');
   });
 });
 
