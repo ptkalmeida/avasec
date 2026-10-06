@@ -126,7 +126,7 @@ export const LessonManagePage: React.FC<LessonManagePageProps> = ({
             className={`rounded-full px-3 py-1 text-sobretitulo font-black uppercase tracking-wider transition-colors cursor-pointer ${
               lesson.isOptional
                 ? 'bg-slate-200 text-slate-700 hover:bg-slate-300'
-                : 'bg-ava-acao/10 text-ava-acao border border-purple-300/30 hover:bg-ava-acao/15'
+                : 'bg-ava-acao/10 text-ava-acao border border-ava-acao/30 hover:bg-ava-acao/15'
             }`}
           >
             {lesson.isOptional ? 'Aula opcional' : 'Aula obrigatória'}

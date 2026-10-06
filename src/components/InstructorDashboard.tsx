@@ -749,7 +749,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               onClick={() => {
                 setPreviewLesson(lesson);
               }}
-              className="bg-white text-ava-acao font-extrabold hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-purple-200/50 text-apoio cursor-pointer"
+              className="bg-white text-ava-acao font-extrabold hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-ava-acao/20 text-apoio cursor-pointer"
             >
               Olhar Prévia
             </button>
@@ -933,7 +933,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 className={`px-3 py-1 rounded-full text-sobretitulo font-black uppercase cursor-pointer transition-all ${
                   lesson.isOptional 
                     ? 'bg-slate-200 text-slate-700' 
-                    : 'bg-ava-acao/10 text-ava-acao border border-purple-300/30'
+                    : 'bg-ava-acao/10 text-ava-acao border border-ava-acao/30'
                 }`}
               >
                 {lesson.isOptional ? "Desativar" : "Ativar"}
@@ -1806,7 +1806,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               */}
               <button
                 onClick={() => setIsCreatingLesson(true)}
-                className="bg-ava-acao hover:bg-[#430a58] text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-purple-900/10 flex items-center gap-2 transition-all cursor-pointer"
+                className="bg-ava-acao hover:bg-ava-acao-escuro text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-purple-900/10 flex items-center gap-2 transition-all cursor-pointer"
               >
                 <Plus className="h-5 w-5" />
                 <span>Criar Nova Aula</span>
@@ -2749,9 +2749,9 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             {/* Header */}
             <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-400 animate-pulse" />
+                <Sparkles className="h-5 w-5 text-ava-ciano animate-pulse" />
                 <div>
-                  <span className="text-sobretitulo uppercase bg-purple-500/15 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30">
+                  <span className="text-sobretitulo uppercase bg-ava-ciano/15 text-ava-ciano px-2 py-0.5 rounded border border-ava-ciano/30">
                     Modo Pré-visualização do Aluno
                   </span>
                   <h3 className="text-sm font-bold text-slate-200 mt-1">{previewLesson.title}</h3>
@@ -2790,7 +2790,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   Duração: <strong className="text-slate-200">{previewLesson.duration}</strong>
                 </span>
                 <span className="flex items-center gap-1.5 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700/30">
-                  <BookOpen className="h-3.5 w-3.5 text-purple-400" />
+                  <BookOpen className="h-3.5 w-3.5 text-ava-ciano" />
                   Ordem: <strong className="text-slate-200">Aula {previewLesson.order}</strong>
                 </span>
               </div>
@@ -2798,7 +2798,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               {/* Lesson Content Text */}
               <div className="space-y-3 text-left">
                 <h4 className="text-sobretitulo uppercase text-slate-300 flex items-center gap-1.5">
-                  <FileText className="h-4 w-4 text-purple-400" />
+                  <FileText className="h-4 w-4 text-ava-ciano" />
                   Roteiro de Estudos / Conteúdo Teórico
                 </h4>
                 <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800/60 text-slate-300 text-xs font-sans leading-relaxed max-h-[250px] overflow-y-auto">
