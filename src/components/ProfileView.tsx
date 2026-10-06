@@ -931,11 +931,11 @@ export function ProfileView({
         {/* Header */}
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-left mb-2">
           <h2 className="text-xl font-black text-slate-900 flex items-center gap-2 mb-2">
-            <Award className="h-6 w-6 text-teal-700" />
+            <Award className="h-6 w-6 text-teal-700 ava:text-ava-ciano-texto" />
             Meus Certificados
           </h2>
           <p className="text-xs text-slate-600 bg-white p-3 rounded-lg border border-slate-100 inline-block">
-            <span className="font-bold text-teal-700 mr-1">Aviso:</span> O certificado será liberado conforme os critérios de conclusão definidos para este curso.
+            <span className="font-bold text-teal-700 ava:text-ava-ciano-texto mr-1">Aviso:</span> O certificado será liberado conforme os critérios de conclusão definidos para este curso.
           </p>
         </div>
 
@@ -1033,7 +1033,7 @@ export function ProfileView({
                               navigator.clipboard.writeText(cert.verificationHash);
                               speakText('Código copiado para a área de transferência!');
                             }}
-                            className="text-teal-700 hover:text-teal-700 font-bold ml-2 uppercase tracking-wider transition-colors cursor-pointer"
+                            className="text-teal-700 ava:text-ava-ciano-texto hover:text-teal-700 ava:hover:text-ava-ciano-texto font-bold ml-2 uppercase tracking-wider transition-colors cursor-pointer"
                           >
                             Copiar código
                           </button>
@@ -1145,12 +1145,12 @@ export function ProfileView({
                     value={validationCode}
                     onChange={(e) => setValidationCode(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleValidateCertificate(); }}
-                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                    className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 ava:focus:ring-ava-acao/20 focus:border-teal-500 ava:focus:border-ava-acao"
                   />
                   <button
                     onClick={handleValidateCertificate}
                     disabled={isValidating}
-                    className="bg-teal-600 hover:bg-teal-500 text-white text-sobretitulo uppercase px-6 py-3 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                    className="bg-teal-600 ava:bg-ava-acao hover:bg-teal-500 ava:hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase px-6 py-3 rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                   >
                     {isValidating ? 'Validando...' : 'Validar'}
                   </button>
@@ -1574,7 +1574,7 @@ export function ProfileView({
               {/* Dyslexia font */}
               <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-150">
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${accessibilitySettings.dyslexicFont ? 'bg-teal-600 text-teal-50 text-white' : 'bg-slate-200 text-escult-ink-2'}`}>
+                  <div className={`p-2 rounded-lg ${accessibilitySettings.dyslexicFont ? 'bg-teal-600 ava:bg-ava-acao text-teal-50 ava:text-white text-white' : 'bg-slate-200 text-escult-ink-2'}`}>
                     <Layout className="h-4 w-4" />
                   </div>
                   <div>
@@ -1589,7 +1589,7 @@ export function ProfileView({
                     speakText(next ? "Fonte de legibilidade otimizada ativada." : "Fonte original restabelecida.");
                   }}
                   className={`w-12 h-6.5 rounded-full p-1 transition-all duration-200 cursor-pointer ${
-                    accessibilitySettings.dyslexicFont ? 'bg-teal-600 flex justify-end' : 'bg-slate-300 flex justify-start'
+                    accessibilitySettings.dyslexicFont ? 'bg-teal-600 ava:bg-ava-acao flex justify-end' : 'bg-slate-300 flex justify-start'
                   }`}
                 >
                   <div className="h-4.5 w-4.5 bg-white rounded-full shadow-xs" />
@@ -1739,7 +1739,7 @@ export function ProfileView({
                         disabled={isActive || switchingProfile !== null}
                         className={`py-2 px-2 rounded-lg text-rotulo font-bold transition-all border ${
                           isActive
-                            ? 'bg-teal-50 border-teal-200 text-teal-700 cursor-default'
+                            ? 'bg-teal-50 ava:bg-ava-icone-fundo border-teal-200 ava:border-ava-borda text-teal-700 ava:text-ava-ciano-texto cursor-default'
                             : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 cursor-pointer disabled:opacity-50 disabled:cursor-wait'
                         }`}
                         title={isActive ? 'Perfil atual' : `Entrar como ${p.name}`}
