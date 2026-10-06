@@ -27,6 +27,7 @@ import {
 } from '../utils/abasAluno';
 import { trilhaDoAluno } from '../utils/trilhaAluno';
 import { Breadcrumb } from './shared/Breadcrumb';
+import { BarraDeAulas } from './student/BarraDeAulas';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -1439,18 +1440,60 @@ ${html}
                             Conteúdo de leitura
                           </span>
                         )}
-                        <h2 className="text-lg md:text-2xl font-black text-slate-900 font-serif leading-tight">
+                        {/*
+                          Formato da tela 15: sobretítulo com a posição da aula,
+                          título grande e a linha de dados com ícone. Os mesmos
+                          dados de antes — só a disposição muda.
+                        */}
+                        <span className="text-sobretitulo uppercase text-ava-acao block">
+                          Aula {activeLesson.order} de {selectedCourse.lessons.length}
+                        </span>
+                        <h2 className="font-titulo text-lg md:text-2xl font-black text-ava-tinta leading-tight">
                           {activeLesson.title}
                         </h2>
-                        <p className="text-rotulo text-escult-ink-3">
-                          Aula {activeLesson.order} de {selectedCourse.lessons.length}
-                          {activeLesson.duration ? ` • ${activeLesson.duration}${lessonHasVideo ? '' : ' de leitura'}` : ''}
-                        </p>
+                        {activeLesson.duration && (
+                          <p className="text-rotulo text-escult-ink-3 flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-ava-ciano shrink-0" aria-hidden="true" />
+                            {activeLesson.duration}
+                            {lessonHasVideo ? '' : ' de leitura'}
+                          </p>
+                        )}
                       </div>
 
                       {/* Controles da aula. A navegação entre aulas vive só no rodapé
                           da aula (um par de botões, não dois fazendo a mesma coisa). */}
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/65 flex items-center justify-end gap-4 w-full max-w-3xl mx-auto">
+                      <div className="bg-ava-faixa p-4 rounded-xl border border-ava-borda flex flex-wrap items-center justify-between gap-4 w-full max-w-3xl mx-auto">
+
+                        {/*
+                          Progresso no curso, como na tela 15: barra, numero e
+                          texto juntos — nunca so a cor. O dado ja existia
+                          (`completedLessons`); o que faltava era mostra-lo na
+                          aula, onde ele e usado.
+                        */}
+                        {(() => {
+                          const total = aulasEmOrdem.length;
+                          const feitas = currentCourseProgress?.completedLessons.length ?? 0;
+                          const pct = total > 0 ? Math.round((feitas / total) * 100) : 0;
+
+                          return (
+                            /* Em tela estreita o progresso ocupa a linha toda e
+                               a ação desce — espremidos lado a lado, o texto
+                               "0 de 6 aulas concluídas" quebrava em cinco
+                               linhas atrás do botão. */
+                            <div className="min-w-0 w-full sm:w-auto sm:flex-1 sm:max-w-[16rem]">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-sobretitulo uppercase text-escult-ink-2">Seu progresso no curso</span>
+                                <strong className="text-rotulo font-black text-ava-acao">{pct}%</strong>
+                              </div>
+                              <div className="mt-1 h-1.5 w-full rounded-full bg-white border border-ava-borda overflow-hidden">
+                                <div className="h-full bg-ava-acao" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="mt-1 block text-apoio text-escult-ink-2">
+                                {feitas} de {total} aulas concluídas
+                              </span>
+                            </div>
+                          );
+                        })()}
 
                         {/*
                           ESTADO primeiro, ação depois.
@@ -1880,6 +1923,23 @@ ${html}
                           para a sua frequência" saiu a pedido da coordenação
                           (01/10/2026). O efeito segue dito no `title` do botão
                           "Próxima aula". */}
+
+                      {/*
+                        Barra de aulas da tela 15. Fica JUNTO dos dois botões,
+                        e não no lugar deles: ela leva a qualquer aula, mas
+                        quem conclui a aula atual é o "Próxima aula". O espaço
+                        abaixo evita que a barra fixa cubra o fim do conteúdo.
+                      */}
+                      <div className="h-16" aria-hidden="true" />
+                      <BarraDeAulas
+                        aulas={aulasEmOrdem}
+                        aulaAtualId={activeLesson.id}
+                        concluidas={currentCourseProgress?.completedLessons ?? []}
+                        onAbrir={(aula) => {
+                          setActiveLesson(aula);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                      />
                     </div>
                   ) : (
                     /* Initial Welcome course billboard if no active lesson selected */
