@@ -1851,7 +1851,7 @@ ${html}
                                   : 'Esta é a última aula — conclua-a pelo botão acima'}
                                 className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all min-w-0 ${
                                   next
-                                    ? 'bg-ava-acao hover:bg-purple-950 text-white cursor-pointer shadow-xs'
+                                    ? 'bg-ava-acao hover:bg-ava-acao-escuro text-white cursor-pointer shadow-xs'
                                     : 'border border-slate-200 text-slate-300 cursor-not-allowed'
                                 }`}
                               >
@@ -2435,7 +2435,7 @@ ${html}
                               setEnrollSuccessMessage(null);
                               setIsEnrollModalOpen(true);
                             }}
-                            className="w-full bg-ava-acao hover:bg-[#430a58] text-white text-sobretitulo uppercase py-3.5 rounded-xl text-center transition-all cursor-pointer shadow-md hover:scale-[1.01] flex items-center justify-center gap-1.5"
+                            className="w-full bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase py-3.5 rounded-xl text-center transition-all cursor-pointer shadow-md hover:scale-[1.01] flex items-center justify-center gap-1.5"
                           >
                             <BookOpen className="h-4.5 w-4.5" />
                             <span>Inscrever-se</span>
@@ -2523,7 +2523,7 @@ ${html}
                                 setSelectedCourse(activeCourse);
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
                               }}
-                              className="bg-ava-acao hover:bg-[#430858] text-white text-sobretitulo uppercase px-5 py-3 rounded-xl transition-all shadow-md hover:scale-[1.01] text-center flex items-center justify-center gap-1.5 cursor-pointer"
+                              className="bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase px-5 py-3 rounded-xl transition-all shadow-md hover:scale-[1.01] text-center flex items-center justify-center gap-1.5 cursor-pointer"
                             >
                               <PlayCircle className="h-4 w-4 animate-pulse" />
                               <span>Entrar na Sala de Aula</span>
@@ -2822,7 +2822,7 @@ ${html}
                                       </div>
                                       <button
                                         onClick={() => setViewingCatalogCourse(course)}
-                                        className="text-sobretitulo bg-ava-acao hover:bg-purple-950 text-white uppercase px-4 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 select-none shadow-md"
+                                        className="text-sobretitulo bg-ava-acao hover:bg-ava-acao-escuro text-white uppercase px-4 py-2.5 rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 select-none shadow-md"
                                       >
                                         <span>Ver e Escolher</span>
                                         <ArrowRight className="h-3 w-3" />
@@ -3118,7 +3118,7 @@ ${html}
           </div>
 
           {/* Quick Support CTA */}
-          <div className="bg-gradient-to-r from-ava-acao/5 to-indigo-50 border border-ava-acao/10 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="bg-gradient-to-r from-ava-acao/5 to-ava-faixa border border-ava-acao/10 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="space-y-1 text-center md:text-left">
               <strong className="text-sm font-black text-slate-800 block">Ainda tem dúvidas ou precisa de ajuda técnica?</strong>
               <p className="text-xs text-escult-ink-2 font-medium">Nossa equipe de suporte acadêmico e coordenação está pronta para te atender de forma personalizada.</p>
@@ -3584,7 +3584,7 @@ ${html}
         <div className="fixed bottom-6 right-6 z-40 md:bottom-8 md:right-8 flex flex-col items-end">
           <button
             onClick={() => setIsFaqDrawerOpen(true)}
-            className="bg-ava-acao hover:bg-[#430a58] text-white font-black rounded-full transition-all cursor-pointer shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2.5 p-3.5 sm:px-5 sm:py-3.5 active:scale-95 select-none relative"
+            className="bg-ava-acao hover:bg-ava-acao-escuro text-white font-black rounded-full transition-all cursor-pointer shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2.5 p-3.5 sm:px-5 sm:py-3.5 active:scale-95 select-none relative"
             title="Central de Ajuda & FAQ"
           >
             {/* Subtle live pulse wave */}
@@ -3784,7 +3784,7 @@ ${html}
                     setActiveDashboardTab('messages');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="bg-ava-acao hover:bg-[#430a58] text-white text-sobretitulo uppercase px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1.5"
+                  className="bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-md flex items-center gap-1.5"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
                   <span>Suporte</span>
@@ -3900,7 +3900,7 @@ ${html}
               <div className="p-4 bg-slate-50 border-t border-slate-100 text-right shrink-0">
                 <button
                   onClick={() => setIsFullSyllabusOpen(false)}
-                  className="bg-ava-acao hover:bg-[#430a58] text-white text-sobretitulo uppercase px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
+                  className="bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase px-5 py-2.5 rounded-xl transition-all cursor-pointer shadow-xs"
                 >
                   Fechar Grade Completa
                 </button>
@@ -4032,7 +4032,7 @@ ${html}
                         setIsEnrollRulesChecked(false);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
-                      className="w-full bg-ava-acao hover:bg-[#430a58] text-white text-sobretitulo uppercase py-3 rounded-xl transition-all shadow-md"
+                      className="w-full bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase py-3 rounded-xl transition-all shadow-md"
                     >
                       Começar curso
                     </button>
@@ -4072,7 +4072,7 @@ ${html}
               <button
                 type="button"
                 onClick={() => setAlertState(null)}
-                className="w-full py-2 bg-ava-acao hover:bg-purple-950 text-white text-sobretitulo uppercase rounded-xl transition-all cursor-pointer"
+                className="w-full py-2 bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase rounded-xl transition-all cursor-pointer"
               >
                 Entendi
               </button>
@@ -4118,7 +4118,7 @@ ${html}
                     confirmState.onConfirm();
                     setConfirmState(null);
                   }}
-                  className="py-2 bg-ava-acao hover:bg-purple-950 text-white text-sobretitulo uppercase rounded-xl transition-all cursor-pointer"
+                  className="py-2 bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase rounded-xl transition-all cursor-pointer"
                 >
                   Confirmar
                 </button>

@@ -529,7 +529,7 @@ export function ProfileView({
                 setCurrentTab('profile');
                 setIsResetSuccess(false);
               }}
-              className="px-6 py-2.5 bg-ava-acao hover:bg-[#3D0A50] text-[#FFFFFF] rounded-xl text-sobretitulo transition-colors cursor-pointer uppercase"
+              className="px-6 py-2.5 bg-ava-acao hover:bg-[#3D0A50] ava:hover:bg-ava-acao-escuro text-[#FFFFFF] rounded-xl text-sobretitulo transition-colors cursor-pointer uppercase"
             >
               Concluir e Voltar
             </button>
@@ -630,7 +630,7 @@ export function ProfileView({
                       isDocVerified ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                     } ${
                       docType === 'cpf'
-                        ? 'border-ava-acao bg-purple-50/20 text-ava-acao'
+                        ? 'border-ava-acao bg-purple-50/20 ava:bg-ava-faixa text-ava-acao'
                         : 'border-slate-100 bg-slate-50/55 text-escult-ink-2 hover:border-slate-200'
                     }`}
                   >
@@ -650,7 +650,7 @@ export function ProfileView({
                       isDocVerified ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                     } ${
                       docType === 'rg'
-                        ? 'border-ava-acao bg-purple-50/20 text-ava-acao'
+                        ? 'border-ava-acao bg-purple-50/20 ava:bg-ava-faixa text-ava-acao'
                         : 'border-slate-100 bg-slate-50/55 text-escult-ink-2 hover:border-slate-200'
                     }`}
                   >
@@ -724,7 +724,7 @@ export function ProfileView({
                   setIsDocVerified(true);
                   speakText("Documento validado com sucesso! Os campos de alteração de senha foram habilitados.");
                 }}
-                className="w-full bg-ava-acao hover:bg-[#3D0A50] text-[#FFFFFF] py-2.5 rounded-xl text-sobretitulo transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-3xs uppercase"
+                className="w-full bg-ava-acao hover:bg-[#3D0A50] ava:hover:bg-ava-acao-escuro text-[#FFFFFF] py-2.5 rounded-xl text-sobretitulo transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-3xs uppercase"
               >
                 <Fingerprint className="h-4 w-4 text-white" />
                 <span>Validar Documento para Prosseguir</span>
@@ -857,7 +857,7 @@ export function ProfileView({
                 disabled={!isDocVerified}
                 className={`order-1 xs:order-2 flex-1 font-semibold py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center gap-2 shadow-3xs uppercase tracking-wider ${
                   isDocVerified 
-                    ? 'bg-ava-acao hover:bg-[#3D0A50] text-[#FFFFFF] cursor-pointer' 
+                    ? 'bg-ava-acao hover:bg-[#3D0A50] ava:hover:bg-ava-acao-escuro text-[#FFFFFF] cursor-pointer' 
                     : 'bg-slate-100 text-escult-ink-2 border border-slate-200 cursor-not-allowed opacity-50'
                 }`}
               >
@@ -1383,7 +1383,7 @@ export function ProfileView({
                       <button
                         type="button"
                         onClick={capturePhoto}
-                        className="px-3 py-1.5 bg-ava-acao hover:bg-[#3D0A50] text-[#FFFFFF] text-sobretitulo rounded-lg uppercase cursor-pointer"
+                        className="px-3 py-1.5 bg-ava-acao hover:bg-[#3D0A50] ava:hover:bg-ava-acao-escuro text-[#FFFFFF] text-sobretitulo rounded-lg uppercase cursor-pointer"
                       >
                         Capturar Agora
                       </button>
@@ -1768,7 +1768,7 @@ export function ProfileView({
               <div className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   
-                  <div className="bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 border border-escult-line p-4 rounded-xl flex flex-col justify-between">
+                  <div className="bg-gradient-to-br from-indigo-50/50 to-indigo-100/30 ava:from-ava-faixa ava:to-ava-faixa border border-escult-line p-4 rounded-xl flex flex-col justify-between">
                     <div className="flex items-center justify-between text-escult-purple mb-4">
                       <BookOpen className="h-5 w-5" />
                       <span className="text-apoio bg-white px-2 py-0.5 rounded border border-escult-line/60 font-bold">

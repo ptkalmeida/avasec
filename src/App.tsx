@@ -759,12 +759,18 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
    */
 
   /*
-   * Tema do portal (planejamento 12): vale nas paginas publicas e fica de fora
-   * do painel de cada perfil e do Perfil, que o admin tambem usa. O admin nao
-   * muda; aluno e instrutor mudam em fase propria, de uma vez, para o painel
-   * nao ficar metade em cada paleta.
+   * Tema do AVA (planejamento 12, ampliado pelo 14).
+   *
+   * Comeca valendo em TUDO e sai de um lugar so: o painel do admin e o Perfil
+   * quando quem esta logado e admin. "O admin nao pode mudar" e a unica regra
+   * fixa do humano, e `ProfileView` e a MESMA tela para os tres papeis — por
+   * isso o recorte e pelo papel, nao pela rota.
+   *
+   * O admin continua vendo o portal publico com o tema, como ja via.
    */
-  const temaPortal = currentView !== 'active_app' && currentView !== 'perfil';
+  const ehAdminLogado = isUserLoggedIn && activeUser.role === 'admin';
+  const emAreaLogada = currentView === 'active_app' || currentView === 'perfil';
+  const temaPortal = !(ehAdminLogado && emAreaLogada);
 
   return (
     <div className={`min-h-screen bg-white flex flex-col justify-between text-slate-800 font-sans selection:bg-slate-900 selection:text-white transition-colors duration-300 ${temaPortal ? 'tema-ava' : ''} ${accessibilitySettings.highContrast ? 'high-contrast-active' : ''} ${textSizeMultiplier !== 1.0 ? 'text-scaled-active' : ''}`}>
