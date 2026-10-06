@@ -2914,9 +2914,12 @@ ${html}
 
                         return (
                           <div className="space-y-4">
-                            <div className="text-sobretitulo text-escult-ink-2 uppercase text-left flex items-center justify-between">
+                            {/* Em 320px os dois textos não cabem na mesma linha:
+                                com `shrink-0` na contagem, a linha empurrava a
+                                página 22px para fora. Agora ela quebra. */}
+                            <div className="text-sobretitulo text-escult-ink-2 uppercase text-left flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                               <span>Grade Curricular Disponível para Matrícula:</span>
-                              <span className="text-ava-ciano-texto font-black shrink-0">
+                              <span className="text-ava-ciano-texto font-black">
                                 {filtered.length} {filtered.length === 1 ? 'curso encontrado' : 'cursos encontrados'}
                               </span>
                             </div>
@@ -3723,7 +3726,7 @@ ${html}
             title="Central de Ajuda & FAQ"
           >
             {/* Subtle live pulse wave */}
-            <span className="absolute -top-1 -right-1 flex h-4 w-4">
+            <span className="absolute -top-1 right-0 flex h-4 w-4">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ava-ciano opacity-75"></span>
               <span className="relative inline-flex rounded-full h-4 w-4 bg-ava-ciano justify-center items-center text-apoio font-black text-white">?</span>
             </span>
