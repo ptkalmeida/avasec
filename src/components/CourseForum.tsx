@@ -85,9 +85,9 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
   const getAvatarBg = (username: string) => {
     const colors = [
       'bg-escult-purple',
-      'bg-teal-500',
+      'bg-ava-ciano',
       'bg-escult-purple',
-      'bg-violet-500',
+      'bg-ava-marinho',
       'bg-emerald-500',
       'bg-amber-500',
       'bg-rose-500',
@@ -105,7 +105,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
       {/* Forum Header Banner */}
       <div className="p-5 border-b border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-teal-100 text-teal-700 p-2.5 shrink-0">
+          <div className="rounded-xl bg-ava-icone-fundo text-ava-ciano-texto p-2.5 shrink-0">
             <MessageSquare className="h-5 w-5" />
           </div>
           <div>
@@ -122,9 +122,9 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
         </div>
 
         {/* Group indicators */}
-        <div className="flex items-center gap-1.5 self-start sm:self-auto text-xs text-slate-600 bg-teal-50/50 border border-teal-100 px-3 py-1.5 rounded-lg">
-          <Users className="h-3.5 w-3.5 text-teal-700" />
-          <span className="font-medium text-rotulo text-teal-800">Discussão Ativa</span>
+        <div className="flex items-center gap-1.5 self-start sm:self-auto text-xs text-slate-600 bg-ava-icone-fundo/50 border border-ava-borda px-3 py-1.5 rounded-lg">
+          <Users className="h-3.5 w-3.5 text-ava-ciano-texto" />
+          <span className="font-medium text-rotulo text-ava-ciano-texto">Discussão Ativa</span>
         </div>
       </div>
 
@@ -166,8 +166,8 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
             onClick={() => setActiveFilter('instructor')}
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
               activeFilter === 'instructor'
-                ? 'bg-teal-100 text-teal-800 border border-teal-200'
-                : 'bg-white border border-slate-200 text-slate-600 hover:bg-teal-50/50'
+                ? 'bg-ava-icone-fundo text-ava-ciano-texto border border-ava-borda'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-ava-icone-fundo/50'
             }`}
           >
             <Users className="h-3 w-3" />Instrutores
@@ -207,7 +207,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                     
                     {/* Badge mapping */}
                     {msg.senderRole === 'instructor' && (
-                      <span className="bg-teal-600 text-white text-sobretitulo uppercase px-1.5 py-0.5 rounded">
+                      <span className="bg-ava-acao text-white text-sobretitulo uppercase px-1.5 py-0.5 rounded">
                         Professor
                       </span>
                     )}
@@ -236,7 +236,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                           let tagStyle = 'bg-slate-100 text-slate-700';
                           if (tag.includes('Dúvida')) tagStyle = 'bg-amber-100 text-amber-900 font-extrabold border border-amber-200';
                           if (tag.includes('Insight')) tagStyle = 'bg-emerald-100 text-emerald-900 font-extrabold border border-emerald-200';
-                          if (tag.includes('Sugerido')) tagStyle = 'bg-violet-100 text-violet-900 font-bold border border-violet-200';
+                          if (tag.includes('Sugerido')) tagStyle = 'bg-ava-icone-fundo text-ava-marinho font-bold border border-ava-borda';
                           if (tag.includes('Apresentação')) tagStyle = 'bg-escult-surface text-escult-purple font-bold border border-escult-line';
 
                           return (
@@ -313,7 +313,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                   onClick={() => setSelectedTag(selectedTag === tag.label ? null : tag.label)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-bold cursor-pointer transition-colors flex items-center gap-1 ${
                     selectedTag === tag.label
-                      ? 'bg-teal-600 text-white shadow-xs'
+                      ? 'bg-ava-acao text-white shadow-xs'
                       : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
                   }`}
                 >
@@ -334,7 +334,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                     ? `Publicar no fórum de ${selectedCourse.title} com etiqueta "${selectedTag}"...`
                     : `Escreva uma mensagem no fórum deste curso para debater com outros alunos...`
                 }
-                className="w-full bg-white border border-slate-200 text-xs rounded-xl pl-4 pr-12 py-3 focus:border-teal-400 focus:ring-1 focus:ring-teal-400/50 focus:outline-hidden"
+                className="w-full bg-white border border-slate-200 text-xs rounded-xl pl-4 pr-12 py-3 focus:border-ava-acao focus:ring-1 focus:ring-ava-acao/50 focus:outline-hidden"
               />
               
               <button
@@ -342,7 +342,7 @@ export const CourseForum: React.FC<CourseForumProps> = ({ selectedCourse }) => {
                 disabled={!inputText.trim()}
                 className={`absolute right-1.5 p-2 rounded-lg text-white transition-colors cursor-pointer ${
                   inputText.trim() 
-                    ? 'bg-teal-600 hover:bg-teal-500 hover:scale-105 active:scale-95' 
+                    ? 'bg-ava-acao hover:bg-ava-acao-escuro hover:scale-105 active:scale-95' 
                     : 'bg-slate-200 text-escult-ink-2 cursor-not-allowed'
                 }`}
               >
