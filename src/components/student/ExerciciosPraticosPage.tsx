@@ -137,8 +137,8 @@ const ExercicioCard: React.FC<{
         </div>
       </header>
 
-      <div className="space-y-1 rounded-xl border border-teal-100 bg-teal-50/30 p-3">
-        <strong className="flex items-center gap-1 text-sobretitulo uppercase text-teal-800">
+      <div className="space-y-1 rounded-xl border border-ava-borda bg-ava-icone-fundo/30 p-3">
+        <strong className="flex items-center gap-1 text-sobretitulo uppercase text-ava-ciano-texto">
           <Info className="h-3.5 w-3.5" /> Como entregar
         </strong>
         <p className="whitespace-pre-line text-rotulo leading-relaxed text-slate-700">
@@ -165,7 +165,7 @@ const ExercicioCard: React.FC<{
                   const err = await props.onDownload(submissao.fileUrl ?? '', submissao.fileName);
                   if (err) props.notify(err);
                 }}
-                className="ml-auto shrink-0 cursor-pointer font-bold text-teal-700 hover:underline"
+                className="ml-auto shrink-0 cursor-pointer font-bold text-ava-ciano-texto hover:underline"
               >
                 Baixar
               </button>
@@ -197,7 +197,7 @@ const ExercicioCard: React.FC<{
               onChange={(e) => { setTexto(e.target.value); setErro(null); }}
               rows={5}
               placeholder="Escreva sua justificativa, roteiro ou resposta detalhada."
-              className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs text-slate-800 focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 focus:outline-hidden"
+              className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs text-slate-800 focus:border-ava-acao focus:ring-1 focus:ring-ava-acao/30 focus:outline-hidden"
             />
           </label>
 
@@ -205,7 +205,7 @@ const ExercicioCard: React.FC<{
             <div className="flex flex-wrap items-center gap-2">
               {nomeAnexo !== undefined ? (
                 <span className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-100 px-2.5 py-1.5 text-apoio text-slate-700">
-                  <Paperclip className="h-3.5 w-3.5 text-teal-700" />
+                  <Paperclip className="h-3.5 w-3.5 text-ava-ciano-texto" />
                   <span className="min-w-0 max-w-[16rem] truncate font-bold">{nomeAnexo}</span>
                   {anexo !== null && (
                     <button
@@ -259,7 +259,7 @@ const ExercicioCard: React.FC<{
             type="button"
             onClick={enviar}
             disabled={enviando}
-            className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
+            className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-xl bg-ava-acao px-4 py-2 text-xs font-bold text-white shadow-sm transition-colors hover:bg-ava-acao-escuro disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Send className="h-3.5 w-3.5" />
             <span>
@@ -299,9 +299,9 @@ export const ExerciciosPraticosPage: React.FC<ExerciciosPraticosPageProps> = (pr
         Voltar ao curso
       </button>
 
-      <header className="space-y-3 rounded-2xl border border-teal-100 bg-teal-50/25 p-5">
+      <header className="space-y-3 rounded-2xl border border-ava-borda bg-ava-icone-fundo/25 p-5">
         <div className="space-y-1">
-          <span className="flex items-center gap-1.5 text-sobretitulo uppercase text-teal-700">
+          <span className="flex items-center gap-1.5 text-sobretitulo uppercase text-ava-ciano-texto">
             <FileCheck className="h-3.5 w-3.5" />
             Exercícios práticos
           </span>
@@ -309,7 +309,7 @@ export const ExerciciosPraticosPage: React.FC<ExerciciosPraticosPageProps> = (pr
         </div>
 
         {doCurso.length > 0 && (
-          <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t border-teal-100 pt-3 text-rotulo">
+          <dl className="flex flex-wrap gap-x-6 gap-y-2 border-t border-ava-borda pt-3 text-rotulo">
             <div>
               <dt className="font-bold uppercase tracking-wide text-escult-ink-2">Atividades</dt>
               <dd className="text-sm font-black text-slate-900">{progresso.total}</dd>

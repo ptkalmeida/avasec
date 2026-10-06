@@ -928,58 +928,72 @@ ${html}
     />
 
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-      {/* Student Welcome Header — só na página de boas-vindas (painel geral, sem curso selecionado) */}
+      {/*
+        Saudacao — so na pagina de boas-vindas (painel geral, sem curso aberto).
+
+        No formato da tela 07 aprovada: faixa clara, sobretitulo com o filete
+        dourado, nome em destaque e os indicadores como cartoes brancos com
+        icone em circulo.
+
+        A tela 07 mostra "Cursos concluidos" e "Certificados emitidos"; aqui
+        ficam os DOIS indicadores que ja existiam, com os mesmos rotulos e os
+        mesmos numeros — sao outro dado, e trocar seria inventar.
+      */}
       {activeDashboardTab === 'general' && !selectedCourse && (
-      <div className="mb-8 rounded-2xl bg-gradient-to-br from-purple-50/50 via-white to-teal-50/30 border border-slate-150 p-6 md:p-7 shadow-xs relative overflow-hidden text-left">
-        {/* Ambient subtle light glows */}
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-48 h-48 bg-ava-acao/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/4 -mb-10 w-44 h-44 bg-teal-400/5 rounded-full blur-3xl pointer-events-none" />
-        
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          {/* Left section: Avatar, Greeting, Badge & Exit Button */}
+      <div className="mb-8 rounded-2xl bg-ava-faixa border border-ava-borda p-6 md:p-7 text-left">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          {/* Avatar, sobretitulo e saudacao */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-            {/* Avatar container with live status indicator badge */}
+            {/* O ponto no canto e o mesmo indicador de sessao ativa de antes. */}
             <div className="relative shrink-0 w-14 h-14">
-              <div className="rounded-2xl bg-teal-50 p-3 w-14 h-14 border border-teal-100 shadow-3xs flex items-center justify-center">
-                <User className="h-7 w-7 text-teal-700" />
+              <div className="rounded-full bg-white p-3 w-14 h-14 border border-ava-borda flex items-center justify-center">
+                <User className="h-7 w-7 text-ava-acao" />
               </div>
               <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-teal-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ava-ciano opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-ava-ciano"></span>
               </span>
             </div>
 
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sobretitulo uppercase text-teal-800 bg-teal-100/40 border border-teal-200/50 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1.5 shadow-3xs">
-                  Painel de Estudos AVASEC
-                </span>
-                
-                {/*
-                  Aqui havia um botao de VOLTAR DE 9px, dentro do cartao de
-                  saudacao — um dos cinco desenhos do mesmo botao no produto, e o
-                  menor deles. Ele tambem so aparecia neste cartao, que desaparece
-                  quando um curso esta aberto: existia exatamente onde era menos
-                  necessario. Quem cumpre a funcao e a trilha, no topo.
-                */}
-              </div>
-              
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 tracking-tight leading-tight pt-0.5">
+            <div className="space-y-1.5 min-w-0">
+              <span className="filete text-sobretitulo uppercase text-ava-marinho block">
+                Painel de Estudos AVASEC
+              </span>
+
+              {/*
+                Aqui havia um botao de VOLTAR DE 9px, dentro do cartao de
+                saudacao — um dos cinco desenhos do mesmo botao no produto, e o
+                menor deles. Ele tambem so aparecia neste cartao, que desaparece
+                quando um curso esta aberto: existia exatamente onde era menos
+                necessario. Quem cumpre a funcao e a trilha, no topo.
+              */}
+
+              <h2 className="font-titulo text-xl sm:text-2xl md:text-3xl font-black text-ava-tinta tracking-tight leading-tight pt-0.5">
                 Olá, {activeUser.name}
               </h2>
               <p className="text-xs text-escult-ink-2 font-medium">Pronto para acelerar os seus conhecimentos profissionais hoje?</p>
             </div>
           </div>
 
-          {/* Right section: Indicators as mini cards */}
+          {/* Indicadores: numero + rotulo, com icone em circulo (tela 07) */}
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            <div className="bg-white/60 border border-slate-150 rounded-xl px-4 py-2.5 text-left shadow-3xs hover:bg-white/90 transition-all flex-1 sm:flex-initial min-w-[115px]">
-              <span className="block text-xl font-black text-ava-acao tracking-tight">{activeEnrollments}</span>
-              <span className="text-apoio text-escult-ink-2 font-semibold block mt-0.5 whitespace-nowrap">Cursos ativos</span>
+            <div className="bg-white border border-ava-borda rounded-xl px-4 py-3 text-left flex items-center gap-3 flex-1 sm:flex-initial min-w-[150px]">
+              <span className="shrink-0 h-9 w-9 rounded-full bg-ava-icone-fundo flex items-center justify-center">
+                <BookOpen className="h-4.5 w-4.5 text-ava-acao" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xl font-black text-ava-acao tracking-tight">{activeEnrollments}</span>
+                <span className="text-apoio text-escult-ink-2 font-semibold block mt-0.5 whitespace-nowrap">Cursos ativos</span>
+              </span>
             </div>
-            <div className="bg-white/60 border border-slate-150 rounded-xl px-4 py-2.5 text-left shadow-3xs hover:bg-white/90 transition-all flex-1 sm:flex-initial min-w-[115px]">
-              <span className="block text-xl font-black text-teal-700 tracking-tight">{avgGlobalAttendance}%</span>
-              <span className="text-apoio text-escult-ink-2 font-semibold block mt-0.5 whitespace-nowrap">Presença média</span>
+            <div className="bg-white border border-ava-borda rounded-xl px-4 py-3 text-left flex items-center gap-3 flex-1 sm:flex-initial min-w-[150px]">
+              <span className="shrink-0 h-9 w-9 rounded-full bg-ava-icone-fundo flex items-center justify-center">
+                <CheckCircle className="h-4.5 w-4.5 text-ava-acao" aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xl font-black text-ava-acao tracking-tight">{avgGlobalAttendance}%</span>
+                <span className="text-apoio text-escult-ink-2 font-semibold block mt-0.5 whitespace-nowrap">Presença média</span>
+              </span>
             </div>
           </div>
         </div>
@@ -1146,7 +1160,7 @@ ${html}
               <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
                 <button
                   onClick={voltarParaMeusCursos}
-                  className="flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-500 transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 text-xs font-bold text-ava-ciano-texto hover:text-ava-ciano transition-colors cursor-pointer"
                 >
                   <span>← Sair do Curso</span>
                 </button>
@@ -1200,7 +1214,7 @@ ${html}
                     <div className="flex items-center gap-3 bg-white px-3 py-2 rounded-lg border border-slate-250">
                       <div className="text-right">
                         <span className="block text-sobretitulo uppercase text-escult-ink-2 leading-none">Sua frequência</span>
-                        <strong className={`text-cartao font-bold mt-0.5 block ${qualificado ? 'text-emerald-700' : 'text-teal-700'}`}>
+                        <strong className={`text-cartao font-bold mt-0.5 block ${qualificado ? 'text-emerald-700' : 'text-ava-ciano-texto'}`}>
                           {frequencia}%
                         </strong>
                         {/*
@@ -1299,7 +1313,7 @@ ${html}
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                       title="Marca o curso como concluído e volta para o catálogo"
-                      className="shrink-0 rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-3.5 py-2 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
+                      className="shrink-0 rounded-lg bg-ava-acao hover:bg-ava-acao-escuro text-white font-bold text-xs px-3.5 py-2 transition-colors flex items-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer"
                     >
                       <Check className="h-3.5 w-3.5" />
                       <span className="uppercase tracking-wider">Concluir curso</span>
@@ -1420,7 +1434,7 @@ ${html}
                           do vídeo. Era o terceiro lugar que dizia "Aula X de Y". */}
                       <div ref={tituloDaAulaRef} className="w-full max-w-3xl mx-auto text-left space-y-2 pt-1">
                         {!lessonHasVideo && (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-teal-50 border border-teal-150 text-teal-800 text-sobretitulo uppercase px-2.5 py-1">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-ava-icone-fundo border border-ava-borda text-ava-ciano-texto text-sobretitulo uppercase px-2.5 py-1">
                             <FileText className="h-3 w-3" />
                             Conteúdo de leitura
                           </span>
@@ -1472,7 +1486,7 @@ ${html}
                           return (
                             <button
                               onClick={() => toggleLessonCompletion(selectedCourse.id, activeLesson.id)}
-                              className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-teal-600 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-teal-500"
+                              className="flex cursor-pointer items-center gap-1.5 rounded-xl bg-ava-acao px-4 py-2 text-xs font-bold text-white shadow-xs transition-all hover:bg-ava-acao-escuro"
                             >
                               <CheckCircle className="h-4 w-4" />
                               <span>Marcar esta aula como concluída</span>
@@ -1489,7 +1503,7 @@ ${html}
                           <button
                             onClick={() => setActiveTab('teoria')}
                             className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                              activeTab === 'teoria' ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent hover:text-teal-500'
+                              activeTab === 'teoria' ? 'border-ava-acao text-ava-ciano-texto bg-white' : 'border-transparent hover:text-ava-ciano'
                             }`}
                           >
                             <FileText className="h-4 w-4 shrink-0" />
@@ -1499,13 +1513,13 @@ ${html}
                           <button
                             onClick={() => setActiveTab('anotacao')}
                             className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                              activeTab === 'anotacao' ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent hover:text-teal-500'
+                              activeTab === 'anotacao' ? 'border-ava-acao text-ava-ciano-texto bg-white' : 'border-transparent hover:text-ava-ciano'
                             }`}
                           >
                             <Notebook className="h-4 w-4 shrink-0" />
                             <span>Anotações Privadas</span>
                             {savedNotes[activeLesson.id] && (
-                              <span className="w-1.5 h-1.5 bg-teal-600 rounded-full inline-block shrink-0" />
+                              <span className="w-1.5 h-1.5 bg-ava-acao rounded-full inline-block shrink-0" />
                             )}
                           </button>
 
@@ -1521,7 +1535,7 @@ ${html}
                             <button
                               onClick={() => setActiveTab('suporte')}
                               className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                                activeTab === 'suporte' ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent hover:text-teal-500'
+                                activeTab === 'suporte' ? 'border-ava-acao text-ava-ciano-texto bg-white' : 'border-transparent hover:text-ava-ciano'
                               }`}
                             >
                               <HelpCircle className="h-4 w-4 shrink-0" />
@@ -1533,13 +1547,13 @@ ${html}
                             <button
                               onClick={() => setActiveTab('forum')}
                               className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
-                                activeTab === 'forum' ? 'border-teal-600 text-teal-700 bg-white' : 'border-transparent hover:text-teal-500'
+                                activeTab === 'forum' ? 'border-ava-acao text-ava-ciano-texto bg-white' : 'border-transparent hover:text-ava-ciano'
                               }`}
                             >
-                              <MessageSquare className="h-4 w-4 text-teal-650 shrink-0" />
+                              <MessageSquare className="h-4 w-4 text-ava-ciano-texto shrink-0" />
                               <span className="flex items-center gap-1">
                                 Fórum Interativo
-                                <span className="bg-teal-100 text-teal-800 text-sobretitulo uppercase px-2 py-0.5 rounded-full animate-pulse shrink-0">Comunidade</span>
+                                <span className="bg-ava-icone-fundo text-ava-ciano-texto text-sobretitulo uppercase px-2 py-0.5 rounded-full animate-pulse shrink-0">Comunidade</span>
                               </span>
                             </button>
                           )}
@@ -1551,7 +1565,7 @@ ${html}
                           {activeTab === 'teoria' && (
                             <div className="space-y-4">
                               <h4 className="font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-                                <Sparkles className="h-4 w-4 text-teal-500 animate-pulse" />
+                                <Sparkles className="h-4 w-4 text-ava-ciano animate-pulse" />
                                 <span>Roteiro Consolidado de Aprendizado</span>
                               </h4>
                               <div className="mb-6">
@@ -1562,7 +1576,7 @@ ${html}
                               {activeLesson.documents && activeLesson.documents.length > 0 && (
                                 <div className="mt-8 border-t border-slate-150 pt-6 space-y-3.5">
                                   <h4 className="text-slate-950 text-sobretitulo uppercase flex items-center gap-2">
-                                    <Archive className="h-4 w-4 text-teal-700" />
+                                    <Archive className="h-4 w-4 text-ava-ciano-texto" />
                                     Material de Apoio e Documentos Anexos ({activeLesson.documents.length})
                                   </h4>
                                   <p className="text-apoio text-escult-ink-2 -mt-1 leading-none">Arquivos e links disponibilizados pelo seu instrutor para aprofundamento.</p>
@@ -1593,10 +1607,10 @@ ${html}
                                         >
                                           <div className="flex items-start gap-3 min-w-0">
                                             <div className="p-2 rounded-lg bg-white shrink-0 border border-slate-100 shadow-3xs">
-                                              <FileText className="h-4.5 w-4.5 text-teal-700" />
+                                              <FileText className="h-4.5 w-4.5 text-ava-ciano-texto" />
                                             </div>
                                             <div className="min-w-0">
-                                              <p className="font-extrabold text-slate-900 text-xs truncate group-hover/doc:text-teal-700">{doc.title}</p>
+                                              <p className="font-extrabold text-slate-900 text-xs truncate group-hover/doc:text-ava-ciano-texto">{doc.title}</p>
                                               <div className="flex items-center gap-1.5 mt-1">
                                                 <span className={`px-1.5 py-0.2 rounded text-sobretitulo uppercase ${labelColor}`}>
                                                   {doc.type}
@@ -1607,7 +1621,7 @@ ${html}
                                               </div>
                                             </div>
                                           </div>
-                                          <ExternalLink className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-teal-700 transition-colors shrink-0 self-center" />
+                                          <ExternalLink className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-ava-ciano-texto transition-colors shrink-0 self-center" />
                                         </a>
                                       );
                                     })}
@@ -1621,7 +1635,7 @@ ${html}
                             <div className="space-y-3.5">
                               <div>
                                 <h4 className="font-bold text-slate-900 flex items-center gap-1.5">
-                                  <Notebook className="h-4 w-4 text-teal-500" />
+                                  <Notebook className="h-4 w-4 text-ava-ciano" />
                                   <span>Suas Anotações Digitais Privadas</span>
                                 </h4>
                                 <p className="text-apoio text-escult-ink-2 leading-normal mt-1">
@@ -1630,14 +1644,14 @@ ${html}
                                 </p>
                               </div>
 
-                              <div className="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:ring-1 focus-within:ring-teal-500">
+                              <div className="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden focus-within:ring-1 focus-within:ring-ava-acao">
                                 {/* Barra de ferramentas do editor WYSIWYG */}
                                 <div className="flex items-center gap-1 border-b border-slate-200 bg-white px-2 py-1.5">
                                   <button
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('bold'); }}
                                     title="Negrito"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-ava-ciano-texto cursor-pointer"
                                   >
                                     <Bold className="h-3.5 w-3.5" />
                                   </button>
@@ -1645,7 +1659,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('italic'); }}
                                     title="Itálico"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-ava-ciano-texto cursor-pointer"
                                   >
                                     <Italic className="h-3.5 w-3.5" />
                                   </button>
@@ -1653,7 +1667,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('underline'); }}
                                     title="Sublinhado"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-ava-ciano-texto cursor-pointer"
                                   >
                                     <Underline className="h-3.5 w-3.5" />
                                   </button>
@@ -1662,7 +1676,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('insertUnorderedList'); }}
                                     title="Lista com marcadores"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-ava-ciano-texto cursor-pointer"
                                   >
                                     <List className="h-3.5 w-3.5" />
                                   </button>
@@ -1670,7 +1684,7 @@ ${html}
                                     type="button"
                                     onMouseDown={(e) => { e.preventDefault(); applyNoteFormat('insertOrderedList'); }}
                                     title="Lista numerada"
-                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-teal-700 cursor-pointer"
+                                    className="p-1.5 rounded-md text-slate-600 hover:bg-slate-100 hover:text-ava-ciano-texto cursor-pointer"
                                   >
                                     <ListOrdered className="h-3.5 w-3.5" />
                                   </button>
@@ -1702,7 +1716,7 @@ ${html}
                                 </button>
                                 <button
                                   onClick={handleSaveNoteText}
-                                  className="rounded-lg bg-teal-600 hover:bg-teal-500 text-white font-semibold text-xs px-4 py-1.8 shadow-xs transition-transform hover:scale-[1.02] cursor-pointer animate-none"
+                                  className="rounded-lg bg-ava-acao hover:bg-ava-acao-escuro text-white font-semibold text-xs px-4 py-1.8 shadow-xs transition-transform hover:scale-[1.02] cursor-pointer animate-none"
                                 >
                                   Salvar Anotação
                                 </button>
@@ -1713,7 +1727,7 @@ ${html}
                           {features.mensagensDiretas && activeTab === 'suporte' && (
                             <div className="space-y-4">
                               <h4 className="font-bold text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                                <HelpCircle className="h-4 w-4 text-teal-500" />
+                                <HelpCircle className="h-4 w-4 text-ava-ciano" />
                                 <span>Suporte Pedagógico</span>
                               </h4>
                               <p className="text-rotulo text-escult-ink-2 leading-relaxed">
@@ -1749,7 +1763,7 @@ ${html}
                                   value={lessonSupportMessage}
                                   onChange={(e) => setLessonSupportMessage(e.target.value)}
                                   placeholder="Escreva sua dúvida ou relate um problema sobre esta aula..."
-                                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 h-24 focus:outline-hidden focus:ring-1 focus:ring-teal-500 text-xs font-sans text-slate-800"
+                                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 h-24 focus:outline-hidden focus:ring-1 focus:ring-ava-acao text-xs font-sans text-slate-800"
                                 />
                                 <div className="flex items-center justify-end gap-3">
                                   {lessonSupportMessageSent && (
@@ -1761,7 +1775,7 @@ ${html}
                                   <button
                                     onClick={handleSendLessonSupportMessage}
                                     disabled={!lessonSupportMessage.trim()}
-                                    className="rounded-lg bg-teal-600 hover:bg-teal-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-xs px-4 py-1.8 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                                    className="rounded-lg bg-ava-acao hover:bg-ava-acao-escuro disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-xs px-4 py-1.8 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                                   >
                                     <Send className="h-3.5 w-3.5" />
                                     <span>Enviar Mensagem</span>
@@ -1774,7 +1788,7 @@ ${html}
                           {features.forum && activeTab === 'forum' && (
                             <div className="space-y-4">
                               <h4 className="font-bold text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                                <MessageSquare className="h-4 w-4 text-teal-500 animate-pulse" />
+                                <MessageSquare className="h-4 w-4 text-ava-ciano animate-pulse" />
                                 <span>Fórum de Dúvidas & Interação da Comunidade</span>
                               </h4>
                               <p className="text-rotulo text-escult-ink-2 leading-relaxed">
@@ -1869,8 +1883,8 @@ ${html}
                     </div>
                   ) : (
                     /* Initial Welcome course billboard if no active lesson selected */
-                    <div className="rounded-2xl border border-dashed border-teal-200 bg-teal-50/5 p-8 text-center text-slate-600 space-y-5 animate-in fade-in duration-300">
-                      <div className="inline-flex rounded-full bg-teal-100 text-teal-700 p-4 shrink-0 shadow-xs border border-teal-200/55">
+                    <div className="rounded-2xl border border-dashed border-ava-borda bg-ava-icone-fundo/5 p-8 text-center text-slate-600 space-y-5 animate-in fade-in duration-300">
+                      <div className="inline-flex rounded-full bg-ava-icone-fundo text-ava-ciano-texto p-4 shrink-0 shadow-xs border border-ava-borda/55">
                         <Monitor className="h-10 w-10 animate-pulse" />
                       </div>
                       
@@ -1890,7 +1904,7 @@ ${html}
                             const primeira = aulasEmOrdem[0];
                             if (primeira !== undefined) setActiveLesson(primeira);
                           }}
-                          className="rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-5 py-2.5 shadow-sm hover:scale-[1.01] transition-transform flex items-center justify-center gap-1.5 cursor-pointer"
+                          className="rounded-xl bg-ava-acao hover:bg-ava-acao-escuro text-white font-bold text-xs px-5 py-2.5 shadow-sm hover:scale-[1.01] transition-transform flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <Play className="h-3.5 w-3.5 fill-white" />
                           <span>Iniciar primeira aula</span>
@@ -1937,7 +1951,7 @@ ${html}
                   */}
                   <div className="flex items-center justify-between">
                     <h4 className="text-slate-900 flex items-center gap-1.5 text-sobretitulo uppercase">
-                      <BookOpen className="h-4 w-4 text-teal-700" />
+                      <BookOpen className="h-4 w-4 text-ava-ciano-texto" />
                       <span>Aulas do Curso</span>
                     </h4>
 
@@ -1960,10 +1974,10 @@ ${html}
                         <div
                           key={lesson.id}
                           onClick={() => setActiveLesson(lesson)}
-                          className="border rounded-lg overflow-hidden transition-all cursor-pointer p-3 flex items-center justify-between gap-3 group text-left bg-white border-slate-200 hover:border-teal-300"
+                          className="border rounded-lg overflow-hidden transition-all cursor-pointer p-3 flex items-center justify-between gap-3 group text-left bg-white border-slate-200 hover:border-ava-acao/40"
                         >
                           <div className="flex-1 text-left min-w-0">
-                            <span className="block text-rotulo font-bold leading-tight text-slate-800 group-hover:text-teal-700 transition-colors">
+                            <span className="block text-rotulo font-bold leading-tight text-slate-800 group-hover:text-ava-ciano-texto transition-colors">
                               {idx + 1}. {lesson.title}
                             </span>
                             <div className="flex items-center gap-1 mt-1.5">
@@ -1975,7 +1989,7 @@ ${html}
                               <span className="text-apoio text-escult-ink-2">
                                 {(lesson.duration ?? '').trim() !== '' ? lesson.duration : 'Duração não informada'}
                               </span>
-                              <ChevronRight className="h-2.5 w-2.5 text-escult-ink-2 group-hover:text-teal-500 group-hover:translate-x-0.5 transition-transform" />
+                              <ChevronRight className="h-2.5 w-2.5 text-escult-ink-2 group-hover:text-ava-ciano group-hover:translate-x-0.5 transition-transform" />
                             </div>
                           </div>
 
@@ -2003,9 +2017,9 @@ ${html}
                     virar uma caixa vazia com título.
                   */}
                   {transmissoesDeHoje.length > 0 && (
-                  <div className="border border-teal-100 bg-teal-50/15 rounded-xl p-3 text-left space-y-2.5">
+                  <div className="border border-ava-borda bg-ava-icone-fundo/15 rounded-xl p-3 text-left space-y-2.5">
                     <h5 className="text-slate-900 text-sobretitulo uppercase flex items-center gap-1.5">
-                      <Video className="h-3.5 w-3.5 text-teal-700" />
+                      <Video className="h-3.5 w-3.5 text-ava-ciano-texto" />
                       <span>Transmissões de hoje</span>
                     </h5>
 
@@ -2013,7 +2027,7 @@ ${html}
                       {transmissoesDeHoje.map((session, idx) => {
                         const isAttended = currentCourseProgress?.attendedLiveSessions.includes(session.id) || false;
                         return (
-                          <div key={`${session.id}-${idx}`} className="bg-white rounded-lg border border-teal-100/40 p-2.5 leading-relaxed text-left text-rotulo">
+                          <div key={`${session.id}-${idx}`} className="bg-white rounded-lg border border-ava-borda/40 p-2.5 leading-relaxed text-left text-rotulo">
                             
                             <div className="flex items-start justify-between gap-1.5">
                               <div>
@@ -2037,7 +2051,7 @@ ${html}
                                   className={`flex-1 font-bold py-2 px-3 rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
                                     situacaoTransmissao(session, agoraTransmissao) === 'ao-vivo'
                                       ? 'bg-red-600 hover:bg-red-500 text-white animate-pulse'
-                                      : 'bg-teal-600 hover:bg-teal-500 text-white'
+                                      : 'bg-ava-acao hover:bg-ava-acao-escuro text-white'
                                   }`}
                                 >
                                   <Video className="h-4 w-4 fill-white shrink-0" />
@@ -2126,9 +2140,9 @@ ${html}
 
                   {/* 5. Exercícios de fixação — só quando a disciplina tem algum. */}
                   {exerciciosDoCursoAberto.length > 0 && (
-                  <div className="border border-teal-100 bg-teal-50/10 rounded-xl p-3.5 text-left space-y-3 shadow-2xs">
+                  <div className="border border-ava-borda bg-ava-icone-fundo/10 rounded-xl p-3.5 text-left space-y-3 shadow-2xs">
                     <h5 className="text-slate-900 text-sobretitulo uppercase flex items-center gap-1.5">
-                      <FileCheck className="h-3.5 w-3.5 text-teal-700" />
+                      <FileCheck className="h-3.5 w-3.5 text-ava-ciano-texto" />
                       <span>Exercícios de Fixação</span>
                     </h5>
 
@@ -2172,7 +2186,7 @@ ${html}
                           */}
                           <button
                             onClick={() => setShowExercicios(true)}
-                            className="w-full bg-teal-600 hover:bg-teal-500 text-white py-2 px-4 rounded-lg text-sobretitulo uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                            className="w-full bg-ava-acao hover:bg-ava-acao-escuro text-white py-2 px-4 rounded-lg text-sobretitulo uppercase transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                           >
                             <FileCheck className="h-4 w-4" />
                             <span>Abrir Atividades Práticas</span>
@@ -2219,12 +2233,12 @@ ${html}
                         .filter(s => !s.isLive)
                         .map((session, idx) => (
                         <div key={`${session.id}-${idx}`} className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 bg-slate-50 hover:bg-white transition-colors group">
-                           <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center min-w-[70px] group-hover:border-teal-200 group-hover:bg-teal-50 transition-all">
+                           <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-center min-w-[70px] group-hover:border-ava-acao/40 group-hover:bg-ava-icone-fundo transition-all">
                               <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none mb-1">DATA</span>
                               <span className="text-sm font-black text-slate-700 leading-none">{dataCurta(session.scheduledAt)}</span>
                            </div>
                            <div className="flex-1 min-w-0">
-                              <span className="text-sobretitulo text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded uppercase">
+                              <span className="text-sobretitulo text-ava-ciano-texto bg-ava-icone-fundo px-1.5 py-0.5 rounded uppercase">
                                 {courses.find(c => c.id === session.courseId)?.title}
                               </span>
                               <h5 className="text-rotulo font-bold text-slate-900 mt-1 truncate">{session.title}</h5>
@@ -2308,9 +2322,9 @@ ${html}
                           </div>
                           <button
                             onClick={() => setIsFullSyllabusOpen(true)}
-                            className="text-sobretitulo uppercase bg-teal-50 hover:bg-teal-100 text-teal-800 px-3.5 py-2 border border-teal-200 rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 shadow-xs"
+                            className="text-sobretitulo uppercase bg-ava-icone-fundo hover:bg-ava-icone-fundo text-ava-ciano-texto px-3.5 py-2 border border-ava-borda rounded-lg transition-all cursor-pointer whitespace-nowrap flex items-center gap-1 shadow-xs"
                           >
-                            <Layers className="h-3.5 w-3.5 text-teal-700" />
+                            <Layers className="h-3.5 w-3.5 text-ava-ciano-texto" />
                             <span>Ver grade completa</span>
                           </button>
                         </div>
@@ -2350,7 +2364,7 @@ ${html}
                                     className="w-full text-left p-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors cursor-pointer"
                                   >
                                     <div className="flex items-center gap-2.5 min-w-0">
-                                      <span className="flex items-center justify-center h-6 w-6 rounded-lg bg-teal-50 border border-teal-200 text-apoio font-black text-teal-850 shrink-0">
+                                      <span className="flex items-center justify-center h-6 w-6 rounded-lg bg-ava-icone-fundo border border-ava-borda text-apoio font-black text-ava-ciano-texto shrink-0">
                                         {idx + 1}
                                       </span>
                                       <strong className="text-xs font-bold text-slate-800 leading-snug truncate">{lesson.title}</strong>
@@ -2498,10 +2512,10 @@ ${html}
                     }
 
                     return (
-                      <div key={activeCourse.id} className="rounded-2xl border border-teal-200 bg-teal-50/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
+                      <div key={activeCourse.id} className="rounded-2xl border border-ava-borda bg-ava-icone-fundo/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
                         <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
                           <div className="space-y-2 max-w-xl">
-                            <span className="bg-teal-100 text-teal-850 border border-teal-200 px-2.5 py-0.5 rounded-full text-sobretitulo uppercase">Curso Ativo em Andamento</span>
+                            <span className="bg-ava-icone-fundo text-ava-ciano-texto border border-ava-borda px-2.5 py-0.5 rounded-full text-sobretitulo uppercase">Curso Ativo em Andamento</span>
                             <h3 className="text-base md:text-lg font-black text-slate-900 leading-tight">{activeCourse.title}</h3>
                             <p className="text-xs text-escult-ink-2 leading-relaxed line-clamp-2">{activeCourse.description}</p>
 
@@ -2622,10 +2636,10 @@ ${html}
                   {/* Scenario 3: Course Selection Catalog (sem matrícula ativa, ou com permissão de matrícula múltipla, e sem restrição) */}
                   {canEnrollInMoreCourses && !(features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now()) && (
                     <div className="space-y-5">
-                      <div className="bg-teal-50/55 p-4 rounded-2xl border border-teal-150/40 flex items-center gap-3">
-                        <Sparkles className="h-4.5 w-4.5 text-teal-700 shrink-0" />
+                      <div className="bg-ava-icone-fundo/55 p-4 rounded-2xl border border-ava-borda/40 flex items-center gap-3">
+                        <Sparkles className="h-4.5 w-4.5 text-ava-ciano-texto shrink-0" />
                         <div className="text-left text-xs text-slate-700 leading-relaxed">
-                          <span className="font-extrabold text-teal-950 mr-1.5">Início da Jornada:</span>
+                          <span className="font-extrabold text-ava-ciano-texto mr-1.5">Início da Jornada:</span>
                           {activeEnrolledCourseIds.length > 0
                             ? 'Você tem permissão para cursar mais de uma disciplina ao mesmo tempo. Selecione outra disciplina abaixo para se matricular também!'
                             : 'Selecione um curso na lista abaixo para se matricular e iniciar os seus estudos de forma imediata!'}
@@ -2634,7 +2648,7 @@ ${html}
 
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-teal-500 animate-pulse"></div>
+                          <div className="h-2 w-2 rounded-full bg-ava-ciano animate-pulse"></div>
                           <h3 className="text-sm font-black text-slate-850 uppercase tracking-widest">Disciplinas Acadêmicas Disponíveis</h3>
                         </div>
                       </div>
@@ -2649,7 +2663,7 @@ ${html}
                               placeholder="Buscar por nome ou categoria do curso..."
                               value={searchQuery}
                               onChange={(e) => setSearchQuery(e.target.value)}
-                              className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-14 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs"
+                              className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-14 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao shadow-2xs"
                             />
                             <div className="absolute left-3 top-2.5 text-escult-ink-2">
                               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2673,7 +2687,7 @@ ${html}
                               <select
                                 value={sortType}
                                 onChange={(e) => setSortType(e.target.value as any)}
-                                className="appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2 pr-9 text-xs font-bold text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 shadow-2xs cursor-pointer"
+                                className="appearance-none bg-white border border-slate-200 rounded-xl px-4 py-2 pr-9 text-xs font-bold text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao shadow-2xs cursor-pointer"
                               >
                                 <option value="recent">Mais recentes</option>
                                 <option value="alphabetical-asc">Ordem alfabética (A-Z)</option>
@@ -2721,8 +2735,8 @@ ${html}
                                         }}
                                         className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-colors ${
                                           selectedCategory === category
-                                            ? 'bg-teal-600 text-white shadow-md font-black'
-                                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-teal-50'
+                                            ? 'bg-ava-acao text-white shadow-md font-black'
+                                            : 'bg-white border border-slate-200 text-slate-600 hover:bg-ava-icone-fundo'
                                         }`}
                                       >
                                         <Tag className="h-3.5 w-3.5" />
@@ -2781,7 +2795,7 @@ ${html}
                           <div className="space-y-4">
                             <div className="text-sobretitulo text-escult-ink-2 uppercase text-left flex items-center justify-between">
                               <span>Grade Curricular Disponível para Matrícula:</span>
-                              <span className="text-teal-700 font-black shrink-0">
+                              <span className="text-ava-ciano-texto font-black shrink-0">
                                 {filtered.length} {filtered.length === 1 ? 'curso encontrado' : 'cursos encontrados'}
                               </span>
                             </div>
@@ -2796,7 +2810,7 @@ ${html}
                                           <Tag className="h-3 w-3" />
                                           {course.category}
                                         </span>
-                                        <span className="text-apoio text-teal-700 font-bold bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-full shadow-2xs">
+                                        <span className="text-apoio text-ava-ciano-texto font-bold bg-ava-icone-fundo border border-ava-borda px-2 py-0.5 rounded-full shadow-2xs">
                                           Meta: {minAtt}% pres.
                                         </span>
                                       </div>
@@ -2862,7 +2876,7 @@ ${html}
                                 <h4 className="text-xs font-black text-slate-850 group-hover:text-emerald-700 transition-colors block line-clamp-1">{course.title}</h4>
                                 <span className="text-apoio text-escult-ink-2 block">Prof. {course.instructorName}</span>
                               </div>
-                              <span className="text-apoio text-teal-700 hover:underline font-bold mt-3 block text-right">Modo Revisão →</span>
+                              <span className="text-apoio text-ava-ciano-texto hover:underline font-bold mt-3 block text-right">Modo Revisão →</span>
                             </div>
                           ))}
                       </div>
@@ -2887,7 +2901,7 @@ ${html}
           </div>
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs text-left max-w-2xl">
             <div className="flex items-center gap-2 mb-2">
-              <FileCheck className="h-5 w-5 text-teal-700" />
+              <FileCheck className="h-5 w-5 text-ava-ciano-texto" />
               <h3 className="font-black text-slate-800 text-sm uppercase tracking-wider">Solicitações de Documentos</h3>
             </div>
             <p className="text-xs text-escult-ink-2 leading-relaxed mb-6">
@@ -2899,7 +2913,7 @@ ${html}
                 <div key={req.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/30 flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-teal-50 text-teal-700">
+                      <div className="p-1.5 rounded-lg bg-ava-icone-fundo text-ava-ciano-texto">
                         {req.type === 'certificado' ? <Award className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                       </div>
                       <span className="text-sobretitulo text-slate-800 uppercase">{req.type === 'certificado' ? 'Certificado' : 'Histórico Escolar'}</span>
@@ -2938,7 +2952,7 @@ ${html}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1.5 ml-1">Tipo de Documento</label>
-                      <select name="reqType" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:outline-none cursor-pointer">
+                      <select name="reqType" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-ava-acao/20 focus:outline-none cursor-pointer">
                         <option value="historico">Histórico Escolar</option>
                         <option value="certificado">Certificado de Conclusão</option>
                         <option value="matricula">Declaração de Matrícula</option>
@@ -2947,7 +2961,7 @@ ${html}
                     </div>
                     <div>
                       <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1.5 ml-1">Curso Relacionado</label>
-                      <select name="reqCourse" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-teal-500/20 focus:outline-none cursor-pointer">
+                      <select name="reqCourse" className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-700 focus:ring-2 focus:ring-ava-acao/20 focus:outline-none cursor-pointer">
                         <option value="">Nenhum / Geral</option>
                         {courses.map((c, idx) => <option key={`${c.id}-${idx}`} value={c.title}>{c.title}</option>)}
                       </select>
@@ -2955,9 +2969,9 @@ ${html}
                   </div>
                   <div>
                     <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1.5 ml-1">Motivo / Justificativa</label>
-                    <textarea name="reqDesc" required placeholder="Descreva detalhes adicionais ou justificativa para a emissão..." className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 h-20 focus:ring-2 focus:ring-teal-500/20 focus:outline-none resize-none"></textarea>
+                    <textarea name="reqDesc" required placeholder="Descreva detalhes adicionais ou justificativa para a emissão..." className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700 h-20 focus:ring-2 focus:ring-ava-acao/20 focus:outline-none resize-none"></textarea>
                   </div>
-                  <button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white text-sobretitulo uppercase py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer">
+                  <button type="submit" className="w-full bg-ava-acao hover:bg-ava-acao text-white text-sobretitulo uppercase py-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer">
                     <Send className="h-4 w-4" />
                     Protocolar Pedido Secundário
                   </button>
@@ -3098,13 +3112,13 @@ ${html}
                 const toggle = () => setExpandedFaqId(isExpanded ? null : faq.id);
 
                 return (
-                  <div key={`${faq.id}-${idx}`} className="bg-white border border-slate-200 rounded-2xl overflow-hidden transition-all hover:border-teal-200">
+                  <div key={`${faq.id}-${idx}`} className="bg-white border border-slate-200 rounded-2xl overflow-hidden transition-all hover:border-ava-acao/40">
                     <button
                       onClick={toggle}
                       className="w-full text-left p-4 md:p-5 flex items-center justify-between gap-4 cursor-pointer hover:bg-slate-50/40 transition-colors"
                     >
                       <strong className="text-xs font-bold text-slate-800 leading-snug">{faq.question}</strong>
-                      <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-700' : ''}`} />
+                      <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-ava-ciano-texto' : ''}`} />
                     </button>
                     {isExpanded && (
                       <div className="px-5 pb-5 pt-1 text-xs text-escult-ink-2 leading-relaxed bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
@@ -3164,7 +3178,7 @@ ${html}
                        Ajustes de Acessibilidade
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                       <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex items-center justify-between group hover:border-teal-200 transition-all">
+                       <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex items-center justify-between group hover:border-ava-acao/40 transition-all">
                           <div className="flex items-center gap-3">
                              <div className={`p-2 rounded-xl border ${accessibilitySettings.highContrast ? 'bg-ava-acao text-white border-transparent' : 'bg-white border-slate-200 text-escult-ink-2'}`}>
                                 <Sparkles className="h-5 w-5" />
@@ -3182,7 +3196,7 @@ ${html}
                           </button>
                        </div>
 
-                       <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex items-center justify-between group hover:border-teal-200 transition-all">
+                       <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex items-center justify-between group hover:border-ava-acao/40 transition-all">
                           <div className="flex items-center gap-3">
                              <div className={`p-2 rounded-xl border ${accessibilitySettings.dyslexicFont ? 'bg-ava-acao text-white border-transparent' : 'bg-white border-slate-200 text-escult-ink-2'}`}>
                                 <Info className="h-5 w-5" />
@@ -3200,7 +3214,7 @@ ${html}
                           </button>
                        </div>
 
-                       <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex flex-col gap-4 group hover:border-teal-200 transition-all sm:col-span-2">
+                       <div className="p-5 rounded-2xl border border-slate-100 bg-slate-50/50 flex flex-col gap-4 group hover:border-ava-acao/40 transition-all sm:col-span-2">
                           <div className="flex items-center justify-between">
                              <div className="flex items-center gap-3">
                                 <div className="p-2 rounded-xl border bg-white border-slate-200 text-escult-ink-2">
@@ -3211,7 +3225,7 @@ ${html}
                                    <span className="text-apoio text-escult-ink-2">Ajuste o tamanho dos textos de toda a plataforma.</span>
                                 </div>
                              </div>
-                             <span className="text-sobretitulo uppercase text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{accessibilitySettings.fontSize === 'small' ? 'Pequena' : accessibilitySettings.fontSize === 'medium' ? 'Padrão' : 'Grande'}</span>
+                             <span className="text-sobretitulo uppercase text-ava-ciano-texto bg-ava-icone-fundo px-2 py-0.5 rounded">{accessibilitySettings.fontSize === 'small' ? 'Pequena' : accessibilitySettings.fontSize === 'medium' ? 'Padrão' : 'Grande'}</span>
                           </div>
                           <div className="flex items-center gap-3">
                              {['small', 'medium', 'large'].map(size => (
@@ -3259,7 +3273,7 @@ ${html}
                     </h4>
                     <div className="space-y-3">
                        {Object.entries(notifications).map(([key, value]) => (
-                         <div key={key} className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl bg-white hover:border-teal-100 transition-all">
+                         <div key={key} className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl bg-white hover:border-ava-acao/40 transition-all">
                             <div className="flex items-center gap-3">
                                <div className="p-2 rounded-xl bg-slate-50 text-escult-ink-2">
                                   {key === 'email' ? <Send className="h-4 w-4" /> : key === 'push' ? <Bell className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
@@ -3285,9 +3299,9 @@ ${html}
                        <Shield className="h-4 w-4" />
                        Segurança & Privacidade
                     </h4>
-                    <div className="p-5 rounded-2xl border border-slate-100 bg-teal-50/20 flex items-center justify-between group hover:border-teal-200 transition-all">
+                    <div className="p-5 rounded-2xl border border-slate-100 bg-ava-icone-fundo/20 flex items-center justify-between group hover:border-ava-acao/40 transition-all">
                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-xl border ${twoFactor ? 'bg-teal-600 text-white border-transparent' : 'bg-white border-slate-200 text-escult-ink-2'}`}>
+                          <div className={`p-2 rounded-xl border ${twoFactor ? 'bg-ava-acao text-white border-transparent' : 'bg-white border-slate-200 text-escult-ink-2'}`}>
                              <Lock className="h-5 w-5" />
                           </div>
                           <div>
@@ -3298,7 +3312,7 @@ ${html}
                        <button 
                          onClick={() => setTwoFactor(!twoFactor)}
                          className={`px-4 py-1.5 rounded-lg text-sobretitulo font-black uppercase tracking-widest transition-all ${
-                           twoFactor ? 'bg-teal-600 text-white' : 'bg-white border border-slate-200 text-escult-ink-2 hover:bg-slate-50'
+                           twoFactor ? 'bg-ava-acao text-white' : 'bg-white border border-slate-200 text-escult-ink-2 hover:bg-slate-50'
                          }`}
                        >
                           {twoFactor ? 'Ativado' : 'Ativar'}
@@ -3311,7 +3325,7 @@ ${html}
                        <Globe className="h-4 w-4" />
                        Idioma e Região
                     </h4>
-                    <div className="p-5 rounded-2xl border border-slate-100 bg-white flex items-center justify-between group hover:border-teal-200 transition-all text-left">
+                    <div className="p-5 rounded-2xl border border-slate-100 bg-white flex items-center justify-between group hover:border-ava-acao/40 transition-all text-left">
                        <div>
                           <span className="block text-sobretitulo text-slate-800 uppercase">Idioma da Interface</span>
                           <span className="text-apoio text-escult-ink-2">Altere o idioma global do sistema para navegação.</span>
@@ -3319,7 +3333,7 @@ ${html}
                        <select 
                          value={language}
                          onChange={(e) => setLanguage(e.target.value)}
-                         className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-hidden focus:ring-1 focus:ring-teal-500"
+                         className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-700 focus:outline-hidden focus:ring-1 focus:ring-ava-acao"
                        >
                           <option>Português (BR)</option>
                           <option>English (US)</option>
@@ -3346,7 +3360,7 @@ ${html}
             <div className="flex justify-end">
              <button 
                onClick={() => setShowKnowledgeBase(true)}
-               className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-teal-700 hover:bg-teal-50 transition-all shadow-xs cursor-pointer"
+               className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-ava-ciano-texto hover:bg-ava-icone-fundo transition-all shadow-xs cursor-pointer"
              >
                 <HelpCircle className="h-4 w-4" />
                 <span>Base de Conhecimento (Tutoriais)</span>
@@ -3369,9 +3383,9 @@ ${html}
                      <button onClick={() => setShowKnowledgeBase(false)} className="bg-white/10 hover:bg-white/20 p-2 rounded-xl text-sobretitulo uppercase cursor-pointer">Fechar</button>
                   </div>
                   <div className="p-8 grid grid-cols-1 sm:grid-cols-2 gap-5 bg-slate-50/50">
-                     <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-teal-300 hover:shadow-lg transition-all cursor-pointer group">
-                        <div className="bg-teal-50 p-2.5 rounded-xl w-fit mb-4 group-hover:bg-teal-100 transition-colors">
-                           <Video className="h-6 w-6 text-teal-700" />
+                     <div className="p-5 border border-slate-200 rounded-2xl bg-white hover:border-ava-acao/40 hover:shadow-lg transition-all cursor-pointer group">
+                        <div className="bg-ava-icone-fundo p-2.5 rounded-xl w-fit mb-4 group-hover:bg-ava-icone-fundo transition-colors">
+                           <Video className="h-6 w-6 text-ava-ciano-texto" />
                         </div>
                         <h5 className="text-slate-800 text-sobretitulo uppercase">Primeiros Passos no AVA</h5>
                         <p className="text-rotulo text-escult-ink-2 mt-2 leading-relaxed">Aprenda a estruturar seu cronograma e encontrar materiais de apoio.</p>
@@ -3416,7 +3430,7 @@ ${html}
             {/* Minimal metadata information cards badge styles */}
             <div className="flex gap-2 shrink-0">
               <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 text-xs text-slate-700">
-                <Clock className="h-4 w-4 text-teal-700 shrink-0" />
+                <Clock className="h-4 w-4 text-ava-ciano-texto shrink-0" />
                 <div>
                   <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none">Tempo de Retorno</span>
                   <span className="font-bold text-apoio">~15 minutos</span>
@@ -3424,7 +3438,7 @@ ${html}
               </div>
               <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 text-xs text-slate-700">
                 <div className="relative">
-                  <User className="h-4 w-4 text-teal-700 shrink-0" />
+                  <User className="h-4 w-4 text-ava-ciano-texto shrink-0" />
                   <span className={`absolute -bottom-1 -right-1 block h-2.5 w-2.5 rounded-full border border-white ${
                     (localStorage.getItem(`ava_presence_status_${enrolledCourseInstructorId}`) || 'online') === 'online'
                       ? 'bg-emerald-500 animate-pulse'
@@ -3469,7 +3483,7 @@ ${html}
                         <div key={`${msg.id}-${idx}`} className={`flex flex-col ${isStudent ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
                           <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-xs leading-normal ${
                             isStudent 
-                              ? 'bg-teal-600 text-white rounded-tr-none shadow-3xs' 
+                              ? 'bg-ava-acao text-white rounded-tr-none shadow-3xs' 
                               : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-3xs'
                           }`}>
                             <div className="flex items-center gap-1.5 mb-1 opacity-75">
@@ -3531,11 +3545,11 @@ ${html}
                   type="text"
                   required
                   placeholder="Digite sua mensagem ao Gestor de Conteúdos..."
-                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all shadow-3xs"
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao outline-none transition-all shadow-3xs"
                 />
                 <button
                   type="submit"
-                  className="bg-teal-600 hover:bg-teal-500 text-white rounded-xl px-4 py-3 shrink-0 transition-colors flex items-center justify-center cursor-pointer shadow-sm text-sobretitulo uppercase gap-1.5"
+                  className="bg-ava-acao hover:bg-ava-acao-escuro text-white rounded-xl px-4 py-3 shrink-0 transition-colors flex items-center justify-center cursor-pointer shadow-sm text-sobretitulo uppercase gap-1.5"
                 >
                   <Send className="h-4 w-4" />
                   <span>Enviar</span>
@@ -3545,8 +3559,8 @@ ${html}
 
             {/* Explanatory Academic Sideboard (4 cols) */}
             <div className="lg:col-span-4 space-y-4">
-              <div className="bg-teal-950/20 border border-teal-500/15 p-5 rounded-2xl text-left space-y-2.5">
-                <span className="text-sobretitulo uppercase text-teal-700 block">DIRETRIZES DE SUPORTE</span>
+              <div className="bg-ava-marinho/20 border border-ava-acao/15 p-5 rounded-2xl text-left space-y-2.5">
+                <span className="text-sobretitulo uppercase text-ava-ciano-texto block">DIRETRIZES DE SUPORTE</span>
                 <h4 className="font-bold text-slate-800 text-xs">O que falar no canal com os professores?</h4>
                 <ul className="space-y-1.5 text-rotulo text-slate-600 leading-relaxed list-disc list-inside">
                   <li>Envio de snippets ou feedback de códigos;</li>
@@ -3589,8 +3603,8 @@ ${html}
           >
             {/* Subtle live pulse wave */}
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4 w-4 bg-teal-500 justify-center items-center text-apoio font-black text-white">?</span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ava-ciano opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-ava-ciano justify-center items-center text-apoio font-black text-white">?</span>
             </span>
             <HelpCircle className="h-5 w-5 sm:h-4.5 sm:w-4.5" />
             <span className="hidden sm:inline-block text-sobretitulo uppercase text-slate-100">
@@ -3633,11 +3647,11 @@ ${html}
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6 no-scrollbar">
               {/* Informative Banner */}
-              <div className="bg-gradient-to-r from-teal-600 to-teal-700 text-white p-4.5 rounded-2xl shadow-sm space-y-1.5 text-left relative overflow-hidden">
+              <div className="bg-gradient-to-r from-ava-acao to-ava-acao-escuro text-white p-4.5 rounded-2xl shadow-sm space-y-1.5 text-left relative overflow-hidden">
                 <div className="absolute top-0 right-0 -mt-4 -mr-4 w-20 h-20 bg-white/10 rounded-full blur-xl pointer-events-none" />
-                <span className="inline-block text-sobretitulo bg-teal-500/50 text-white border border-teal-400/40 px-2 py-0.5 rounded-full uppercase">Atendimento Imediato</span>
+                <span className="inline-block text-sobretitulo bg-ava-ciano/50 text-white border border-ava-acao/40 px-2 py-0.5 rounded-full uppercase">Atendimento Imediato</span>
                 <strong className="block text-xs font-black tracking-tight mt-1">Dúvidas Acadêmicas e Administrativas</strong>
-                <p className="text-apoio text-teal-100/90 leading-relaxed font-medium">
+                <p className="text-apoio text-ava-ciano/90 leading-relaxed font-medium">
                   Nosso sistema oferece respostas 100% automatizadas para facilitar seu andamento no AVA. Caso precise de acompanhamento humano, use o botão de suporte no rodapé!
                 </p>
               </div>
@@ -3751,13 +3765,13 @@ ${html}
                     const toggle = () => setExpandedFaqId(isExpanded ? null : faq.id);
 
                     return (
-                      <div key={`${faq.id}-${idx}`} className="bg-white border border-slate-200 rounded-xl overflow-hidden transition-all hover:border-teal-200">
+                      <div key={`${faq.id}-${idx}`} className="bg-white border border-slate-200 rounded-xl overflow-hidden transition-all hover:border-ava-acao/40">
                         <button
                           onClick={toggle}
                           className="w-full text-left p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/40 transition-colors"
                         >
                           <strong className="text-xs font-bold text-slate-850 leading-snug">{faq.question}</strong>
-                          <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-teal-700' : ''}`} />
+                          <ChevronDown className={`h-4 w-4 text-escult-ink-3 transition-transform duration-200 shrink-0 ${isExpanded ? 'rotate-180 text-ava-ciano-texto' : ''}`} />
                         </button>
                         {isExpanded && (
                           <div className="px-4 pb-4 pt-1 text-rotulo text-escult-ink-2 leading-relaxed bg-slate-50/40 border-t border-slate-100 animate-in fade-in slide-in-from-top-1">
@@ -3821,7 +3835,7 @@ ${html}
               {/* Header */}
               <div className="p-5 md:p-6 border-b border-slate-100 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-teal-50 rounded-xl text-teal-700">
+                  <div className="p-2.5 bg-ava-icone-fundo rounded-xl text-ava-ciano-texto">
                     <Layers className="h-5 w-5" />
                   </div>
                   <div>
@@ -3869,8 +3883,8 @@ ${html}
 
                   return (
                     <>
-                      <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-4 text-xs font-medium text-teal-900 leading-relaxed">
-                        <Lightbulb className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-teal-700" />
+                      <div className="bg-ava-icone-fundo/50 border border-ava-borda rounded-xl p-4 text-xs font-medium text-ava-ciano-texto leading-relaxed">
+                        <Lightbulb className="h-3.5 w-3.5 inline-block mr-1 -mt-0.5 text-ava-ciano-texto" />
                         <strong>Grade do curso:</strong> {aulas.length} {aulas.length === 1 ? 'aula cadastrada' : 'aulas cadastradas'}.
                         {' '}O conteúdo de cada aula fica disponível após a matrícula.
                       </div>
@@ -3952,7 +3966,7 @@ ${html}
 "O certificado será liberado conforme os critérios de conclusão do curso."
                       ].map((item, idx) => (
                         <div key={idx} className="flex gap-2 text-rotulo text-slate-650 font-semibold items-start">
-                          <CheckCircle className="h-4 w-4 text-teal-700 mt-0.5 shrink-0" />
+                          <CheckCircle className="h-4 w-4 text-ava-ciano-texto mt-0.5 shrink-0" />
                           <span>{item}</span>
                         </div>
                       ))}
@@ -3996,7 +4010,7 @@ ${html}
                       }}
                       className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer ${
                         isEnrollRulesChecked
-                          ? 'bg-teal-600 hover:bg-teal-500 text-white shadow-md'
+                          ? 'bg-ava-acao hover:bg-ava-acao-escuro text-white shadow-md'
                           : 'bg-slate-200 text-escult-ink-2 border-slate-300 cursor-not-allowed'
                       }`}
                     >

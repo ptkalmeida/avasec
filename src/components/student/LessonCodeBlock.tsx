@@ -85,7 +85,7 @@ export const LessonCodeBlock: React.FC<LessonCodeBlockProps> = ({ code, language
   return (
     <figure className="my-5 space-y-2">
       {caption && (
-        <figcaption className="text-apoio font-semibold text-teal-700">{caption}</figcaption>
+        <figcaption className="text-apoio font-semibold text-ava-ciano-texto">{caption}</figcaption>
       )}
 
       <div
@@ -130,7 +130,7 @@ export const LessonCodeBlock: React.FC<LessonCodeBlockProps> = ({ code, language
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
             >
-              {copied ? <Check className="h-3.5 w-3.5 text-teal-500" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? <Check className="h-3.5 w-3.5 text-ava-ciano" /> : <Copy className="h-3.5 w-3.5" />}
               <span>{copied ? 'Copiado' : 'Copiar'}</span>
             </button>
           </div>

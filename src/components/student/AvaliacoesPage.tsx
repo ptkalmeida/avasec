@@ -198,9 +198,9 @@ const ProvaEmAndamento: React.FC<{
             {resultado.passed ? 'Aprovado nesta avaliação' : 'Avaliação concluída — revisão recomendada'}
           </h3>
           <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200/20 bg-white/60 px-3 py-1 text-xs font-black">
-            <span>Acertos: <span className="font-bold text-teal-700">{acertos}</span> de {total}</span>
+            <span>Acertos: <span className="font-bold text-ava-ciano-texto">{acertos}</span> de {total}</span>
             <span className="text-slate-350">•</span>
-            <span>Rendimento: <span className="font-bold text-teal-700">{resultado.scorePercent}%</span></span>
+            <span>Rendimento: <span className="font-bold text-ava-ciano-texto">{resultado.scorePercent}%</span></span>
           </div>
           <p className="mx-auto max-w-md text-rotulo font-medium leading-relaxed text-slate-700">
             {resultado.passed
@@ -285,13 +285,13 @@ const ProvaEmAndamento: React.FC<{
       </div>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full bg-teal-500 transition-all duration-300"
+          className="h-full bg-ava-ciano transition-all duration-300"
           style={{ width: `${percentual(idx, total)}%` }}
         />
       </div>
 
       <div className="space-y-3 rounded-2xl border border-slate-150 bg-slate-50/50 p-5">
-        <span className="text-sobretitulo uppercase text-teal-700">Enunciado</span>
+        <span className="text-sobretitulo uppercase text-ava-ciano-texto">Enunciado</span>
         <h3 className="text-sm font-bold leading-relaxed text-slate-800">{questao.questionText}</h3>
       </div>
 
@@ -303,11 +303,11 @@ const ProvaEmAndamento: React.FC<{
           const selecionada = escolhida === optIdx;
           const correta = questao.correctOptionIndex === optIdx;
 
-          let caixa = 'border-slate-200 bg-white text-slate-700 hover:border-teal-500 hover:bg-slate-50/50';
+          let caixa = 'border-slate-200 bg-white text-slate-700 hover:border-ava-acao/40 hover:bg-slate-50/50';
           let bolinha = 'border-slate-300 bg-white text-escult-ink-2';
           if (selecionada && !respondida) {
-            caixa = 'border-teal-500 bg-teal-50/10 font-bold text-teal-950';
-            bolinha = 'border-teal-600 bg-teal-600 text-white';
+            caixa = 'border-ava-acao bg-ava-icone-fundo/10 font-bold text-ava-ciano-texto';
+            bolinha = 'border-ava-acao bg-ava-acao text-white';
           } else if (respondida && correta) {
             caixa = 'border-emerald-500 bg-emerald-50/60 font-bold text-emerald-950';
             bolinha = 'border-emerald-600 bg-emerald-600 text-white';
@@ -344,7 +344,7 @@ const ProvaEmAndamento: React.FC<{
           className={`flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 text-xs font-black uppercase tracking-wider transition-all ${
             escolhida === undefined
               ? 'cursor-not-allowed border border-slate-200 bg-slate-100 text-escult-ink-2'
-              : 'cursor-pointer bg-teal-600 text-white shadow-xs hover:bg-teal-500'
+              : 'cursor-pointer bg-ava-acao text-white shadow-xs hover:bg-ava-acao-escuro'
           }`}
         >
           <span>Responder</span>
@@ -374,7 +374,7 @@ const ProvaEmAndamento: React.FC<{
               </span>
               <p className="font-semibold text-slate-800">
                 A alternativa correta é{' '}
-                <span className="font-extrabold text-teal-700">
+                <span className="font-extrabold text-ava-ciano-texto">
                   {String.fromCharCode(65 + questao.correctOptionIndex)}
                 </span>
                 . {questao.explanation || 'Nenhuma explicação adicional fornecida.'}
@@ -427,7 +427,7 @@ const ProvaEmAndamento: React.FC<{
               type="button"
               disabled={enviando}
               onClick={() => (ultima ? finalizar() : setIdx((i) => i + 1))}
-              className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-teal-600 px-5 py-3 text-sobretitulo uppercase text-white transition-all hover:bg-teal-500 disabled:opacity-60"
+              className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-ava-acao px-5 py-3 text-sobretitulo uppercase text-white transition-all hover:bg-ava-acao-escuro disabled:opacity-60"
             >
               <span>
                 {enviando ? 'Enviando...' : ultima ? 'Ver resultado final' : 'Próxima pergunta'}
