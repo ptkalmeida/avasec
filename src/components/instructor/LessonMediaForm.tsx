@@ -20,7 +20,7 @@ const ACCEPT_IMAGEM = 'image/png,image/jpeg,image/webp,image/gif';
  */
 const BYTES_PESADO = 2 * 1024 * 1024;
 
-const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-apoio text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500';
+const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-apoio text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao';
 const rotuloCampo = 'block text-sobretitulo text-escult-ink-2 uppercase mb-1';
 
 export interface MediaInicial {
@@ -163,8 +163,8 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
   const podeAplicar = url.trim() !== '' && !faltaDescricao && !enviando && !legendaForaDoPadrao;
 
   return (
-    <div className="rounded-xl border-2 border-teal-500/60 bg-teal-50/20 p-3 space-y-2.5">
-      <span className="text-sobretitulo uppercase text-teal-700">
+    <div className="rounded-xl border-2 border-ava-acao/60 bg-ava-icone-fundo/20 p-3 space-y-2.5">
+      <span className="text-sobretitulo uppercase text-ava-ciano-texto">
         {inicial ? 'Editando' : 'Adicionar'}: {ehImagem ? 'Imagem' : 'Vídeo complementar'}
       </span>
 
@@ -186,7 +186,7 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
             type="button"
             disabled={enviando || onUpload === undefined}
             onClick={() => inputArquivo.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-apoio font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:text-escult-ink-2"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-apoio font-bold text-slate-600 hover:border-ava-acao/40 hover:text-ava-ciano-texto transition-colors cursor-pointer disabled:cursor-not-allowed disabled:text-escult-ink-2"
           >
             {enviando
               ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Enviando...</>
@@ -201,7 +201,7 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
           {url !== '' && !enviando && (
             // O cartão confere QUAL arquivo; a prévia lá embaixo, que usa o
             // endereço do servidor, confere que ele CHEGOU. Papéis diferentes.
-            <div className="mt-2 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50/50 p-2.5">
+            <div className="mt-2 flex items-center gap-3 rounded-xl border border-ava-borda bg-ava-icone-fundo/50 p-2.5">
               <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white">
                 {srcMiniatura !== null && !miniaturaFalhou ? (
                   <img
@@ -356,7 +356,7 @@ export const LessonMediaForm: React.FC<LessonMediaFormProps> = ({
           disabled={!podeAplicar}
           title={faltaDescricao ? 'Descreva a mídia antes de aplicar' : undefined}
           onClick={() => onConfirm(serializado)}
-          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-500 px-3.5 py-1.5 text-sobretitulo uppercase text-white transition-colors cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1 rounded-lg bg-ava-acao hover:bg-ava-acao-escuro px-3.5 py-1.5 text-sobretitulo uppercase text-white transition-colors cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
           <Check className="h-3 w-3" /> Aplicar
         </button>

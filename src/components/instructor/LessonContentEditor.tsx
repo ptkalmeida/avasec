@@ -81,7 +81,7 @@ interface LessonContentEditorProps {
   videoUrlDaAula?: string;
 }
 
-const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-apoio text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500';
+const campo = 'w-full rounded-lg border border-slate-200 p-2.5 text-apoio text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao';
 const rotuloCampo = 'block text-sobretitulo text-escult-ink-2 uppercase mb-1';
 
 /**
@@ -212,7 +212,7 @@ const FormatoTexto: React.FC<{
         <select
           value={tamanho}
           onChange={(e) => onTamanho(e.target.value as TamanhoTexto)}
-          className="rounded-lg border border-slate-200 p-1.5 text-apoio font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+          className="rounded-lg border border-slate-200 p-1.5 text-apoio font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao"
         >
           {TAMANHOS_TEXTO.map((t) => <option key={t} value={t}>{ROTULO_TAMANHO[t]}</option>)}
         </select>
@@ -234,8 +234,8 @@ const FormatoTexto: React.FC<{
               aria-pressed={ativo}
               aria-label={rotulo}
               title={rotulo}
-              className={`rounded-md p-1.5 transition-colors cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-teal-500/30 ${
-                ativo ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+              className={`rounded-md p-1.5 transition-colors cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-ava-acao/30 ${
+                ativo ? 'bg-ava-acao text-white' : 'text-slate-600 hover:bg-slate-100'
               }`}
             >
               <Icone className="h-4 w-4" />
@@ -308,9 +308,9 @@ const BlockTextForm: React.FC<{
   };
 
   return (
-    <div className="rounded-xl border-2 border-teal-500/60 bg-teal-50/20 p-3 space-y-2.5">
+    <div className="rounded-xl border-2 border-ava-acao/60 bg-ava-icone-fundo/20 p-3 space-y-2.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sobretitulo uppercase text-teal-700">
+        <span className="text-sobretitulo uppercase text-ava-ciano-texto">
           Editando: {ROTULO[block.kind]}
         </span>
 
@@ -320,7 +320,7 @@ const BlockTextForm: React.FC<{
             <select
               value={kind}
               onChange={(e) => trocarTipo(e.target.value as TipoTexto)}
-              className="rounded-lg border border-slate-200 p-1.5 text-apoio font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+              className="rounded-lg border border-slate-200 p-1.5 text-apoio font-bold text-slate-700 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao"
             >
               {CONVERSIVEIS.map((k) => <option key={k} value={k}>{ROTULO[k]}</option>)}
             </select>
@@ -433,7 +433,7 @@ const BlockTextForm: React.FC<{
           onClick={confirmar}
           disabled={vazio}
           title={vazio ? 'Escreva algo antes de aplicar' : undefined}
-          className="inline-flex items-center gap-1 rounded-lg bg-teal-600 hover:bg-teal-500 px-3.5 py-1.5 text-sobretitulo uppercase text-white transition-colors cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-1 rounded-lg bg-ava-acao hover:bg-ava-acao-escuro px-3.5 py-1.5 text-sobretitulo uppercase text-white transition-colors cursor-pointer disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
           <Check className="h-3 w-3" /> Aplicar
         </button>
@@ -555,7 +555,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                     }
                     adicionar(indice, n.texto);
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-apoio font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-apoio font-bold text-slate-600 hover:border-ava-acao/40 hover:text-ava-ciano-texto transition-colors cursor-pointer"
                 >
                   <n.icon className="h-3 w-3" /> {n.label}
                 </button>
@@ -576,11 +576,11 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
             aria-label="Adicionar bloco aqui"
             className="group flex w-full items-center gap-2 py-0.5 cursor-pointer"
           >
-            <span className="h-px flex-1 bg-slate-200 group-hover:bg-teal-400 transition-colors" />
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-sobretitulo uppercase text-escult-ink-2 group-hover:border-teal-400 group-hover:text-teal-700 transition-colors">
+            <span className="h-px flex-1 bg-slate-200 group-hover:bg-ava-ciano transition-colors" />
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-sobretitulo uppercase text-escult-ink-2 group-hover:border-ava-acao/40 group-hover:text-ava-ciano-texto transition-colors">
               <Plus className="h-2.5 w-2.5" /> Adicionar
             </span>
-            <span className="h-px flex-1 bg-slate-200 group-hover:bg-teal-400 transition-colors" />
+            <span className="h-px flex-1 bg-slate-200 group-hover:bg-ava-ciano transition-colors" />
           </button>
         )}
       </div>
@@ -601,7 +601,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
         <button
           type="button"
           onClick={() => setShowHelp((v) => !v)}
-          className="inline-flex items-center gap-1 text-apoio font-bold text-teal-700 hover:text-teal-800 cursor-pointer"
+          className="inline-flex items-center gap-1 text-apoio font-bold text-ava-ciano-texto hover:text-ava-ciano-texto cursor-pointer"
         >
           <HelpCircle className="h-3 w-3" />
           Como funciona
@@ -610,9 +610,9 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
       </div>
 
       {showHelp && (
-        <div className="rounded-xl border border-teal-100 bg-teal-50/40 p-3 text-rotulo leading-relaxed text-slate-700 space-y-1.5">
+        <div className="rounded-xl border border-ava-borda bg-ava-icone-fundo/40 p-3 text-rotulo leading-relaxed text-slate-700 space-y-1.5">
           <p>O que você vê abaixo é exatamente o que o aluno vê. Para mudar algo:</p>
-          <ul className="space-y-1 pl-4 list-disc marker:text-teal-700">
+          <ul className="space-y-1 pl-4 list-disc marker:text-ava-ciano-texto">
             <li>Passe o mouse sobre um trecho e clique no <strong>lápis</strong> para editá-lo.</li>
             <li>Clique em <strong>Adicionar</strong>, entre dois trechos, para inserir algo novo ali.</li>
             <li>A <strong>lixeira</strong> remove o trecho.</li>
@@ -651,7 +651,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                     }
                     onChange(n.texto);
                   }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-apoio font-bold text-slate-600 hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-apoio font-bold text-slate-600 hover:border-ava-acao/40 hover:text-ava-ciano-texto transition-colors cursor-pointer"
                 >
                   <Plus className="h-3 w-3" /> {n.label}
                 </button>
@@ -684,7 +684,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                   />
                 ) : (
                   <div className={`group relative rounded-xl px-3 py-1 transition-colors hover:bg-slate-50/80 ${
-                    movido?.indice === i ? 'bg-teal-50 ring-1 ring-teal-300' : ''
+                    movido?.indice === i ? 'bg-ava-icone-fundo ring-1 ring-ava-acao' : ''
                   }`}>
                     {/* Controles do bloco: aparecem no hover e no foco por teclado. */}
                     <div className="absolute right-1.5 top-1.5 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
@@ -695,7 +695,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                           onClick={() => mover(i, -1)}
                           aria-label={`Subir ${ROTULO[block.kind].toLowerCase()}`}
                           title="Subir este trecho"
-                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-ava-acao/40 hover:text-ava-ciano-texto transition-colors cursor-pointer"
                         >
                           <ArrowUp className="h-3 w-3" />
                         </button>
@@ -707,7 +707,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
                           onClick={() => mover(i, 1)}
                           aria-label={`Descer ${ROTULO[block.kind].toLowerCase()}`}
                           title="Descer este trecho"
-                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-teal-400 hover:text-teal-700 transition-colors cursor-pointer"
+                          className="rounded-lg border border-slate-200 bg-white p-1.5 text-escult-ink-2 shadow-3xs hover:border-ava-acao/40 hover:text-ava-ciano-texto transition-colors cursor-pointer"
                         >
                           <ArrowDown className="h-3 w-3" />
                         </button>
@@ -749,7 +749,7 @@ export const LessonContentEditor: React.FC<LessonContentEditorProps> = ({ value,
         <span>{parsed.sections.filter((s) => s.level === 2).length} seções</span>
         <span>{parsed.blocks.length} {parsed.blocks.length === 1 ? 'trecho' : 'trechos'}</span>
         <span>{value.trim() === '' ? 0 : value.trim().split(/\s+/).length} palavras</span>
-        {parsed.hasCode && <span className="text-teal-700">contém bloco de código</span>}
+        {parsed.hasCode && <span className="text-ava-ciano-texto">contém bloco de código</span>}
       </div>
     </div>
   );

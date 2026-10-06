@@ -676,7 +676,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         <div className="lg:col-span-7 space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sobretitulo text-slate-800 uppercase flex items-center gap-1.5">
-              <FileText className="h-4 w-4 text-teal-700" />
+              <FileText className="h-4 w-4 text-ava-ciano-texto" />
               Documentos Vinculados ({docs.length})
             </span>
             <span className="text-apoio text-escult-ink-2 font-medium">Os alunos podem abrir esses arquivos na seção de aula</span>
@@ -717,7 +717,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         target="_blank" 
                         referrerPolicy="no-referrer"
                         rel="noopener noreferrer" 
-                        className="p-1.5 text-slate-600 hover:bg-slate-50 hover:text-teal-700 transition-colors"
+                        className="p-1.5 text-slate-600 hover:bg-slate-50 hover:text-ava-ciano-texto transition-colors"
                         title="Testar Link Externo"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -737,7 +737,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           )}
 
           {/* Live student preview shortcut */}
-          <div className="bg-gradient-to-r from-ava-acao/5 to-teal-500/5 rounded-xl p-3 border border-ava-acao/10 flex items-center justify-between text-xs">
+          <div className="bg-gradient-to-r from-ava-acao/5 to-ava-ciano/5 rounded-xl p-3 border border-ava-acao/10 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-ava-acao" />
               <div>
@@ -765,16 +765,16 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
             <div>
               <label className="block text-sobretitulo text-escult-ink-2 uppercase mb-1">Upload de Arquivo Local</label>
               {uploadedFile ? (
-                <div className="flex items-center justify-between p-3 rounded-xl border border-teal-200 bg-teal-50/50 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between p-3 rounded-xl border border-ava-borda bg-ava-icone-fundo/50 animate-in fade-in duration-200">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="p-2 bg-teal-600 text-white rounded-lg">
+                    <div className="p-2 bg-ava-acao text-white rounded-lg">
                       <File className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
                       <p className="font-bold text-slate-800 text-xs truncate">{uploadedFile.name}</p>
-                      <p className="text-apoio text-teal-700 font-semibold">{newDocSize}</p>
+                      <p className="text-apoio text-ava-ciano-texto font-semibold">{newDocSize}</p>
                       {envioArquivo.estado === 'enviando' && (
-                        <p className="mt-0.5 inline-flex items-center gap-1 text-apoio font-bold text-teal-700">
+                        <p className="mt-0.5 inline-flex items-center gap-1 text-apoio font-bold text-ava-ciano-texto">
                           <Loader2 className="h-3 w-3 animate-spin" /> Enviando...
                         </p>
                       )}
@@ -791,7 +791,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                           <button
                             type="button"
                             onClick={() => handleFileChange(uploadedFile)}
-                            className="text-apoio font-bold text-teal-700 underline hover:text-teal-800 cursor-pointer"
+                            className="text-apoio font-bold text-ava-ciano-texto underline hover:text-ava-ciano-texto cursor-pointer"
                           >
                             Tentar de novo
                           </button>
@@ -802,7 +802,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   <button
                     type="button"
                     onClick={handleClearFile}
-                    className="p-1.5 hover:bg-teal-100 text-escult-ink-2 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                    className="p-1.5 hover:bg-ava-icone-fundo text-escult-ink-2 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
                     title="Remover arquivo"
                   >
                     <X className="h-4 w-4" />
@@ -824,8 +824,8 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   }}
                   className={`relative border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
                     isDragging
-                      ? 'border-teal-500 bg-teal-50/30'
-                      : 'border-slate-200 hover:border-teal-500 hover:bg-slate-50/50'
+                      ? 'border-ava-acao bg-ava-icone-fundo/30'
+                      : 'border-slate-200 hover:border-ava-acao/40 hover:bg-slate-50/50'
                   }`}
                   onClick={() => {
                     const input = document.createElement('input');
@@ -858,7 +858,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 placeholder="Ex: Slides Primeiros Passos.pdf, Exercício 1"
                 value={newDocTitle}
                 onChange={(e) => setNewDocTitle(e.target.value)}
-                className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-escult-ink-3"
+                className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-ava-acao focus:outline-none transition-all placeholder:text-escult-ink-3"
               />
             </div>
 
@@ -868,7 +868,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 <select
                   value={newDocType}
                   onChange={(e) => setNewDocType(e.target.value as any)}
-                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all cursor-pointer"
+                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:border-ava-acao focus:outline-none transition-all cursor-pointer"
                 >
                   <option value="pdf">Apostila (.pdf)</option>
                   <option value="doc">Anotações (.doc)</option>
@@ -885,7 +885,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   disabled={!uploadedFile && newDocType !== 'pdf' && newDocType !== 'doc'}
                   value={newDocSize}
                   onChange={(e) => setNewDocSize(e.target.value)}
-                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 text-center px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all disabled:opacity-40"
+                  className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 text-center px-3 py-2 rounded-xl border border-slate-200 focus:border-ava-acao focus:outline-none transition-all disabled:opacity-40"
                 />
               </div>
             </div>
@@ -900,7 +900,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 // parte da confusão: o campo passa a dizer o estado real.
                 value={uploadedFile ? textoDoEnvio(envioArquivo) : newDocUrl}
                 onChange={(e) => setNewDocUrl(e.target.value)}
-                className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-teal-500 focus:outline-none transition-all placeholder:text-escult-ink-3 disabled:opacity-50"
+                className="w-full bg-slate-50 hover:bg-white focus:bg-white text-slate-800 font-medium px-3 py-2 rounded-xl border border-slate-200 focus:border-ava-acao focus:outline-none transition-all placeholder:text-escult-ink-3 disabled:opacity-50"
               />
             </div>
 
@@ -911,7 +911,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 // Durante o envio não há o que vincular: o clique antecipado era a
                 // outra metade da corrida entre dois arquivos.
                 disabled={envioArquivo.estado === 'enviando'}
-                className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-teal-950/5 flex items-center justify-center gap-1.5 cursor-pointer text-xs disabled:bg-slate-300 disabled:cursor-not-allowed"
+                className="w-full bg-ava-acao hover:bg-ava-acao text-white font-bold py-2.5 rounded-xl transition-all shadow-md shadow-ava-acao/5 flex items-center justify-center gap-1.5 cursor-pointer text-xs disabled:bg-slate-300 disabled:cursor-not-allowed"
               >
                 {envioArquivo.estado === 'enviando'
                   ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Enviando arquivo...</span></>
@@ -1017,7 +1017,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
     <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
       
       {/* Instructor Dashboard Welcome Banner */}
-      <div className="mb-8 rounded-2xl bg-linear-to-r from-slate-900 to-teal-950 p-6 border border-slate-800 text-left flex flex-col justify-between gap-6 md:flex-row md:items-center shadow-lg">
+      <div className="mb-8 rounded-2xl bg-linear-to-r from-ava-tinta to-ava-marinho p-6 border border-slate-800 text-left flex flex-col justify-between gap-6 md:flex-row md:items-center shadow-lg">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           {/*
             Antes este botao acumulava duas coisas: fechar um modo de tela cheia
@@ -1040,13 +1040,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           )}
 
           <div>
-            <span className="rounded-full bg-teal-500/10 px-2.5 py-1 text-rotulo font-bold text-teal-400 border border-teal-500/20">
+            <span className="rounded-full bg-ava-ciano/10 px-2.5 py-1 text-rotulo font-bold text-ava-ciano border border-ava-acao/20">
               Painel do Instrutor-Gestor
             </span>
             <h2 className="text-xl md:text-2xl font-black text-slate-100 mt-2">
               Gestão Pedagógica do AVA
             </h2>
-            <p className="text-xs text-escult-ink-2 mt-1">
+            {/* `ink-2` e calibrado para fundo BRANCO e aqui da 2,38:1; sobre a
+                faixa escura o neutro e `ink-claro` (ver index.css). */}
+            <p className="text-xs text-escult-ink-claro mt-1">
               Gestor de Conteúdos • Controle de conteúdos, encontros e acompanhamento acadêmico.
             </p>
           </div>
@@ -1054,7 +1056,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
         <button
           onClick={() => setIsCreatingCourse(true)}
-          className="shrink-0 bg-teal-700 hover:bg-teal-600 text-white font-bold px-4 py-2.5 rounded-lg text-apoio flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+          className="shrink-0 bg-ava-acao hover:bg-ava-acao text-white font-bold px-4 py-2.5 rounded-lg text-apoio flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
         >
           <Plus className="h-4 w-4" />
           <span>Cadastrar Novo Curso</span>
@@ -1339,7 +1341,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               {/* Course Title metadata header */}
               <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-semibold text-teal-700">
+                  <span className="rounded-full bg-ava-icone-fundo px-2.5 py-0.5 text-xs font-semibold text-ava-ciano-texto">
                     {activeCourse.category}
                   </span>
                   <h3 className="text-xl font-bold text-slate-900 mt-2">{activeCourse.title}</h3>
@@ -1380,7 +1382,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                   </button>
                   <button
                     onClick={() => setIsCreatingLive(true)}
-                    className="rounded-lg bg-teal-50 border border-teal-100 hover:bg-teal-100 px-2 sm:px-3 py-2 text-rotulo font-bold text-teal-700 transition-colors flex items-center gap-1 cursor-pointer"
+                    className="rounded-lg bg-ava-icone-fundo border border-ava-borda hover:bg-ava-icone-fundo px-2 sm:px-3 py-2 text-rotulo font-bold text-ava-ciano-texto transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <Video className="h-3.5 w-3.5" />
                     <span>Agendar Encontro</span>
@@ -1401,20 +1403,20 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 {/* Simplified Lesson View */}
                 <div>
                   <h4 className="text-slate-800 text-sobretitulo uppercase mb-3 flex items-center gap-1.5">
-                    <BookOpen className="h-4 w-4 text-teal-500" />
+                    <BookOpen className="h-4 w-4 text-ava-ciano" />
                     <span>Currículo atual ({activeCourse.lessons.length})</span>
                   </h4>
                   <div className="space-y-1.5">
                     {activeCourse.lessons.slice(0, 4).map(l => (
                       <div key={l.id} className="text-rotulo font-semibold text-slate-600 flex items-center gap-2">
-                        <CheckCircle className="h-3 w-3 text-teal-400" />
+                        <CheckCircle className="h-3 w-3 text-ava-ciano" />
                         <span className="truncate">{l.title}</span>
                       </div>
                     ))}
                     {activeCourse.lessons.length > 4 && (
                       <button 
                         onClick={() => setActiveDashboardTab('curriculum')}
-                        className="text-apoio font-bold text-teal-700 hover:underline mt-1"
+                        className="text-apoio font-bold text-ava-ciano-texto hover:underline mt-1"
                       >
                         + ver mais {activeCourse.lessons.length - 4} aulas na aba Grade
                       </button>
@@ -1472,10 +1474,10 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                               href={safeHref(session.meetingLink)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-apoio text-teal-700 hover:text-teal-700 hover:underline flex items-center gap-1 truncate max-w-[150px] cursor-pointer"
+                              className="text-apoio text-ava-ciano-texto hover:text-ava-ciano-texto hover:underline flex items-center gap-1 truncate max-w-[150px] cursor-pointer"
                               title="Abrir no Google Meet"
                             >
-                              <ExternalLink className="h-3 w-3 shrink-0 text-teal-700" />
+                              <ExternalLink className="h-3 w-3 shrink-0 text-ava-ciano-texto" />
                               <span className="truncate">{session.meetingLink}</span>
                             </a>
                             
@@ -1535,7 +1537,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 <button
                   type="button"
                   onClick={() => setActiveDashboardTab('avaliacoes')}
-                  className="cursor-pointer text-rotulo font-bold text-teal-700 hover:underline"
+                  className="cursor-pointer text-rotulo font-bold text-ava-ciano-texto hover:underline"
                 >
                   Abrir a área de avaliações
                 </button>
@@ -1793,7 +1795,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
         <div className="animate-in slide-in-from-bottom-2 duration-300 space-y-6">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs text-left">
             <div>
-              <span className="text-sobretitulo text-teal-700 uppercase bg-teal-50 px-2 py-0.5 rounded-full mb-2 inline-block">Módulo de Edição Total</span>
+              <span className="text-sobretitulo text-ava-ciano-texto uppercase bg-ava-icone-fundo px-2 py-0.5 rounded-full mb-2 inline-block">Módulo de Edição Total</span>
               <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Grade Curricular: {activeCourse.title}</h3>
               <p className="text-sm text-escult-ink-2 mt-2 font-medium">Gerencie toda a jornada de aprendizado teórico. Arraste para reordenar, edite conteúdos ou remova aulas obsoletas.</p>
             </div>
@@ -1829,7 +1831,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 return (
                   <div
                     key={`${lesson.id}-${index}`}
-                    className="bg-white border border-slate-200 hover:border-teal-300 rounded-2xl transition-all duration-200 shadow-3xs overflow-hidden"
+                    className="bg-white border border-slate-200 hover:border-ava-acao/40 rounded-2xl transition-all duration-200 shadow-3xs overflow-hidden"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
                     {/* Header Row */}
@@ -1870,17 +1872,17 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                               {lesson.isOptional ? (
                                 <span className="px-1.5 py-0.5 rounded bg-slate-150 text-slate-600 text-sobretitulo uppercase">Opcional</span>
                               ) : (
-                                <span className="px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 text-sobretitulo uppercase border border-teal-100/30">Obrigatória</span>
+                                <span className="px-1.5 py-0.5 rounded bg-ava-icone-fundo text-ava-ciano-texto text-sobretitulo uppercase border border-ava-borda/30">Obrigatória</span>
                               )}
                             </div>
                           </div>
                           <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-escult-ink-2">
                             <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3 text-teal-500" />
+                              <Clock className="h-3 w-3 text-ava-ciano" />
                               <span>{lesson.duration} de carga</span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <FileText className="h-3 w-3 text-teal-500" />
+                              <FileText className="h-3 w-3 text-ava-ciano" />
                               <span>{docs.length} documento{docs.length !== 1 ? 's' : ''} relacionado{docs.length !== 1 ? 's' : ''}</span>
                             </div>
                           </div>
@@ -1933,7 +1935,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
           */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4">
              <div className="bg-slate-900 rounded-2xl p-6 text-left border border-slate-800">
-                <span className="text-sobretitulo text-teal-400 uppercase block mb-1">Tempo Total da Grade</span>
+                <span className="text-sobretitulo text-ava-ciano uppercase block mb-1">Tempo Total da Grade</span>
                 <div className="text-2xl font-black text-white">{textoDoTempoDaGrade(activeCourse.lessons)}</div>
                 <span className="text-apoio text-escult-ink-claro block mt-1 leading-normal">Soma das durações cadastradas nas aulas.</span>
              </div>
@@ -1993,7 +1995,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                 </div>
               </div>
               <div className="bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2 text-xs text-slate-700">
-                <Users className="h-4 w-4 text-teal-500 shrink-0" />
+                <Users className="h-4 w-4 text-ava-ciano shrink-0" />
                 <div>
                   <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none">Total de Alunos</span>
                   <span className="font-bold text-apoio">{studentsList.length} Ativos</span>
@@ -2094,7 +2096,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         </div>
                         <div className="bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-right">
                           <span className="block text-sobretitulo text-escult-ink-2 uppercase leading-none">Curso Certificado</span>
-                          <span className="text-xs font-black text-teal-700"><span className="inline-flex items-center gap-1">{hasCert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}{hasCert ? 'Emitido' : 'Pendente'}</span></span>
+                          <span className="text-xs font-black text-ava-ciano-texto"><span className="inline-flex items-center gap-1">{hasCert ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}{hasCert ? 'Emitido' : 'Pendente'}</span></span>
                         </div>
                       </div>
                     </div>
@@ -2117,7 +2119,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                             <div key={`${msg.id}-${idx}`} className={`flex flex-col ${isInstructor ? 'items-end' : 'items-start'} animate-in fade-in slide-in-from-bottom-1 duration-200`}>
                               <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-xs leading-normal ${
                                 isInstructor 
-                                  ? 'bg-teal-600 text-white rounded-tr-none shadow-3xs' 
+                                  ? 'bg-ava-acao text-white rounded-tr-none shadow-3xs' 
                                   : 'bg-white border border-slate-200 text-slate-800 rounded-tl-none shadow-3xs'
                               }`}>
                                 <div className="flex items-center gap-1.5 mb-1 opacity-75">
@@ -2159,11 +2161,11 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         type="text"
                         required
                         placeholder={`Digite as orientações para o aluno ${selectedStudentName}...`}
-                        className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
+                        className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-ava-acao/20 focus:border-ava-acao transition-all outline-none"
                       />
                       <button
                         type="submit"
-                        className="bg-teal-600 hover:bg-teal-500 text-white rounded-xl px-4 py-3 shrink-0 transition-colors flex items-center justify-center cursor-pointer shadow-sm text-sobretitulo uppercase gap-1.5"
+                        className="bg-ava-acao hover:bg-ava-acao-escuro text-white rounded-xl px-4 py-3 shrink-0 transition-colors flex items-center justify-center cursor-pointer shadow-sm text-sobretitulo uppercase gap-1.5"
                       >
                         <Send className="h-4 w-4" />
                         <span>Enviar</span>
@@ -2275,7 +2277,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                                 updateAdmissionStatus(req.id, 'approved');
                                 showToast(`Matrícula de ${req.studentName} aprovada com sucesso!`);
                               }}
-                              className="px-3 py-1.5 rounded-lg bg-teal-600 text-apoio font-black text-white hover:bg-teal-700 shadow-3xs transition-all cursor-pointer"
+                              className="px-3 py-1.5 rounded-lg bg-ava-acao text-apoio font-black text-white hover:bg-ava-acao shadow-3xs transition-all cursor-pointer"
                             >
                               Aprovar Acesso
                             </button>
@@ -2354,7 +2356,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
                         required
                         value={customCategory}
                         onChange={(e) => setCustomCategory(e.target.value)}
-                        className="w-full rounded-lg border border-teal-200 bg-teal-50/20 p-2 text-xs font-semibold text-slate-800"
+                        className="w-full rounded-lg border border-ava-borda bg-ava-icone-fundo/20 p-2 text-xs font-semibold text-slate-800"
                       />
                     )}
                   </div>
@@ -2399,7 +2401,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-teal-600 hover:bg-teal-500 px-4 py-2 text-xs font-bold text-white shadow-xs"
+                className="rounded-lg bg-ava-acao hover:bg-ava-acao-escuro px-4 py-2 text-xs font-bold text-white shadow-xs"
               >
                 Cadastrar Curso
               </button>
@@ -2462,7 +2464,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-teal-600 hover:bg-teal-500 px-4 py-2 text-xs font-bold text-white shadow-xs"
+                className="rounded-lg bg-ava-acao hover:bg-ava-acao-escuro px-4 py-2 text-xs font-bold text-white shadow-xs"
               >
                 Adicionar Aula
               </button>
@@ -2542,7 +2544,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               </button>
               <button
                 type="submit"
-                className="rounded-lg bg-teal-600 hover:bg-teal-500 px-4 py-2 text-xs font-bold text-white shadow-xs"
+                className="rounded-lg bg-ava-acao hover:bg-ava-acao-escuro px-4 py-2 text-xs font-bold text-white shadow-xs"
               >
                 Agendar Encontro
               </button>
@@ -2786,7 +2788,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               {/* Lesson Metadata */}
               <div className="flex items-center gap-4 text-xs text-escult-ink-2 border-b border-slate-800/80 pb-4">
                 <span className="flex items-center gap-1.5 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700/30">
-                  <Clock className="h-3.5 w-3.5 text-teal-400" />
+                  <Clock className="h-3.5 w-3.5 text-ava-ciano" />
                   Duração: <strong className="text-slate-200">{previewLesson.duration}</strong>
                 </span>
                 <span className="flex items-center gap-1.5 bg-slate-800/60 px-2.5 py-1 rounded-full border border-slate-700/30">
@@ -2811,7 +2813,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
               {/* Lesson Documents (Materials) */}
               <div className="space-y-3 text-left pt-2">
                 <h4 className="text-sobretitulo uppercase text-slate-300 flex items-center gap-1.5">
-                  <Archive className="h-4 w-4 text-teal-400" />
+                  <Archive className="h-4 w-4 text-ava-ciano" />
                   Material de Apoio e Arquivos ({previewLesson.documents?.length || 0})
                 </h4>
                 {!previewLesson.documents || previewLesson.documents.length === 0 ? (
