@@ -72,7 +72,7 @@ export const BarraDeAulas: React.FC<BarraDeAulasProps> = ({
                 onClick={() => onAbrir(aula)}
                 aria-current={atual ? 'true' : undefined}
                 title={aula.title}
-                className={`shrink-0 max-w-[15rem] rounded-xl px-3 py-2 text-left text-xs transition-colors cursor-pointer border ${
+                className={`shrink-0 max-w-[15rem] rounded-xl px-3 py-2 text-left text-xs transition-colors cursor-pointer border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ava-acao ${
                   atual
                     ? 'border-ava-borda bg-ava-faixa text-ava-tinta font-black shadow-[inset_0_-3px_0_0_var(--color-ava-ciano)]'
                     : 'border-transparent text-escult-ink-2 font-semibold hover:bg-ava-icone-fundo'
