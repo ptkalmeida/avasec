@@ -22,7 +22,20 @@ final class AuditLogService
     public function listSecurityLogs(int $skip, int $take): array
     {
         $total = SecurityLog::query()->count();
-        $items = SecurityLog::query()->orderBy('timestamp', 'desc')->skip($skip)->take($take)->get()->map->toArray()->all();
+        /*
+         * Ordena por `ocorridoEm` (DATETIME), nao por `timestamp` (texto).
+         * O texto e "HH:MM:SS DD/MM/AAAA": ordenar por ele e ordenar pela HORA
+         * antes da data, entao um registro das 23h de ontem vinha depois de um
+         * das 08h de hoje. O "mais recente" da tela estava errado (24/09/2026).
+         *
+         * Linha sem `ocorridoEm` (texto nao reconhecivel) cai para o fim: no
+         * MySQL, NULL ordena por ultimo em DESC. Tratar como a mais antiga e
+         * honesto — melhor que inventar uma data para ela.
+         */
+        $items = SecurityLog::query()
+            ->orderByDesc('ocorridoEm')
+            ->orderByDesc('id')
+            ->skip($skip)->take($take)->get()->map->toArray()->all();
 
         return ['items' => $items, 'total' => $total];
     }

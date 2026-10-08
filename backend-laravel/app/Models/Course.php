@@ -26,7 +26,7 @@ final class Course extends Model
 
     protected $fillable = [
         'id', 'title', 'slug', 'description', 'category', 'thumbnail', 'instructorName', 'instructorId',
-        'coverImage', 'courseType', 'hasChat', 'minAttendance', 'contractExpirationDate',
+        'coverImage', 'courseType', 'hasChat', 'minAttendance', 'contractExpirationDate', 'vigenciaAte',
         'areaTematica', 'cargaHoraria', 'modalidade', 'nivel', 'emiteCertificado', 'statusCurso',
     ];
 
@@ -35,6 +35,16 @@ final class Course extends Model
         'emiteCertificado' => 'boolean',
         'minAttendance' => 'integer',
         'cargaHoraria' => 'integer',
+        /*
+         * Dia real de fim de vigencia do contrato, ao lado do texto `contractExpirationDate` (Norma C.2.4). O
+         * texto NAO muda: continua sendo o que a tela mostra e o que a API
+         * entrega hoje.
+         *
+         * `date`, nao `datetime`, e SEM deslocamento de fuso: isto e data pura.
+         * `Fuso` documenta a armadilha — meia-noite UTC e 21h do dia ANTERIOR em
+         * Brasilia, e o dia do vencimento mudaria ao ser formatado.
+         */
+        'vigenciaAte' => 'date:Y-m-d',
     ];
 
     /** @return HasMany<Lesson, $this> */

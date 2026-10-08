@@ -36,8 +36,11 @@ final class MessagingService
                 return [];
             }
 
+            // Ordena pelo instante nativo, não pelo texto ISO. O `id` desempata
+            // mensagens do mesmo segundo e mantém a ordem estável; linha sem
+            // `enviadaEm` (texto não reconhecível) é tratada como a mais antiga.
             return ChatMessage::query()->where('sessionId', $sessionId)
-                ->orderBy('timestamp')->get()->map->toArray()->all();
+                ->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
         }
 
         // Sem sessionId: admin vê tudo; demais recebem só o chat das sessões de cursos
@@ -48,7 +51,7 @@ final class MessagingService
             $query->whereIn('sessionId', $accessibleSessionIds);
         }
 
-        return $query->orderBy('timestamp')->get()->map->toArray()->all();
+        return $query->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
     }
 
     /**
@@ -71,6 +74,10 @@ final class MessagingService
             'senderRole' => $requester['role'],
             'text' => $input['text'],
             'timestamp' => CarbonImmutable::now()->toIso8601String(),
+            // Mesmo instante em coluna nativa (Norma C.2.4). `timestamp` segue sendo
+            // o texto ISO que a API já entrega; `enviadaEm` é o eixo de ordenação,
+            // que texto não dá de graça.
+            'enviadaEm' => CarbonImmutable::now()->utc(),
         ])->toArray();
     }
 
@@ -82,7 +89,7 @@ final class MessagingService
     {
         if ($requester['role'] === 'student') {
             return Identity::applyOwnRows(DirectMessage::query(), $requester, 'studentUserId')
-                ->orderBy('timestamp')->get()->map->toArray()->all();
+                ->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
         }
 
         // Instrutor só lê DMs dos próprios alunos; admin, todas. Antes qualquer instrutor
@@ -98,7 +105,7 @@ final class MessagingService
             $query->where('studentUserId', $studentUserId);
         }
 
-        return $query->orderBy('timestamp')->get()->map->toArray()->all();
+        return $query->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
     }
 
     /**
@@ -120,6 +127,8 @@ final class MessagingService
             'senderRole' => $requester['role'],
             'text' => $input['text'],
             'timestamp' => CarbonImmutable::now()->toIso8601String(),
+            // Ver a nota em createChatMessage: coluna nativa ao lado do texto.
+            'enviadaEm' => CarbonImmutable::now()->utc(),
         ])->toArray();
     }
 

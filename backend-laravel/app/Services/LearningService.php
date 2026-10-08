@@ -13,6 +13,7 @@ use App\Models\QuizQuestion;
 use App\Models\QuizSubmission;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;
+use App\Support\DataTexto;
 use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
@@ -270,6 +271,10 @@ final class LearningService
             'senderRole' => $requester['role'],
             'text' => $input['text'],
             'timestamp' => Fuso::agora()->format('d/m/Y H:i'),
+            // Mesmo instante em coluna nativa (Norma C.2.4). O texto acima é hora
+            // de Brasília e continua sendo o que a tela mostra; a coluna guarda em
+            // UTC, como todo instante aqui.
+            'enviadaEm' => CarbonImmutable::now()->utc(),
             'likes' => 0,
             'likedBy' => [],
         ])->toArray();
@@ -467,7 +472,22 @@ final class LearningService
      */
     private function exerciseScalar(array $input): array
     {
-        return array_intersect_key($input, array_flip(['courseId', 'title', 'description', 'instructions', 'maxPoints', 'dueDate']));
+        $campos = array_intersect_key($input, array_flip(['courseId', 'title', 'description', 'instructions', 'maxPoints', 'dueDate']));
+
+        /*
+         * `prazoEm` acompanha `dueDate` (Norma C.2.4): o texto 'd/m/Y' segue sendo
+         * o que a tela exibe e o que a API entrega, e a coluna DATE ao lado é o
+         * prazo comparável. Só é tocada quando `dueDate` vem no pedido — assim uma
+         * edição parcial não zera um prazo que ninguém pediu para mudar.
+         *
+         * Data que não converte vira NULL em vez de data inventada; a validação da
+         * rota já exige `date_format:d/m/Y`, então isso é rede, não caminho normal.
+         */
+        if (array_key_exists('dueDate', $campos)) {
+            $campos['prazoEm'] = DataTexto::dia(is_string($campos['dueDate']) ? $campos['dueDate'] : null);
+        }
+
+        return $campos;
     }
 
     /**
