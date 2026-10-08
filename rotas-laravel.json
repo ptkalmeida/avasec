@@ -1,0 +1,21 @@
+{
+  "_leia": [
+    "Fonte ÚNICA dos caminhos que o Laravel atende diretamente, em vez de cair no SPA React.",
+    "É lido por dois lados: vite.config.ts monta o proxy de desenvolvimento a partir daqui,",
+    "e tests/Feature/RoteadorMpaTest.php confere que nenhuma rota registrada no Laravel ficou",
+    "de fora. Se o teste falhar, acrescente o prefixo aqui — não o contorne no Vite.",
+    "",
+    "Durante a migração para MPA (ADR 017, plano .ai/planejamento/16) esta lista CRESCE:",
+    "cada tela que passa para Blade acrescenta seu caminho. Quando o React sair por inteiro",
+    "(fase M7), o arquivo perde a razão de existir e sai junto."
+  ],
+  "prefixos": [
+    "/api",
+    "/uploads",
+    "/health",
+    "/sistema",
+    "/up",
+    "/storage",
+    "/sanctum"
+  ]
+}
