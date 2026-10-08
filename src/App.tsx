@@ -1448,8 +1448,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   </p>
 
                   <h1 className="text-[2rem] sm:text-5xl lg:text-[54px] tracking-tight leading-[1.08] font-titulo text-ava-tinta break-words">
-                    Escola Estadual da Cultura <br className="hidden sm:inline" />
-                    <span className="text-ava-acao">Ambiente Virtual de Aprendizagem (AVASEC)</span>
+                    Escola Estadual da Cultura <span className="text-ava-acao">RJ</span>
                   </h1>
 
                   <p className="text-escult-ink-2 text-corpo leading-relaxed max-w-2xl">
