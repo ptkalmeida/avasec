@@ -44,11 +44,23 @@ export const BarraDeAulas: React.FC<BarraDeAulasProps> = ({
   onAbrir,
 }) => {
   const atualRef = useRef<HTMLButtonElement>(null);
+  const trilhoRef = useRef<HTMLDivElement>(null);
 
   // Em tela estreita a barra rola na horizontal; a aula atual tem de estar à
   // vista ao abrir, senão a barra parece começar sempre na aula 1.
+  //
+  // Por que NÃO é `scrollIntoView`: ele sobe a cadeia de ancestrais roláveis e
+  // acaba rolando a PÁGINA junto, não só este trilho. Em 320 px isso deslocava
+  // a sala de aula verticalmente de forma não determinística — duas aberturas
+  // da mesma aula paravam em posições diferentes. Aqui mexemos em `scrollLeft`
+  // só do trilho, que é o único eixo que esta barra tem.
   useEffect(() => {
-    atualRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    const trilho = trilhoRef.current;
+    const atual = atualRef.current;
+    if (!trilho || !atual) return;
+
+    const centro = atual.offsetLeft - (trilho.clientWidth - atual.offsetWidth) / 2;
+    trilho.scrollLeft = Math.max(0, centro);
   }, [aulaAtualId]);
 
   if (aulas.length < 2) return null;
@@ -59,7 +71,7 @@ export const BarraDeAulas: React.FC<BarraDeAulasProps> = ({
       className="fixed inset-x-0 bottom-0 z-30 border-t border-ava-borda bg-white/95 backdrop-blur-sm shadow-[0_-2px_12px_rgba(4,24,92,0.06)] print:hidden"
     >
       <div className="mx-auto max-w-7xl px-3 py-2.5">
-        <div className="flex items-stretch gap-2 overflow-x-auto no-scrollbar">
+        <div ref={trilhoRef} className="flex items-stretch gap-2 overflow-x-auto no-scrollbar">
           {aulas.map((aula, idx) => {
             const atual = aula.id === aulaAtualId;
             const concluida = concluidas.includes(aula.id);
