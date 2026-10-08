@@ -911,11 +911,20 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
         {/*
           Celular com a pessoa logada (planejamento 13): logotipo e menu numa
           linha, "Sair" e "Ambiente de Estudos" na de baixo, com o nome inteiro.
-          Antes os tres disputavam 375px e a pagina rolava para o lado. So no
-          tema do portal: no painel do admin o cabecalho segue como era.
+          Antes os tres disputavam 375px e a pagina rolava para o lado.
+
+          Estas regras ja nasceram presas a variante `ava:`, para nao tocar no
+          admin. O efeito colateral: no Perfil do admin `tema-ava` nao entra
+          (`temaPortal` e falso ali), as regras ficavam inertes e o cabecalho
+          voltava a nao caber -- o rotulo "Plataforma" terminava em 418px numa
+          tela de 320px. Como e layout puro (quebra de linha e largura, nenhuma
+          cor e nenhuma tipografia), a variante saiu: sob o tema do portal o
+          resultado e identico ao de antes, e o admin para de rolar para o lado.
+          A paleta do admin segue intocada -- so as regras `ava:` de COR a
+          governam, e nenhuma delas mudou aqui.
         */}
         <div className={`mx-auto max-w-7xl px-4 h-[84px] md:px-6 flex items-center justify-between gap-4 ${
-          isUserLoggedIn ? 'ava:max-sm:h-auto ava:max-sm:min-h-[72px] ava:max-sm:flex-wrap ava:max-sm:py-3 ava:max-sm:gap-y-3' : ''
+          isUserLoggedIn ? 'max-sm:h-auto max-sm:min-h-[72px] max-sm:flex-wrap max-sm:py-3 max-sm:gap-y-3' : ''
         }`}>
           
           {/*
@@ -945,7 +954,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           {isPublicPage && <NavegacaoPublica view={currentView} irPara={goToPage} />}
 
           {/* Right Header Controls / Sign In or Sign Out buttons */}
-          <div className={`flex items-center gap-3 ${isUserLoggedIn ? 'ava:max-sm:contents' : ''}`}>
+          <div className={`flex items-center gap-3 ${isUserLoggedIn ? 'max-sm:contents' : ''}`}>
             {/*
               Busca PERMANENTE, e nao uma lupa de 18px que expande um campo.
 
@@ -1199,7 +1208,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 </div>
               </div>
             ) : (
-              <div className={`flex items-center gap-2 ${isUserLoggedIn ? 'ava:max-sm:order-last ava:max-sm:w-full' : ''}`}>
+              <div className={`flex items-center gap-2 ${isUserLoggedIn ? 'max-sm:order-last max-sm:w-full' : ''}`}>
                 {/* Padlock and User icons (already interactive login triggers) */}
                 {(
                   <div className="hidden sm:flex items-center gap-3.5 mr-2 text-escult-ink-2 border-r border-slate-200 pr-4">
@@ -1224,10 +1233,10 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
 
                 {/* If the user is technically logged in but on the landing view, provide an instant "Ir p/ Painel" button */}
                 {isUserLoggedIn ? (
-                  <div className="flex items-center gap-2 animate-in fade-in transition-all ava:max-sm:w-full">
+                  <div className="flex items-center gap-2 animate-in fade-in transition-all max-sm:w-full">
                     <button
                       onClick={handleLogout}
-                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-2 text-sobretitulo transition-all flex items-center ava:max-sm:justify-center gap-1.5 ava:max-sm:flex-1 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
+                      className="rounded-lg border border-rose-150 bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-2 text-sobretitulo transition-all flex items-center max-sm:justify-center gap-1.5 max-sm:flex-1 cursor-pointer shadow-3xs hover:border-rose-300 uppercase"
                       title="Sair do Portal e encerrar sessão"
                     >
                       <LogOut className="h-3.5 w-3.5 text-rose-500" />
@@ -1240,7 +1249,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                           speakText("Acessando o seu Ambiente de Estudos.");
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao ava:max-sm:flex-[2] ava:max-sm:justify-center ava:whitespace-nowrap ava:normal-case ava:tracking-normal ava:text-rotulo ava:font-semibold px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao max-sm:flex-[2] max-sm:justify-center ava:whitespace-nowrap ava:normal-case ava:tracking-normal ava:text-rotulo ava:font-semibold px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title="Ir para seu Ambiente de Estudos"
                       >
                         <BookOpen className="h-4 w-4 text-slate-900 ava:text-white shrink-0" />
@@ -1258,7 +1267,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                             speakText("Acessando a sua Gestão de Cursos.");
                           }
                         }}
-                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao ava:max-sm:flex-[2] ava:max-sm:justify-center ava:whitespace-nowrap ava:normal-case ava:tracking-normal ava:text-rotulo ava:font-semibold px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
+                        className="rounded-lg bg-[#FFD23F] hover:bg-amber-400 text-slate-900 border border-amber-300 ava:bg-ava-acao ava:hover:bg-ava-acao-escuro ava:text-white ava:border-ava-acao max-sm:flex-[2] max-sm:justify-center ava:whitespace-nowrap ava:normal-case ava:tracking-normal ava:text-rotulo ava:font-semibold px-3.5 py-2 text-sobretitulo uppercase transition-all cursor-pointer shadow-3xs flex items-center gap-1.5"
                         title={activeUser.role === 'admin' ? "Acessar Coordenação / Gestão da Plataforma" : "Acessar Gestão de Cursos e Conteúdos"}
                       >
                         <GraduationCap className="h-4 w-4 text-slate-900 ava:text-white shrink-0" />
