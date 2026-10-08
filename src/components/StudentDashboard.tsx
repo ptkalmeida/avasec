@@ -2354,26 +2354,6 @@ ${html}
                     {/* Course syllabus / Curriculum grade details */}
                     <div className="lg:col-span-2 space-y-4">
                       
-                      {/* Short "Sobre o curso" Section */}
-                      <div className="border border-slate-200 rounded-xl bg-slate-50/20 p-5 space-y-4 text-left">
-                        <div>
-                          <h3 className="text-sm font-black text-ava-tinta uppercase tracking-wider">Sobre o curso</h3>
-                          <p className="text-xs text-slate-600 leading-relaxed mt-2 font-medium">
-                            Aprenda a construir aplicações full-stack modernas, integrando frontend, backend, APIs REST, autenticação e boas práticas de organização do código.
-                          </p>
-                        </div>
-                        <div className="space-y-2 pt-2 border-t border-slate-100">
-                          <strong className="block text-sobretitulo text-slate-700 uppercase">Você vai aprender a:</strong>
-                          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-600 font-semibold list-disc pl-4">
-                            <li>configurar um ambiente moderno com React e Vite;</li>
-                            <li>criar APIs com Node.js e Express;</li>
-                            <li>consumir dados no frontend;</li>
-                            <li>aplicar conceitos de autenticação e segurança;</li>
-                            <li>organizar uma aplicação full-stack de forma prática.</li>
-                          </ul>
-                        </div>
-                      </div>
-
                       <div className="border border-slate-200 rounded-xl bg-slate-50/40 p-5 space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                           <div>
