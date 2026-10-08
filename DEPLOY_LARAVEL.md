@@ -43,13 +43,13 @@ Pacotes necessários (Ubuntu/Debian; adapte para sua distro):
 
 ```bash
 sudo apt update
-sudo apt install -y nginx php8.3-fpm php8.3-cli php8.3-mysql php8.3-mbstring \
-  php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath php8.3-fileinfo php8.3-gd \
+sudo apt install -y nginx php8.4-fpm php8.4-cli php8.4-mysql php8.4-mbstring \
+  php8.4-xml php8.4-curl php8.4-zip php8.4-bcmath php8.4-fileinfo php8.4-gd \
   mysql-server composer nodejs npm certbot python3-certbot-nginx
 ```
 
 Ajuste a versão do PHP conforme disponível (8.2+ é o mínimo usado pelo projeto).
-O `php8.3-gd` é preventivo para o dompdf (PDF de certificados, ADR 09): o fluxo
+O `php8.4-gd` é preventivo para o dompdf (PDF de certificados, ADR 09): o fluxo
 atual funciona sem ele (QR em SVG), mas qualquer logo raster futura no template
 exigiria a extensão.
 
@@ -211,37 +211,19 @@ server {
         add_header Content-Disposition "attachment" always;
     }
 
-    # Arquivos do build do React (JS, CSS, imagens com hash no nome).
+    # Os blocos `location` NÃO são escritos aqui. Eles vêm de
+    # docker/nginx/avasec-locations.conf, que é o mesmo arquivo executado pelo
+    # espelho local (`npm run espelho:up`). Duas cópias "parecidas" divergiriam,
+    # e a de produção é justamente a que ninguém executa antes do dia do deploy.
     #
-    # Continuam no `dist/`, servidos direto pelo Nginx: passá-los pelo PHP seria
-    # desperdiçar um processo por arquivo estático. O `index.html` do `dist/` NÃO
-    # é servido aqui — quem o entrega é o fallback do Laravel, porque é ele que
-    # sabe se a rota já migrou para Blade.
-    location /assets/ {
-        alias /var/www/avasec/dist/assets/;
-        access_log off;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-        add_header Content-Security-Policy "default-src 'none'" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "no-referrer" always;
-        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    }
+    # Copie o arquivo para o servidor junto com o código, e crie o do upstream —
+    # a única linha do roteamento que difere entre produção e o espelho local:
+    #
+    #   cp /var/www/avasec/docker/nginx/avasec-locations.conf /etc/nginx/
+    #   echo 'fastcgi_pass unix:/run/php/php8.4-fpm.sock;' > /etc/nginx/avasec-upstream.conf
+    set $raiz_dist /var/www/avasec/dist;
 
-    # Tudo o mais vai para o Laravel: API, saúde, status, telas já migradas para
-    # Blade e — pelo fallback de routes/web.php — o SPA React no que ainda não
-    # migrou. Não há mais um bloco `location` por área: a tabela de rotas do
-    # Laravel é quem decide, e ela está versionada no repositório.
-    location / {
-        try_files $uri /index.php?$query_string;
-    }
-
-    location ~ \.php$ {
-        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    }
+    include /etc/nginx/avasec-locations.conf;
 }
 ```
 
@@ -272,12 +254,12 @@ post_max_size = 20M         ; >= upload_max_filesize + folga do multipart
 
 A cadeia deve manter `app (15M) <= upload_max_filesize <= post_max_size <=
 client_max_body_size (20m)`. Reinicie o serviço após alterar (`sudo systemctl
-restart php8.3-fpm`).
+restart php8.4-fpm`).
 
 Garanta que o serviço sobe no boot:
 
 ```bash
-sudo systemctl enable php8.3-fpm --now
+sudo systemctl enable php8.4-fpm --now
 ```
 
 Sem PM2, sem processo Node em produção — o PHP-FPM é gerido pelo systemd como

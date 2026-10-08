@@ -1,0 +1,79 @@
+# Espelho local de produção — Nginx + PHP-FPM + Redis, ao lado do MySQL de dev.
+#
+# PARA QUE SERVE
+# No fluxo normal (`npm run dev`), quem atende o navegador é o Vite e o Laravel
+# só recebe o que o proxy encaminha. A configuração de produção — raiz no
+# Laravel, /assets saindo do dist, index.html servido pelo PHP — não é executada
+# em lugar nenhum. Este espelho a executa, com o MESMO arquivo de locations que
+# vai para o servidor.
+#
+# O QUE ELE NÃO É
+# Não é homologação. Homologação se define por QUEM aprova — a escola, conforme
+# o Documento B §3.7 — e não por onde o sistema roda. Também não é isolado: usa
+# o MESMO MySQL do desenvolvimento, de propósito, porque o que se quer provar
+# aqui é o caminho de entrega, não o comportamento com dado de produção.
+#
+# COMO USAR
+#   npm run espelho:up     sobe (http://localhost:8080)
+#   npm run espelho:down   desce
+#
+# Exige `npm run build` antes: sem `dist/index.html`, as telas ainda não
+# migradas respondem 503 — que é o comportamento correto, e não o que se quer
+# observar aqui.
+services:
+  php:
+    build:
+      context: ./docker/php
+    container_name: avasec-espelho-php
+    restart: unless-stopped
+    volumes:
+      # Mesmo caminho de produção, de propósito: caminho diferente esconderia
+      # erro de caminho absoluto até o dia do deploy.
+      - .:/var/www/avasec
+    environment:
+      APP_ENV: local
+      # O banco é o `mysql` do docker-compose.yml, alcançado pelo nome do
+      # serviço na rede do projeto — não por 127.0.0.1, que dentro do container
+      # seria o próprio container.
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: avasec
+      DB_USERNAME: avasec
+      DB_PASSWORD: avasec
+      REDIS_HOST: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: avasec-espelho-nginx
+    restart: unless-stopped
+    ports:
+      # 8080 e não 80: a 80 costuma estar ocupada no Windows, e o erro que ela
+      # dá ("acesso negado ao bind") não diz isso com clareza.
+      - "127.0.0.1:8080:80"
+    volumes:
+      - .:/var/www/avasec:ro
+      - ./docker/nginx/espelho.conf:/etc/nginx/conf.d/default.conf:ro
+      # O arquivo compartilhado com produção. Montado separado para deixar
+      # visível que é o mesmo conteúdo dos dois lados.
+      - ./docker/nginx/avasec-locations.conf:/etc/nginx/avasec-locations.conf:ro
+      - ./docker/nginx/upstream-espelho.conf:/etc/nginx/avasec-upstream.conf:ro
+    depends_on:
+      - php
+
+  redis:
+    image: redis:7-alpine
+    container_name: avasec-espelho-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    # Sem persistência: aqui o Redis é cache e sessão, e perder o conteúdo ao
+    # reiniciar é o comportamento que se quer exercitar.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
