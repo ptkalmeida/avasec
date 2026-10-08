@@ -18,6 +18,9 @@
     "test:api:coverage": "cd backend-laravel && php -d zend_extension=xdebug -d xdebug.mode=coverage vendor/bin/phpunit --coverage-text",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
+    "espelho:up": "docker compose -f docker-compose.yml -f docker-compose.espelho.yml up -d --build",
+    "espelho:down": "docker compose -f docker-compose.yml -f docker-compose.espelho.yml stop nginx php redis",
+    "espelho:logs": "docker compose -f docker-compose.yml -f docker-compose.espelho.yml logs -f nginx php",
     "db:migrate": "cd backend-laravel && php artisan migrate"
   },
   "dependencies": {
