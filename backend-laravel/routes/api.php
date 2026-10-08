@@ -18,6 +18,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SitePageContentController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\WebinarController;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 
 // Etapa 0 da migração: rota de saúde (valida boot + conexão MySQL + proxy do Node).
@@ -244,4 +245,24 @@ Route::get('/telemetry', [AuditController::class, 'listClientEvents'])->middlewa
 Route::middleware('feature:dadosGerenciais')->group(function (): void {
     Route::get('/export/{dataset}', [ExportController::class, 'show'])
         ->middleware(['throttle:export', 'jwt', 'active', 'role:admin']);
+});
+
+/*
+ * Caminho inexistente sob /api/* devolve o erro do contrato, não o HTML do React.
+ *
+ * Desde que o Laravel virou a porta de entrada (ADR 017), o `fallback` de
+ * routes/web.php captura tudo que nenhuma rota atendeu — e isso incluía
+ * `/api/qualquer-coisa`, que passou a responder 200 com a página do React.
+ * Todo cliente da API receberia uma página HTML no lugar de um erro, e um 404
+ * de digitação viraria "deu certo". Este fallback, registrado DENTRO do grupo
+ * da API, intercepta antes e mantém o formato de erro de sempre.
+ *
+ * Pego por RoteadorMpaTest::test_caminho_inexistente_na_api_nao_recebe_o_html_do_react.
+ */
+Route::fallback(function (): JsonResponse {
+    return response()->json([
+        'error' => true,
+        'code' => 'NOT_FOUND',
+        'message' => 'Recurso não encontrado.',
+    ], 404);
 });

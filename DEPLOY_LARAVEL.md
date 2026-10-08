@@ -12,12 +12,25 @@ ambiente de desenvolvimento.
 
 ## Arquitetura alvo
 
+> **Mudou em 08/10/2026 (ADR 017).** O Laravel passou a ser a porta de entrada.
+> Antes o Nginx tinha a raiz em `dist/` e o Laravel ficava pendurado em `/api`;
+> agora a raiz é `backend-laravel/public`, e é o Laravel que decide, rota a rota,
+> se entrega uma tela em Blade ou o SPA React. Isso é o que torna possível migrar
+> uma tela de cada vez sem reconfigurar o servidor a cada fase — ver
+> `.ai/planejamento/16-migracao-mpa-blade.md`.
+
 ```
 [Navegador] ──HTTPS──> [Nginx]
-                          ├── /              -> serve dist/ (build estático do Vite/React)
+                          ├── /assets/*      -> serve dist/assets/ (JS e CSS do build React)
                           ├── /uploads/*     -> serve uploads/public/ (arquivos estáticos)
-                          └── /api/*         -> proxy_pass -> PHP-FPM (Laravel, unix socket ou 127.0.0.1:9000)
-                                                                  └── MySQL 8
+                          └── /*             -> PHP-FPM (Laravel) ─── tabela de rotas
+                                   │                                        │
+                                   │                       ┌────────────────┴────────────────┐
+                                   │                       ▼                                 ▼
+                                   │                 rota registrada                 nada bateu
+                                   │                 -> view Blade                   -> fallback
+                                   │                                                 -> dist/index.html
+                                   └── MySQL 8
 ```
 
 Uma única origem (mesmo domínio) para tudo — front e API. Isso mantém o cookie de
@@ -122,8 +135,14 @@ npm ci
 npm run build   # gera dist/
 ```
 
-O `dist/` é o que o Nginx serve como estático. Rode o build a cada deploy (CI/CD ou
-manual).
+O `dist/assets/` é servido direto pelo Nginx; o `dist/index.html` é lido pelo Laravel
+e devolvido nas rotas que ainda não migraram para Blade (ADR 017). Rode o build a cada
+deploy (CI/CD ou manual).
+
+**Enquanto a migração durar, o build continua obrigatório.** Sem `dist/index.html` o
+Laravel responde 503 nas telas não migradas, em vez de uma página quebrada — mas 503
+é indisponibilidade, não "ainda não migrei". Isto deixa de valer na fase M7, quando o
+React sair.
 
 ## 5. Uploads compartilhados
 
@@ -161,8 +180,9 @@ server {
     ssl_certificate     /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
 
-    root /var/www/avasec/dist;
-    index index.html;
+    # A raiz é o Laravel (ADR 017): ele decide, rota a rota, Blade ou React.
+    root /var/www/avasec/backend-laravel/public;
+    index index.php;
 
     client_max_body_size 20m; # >= UPLOAD_MAX_SIZE_MB, com folga
 
@@ -191,37 +211,36 @@ server {
         add_header Content-Disposition "attachment" always;
     }
 
-    # API — encaminha para o PHP-FPM (Laravel).
-    location /api/ {
-        root /var/www/avasec/backend-laravel/public;
-        try_files $uri /index.php?$query_string;
-
-        location ~ \.php$ {
-            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-            fastcgi_index index.php;
-            include fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME $document_root/index.php;
-        }
+    # Arquivos do build do React (JS, CSS, imagens com hash no nome).
+    #
+    # Continuam no `dist/`, servidos direto pelo Nginx: passá-los pelo PHP seria
+    # desperdiçar um processo por arquivo estático. O `index.html` do `dist/` NÃO
+    # é servido aqui — quem o entrega é o fallback do Laravel, porque é ele que
+    # sabe se a rota já migrou para Blade.
+    location /assets/ {
+        alias /var/www/avasec/dist/assets/;
+        access_log off;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Content-Security-Policy "default-src 'none'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
-    # Saúde e página de status (Norma TI-SECEC C.8) moram no Laravel, fora de /api.
-    # Sem estes blocos, o fallback do SPA abaixo devolveria o index.html do React
-    # com status 200 — e o monitor acharia que está tudo bem com o banco fora.
-    location ~ ^/(health/(live|ready)|sistema/status)$ {
-        root /var/www/avasec/backend-laravel/public;
-        try_files $uri /index.php?$query_string;
-
-        location ~ \.php$ {
-            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-            fastcgi_index index.php;
-            include fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME $document_root/index.php;
-        }
-    }
-
-    # SPA fallback: qualquer rota que não seja arquivo real cai no index.html do React.
+    # Tudo o mais vai para o Laravel: API, saúde, status, telas já migradas para
+    # Blade e — pelo fallback de routes/web.php — o SPA React no que ainda não
+    # migrou. Não há mais um bloco `location` por área: a tabela de rotas do
+    # Laravel é quem decide, e ela está versionada no repositório.
     location / {
-        try_files $uri $uri/ /index.html;
+        try_files $uri /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
     }
 }
 ```

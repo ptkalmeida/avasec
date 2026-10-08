@@ -1,7 +1,26 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
+
+/**
+ * Os caminhos que o Laravel atende direto, lidos de `rotas-laravel.json`.
+ *
+ * A lista NÃO é escrita aqui de propósito. Durante a migração para MPA (ADR 017)
+ * ela cresce a cada tela que passa para Blade, e manter uma cópia neste arquivo
+ * garantiria que um dia as duas discordassem — com o sintoma mais confuso
+ * possível: a tela funciona em produção e não funciona em desenvolvimento.
+ * `RoteadorMpaTest` falha se uma rota do Laravel não estiver no JSON.
+ */
+const alvoLaravel = process.env.LARAVEL_URL || 'http://127.0.0.1:8000';
+const {prefixos} = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, 'rotas-laravel.json'), 'utf-8'),
+) as {prefixos: string[]};
+
+const proxyDoLaravel = Object.fromEntries(
+  prefixos.map((prefixo) => [prefixo, {target: alvoLaravel, changeOrigin: true}]),
+);
 
 export default defineConfig(() => {
   return {
@@ -29,16 +48,12 @@ export default defineConfig(() => {
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
-      // /api e /uploads são encaminhados para o backend Laravel (`npm run api`),
-      // preservando uma única origem para o navegador (sem CORS/cookie cross-origin).
-      // Fluxo de dev: `npm run api` (Laravel :8000) + `npm run dev` (Vite :5173).
-      proxy: {
-        '/api': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
-        '/uploads': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
-        // Saúde e página de status (Norma TI-SECEC, C.8) moram no Laravel, fora de /api.
-        '/health': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
-        '/sistema': { target: process.env.LARAVEL_URL || 'http://127.0.0.1:8000', changeOrigin: true },
-      },
+      // Encaminhados para o backend Laravel (`npm run api`), preservando uma única
+      // origem para o navegador (sem CORS/cookie cross-origin). Fluxo de dev:
+      // `npm run api` (Laravel :8000) + `npm run dev` (Vite :5173).
+      //
+      // A lista vem de `rotas-laravel.json` — ver a nota no topo deste arquivo.
+      proxy: proxyDoLaravel,
     },
   };
 });
