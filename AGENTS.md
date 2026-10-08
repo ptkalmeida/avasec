@@ -81,13 +81,49 @@ aviso.
 
 Ver `.ai/skills/obrigatorias/06-controle-de-mudancas.md`.
 
+## Hierarquia das regras (Norma C.15.2)
+
+Quando duas fontes discordarem, vale a de cima, e a divergência tem de ser
+**sinalizada**, nunca resolvida em silêncio:
+
+```
+1. Norma corporativa oficial   .ai/normas/protocolo-ti-secec/ (documentos B, C, D, F)
+2. ADR aprovado                docs/adr/
+3. Regra documentada do projeto  este AGENTS.md, .ai/planejamento/
+4. Skill                       .claude/skills/, .ai/skills/
+5. Conhecimento geral da IA
+```
+
+A skill **nunca** é a fonte oficial da regra corporativa — ela apenas a
+operacionaliza. Uma skill não pode flexibilizar uma determinação institucional.
+
 ## Skills — o que carregar e quando
 
-- **Sempre:** todo o conteúdo de `.ai/skills/obrigatorias/`.
-- **Conforme a tarefa:** as skills específicas relevantes em `.ai/skills/especificas/`.
-- **Sob demanda:** o restante de `.ai/planejamento/`, só quando a tarefa exigir revisitar arquitetura ou fases.
+**Skills do Protocolo TI-SECEC** (37, em `.claude/skills/`, carregadas pelo
+próprio Claude Code — nomeadas `core-*`, `eng-*`, `ui-*`, `sec-*`, `ops-*`,
+`proc-*`, `qg-*`):
 
-Não carregue o catálogo inteiro em todo prompt — contexto em excesso dilui a atenção às regras que importam para a tarefa atual. Ver `.ai/skills/INDEX.md` para o índice completo e origem de cada skill.
+- **Sempre:** as sete `core-*`.
+- **Conforme a tecnologia:** `eng-*`, `ui-02`, `ui-04`, `ops-01`, `ops-02`.
+- **Conforme a fase do ciclo:** `proc-*`, `eng-01`, `ui-01`, `ui-03`, `ops-05` a `ops-07`.
+- **Conforme o risco:** `sec-*`, `ops-03`, `ops-04`, e `qg-01` antes de fechar a entrega.
+
+Estado delas: `0.1-draft`. Os pontos que a norma deixou em aberto (C.20) estão
+marcados como dependência, não inventados — se a skill disser "ler a norma antes
+de implementar", leia `.ai/normas/protocolo-ti-secec/` e, se ainda assim não
+estiver definido, **pare e pergunte**.
+
+**Skills de equipe e especialistas técnicos** (`.ai/skills/`): seguem valendo para
+o que o pacote SECEC não cobre — ver `.ai/skills/INDEX.md`. Onde houver
+sobreposição (por exemplo `core-03-seguranca-base` e `01-seguranca.md`), vale a
+**SECEC**, por ser a que operacionaliza a norma; a de equipe complementa no que
+for específico deste projeto.
+
+**Sob demanda:** `.ai/planejamento/`, só quando a tarefa exigir revisitar
+arquitetura ou fases.
+
+Não carregue o catálogo inteiro em todo prompt — contexto em excesso dilui a
+atenção às regras que importam para a tarefa atual.
 
 ## Fallback: tecnologia sem skill própria
 
