@@ -18,3 +18,14 @@
 *.css text eol=lf
 *.json text eol=lf
 *.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Arquivos consumidos DENTRO de container Linux. Aqui o CRLF nao e questao de
+# estilo: o `docker build` falha na continuacao de linha do `RUN`, e o Nginx
+# recusa a configuracao. O git avisa ("LF will be replaced by CRLF the next time
+# Git touches it") e, sem esta declaracao, o proximo clone em Windows quebraria
+# o espelho de producao sem que ninguem tivesse mudado nada.
+Dockerfile text eol=lf
+*.conf text eol=lf
+*.sh text eol=lf
