@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;
 use App\Support\CursoSlug;
+use App\Support\DataTexto;
 use App\Support\Payload;
 use App\Support\VideoSource;
 use App\Support\Visibilidade;
@@ -602,7 +603,24 @@ final class CourseService
             'cargaHoraria', 'modalidade', 'nivel', 'emiteCertificado', 'statusCurso',
         ];
 
-        return array_intersect_key($input, array_flip($allowed));
+        $campos = array_intersect_key($input, array_flip($allowed));
+
+        /*
+         * `vigenciaAte` acompanha `contractExpirationDate` (Norma C.2.4). O texto
+         * continua sendo o campo do contrato de API; a coluna DATE ao lado é a data
+         * comparável. Só é tocada quando o texto vem no pedido, para que uma edição
+         * parcial do curso não apague uma vigência que ninguém mandou mudar.
+         *
+         * A validação da rota aceita qualquer string de até 60 caracteres aqui, então
+         * o valor realmente pode não ser data: nesse caso a coluna fica NULL, sem
+         * inventar vencimento para um contrato.
+         */
+        if (array_key_exists('contractExpirationDate', $campos)) {
+            $texto = $campos['contractExpirationDate'];
+            $campos['vigenciaAte'] = DataTexto::dia(is_string($texto) ? $texto : null);
+        }
+
+        return $campos;
     }
 
     /** @return array<int|string, string|(\Closure(\Illuminate\Database\Eloquent\Relations\Relation<*, *, *>): mixed)> */

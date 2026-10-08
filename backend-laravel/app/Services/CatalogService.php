@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Models\LibraryItem;
 use App\Models\WebinarEvent;
+use App\Support\DataTexto;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -52,6 +53,16 @@ final class CatalogService
             'title' => $data['title'],
             'date' => $data['date'],
             'time' => $data['time'],
+            /*
+             * `dataEvento` combina as duas colunas de texto num instante (Norma
+             * C.2.4). `date` e `time` continuam como estão — são o que a agenda
+             * pública exibe. Data ou hora irreconhecível deixa a coluna NULL em vez
+             * de agendar o webinar num instante inventado.
+             */
+            'dataEvento' => DataTexto::instante(
+                is_string($data['date']) ? $data['date'] : null,
+                is_string($data['time']) ? $data['time'] : null,
+            ),
             'description' => $data['description'],
             'link' => $data['link'],
             'image' => $data['image'] ?? null,

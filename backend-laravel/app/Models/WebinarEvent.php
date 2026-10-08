@@ -23,5 +23,15 @@ final class WebinarEvent extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'title', 'date', 'time', 'description', 'link', 'image'];
+    protected $fillable = ['id', 'title', 'date', 'dataEvento', 'time', 'description', 'link', 'image'];
+
+    protected $casts = [
+        /*
+         * Instante do evento, combinando as colunas de texto `date` e `time`
+         * (Norma C.2.4). As duas continuam como estao — sao o que a agenda
+         * publica exibe. Com deslocamento de fuso: o horario do webinar e
+         * hora de Brasilia, guardada em UTC como todo instante aqui.
+         */
+        'dataEvento' => 'datetime:Y-m-d\TH:i:sP',
+    ];
 }
