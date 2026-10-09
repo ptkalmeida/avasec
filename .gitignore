@@ -40,3 +40,9 @@ logs/
 # justificativa das mudancas tem de estar no proprio commit e na ADR, nao so no
 # handoff.
 design_handoff_avasec_navegacao/
+
+# Ambientes virtuais de Python (scripts auxiliares, como o da auditoria).
+# Recriaveis a partir dos proprios scripts; o de docs/security-audit/ chegou a
+# ocupar 158 MB em 4.779 arquivos no diretorio de trabalho.
+.venv/
+__pycache__/
