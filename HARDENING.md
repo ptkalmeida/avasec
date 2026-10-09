@@ -187,3 +187,63 @@ linha pré-existente; os campos `*Name` originais estão intactos.
   app.ts, enrollmentRoutes/Controller/Service, authService/Controller/Routes, upload.ts,
   exportService, LMSContext.tsx, App.tsx, StudentDashboard.tsx, InstructorDashboard.tsx,
   AdminDashboard.tsx, tests/security.test.ts, package.json (cookie-parser).
+
+---
+
+## Etapa 11 — Cadeia de suprimentos do npm (09/10/2026)
+
+**Motivo.** Relato de ataques ao ecossistema npm em 2026 — contas de mantenedor
+invadidas e versões maliciosas publicadas de pacotes legítimos (Axios em março,
+o worm "Mini Shai-Hulud" atingindo mais de 400 pacotes em agosto, via `keyv` e
+`cacheable`).
+
+### Varredura: o AVASEC não usa nenhum dos pacotes citados
+
+Conferido nos dois `package-lock.json` do repositório e na árvore instalada:
+`axios`, `keyv`, `flat-cache`, `file-entry-cache`, `cacheable-request`,
+`@redhat-cloud-services` e TanStack — **nenhum presente**, nem como dependência
+direta, nem transitiva. O projeto tem só dois `package.json` (raiz e
+`backend-laravel/`); não há `legacy-node/`.
+
+### O que já estava certo
+
+- **`package-lock.json` e `composer.lock` versionados**, e o `.gitignore` não os
+  exclui. Instalação não busca versão nova sozinha.
+- **Deploy com `npm ci`** (instala exatamente o lock, não o `package.json`) e
+  `composer install --no-dev --optimize-autoloader`.
+- `npm audit` em **0 vulnerabilidades** (ver a Etapa anterior: o Vitest 3 trazia
+  dois RCE críticos no `tinypool`, resolvidos subindo para o Vitest 5).
+
+### O que faltava, e foi feito: `ignore-scripts=true`
+
+Travar versão **não impede** o ataque descrito: se a versão travada for a
+comprometida, o lock a instala fielmente. E o ataque do Axios agia *durante a
+instalação* — o pacote chamava o C2 e baixava um RAT antes de qualquer linha do
+projeto rodar.
+
+A defesa para essa classe é não executar script de instalação de dependência.
+Agora em `.npmrc`, na raiz:
+
+```
+ignore-scripts=true
+```
+
+**Custo medido, não estimado.** Dos **235** pacotes instalados, **um** tem script
+de instalação: o `esbuild`. Com a configuração ativa e após `npm ci` do zero:
+`esbuild --version` responde 0.25.12, `npm run build` conclui, `tsc --noEmit`
+limpo, **716 testes passam**.
+
+Pacote novo que exija script passa a falhar de forma visível — que é o
+comportamento desejado: a exceção vira decisão consciente
+(`npm install <pacote> --foreground-scripts`, depois de ler o que o script faz).
+
+### Limites, ditos com franqueza
+
+- **O Composer não recebeu tratamento equivalente.** `--no-scripts` quebraria o
+  `package:discover` do Laravel. O risco é menor (menos pacotes, menos rotatividade
+  de mantenedor), mas **não é zero**, e fica registrado em vez de silenciado.
+- **`npm audit` não detecta este tipo de ataque** enquanto não houver advisory
+  publicado. Ele mede vulnerabilidade conhecida, não pacote comprometido ontem.
+- **Não há atraso de quarentena.** O `minimumReleaseAge` do npm (instalar só
+  versões com N dias de publicação) exige npm 11.5+; esta máquina tem **10.9.8**.
+  É a próxima defesa a adotar quando o npm subir.
