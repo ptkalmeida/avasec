@@ -28,6 +28,8 @@ import {
 import { trilhaDoAluno } from '../utils/trilhaAluno';
 import { Breadcrumb } from './shared/Breadcrumb';
 import { BarraDeAulas } from './student/BarraDeAulas';
+import { ProgressoDoCurso } from './student/ProgressoDoCurso';
+import { MateriaisDeApoio } from './student/MateriaisDeApoio';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -1378,7 +1380,14 @@ ${html}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
                 {/* 1. Play Station & Notebook Center */}
-                <div className={`${(activeLesson) ? "lg:col-span-12" : "lg:col-span-8"} space-y-5 animate-in fade-in duration-300`}>
+                {/*
+                  Com a aula aberta a coluna deixou de ocupar as 12 colunas e
+                  passou a ocupar 8, abrindo a lateral da tela 15. Antes a aula
+                  tomava a largura inteira e o progresso ficava espremido no meio
+                  do conteúdo — a referência o quer fixo ao lado, visível sem rolar.
+                  Abaixo de `lg` o grid é de uma coluna só e nada disso se aplica.
+                */}
+                <div className="lg:col-span-8 space-y-5 animate-in fade-in duration-300">
                   
                   {activeLesson ? (
                     /* Lesson Player Station active */
@@ -1465,35 +1474,19 @@ ${html}
                       <div className="bg-ava-faixa p-4 rounded-xl border border-ava-borda flex flex-wrap items-center justify-between gap-4 w-full max-w-3xl mx-auto">
 
                         {/*
-                          Progresso no curso, como na tela 15: barra, numero e
-                          texto juntos — nunca so a cor. O dado ja existia
-                          (`completedLessons`); o que faltava era mostra-lo na
-                          aula, onde ele e usado.
+                          Progresso no curso. A PARTIR DE `lg` ele vive na barra
+                          lateral, como na tela 15 — aqui fica só abaixo disso,
+                          onde não há lateral e o aluno precisaria rolar até o fim
+                          da aula para saber onde está.
+                          Em tela estreita ocupa a linha toda e a ação desce:
+                          espremidos lado a lado, o texto "0 de 6 aulas
+                          concluídas" quebrava em cinco linhas atrás do botão.
                         */}
-                        {(() => {
-                          const total = aulasEmOrdem.length;
-                          const feitas = currentCourseProgress?.completedLessons.length ?? 0;
-                          const pct = total > 0 ? Math.round((feitas / total) * 100) : 0;
-
-                          return (
-                            /* Em tela estreita o progresso ocupa a linha toda e
-                               a ação desce — espremidos lado a lado, o texto
-                               "0 de 6 aulas concluídas" quebrava em cinco
-                               linhas atrás do botão. */
-                            <div className="min-w-0 w-full sm:w-auto sm:flex-1 sm:max-w-[16rem]">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sobretitulo uppercase text-escult-ink-2">Seu progresso no curso</span>
-                                <strong className="text-rotulo font-black text-ava-acao">{pct}%</strong>
-                              </div>
-                              <div className="mt-1 h-1.5 w-full rounded-full bg-white border border-ava-borda overflow-hidden">
-                                <div className="h-full bg-ava-acao" style={{ width: `${pct}%` }} />
-                              </div>
-                              <span className="mt-1 block text-apoio text-escult-ink-2">
-                                {feitas} de {total} aulas concluídas
-                              </span>
-                            </div>
-                          );
-                        })()}
+                        <ProgressoDoCurso
+                          total={aulasEmOrdem.length}
+                          concluidas={currentCourseProgress?.completedLessons.length ?? 0}
+                          className="w-full sm:w-auto sm:flex-1 sm:max-w-[16rem] lg:hidden"
+                        />
 
                         {/*
                           ESTADO primeiro, ação depois.
@@ -1615,62 +1608,16 @@ ${html}
                                 <LessonContent blocks={parsedLesson.blocks} />
                               </div>
 
-                              {/* Student-Facing attached documents list */}
-                              {activeLesson.documents && activeLesson.documents.length > 0 && (
-                                <div className="mt-8 border-t border-slate-150 pt-6 space-y-3.5">
-                                  <h4 className="text-slate-950 text-sobretitulo uppercase flex items-center gap-2">
-                                    <Archive className="h-4 w-4 text-ava-ciano-texto" />
-                                    Material de Apoio e Documentos Anexos ({activeLesson.documents.length})
-                                  </h4>
-                                  <p className="text-apoio text-escult-ink-2 -mt-1 leading-none">Arquivos e links disponibilizados pelo seu instrutor para aprofundamento.</p>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1.5">
-                                    {activeLesson.documents.map((doc, docIdx) => {
-                                      let docBg = 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-350';
-                                      let labelColor = 'bg-slate-100 text-slate-700';
-                                      
-                                      if (doc.type === 'pdf') {
-                                        docBg = 'bg-rose-50/50 border-rose-100 hover:bg-rose-50 hover:border-rose-250';
-                                        labelColor = 'bg-rose-100 text-rose-800';
-                                      } else if (doc.type === 'drive') {
-                                        docBg = 'bg-emerald-50/50 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-250';
-                                        labelColor = 'bg-emerald-100 text-emerald-800';
-                                      } else if (doc.type === 'url') {
-                                        docBg = 'bg-amber-50/50 border-amber-100 hover:bg-amber-50 hover:border-amber-250';
-                                        labelColor = 'bg-amber-100 text-amber-800';
-                                      }
-
-                                      return (
-                                        <a
-                                          key={`${doc.id}-${typeof docIdx !== "undefined" ? docIdx : 0}`}
-                                          href={safeHref(doc.url)}
-                                          target="_blank"
-                                          referrerPolicy="no-referrer"
-                                          rel="noopener noreferrer"
-                                          className={`p-3.5 rounded-xl border transition-all text-left flex items-start justify-between gap-3 group/doc shadow-3xs ${docBg}`}
-                                        >
-                                          <div className="flex items-start gap-3 min-w-0">
-                                            <div className="p-2 rounded-lg bg-white shrink-0 border border-slate-100 shadow-3xs">
-                                              <FileText className="h-4.5 w-4.5 text-ava-ciano-texto" />
-                                            </div>
-                                            <div className="min-w-0">
-                                              <p className="font-extrabold text-slate-900 text-xs truncate group-hover/doc:text-ava-ciano-texto">{doc.title}</p>
-                                              <div className="flex items-center gap-1.5 mt-1">
-                                                <span className={`px-1.5 py-0.2 rounded text-sobretitulo uppercase ${labelColor}`}>
-                                                  {doc.type}
-                                                </span>
-                                                {doc.size && (
-                                                  <span className="text-apoio text-escult-ink-2">{doc.size}</span>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </div>
-                                          <ExternalLink className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-ava-ciano-texto transition-colors shrink-0 self-center" />
-                                        </a>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
+                              {/*
+                                Material de apoio. ABAIXO de `lg` ele fica aqui, no
+                                fim do conteudo; a partir de `lg` vive na barra
+                                lateral (tela 15). Mesmo componente nos dois lugares.
+                              */}
+                              <MateriaisDeApoio
+                                documentos={activeLesson.documents ?? []}
+                                variante="corpo"
+                                className="lg:hidden"
+                              />
                             </div>
                           )}
 
@@ -1988,6 +1935,35 @@ ${html}
                   )}
 
                 </div>
+
+                {/*
+                  Barra lateral DA AULA (tela 15).
+                  Só a partir de `lg`: abaixo disso o grid é de uma coluna, e este
+                  bloco cairia depois de todo o conteúdo da aula — o progresso
+                  ficaria atrás de um rolar inteiro. Por isso `hidden lg:block`
+                  aqui e `lg:hidden` na versão que vive no corpo da aula: é o
+                  MESMO componente, colocado onde cada largura comporta.
+                  `sticky` para acompanhar a leitura, como na referência.
+                */}
+                {activeLesson && !showAvaliacoes && (
+                  <aside className="hidden lg:block lg:col-span-4 space-y-4">
+                    <div className="sticky top-24 space-y-4">
+                      <div className="rounded-2xl border border-ava-borda bg-ava-faixa p-4">
+                        <ProgressoDoCurso
+                          total={aulasEmOrdem.length}
+                          concluidas={currentCourseProgress?.completedLessons.length ?? 0}
+                        />
+                      </div>
+
+                      {/* Aula sem anexo não deixa cartão vazio: o componente
+                          devolve null quando a lista está vazia. */}
+                      <MateriaisDeApoio
+                        documentos={activeLesson.documents ?? []}
+                        variante="lateral"
+                      />
+                    </div>
+                  </aside>
+                )}
 
                 {/* 2. Structured Syllabus Selector Sidebar Accordion Grid (lg:col-span-4) */}
                 {(!activeLesson && !showAvaliacoes) && (
