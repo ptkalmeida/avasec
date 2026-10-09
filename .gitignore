@@ -10,12 +10,20 @@ coverage/
 uploads/
 logs/
 .claude/settings.local.json
-
-# SKILL.md solto na raiz (skill pessoal colada no diretório de trabalho) fica fora
-# do versionamento. O padrão sem barra, porém, casa esse nome em QUALQUER pasta — e
-# skill do projeto precisa ser versionada, senão cada pessoa redescobre o ambiente.
+.md
+# SKILL.md solto na raiz (skill pessoal colada no diretório de trabalho).
 /SKILL.md
-!.claude/skills/**/SKILL.md
+
+# Ferramental de desenvolvimento assistido: configuração do editor/agente e as
+# skills que ele carrega. Mesma regra da pasta `.ai/` logo abaixo — fica NO
+# diretório de trabalho, nunca no repositório.
+#
+# Decisão de 09/10/2026. Custo aceito e declarado, igual ao do `.ai/`: um clone
+# em outra máquina não traz nada disto, e se esta máquina se perder, some. Vale
+# backup fora do git.
+.claude/
+/AGENTS.md
+/CLAUDE.md
 
 # Processo de IA (planejamento, skills, guidelines, ADRs de processo).
 # Fica NO repositorio por conveniencia de quem trabalha aqui, e NUNCA e
