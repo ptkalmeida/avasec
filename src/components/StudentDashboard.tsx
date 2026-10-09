@@ -1891,10 +1891,41 @@ ${html}
                   ) : (
                     /* Initial Welcome course billboard if no active lesson selected */
                     <div className="rounded-2xl border border-dashed border-ava-borda bg-ava-icone-fundo/5 p-8 text-center text-slate-600 space-y-5 animate-in fade-in duration-300">
-                      <div className="inline-flex rounded-full bg-ava-icone-fundo text-ava-ciano-texto p-4 shrink-0 shadow-xs border border-ava-borda/55">
-                        <Monitor className="h-10 w-10 animate-pulse" />
-                      </div>
-                      
+                      {/*
+                        Imagem do curso no painel principal, como na direção
+                        aprovada da sala sem aula selecionada.
+
+                        A fonte é `coverImage` e, na falta dela, a `thumbnail`
+                        que o curso já tem e que o catálogo já mostra — nada é
+                        inventado nem embutido no código. Curso sem nenhuma das
+                        duas continua com o ícone de antes: o quadro não fica
+                        quebrado nem com imagem de outro curso.
+
+                        `coverImage` existe no banco desde sempre e até aqui não
+                        era lida em lugar nenhum — este é o primeiro consumidor
+                        dela.
+                      */}
+                      {(() => {
+                        const capa = selectedCourse.coverImage || selectedCourse.thumbnail;
+
+                        if (!capa) {
+                          return (
+                            <div className="inline-flex rounded-full bg-ava-icone-fundo text-ava-ciano-texto p-4 shrink-0 shadow-xs border border-ava-borda/55">
+                              <Monitor className="h-10 w-10 animate-pulse" />
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <img
+                            src={capa}
+                            alt={`Imagem de apresentação do curso ${selectedCourse.title}`}
+                            loading="lazy"
+                            className="w-full max-h-64 rounded-xl object-cover border border-ava-borda/55 shadow-xs"
+                          />
+                        );
+                      })()}
+
                       <div className="max-w-md mx-auto space-y-2">
                         <h4 className="font-black text-slate-900 text-lg">Aulas de {selectedCourse.title}</h4>
                         <p className="text-xs text-escult-ink-2 leading-relaxed">
