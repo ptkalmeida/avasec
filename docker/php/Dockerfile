@@ -14,7 +14,7 @@
 #
 # Fica a divergência a resolver: `composer.json` ainda anuncia ^8.3, que o lock
 # não permite. Mudar a declaração é mexer no stack e precisa de decisão humana.
-FROM php:8.4-fpm-alpine
+FROM php:8.5-fpm-alpine
 
 # Bibliotecas de EXECUÇÃO: ficam na imagem. As de compilação vão num pacote
 # virtual e são removidas depois.
@@ -30,7 +30,11 @@ RUN apk add --no-cache freetype libjpeg-turbo libpng libzip icu-libs \
     # pdo_mysql: o banco. bcmath e intl: formatação e cálculo de notas.
     # zip: usado pelo Composer ao instalar pacotes.
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j"$(nproc)" gd pdo_mysql bcmath intl zip opcache \
+    # SEM `opcache`: no PHP 8.5 ela passou a ser EMBUTIDA, e pedi-la aqui faz o
+    # `docker-php-ext-install` terminar sem gerar modulo — o build morre com
+    # "cp: cannot stat 'modules/*'", mensagem que nao aponta para a causa. Ela
+    # continua ativa; `php -m` lista "Zend OPcache".
+    && docker-php-ext-install -j"$(nproc)" gd pdo_mysql bcmath intl zip \
     && apk del --no-network .build-deps \
     # Prova que as extensões carregam de verdade. Sem isto, um erro de
     # biblioteca só apareceria na primeira requisição que precisasse dela —
