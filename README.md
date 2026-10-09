@@ -252,7 +252,9 @@ Altere a porta do Vite em `vite.config.ts` ou a porta do Laravel ao subir com `n
 Confirme se o tipo de arquivo está na allowlist configurada no backend e se o tamanho não excede `UPLOAD_MAX_SIZE_MB`.
 
 **`npm` abre o seletor de aplicativo no Windows**
-Rode o `npm` pelo Git Bash. O passo a passo, com as armadilhas já encontradas neste ambiente, está em `.claude/skills/rodar-avasec/SKILL.md`.
+Rode o `npm` pelo Git Bash. Nesta máquina há um arquivo espúrio em
+`C:\Windows\system32` com o nome do npm, e o PowerShell abre o seletor de
+aplicativo do Windows em vez de executar o gerenciador de pacotes.
 
 ## Documentação Adicional
 
@@ -261,6 +263,5 @@ Rode o `npm` pelo Git Bash. O passo a passo, com as armadilhas já encontradas n
 - `HARDENING.md` — medidas de reforço de segurança
 - `MIGRACAO_LARAVEL.md` — histórico da migração do backend Node para Laravel
 - `DEPLOY_LARAVEL.md` — guia de deploy em produção
-- `AGENTS.md` — regras obrigatórias para qualquer agente de IA neste repositório
 - `docs/adr/` — decisões de arquitetura (ex.: ADR 12, nada é apagado)
 - `docs/security-audit/` — auditoria de segurança
