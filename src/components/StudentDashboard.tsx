@@ -30,6 +30,7 @@ import { Breadcrumb } from './shared/Breadcrumb';
 import { BarraDeAulas } from './student/BarraDeAulas';
 import { ProgressoDoCurso } from './student/ProgressoDoCurso';
 import { MateriaisDeApoio } from './student/MateriaisDeApoio';
+import { SuportePedagogico } from './student/SuportePedagogico';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -613,6 +614,29 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({ onBackToLand
 
   // Student private notebook states
   const [activeTab, setActiveTab] = useState<'teoria' | 'anotacao' | 'suporte' | 'forum'>('teoria');
+
+  /*
+   * A aba "Suporte Pedagógico" só existe abaixo de `lg` — a partir daí o suporte
+   * é cartão da barra lateral. Sem esta guarda, quem estivesse na aba e alargasse
+   * a janela (ou girasse o tablet) ficaria com a aba e o painel escondidos por
+   * CSS ao mesmo tempo: a tira de abas sem nenhuma marcada e o conteúdo vazio,
+   * com o suporte aparecendo na lateral sem explicação. Volta para o conteúdo.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+
+    const lg = window.matchMedia('(min-width: 1024px)');
+    const ajustar = () => {
+      if (lg.matches) {
+        setActiveTab((atual) => (atual === 'suporte' ? 'teoria' : atual));
+      }
+    };
+
+    ajustar();
+    lg.addEventListener('change', ajustar);
+
+    return () => lg.removeEventListener('change', ajustar);
+  }, []);
   /*
     Título grande da aula e se ele já saiu da tela. O cabeçalho fixo só mostra
     o título depois disso — antes, a aula abria com o mesmo título duas vezes.
@@ -1538,21 +1562,21 @@ ${html}
                         <div className="flex border-b border-slate-200 bg-slate-50/50">
                           <button
                             onClick={() => setActiveTab('teoria')}
-                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer sm:whitespace-nowrap ${
                               activeTab === 'teoria' ? 'border-ava-acao text-ava-ciano-texto bg-white' : 'border-transparent hover:text-ava-ciano'
                             }`}
                           >
-                            <FileText className="h-4 w-4 shrink-0" />
+                            <FileText className="hidden sm:block h-4 w-4 shrink-0" />
                             <span>Material Didático</span>
                           </button>
 
                           <button
                             onClick={() => setActiveTab('anotacao')}
-                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                            className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer sm:whitespace-nowrap ${
                               activeTab === 'anotacao' ? 'border-ava-acao text-ava-ciano-texto bg-white' : 'border-transparent hover:text-ava-ciano'
                             }`}
                           >
-                            <Notebook className="h-4 w-4 shrink-0" />
+                            <Notebook className="hidden sm:block h-4 w-4 shrink-0" />
                             <span>Anotações Privadas</span>
                             {savedNotes[activeLesson.id] && (
                               <span className="w-1.5 h-1.5 bg-ava-acao rounded-full inline-block shrink-0" />
@@ -1567,14 +1591,20 @@ ${html}
                             Fórum, a Biblioteca e o Perfil já usam: recurso
                             desligado desaparece, em vez de prometer.
                           */}
+                          {/*
+                            A PARTIR DE `lg` o suporte é CARTÃO da barra lateral,
+                            não aba (referência 07). A aba fica só abaixo disso,
+                            onde não existe lateral. Sem o `lg:hidden` aqui, o
+                            mesmo formulário apareceria duas vezes na mesma tela.
+                          */}
                           {features.mensagensDiretas && (
                             <button
                               onClick={() => setActiveTab('suporte')}
-                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                              className={`lg:hidden flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer sm:whitespace-nowrap ${
                                 activeTab === 'suporte' ? 'border-ava-acao text-ava-ciano-texto bg-white' : 'border-transparent hover:text-ava-ciano'
                               }`}
                             >
-                              <HelpCircle className="h-4 w-4 shrink-0" />
+                              <HelpCircle className="hidden sm:block h-4 w-4 shrink-0" />
                               <span>Suporte Pedagógico</span>
                             </button>
                           )}
@@ -1582,7 +1612,7 @@ ${html}
                           {features.forum && (
                             <button
                               onClick={() => setActiveTab('forum')}
-                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                              className={`flex-1 min-h-14 py-3 px-2 sm:px-4 text-rotulo sm:text-xs font-bold text-slate-700 border-b-2 transition-colors flex items-center justify-center gap-1.5 cursor-pointer sm:whitespace-nowrap ${
                                 activeTab === 'forum' ? 'border-ava-acao text-ava-ciano-texto bg-white' : 'border-transparent hover:text-ava-ciano'
                               }`}
                             >
@@ -1715,64 +1745,15 @@ ${html}
                           )}
 
                           {features.mensagensDiretas && activeTab === 'suporte' && (
-                            <div className="space-y-4">
-                              <h4 className="font-bold text-slate-900 flex items-center gap-1.5 pb-2 border-b border-slate-100">
-                                <HelpCircle className="h-4 w-4 text-ava-ciano" />
-                                <span>Suporte Pedagógico</span>
-                              </h4>
-                              <p className="text-rotulo text-escult-ink-2 leading-relaxed">
-                                Tem dúvidas sobre o conteúdo desta aula ou sobre algum problema técnico? Envie sua mensagem diretamente ao Gestor de Conteúdos abaixo — ela é registrada no seu canal de mensagens e respondida por lá.
-                              </p>
-
-                              <div className="bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-start gap-3 mt-2">
-                                <div className="relative">
-                                  <User className="h-8 w-8 text-escult-ink-2 p-1 bg-slate-200 rounded-full" />
-                                  <span className={`absolute -bottom-0.5 -right-0.5 block h-2.5 w-2.5 rounded-full border border-white ${
-                                    (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online'
-                                      ? 'bg-emerald-500 animate-pulse'
-                                      : 'bg-slate-400'
-                                  }`} />
-                                </div>
-                                <div className="space-y-1">
-                                  <strong className="text-slate-900 block font-bold leading-tight flex items-center gap-1.5">
-                                    <span>Prof. {selectedCourse.instructorName}</span>
-                                    <span className={`text-apoio font-black leading-none ${
-                                      (localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online'
-                                        ? 'text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-500/10'
-                                        : 'text-escult-ink-2 text-escult-ink-2 bg-slate-100 px-1 py-0.5 rounded border border-slate-200'
-                                    }`}>
-                                      {(localStorage.getItem(`ava_presence_status_${selectedCourse.instructorId ?? ''}`) || 'online') === 'online' ? 'ONLINE' : 'OFFLINE'}
-                                    </span>
-                                  </strong>
-                                  <span className="text-apoio text-escult-ink-2 block">Tempo de resposta esperado: &lt; 2 horas</span>
-                                </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                <textarea
-                                  value={lessonSupportMessage}
-                                  onChange={(e) => setLessonSupportMessage(e.target.value)}
-                                  placeholder="Escreva sua dúvida ou relate um problema sobre esta aula..."
-                                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 h-24 focus:outline-hidden focus:ring-1 focus:ring-ava-acao text-xs font-sans text-slate-800"
-                                />
-                                <div className="flex items-center justify-end gap-3">
-                                  {lessonSupportMessageSent && (
-                                    <span className="text-apoio font-bold text-emerald-600 flex items-center gap-1">
-                                      <CheckCircle className="h-3.5 w-3.5" />
-                                      Mensagem enviada!
-                                    </span>
-                                  )}
-                                  <button
-                                    onClick={handleSendLessonSupportMessage}
-                                    disabled={!lessonSupportMessage.trim()}
-                                    className="rounded-lg bg-ava-acao hover:bg-ava-acao-escuro disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold text-xs px-4 py-1.8 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                                  >
-                                    <Send className="h-3.5 w-3.5" />
-                                    <span>Enviar Mensagem</span>
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
+                            <SuportePedagogico
+                              variante="corpo"
+                              className="lg:hidden"
+                              instrutor={selectedCourse.instructorName}
+                              mensagem={lessonSupportMessage}
+                              onMensagemChange={setLessonSupportMessage}
+                              onEnviar={handleSendLessonSupportMessage}
+                              enviada={lessonSupportMessageSent}
+                            />
                           )}
 
                           {features.forum && activeTab === 'forum' && (
@@ -1992,6 +1973,20 @@ ${html}
                         documentos={activeLesson.documents ?? []}
                         variante="lateral"
                       />
+
+                      {/* Suporte Pedagógico à vista enquanto se lê a aula, como
+                          na referência 07. A aba equivalente é `lg:hidden`, então
+                          os dois nunca coexistem na mesma largura. */}
+                      {features.mensagensDiretas && (
+                        <SuportePedagogico
+                          variante="lateral"
+                          instrutor={selectedCourse.instructorName}
+                          mensagem={lessonSupportMessage}
+                          onMensagemChange={setLessonSupportMessage}
+                          onEnviar={handleSendLessonSupportMessage}
+                          enviada={lessonSupportMessageSent}
+                        />
+                      )}
                     </div>
                   </aside>
                 )}
