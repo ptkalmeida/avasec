@@ -21,7 +21,9 @@
     "espelho:up": "docker compose -f docker-compose.yml -f docker-compose.espelho.yml up -d --build",
     "espelho:down": "docker compose -f docker-compose.yml -f docker-compose.espelho.yml stop nginx php redis",
     "espelho:logs": "docker compose -f docker-compose.yml -f docker-compose.espelho.yml logs -f nginx php",
-    "db:migrate": "cd backend-laravel && php artisan migrate"
+    "db:migrate": "cd backend-laravel && php artisan migrate",
+    "e2e": "playwright test",
+    "e2e:relatorio": "playwright show-report"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
@@ -36,6 +38,7 @@
     "vite": "^6.2.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

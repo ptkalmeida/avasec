@@ -59,7 +59,8 @@ FK-first, `BusinessRules`, `Jwt`).
 | **PHPUnit** | 13 — 363 testes do backend (`npm run test:api`) |
 | **Laravel Pint** | Lint PSR-12 (`./vendor/bin/pint --test`) |
 | **PHPStan + Larastan** | Análise estática, nível 9 (máximo) como gate (`phpstan.neon`) |
-| **Vitest + Testing Library** | Vitest 5 — 716 testes do frontend (`npm test`) |
+| **Vitest + Testing Library** | Vitest 5 — 722 testes do frontend, em memória (`npm test`) |
+| **Playwright** | 1.64 — 13 testes de tela montada, em navegador real (`npm run e2e`). Exige os servidores de pé; por isso ficam FORA do `npm test` |
 | **Docker / docker-compose** | MySQL 8 local (`npm run db:up`) e espelho de produção Nginx + PHP-FPM + Redis (`npm run espelho:up`) |
 | **Composer / npm** | Dependências (backend / frontend) |
 
@@ -73,6 +74,8 @@ FK-first, `BusinessRules`, `Jwt`).
 | `npm run build` | Build de produção do frontend (`dist/`) |
 | `npm test` / `test:frontend` | Testes do frontend (Vitest) |
 | `npm run test:api` | Testes do backend (PHPUnit) |
+| `npm run e2e` | Testes de tela em navegador real (Playwright). **Exige `npm run dev` e `npm run api` de pé** |
+| `npm run e2e:relatorio` | Abre o relatório HTML da última execução do Playwright |
 | `npm run test:api:coverage` | Cobertura do backend (PHPUnit + Xdebug, relatório em texto) |
 | `npm run db:migrate` | Migrations do Laravel (`php artisan migrate`) |
 | `npm run lint` | Type-check do frontend (`tsc --noEmit`) |

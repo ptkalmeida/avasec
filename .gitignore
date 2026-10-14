@@ -46,3 +46,9 @@ design_handoff_avasec_navegacao/
 # ocupar 158 MB em 4.779 arquivos no diretorio de trabalho.
 .venv/
 __pycache__/
+
+# Artefatos de execução do Playwright (rastro, captura de falha, relatório HTML).
+# São grandes e só interessam a quem acabou de rodar os testes.
+/test-results/
+/playwright-report/
+/blob-report/
