@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   BookOpen, Calendar, CheckCircle, Award, Video, Clock, ChevronRight,
@@ -31,6 +31,8 @@ import { BarraDeAulas } from './student/BarraDeAulas';
 import { ProgressoDoCurso } from './student/ProgressoDoCurso';
 import { MateriaisDeApoio } from './student/MateriaisDeApoio';
 import { SuportePedagogico } from './student/SuportePedagogico';
+import { MeusCursos, type CursoDoAluno } from './student/MeusCursos';
+import { aulasConcluidas, registroDoAluno } from '../utils/courseProgress';
 import { VideoPlayer } from './shared/VideoPlayer';
 import { downloadSubmissionFile } from '../utils/fileDownload';
 import { courseMinAttendance, QUIZ_PASS_THRESHOLD } from '../config/constants';
@@ -868,6 +870,77 @@ ${html}
     : null;
 
   /*
+   * Os cursos do aluno, prontos para a secao "Meus cursos".
+   *
+   * A contagem de aulas passa por `aulasConcluidas`, e nao por
+   * `completedLessons.length`: o registro guarda ids de aula, e um id continua
+   * la depois de a aula ser apagada do curso. A conta crua ja produziu "113% de
+   * progresso" neste projeto — um curso com 1 aula e 2 ids orfaos. Hoje nao ha
+   * orfao nenhum no banco, o que torna o erro invisivel ate o dia em que um
+   * instrutor apagar uma aula.
+   *
+   * `total` conta as aulas que o curso tem HOJE, que e o mesmo denominador do
+   * catalogo e da sala de aula.
+   */
+  const montarItem = (curso: Course): CursoDoAluno => ({
+    curso,
+    concluidas: aulasConcluidas(curso, registroDoAluno(progress, curso.id, activeUser.id)),
+    total: curso.lessons.length,
+  });
+
+  /*
+   * Aulas concluidas no curso ABERTO, sem contar id orfao.
+   *
+   * `completedLessons` guarda ids, e um id sobrevive a exclusao da aula. A conta
+   * crua ja exibiu "113% de progresso" aqui. Como hoje nao ha orfao no banco, o
+   * erro so apareceria no dia em que um instrutor apagasse uma aula — e a barra
+   * passaria de 100% sem ninguem entender por que.
+   */
+  const aulasConcluidasNoCursoAberto = selectedCourse
+    ? aulasConcluidas(selectedCourse, currentCourseProgress ?? undefined)
+    : 0;
+
+  const meusCursosEmAndamento = useMemo<CursoDoAluno[]>(
+    () =>
+      activeEnrolledCourseIds
+        .map((id) => courses.find((c) => c.id === id))
+        .filter((c): c is Course => c !== undefined)
+        // Curso com vigencia encerrada segue no cartao de aviso, com o fluxo de
+        // cancelamento — nao entra na lista como se fosse estudavel.
+        .filter((c) => !isCourseExpired(c.contractExpirationDate))
+        .map((curso) => ({
+          ...montarItem(curso),
+          frequencia: calculateAttendancePercent(curso.id),
+          minimoFrequencia: courseMinAttendance(curso),
+        })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeEnrolledCourseIds.join('|'), courses, progress, activeUser.id],
+  );
+
+  const meusCursosConcluidos = useMemo<CursoDoAluno[]>(
+    () =>
+      (enrollmentRecord.completedCourseIds ?? [])
+        .map((id) => courses.find((c) => c.id === id))
+        .filter((c): c is Course => c !== undefined)
+        .map(montarItem),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [(enrollmentRecord.completedCourseIds ?? []).join('|'), courses, progress, activeUser.id],
+  );
+
+  /*
+   * Certificado ATIVO de cada curso. `certificates` ja chega do servidor sem os
+   * inativados — um certificado revogado nao deve virar link de acesso.
+   */
+  const certificadoPorCurso = useMemo(() => {
+    const porCurso: Record<string, (typeof certificates)[number] | undefined> = {};
+    for (const cert of certificates) {
+      if (cert.userId === activeUser.id) porCurso[cert.courseId] = cert;
+    }
+
+    return porCurso;
+  }, [certificates, activeUser.id]);
+
+  /*
    * Transmissões que acontecem hoje. `new Date()` fica aqui, num único ponto, e o
    * recorte por dia mora em liveSchedule — testável sem depender do relógio.
    */
@@ -1508,7 +1581,7 @@ ${html}
                         */}
                         <ProgressoDoCurso
                           total={aulasEmOrdem.length}
-                          concluidas={currentCourseProgress?.completedLessons.length ?? 0}
+                          concluidas={aulasConcluidasNoCursoAberto}
                           className="w-full sm:w-auto sm:flex-1 sm:max-w-[16rem] lg:hidden"
                         />
 
@@ -1963,7 +2036,7 @@ ${html}
                       <div className="rounded-2xl border border-ava-borda bg-ava-faixa p-4">
                         <ProgressoDoCurso
                           total={aulasEmOrdem.length}
-                          concluidas={currentCourseProgress?.completedLessons.length ?? 0}
+                          concluidas={aulasConcluidasNoCursoAberto}
                         />
                       </div>
 
@@ -2018,7 +2091,7 @@ ${html}
                     </h4>
 
                     <span className="text-apoio font-bold text-escult-ink-2 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {currentCourseProgress?.completedLessons.length || 0} / {selectedCourse.lessons.length} Aulas
+                      {aulasConcluidasNoCursoAberto} / {selectedCourse.lessons.length} Aulas
                     </span>
                   </div>
 
@@ -2614,42 +2687,30 @@ ${html}
                       );
                     }
 
-                    return (
-                      <div key={activeCourse.id} className="rounded-2xl border border-ava-borda bg-ava-icone-fundo/20 p-5 md:p-6 shadow-xs animate-in fade-in duration-300">
-                        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-6">
-                          <div className="space-y-2 max-w-xl">
-                            <span className="bg-ava-icone-fundo text-ava-ciano-texto border border-ava-borda px-2.5 py-0.5 rounded-full text-sobretitulo uppercase">Curso Ativo em Andamento</span>
-                            <h3 className="text-base md:text-lg font-black text-slate-900 leading-tight">{activeCourse.title}</h3>
-                            <p className="text-xs text-escult-ink-2 leading-relaxed line-clamp-2">{activeCourse.description}</p>
-
-                            <div className="flex flex-wrap items-center gap-4 mt-2">
-                              <div className="text-apoio text-slate-600 font-medium">
-                                Prof. <strong className="text-slate-800 font-bold">{activeCourse.instructorName}</strong>
-                              </div>
-                              <div className="text-apoio text-slate-600 flex items-center gap-1.5">
-                                <span>Frequência Atual:</span>
-                                <strong className={`text-apoio font-semibold ${attendance >= minAttendance ? 'text-emerald-600 font-black' : 'text-amber-600'}`}>{attendance}%</strong>
-                                <span className="text-escult-ink-2">/ Mínimo {minAttendance}%</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
-                            <button
-                              onClick={() => {
-                                setSelectedCourse(activeCourse);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }}
-                              className="bg-ava-acao hover:bg-ava-acao-escuro text-white text-sobretitulo uppercase px-5 py-3 rounded-xl transition-all shadow-md hover:scale-[1.01] text-center flex items-center justify-center gap-1.5 cursor-pointer"
-                            >
-                              <PlayCircle className="h-4 w-4 animate-pulse" />
-                              <span>Entrar na Sala de Aula</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
+                    /*
+                      Curso ativo NORMAL agora vive na secao "Meus cursos",
+                      logo abaixo, junto dos concluidos e com progresso. Aqui
+                      fica so o estado excepcional (vigencia encerrada), que
+                      pede acao e carrega o fluxo de cancelamento.
+                    */
+                    return null;
                   })}
+
+                  <MeusCursos
+                    emAndamento={meusCursosEmAndamento}
+                    concluidos={meusCursosConcluidos}
+                    certificadoPorCurso={certificadoPorCurso}
+                    onAbrirCurso={(courseId) => {
+                      const curso = courses.find((c) => c.id === courseId);
+                      if (curso) {
+                        setSelectedCourse(curso);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }}
+                    onVerCertificados={() =>
+                      irPara({ tela: 'painel', aba: 'certificates', cursoRef: null, catalogoId: null })
+                    }
+                  />
 
                   {/* Scenario 2: Active Dropout Penalty Warning Card */}
                   {features.penalidadesCancelamento && enrollmentRecord.dropOutPenaltyUntil && new Date(enrollmentRecord.dropOutPenaltyUntil).getTime() > Date.now() ? (() => {
@@ -2958,36 +3019,14 @@ ${html}
                     </div>
                   )}
 
-                  {/* Scenario 4: Completed Courses review panel (Always visible if any completed) */}
-                  {enrollmentRecord.completedCourseIds && enrollmentRecord.completedCourseIds.length > 0 && (
-                    <div className="space-y-4 pt-6 border-t border-slate-200 animate-in fade-in duration-500">
-                      <div className="flex items-center gap-2 text-ava-acao">
-                        <CheckCircle className="h-5 w-5 text-emerald-500" />
-                        <h3 className="text-sobretitulo uppercase">Cursos Concluídos (Acesso Vitalício de Revisão)</h3>
-                      </div>
-                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        {courses
-                          .filter(c => enrollmentRecord.completedCourseIds.includes(c.id))
-                          .map((course, idx) => (
-                            <div 
-                              key={`${course.id}-${idx}`}
-                              onClick={() => {
-                                setSelectedCourse(course);
-                                window.scrollTo({ top: 0, behavior: 'smooth' });
-                              }}
-                              className="group p-4 bg-emerald-50/10 border border-emerald-100 rounded-xl cursor-pointer hover:bg-emerald-50/20 hover:border-emerald-200 transition-all flex flex-col justify-between"
-                            >
-                              <div className="space-y-1 text-left">
-                                <span className="inline-block text-sobretitulo bg-emerald-100 text-emerald-850 px-1.5 py-0.2 rounded uppercase mb-1">Grade Completa</span>
-                                <h4 className="text-xs font-black text-slate-850 group-hover:text-emerald-700 transition-colors block line-clamp-1">{course.title}</h4>
-                                <span className="text-apoio text-escult-ink-2 block">Prof. {course.instructorName}</span>
-                              </div>
-                              <span className="text-apoio text-ava-ciano-texto hover:underline font-bold mt-3 block text-right">Modo Revisão →</span>
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  )}
+                  {/*
+                    A tira "Cursos Concluidos (Acesso Vitalicio de Revisao)" que
+                    ficava aqui, DEPOIS do catalogo inteiro, foi para a secao
+                    "Meus cursos" la em cima — ao lado dos cursos em andamento,
+                    que e onde o aluno procura o que e dele. Ganhou capa,
+                    descricao e o estado do certificado; antes trazia so titulo
+                    e professor.
+                  */}
                 </div>
               )}
             </div>

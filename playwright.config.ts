@@ -31,7 +31,16 @@ const NAVEGADOR =
  */
 export default defineConfig({
   testDir: './tests/e2e',
-  // Um worker: os testes compartilham a mesma sessão e o mesmo banco de dev.
+  /*
+   * Um worker: os testes compartilham a mesma sessão, o mesmo aluno e o mesmo
+   * banco de desenvolvimento.
+   *
+   * E isso vale para a MÁQUINA, não só para esta execução: `workers: 1` serializa
+   * dentro de uma rodada, e nada impede duas rodadas simultâneas. Já aconteceu
+   * aqui — uma suíte em segundo plano e outra em primeiro derrubaram dois testes
+   * de largura estreita que passam sozinhos. Não era regressão; era a mesma conta
+   * navegando em dois navegadores ao mesmo tempo. Rode uma de cada vez.
+   */
   workers: 1,
   // Em tela, 5 s é pouco: a primeira montagem carrega blocos por `React.lazy`.
   timeout: 60_000,

@@ -84,7 +84,15 @@ export async function entrarComoAluno(page: Page, email = 'joao.silva@lms.edu'):
  * aconteceu com o harness anterior, que seguia adiante depois de um clique perdido.
  */
 export async function abrirPrimeiraAula(page: Page): Promise<void> {
-  await page.getByRole('button', { name: /entrar na sala de aula/i }).first().click();
+  /*
+   * Dois rótulos porque há dois caminhos de entrada: "Continuar curso", na
+   * seção "Meus cursos" do painel, e "Entrar na sala de aula", que sobrevive no
+   * cartão do curso com vigência encerrada e na ficha do catálogo.
+   */
+  await page
+    .getByRole('button', { name: /continuar curso|entrar na sala de aula/i })
+    .first()
+    .click();
 
   const iniciar = page.getByRole('button', { name: /iniciar primeira aula|continuar de onde parei/i });
   if (await iniciar.count()) {
