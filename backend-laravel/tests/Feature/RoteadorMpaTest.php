@@ -129,6 +129,22 @@ final class RoteadorMpaTest extends TestCase
             }
 
             foreach ($prefixos as $prefixo) {
+                /*
+                 * Prefixo terminado em '-' é FAMÍLIA: cobre tudo que comece com
+                 * ele, sem exigir barra. Existe por causa do Livewire, que serve
+                 * seus endpoints em `/livewire-<hash>`, com o hash derivado da
+                 * APP_KEY — de propósito, para dificultar varredura automatizada.
+                 * O hash muda por ambiente, então escrevê-lo no contrato
+                 * funcionaria em DEV e quebraria em HML e PRD.
+                 */
+                if (str_ends_with($prefixo, '-')) {
+                    if (Str::startsWith($caminho, $prefixo)) {
+                        continue 2;
+                    }
+
+                    continue;
+                }
+
                 if ($caminho === $prefixo || Str::startsWith($caminho, rtrim($prefixo, '/').'/')) {
                     continue 2;
                 }

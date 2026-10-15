@@ -23,4 +23,9 @@ final class PaginaPublicaController extends Controller
     {
         return view('publico.o-ava', ['pagina' => $this->conteudo->get('o-ava')]);
     }
+
+    public function duvidas(): View
+    {
+        return view('publico.duvidas', ['pagina' => $this->conteudo->get('duvidas')]);
+    }
 }

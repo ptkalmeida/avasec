@@ -7,7 +7,12 @@
     "",
     "Durante a migração para MPA (ADR 017, plano .ai/planejamento/16) esta lista CRESCE:",
     "cada tela que passa para Blade acrescenta seu caminho. Quando o React sair por inteiro",
-    "(fase M7), o arquivo perde a razão de existir e sai junto."
+    "(fase M7), o arquivo perde a razão de existir e sai junto.",
+    "",
+    "Prefixo terminado em \"-\" é FAMÍLIA: cobre tudo que começa com ele. Existe por causa do",
+    "Livewire, que serve seus endpoints em /livewire-<hash>, com o hash derivado da APP_KEY",
+    "— de propósito, para dificultar varredura automatizada. O hash muda por ambiente, então",
+    "escrevê-lo aqui funcionaria em DEV e quebraria em HML e PRD."
   ],
   "prefixos": [
     "/api",
@@ -18,6 +23,8 @@
     "/storage",
     "/sanctum",
     "/o-ava",
-    "/build"
+    "/build",
+    "/duvidas",
+    "/livewire-"
   ]
 }

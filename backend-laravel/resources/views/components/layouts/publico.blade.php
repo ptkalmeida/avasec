@@ -15,6 +15,13 @@
         regras de quebra do cabeçalho só valiam sob essa classe.
     --}}
     @vite(['backend-laravel/resources/css/blade.css', 'backend-laravel/resources/js/blade.ts'])
+
+    {{--
+        O Livewire injeta os próprios assets sozinho; estas diretivas tornam o
+        ponto de injeção EXPLÍCITO, para que o <head> diga o que carrega em vez
+        de depender de um comportamento implícito do pacote.
+    --}}
+    @livewireStyles
 </head>
 <body class="bg-white font-sans text-ava-tinta antialiased">
     {{--
@@ -26,5 +33,7 @@
     <main>
         {{ $slot }}
     </main>
+
+    @livewireScripts
 </body>
 </html>

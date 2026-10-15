@@ -45,6 +45,7 @@ Route::get('/uploads/{filename}', [UploadController::class, 'servePublic'])
  * ser servida pelo Blade, no mesmo endereço. Quem tem o link salvo não percebe.
  */
 Route::get('/o-ava', [PaginaPublicaController::class, 'oAva'])->name('publico.o-ava');
+Route::get('/duvidas', [PaginaPublicaController::class, 'duvidas'])->name('publico.duvidas');
 
 /*
  * Tudo que não foi migrado: o SPA React.

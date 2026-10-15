@@ -18,8 +18,23 @@ const {prefixos} = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, 'rotas-laravel.json'), 'utf-8'),
 ) as {prefixos: string[]};
 
+/*
+ * `changeOrigin: false`, e isto não é detalhe.
+ *
+ * Com `true`, o proxy reescrevia o cabeçalho `Host` para o alvo — e o Laravel
+ * monta URL absoluta a partir do Host que recebe. O efeito só apareceu quando a
+ * primeira tela em Livewire entrou: o runtime era pedido em
+ * `http://127.0.0.1:8000/livewire-<hash>/livewire.js`, ou seja, numa ORIGEM
+ * diferente da página (`localhost:5173`). O script até carregava, mas o POST de
+ * atualização do componente saía cross-origin e morria em silêncio — o acordeão
+ * abria no servidor e nunca no navegador.
+ *
+ * Com `false`, o Laravel vê `Host: localhost:5173` e gera URL da mesma origem,
+ * que volta pelo proxy. Para as chamadas do React nada muda: elas sempre foram
+ * relativas.
+ */
 const proxyDoLaravel = Object.fromEntries(
-  prefixos.map((prefixo) => [prefixo, {target: alvoLaravel, changeOrigin: true}]),
+  prefixos.map((prefixo) => [prefixo, {target: alvoLaravel, changeOrigin: false}]),
 );
 
 export default defineConfig(() => {
