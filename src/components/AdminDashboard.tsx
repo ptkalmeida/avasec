@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { CapaDoCurso } from './admin/CapaDoCurso';
 import { useLMS } from '../context/LMSContext';
 import { AbaAdmin, SubAbaRelatorio, caminhoAdmin, parseAdmin } from '../router/adminRoutes';
 import { exportAllManagementBases, exportManagementBase, ManagementBase } from '../utils/managementExport';
@@ -64,6 +65,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
     deleteCourse,
     updateCourseInstructor,
     updateCourseProps,
+    uploadArquivo,
     updateRequestStatus,
     addAcademicRequest,
     addAdmissionRequest,
@@ -1935,6 +1937,14 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                                 <span className="font-bold text-slate-600 tracking-wide">Ativar Chat</span>
                               </label>
                             </div>
+
+                            <CapaDoCurso
+                              capa={course.coverImage}
+                              onEnviar={uploadArquivo}
+                              onGravar={(url) => updateCourseProps(course.id, { coverImage: url ?? '' })}
+                              onErro={(m) => showToast(m)}
+                              onSucesso={(m) => showToast(m)}
+                            />
 
                             <div className="flex items-center gap-1 mt-0.5 sm:mt-0">
                               <span className="font-bold text-escult-ink-3 uppercase tracking-wide">Vigência:</span>

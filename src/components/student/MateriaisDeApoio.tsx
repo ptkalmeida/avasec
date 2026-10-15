@@ -1,5 +1,5 @@
 import React from 'react';
-import { Archive, ExternalLink, FileText } from 'lucide-react';
+import { Archive, Download, ExternalLink, FileText } from 'lucide-react';
 import type { LessonDocument } from '../../types';
 import { safeHref } from '../../utils/safeUrl';
 
@@ -12,6 +12,18 @@ interface MateriaisDeApoioProps {
    */
   variante: 'lateral' | 'corpo';
   className?: string;
+}
+
+/**
+ * O anexo é arquivo servido por nós, ou link para fora?
+ *
+ * A distinção decide o ícone, e o ícone é uma promessa: seta para baixo diz
+ * "isto baixa". Prometer download num link do Drive ou num endereço externo
+ * seria mentir — o navegador vai abrir outra aba, não gravar arquivo. Só o que
+ * sai de `/uploads/` é servido pelo próprio AVASEC e baixa de verdade.
+ */
+function ehArquivoNosso(url: string): boolean {
+  return url.startsWith('/uploads/');
 }
 
 /** Cor de fundo e do rótulo conforme o tipo do arquivo. */
@@ -66,6 +78,12 @@ export const MateriaisDeApoio: React.FC<MateriaisDeApoioProps> = ({
     <div className={naLateral ? 'space-y-2.5' : 'grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1.5'}>
       {documentos.map((doc, idx) => {
         const estilo = estiloPorTipo(doc.type);
+        /*
+         * `download` e a seta só no arquivo nosso: em endereço de outra origem o
+         * atributo é IGNORADO pelo navegador, e o ícone prometeria o que não
+         * acontece.
+         */
+        const baixa = ehArquivoNosso(doc.url);
 
         return (
           <a
@@ -74,6 +92,7 @@ export const MateriaisDeApoio: React.FC<MateriaisDeApoioProps> = ({
             target="_blank"
             referrerPolicy="no-referrer"
             rel="noopener noreferrer"
+            download={baixa ? '' : undefined}
             className={`p-3.5 rounded-xl border transition-all text-left flex items-start justify-between gap-3 group/doc shadow-3xs ${estilo.fundo}`}
           >
             <div className="flex items-start gap-3 min-w-0">
@@ -92,7 +111,17 @@ export const MateriaisDeApoio: React.FC<MateriaisDeApoioProps> = ({
                 </div>
               </div>
             </div>
-            <ExternalLink className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-ava-ciano-texto transition-colors shrink-0 self-center" />
+            {baixa ? (
+              <Download
+                aria-label="Baixar arquivo"
+                className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-ava-ciano-texto transition-colors shrink-0 self-center"
+              />
+            ) : (
+              <ExternalLink
+                aria-label="Abrir link em nova aba"
+                className="h-3.5 w-3.5 text-escult-ink-2 group-hover/doc:text-ava-ciano-texto transition-colors shrink-0 self-center"
+              />
+            )}
           </a>
         );
       })}
