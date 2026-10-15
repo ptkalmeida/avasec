@@ -34,10 +34,17 @@ final class RoteadorMpaTest extends TestCase
 
     public function test_rota_registrada_e_atendida_em_blade_e_nao_pelo_react(): void
     {
-        $resposta = $this->get('/sistema/fundacao-mpa');
+        /*
+         * Era `/sistema/fundacao-mpa`, a tela descartável da M0. Ela saiu quando
+         * a primeira tela de verdade migrou (M1), como o próprio comentário dela
+         * mandava — e este teste falhou na mesma hora, que é o comportamento
+         * desejado: a prova de que o roteador funciona passou a ser feita por uma
+         * tela do produto.
+         */
+        $resposta = $this->get('/o-ava');
 
         $resposta->assertOk();
-        $resposta->assertSee('Esta página foi renderizada pelo Laravel, em Blade.', false);
+        $resposta->assertSee('O que é o AVA?', false);
         // O casco do React tem a âncora onde ele se monta; a página Blade, não.
         $resposta->assertDontSee('<div id="root">', false);
     }

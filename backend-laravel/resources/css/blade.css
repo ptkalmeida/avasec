@@ -1,0 +1,16 @@
+/*
+ * CSS das telas em Blade.
+ *
+ * Importa o MESMO arquivo de tokens que o React usa — paleta institucional,
+ * escada tipográfica e a variante `ava:`. Não é conveniência: durante a
+ * migração gradual as duas tecnologias convivem na mesma sessão, e uma segunda
+ * definição de paleta divergiria sem ninguém perceber até alguém comparar duas
+ * telas lado a lado.
+ *
+ * O `@source` diz ao Tailwind onde procurar classes. Sem ele, as classes usadas
+ * só em `.blade.php` não entram no CSS gerado, e a tela sai sem estilo.
+ */
+@import '../../../src/index.css';
+
+@source '../views/**/*.blade.php';
+@source '../js/**/*.ts';

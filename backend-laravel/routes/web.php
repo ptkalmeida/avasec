@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppShellController;
+use App\Http\Controllers\PaginaPublicaController;
 use App\Http\Controllers\UploadController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,13 +35,16 @@ Route::get('/uploads/{filename}', [UploadController::class, 'servePublic'])
     ->where('filename', '[^\\/\\\\]+');
 
 /*
- * Prova da fundação (fase M0 do plano 16).
+ * Páginas institucionais do portal público — fase M1 do plano 16.
  *
- * Existe para demonstrar que uma rota registrada aqui é atendida em Blade em vez
- * de cair no React — e nada mais. Não é tela de produto, está fora de qualquer
- * fluxo e **sai quando a primeira tela de verdade migrar** (fase M1).
+ * A rota de prova da M0 (`/sistema/fundacao-mpa`) saiu daqui: ela existia para
+ * demonstrar que uma rota registrada neste arquivo é atendida em Blade, e a
+ * primeira tela de verdade passa a fazer essa demonstração sozinha.
+ *
+ * As URLs não mudam (invariante 2): `/o-ava` era servida pelo React e passa a
+ * ser servida pelo Blade, no mesmo endereço. Quem tem o link salvo não percebe.
  */
-Route::view('/sistema/fundacao-mpa', 'sistema.fundacao-mpa');
+Route::get('/o-ava', [PaginaPublicaController::class, 'oAva'])->name('publico.o-ava');
 
 /*
  * Tudo que não foi migrado: o SPA React.

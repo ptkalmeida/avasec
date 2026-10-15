@@ -23,7 +23,9 @@
     "espelho:logs": "docker compose -f docker-compose.yml -f docker-compose.espelho.yml logs -f nginx php",
     "db:migrate": "cd backend-laravel && php artisan migrate",
     "e2e": "playwright test",
-    "e2e:relatorio": "playwright show-report"
+    "e2e:relatorio": "playwright show-report",
+    "blade:dev": "vite --config vite.blade.config.ts",
+    "blade:build": "vite build --config vite.blade.config.ts"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.14",
@@ -42,11 +44,14 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/alpinejs": "^3.17.0",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "alpinejs": "^3.17.4",
     "jsdom": "^26.1.0",
+    "laravel-vite-plugin": "^1.3.0",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.3",
