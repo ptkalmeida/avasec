@@ -43,7 +43,11 @@
     "/livewire-"
   ],
   "exatos": [
+    "/",
     "/aluno",
-    "/aluno/curso/{cursoRef}"
+    "/aluno/curso/{cursoRef}",
+    "/entrar",
+    "/cadastro",
+    "/sair"
   ]
 }

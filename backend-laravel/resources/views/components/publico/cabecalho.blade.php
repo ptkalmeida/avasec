@@ -105,14 +105,44 @@
             </div>
 
             <div class="flex shrink-0 items-center gap-2">
-                <a href="/?janela=login"
-                   class="whitespace-nowrap rounded-[10px] bg-ava-acao px-[22px] py-3 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
-                    Entrar
-                </a>
-                <a href="/?janela=cadastro"
-                   class="hidden whitespace-nowrap rounded-[10px] border border-ava-acao bg-white px-[18px] py-3 text-rotulo font-semibold text-ava-acao transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao sm:block">
-                    Cadastre-se
-                </a>
+                {{-- Atribuição em linha, com parênteses — a mesma forma usada
+                     no alto deste arquivo. A forma de BLOCO não pode aparecer
+                     aqui: quando as duas convivem no mesmo arquivo, o
+                     fechamento do bloco casa com a primeira abertura em linha,
+                     e da metade do arquivo em diante a view sai como texto cru,
+                     com erro de sintaxe no fim do compilado. Custou um 500 em
+                     todas as telas públicas de uma vez. --}}
+                @php($painelDoPapel = ['student' => '/aluno', 'instructor' => '/inst', 'admin' => '/admin'])
+                @php($painel = $painelDoPapel[$usuarioLogado['role'] ?? ''] ?? null)
+
+                @if ($painel !== null)
+                    {{-- Quem já entrou não vê "Entrar": vê o caminho de volta ao
+                         painel dele, como no cabeçalho do React. Sem isto, a
+                         pessoa logada leria "Entrar" e acharia que a sessão caiu. --}}
+                    <a href="{{ $painel }}"
+                       class="whitespace-nowrap rounded-[10px] bg-ava-acao px-[22px] py-3 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
+                        Meu painel
+                    </a>
+
+                    {{-- Formulário, nunca link: sair por GET deixaria um
+                         `<img src="/sair">` deslogar quem abrisse a página. --}}
+                    <form method="POST" action="/sair" class="hidden sm:block">
+                        @csrf
+                        <button type="submit"
+                                class="cursor-pointer whitespace-nowrap rounded-[10px] border border-ava-borda bg-white px-[18px] py-3 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                            Sair
+                        </button>
+                    </form>
+                @else
+                    <a href="/entrar"
+                       class="whitespace-nowrap rounded-[10px] bg-ava-acao px-[22px] py-3 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
+                        Entrar
+                    </a>
+                    <a href="/cadastro"
+                       class="hidden whitespace-nowrap rounded-[10px] border border-ava-acao bg-white px-[18px] py-3 text-rotulo font-semibold text-ava-acao transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao sm:block">
+                        Cadastre-se
+                    </a>
+                @endif
 
                 <button type="button"
                         @click="menuMovel = !menuMovel"

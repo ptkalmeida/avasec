@@ -3,6 +3,7 @@
 use App\Exceptions\ApiException;
 use App\Http\Middleware\AreaDoAluno;
 use App\Http\Middleware\FeatureGate;
+use App\Http\Middleware\IdentidadeOpcional;
 use App\Http\Middleware\JwtAuthenticate;
 use App\Http\Middleware\OptionalJwt;
 use App\Http\Middleware\RequireActiveAccount;
@@ -55,6 +56,14 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Cabeçalhos de segurança em toda resposta da API (equivalente ao helmet do Node).
         $middleware->api(append: [SecurityHeaders::class]);
+
+        /*
+         * Toda tela pública passa a saber se há alguém logado — sem barrar
+         * ninguém. É o que permite ao cabeçalho do portal oferecer "Meu painel"
+         * a quem já entrou, como o cabeçalho do React fazia. Sem isto, a pessoa
+         * logada veria "Entrar" na home e acharia que a sessão caiu.
+         */
+        $middleware->web(append: [IdentidadeOpcional::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -97,16 +97,16 @@ final class CabecalhoRodapeBladeTest extends TestCase
     }
 
     /**
-     * Entrar, Cadastre-se e Acessibilidade apontam para as janelas que ainda
-     * vivem no React. Se alguém remover o `?janela=` do App.tsx sem trocar
-     * estes destinos, o botão principal do portal passa a não fazer nada.
+     * Entrar e Cadastre-se apontam para as telas em Blade (fase M2).
+     * Acessibilidade ainda é janela do React — ela depende do painel de
+     * preferências, que é reimplementação, não cópia (risco 3 do plano 16).
      */
-    public function test_portas_para_as_janelas_que_ainda_sao_react(): void
+    public function test_as_portas_de_entrada_apontam_para_as_telas_certas(): void
     {
         $resposta = $this->get('/o-ava');
 
-        $resposta->assertSee('href="/?janela=login"', escape: false);
-        $resposta->assertSee('href="/?janela=cadastro"', escape: false);
+        $resposta->assertSee('href="/entrar"', escape: false);
+        $resposta->assertSee('href="/cadastro"', escape: false);
         $resposta->assertSee('href="/?janela=acessibilidade"', escape: false);
     }
 }

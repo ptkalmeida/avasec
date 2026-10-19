@@ -77,14 +77,14 @@ final class AreaDoAlunoBladeTest extends TestCase
     {
         $resposta = $this->get('/aluno');
 
-        $resposta->assertRedirect('/?janela=login');
+        $resposta->assertRedirect('/entrar');
     }
 
     public function test_token_adulterado_vai_para_o_login_em_vez_de_quebrar(): void
     {
         $resposta = $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, 'nao.e.um.jwt')->get('/aluno');
 
-        $resposta->assertRedirect('/?janela=login');
+        $resposta->assertRedirect('/entrar');
     }
 
     /**

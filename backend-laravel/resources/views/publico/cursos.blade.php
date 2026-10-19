@@ -70,7 +70,7 @@
 
                         {{-- "Inscrever-se" sempre levou ao login, e continua levando:
                              não há inscrição pública sem conta. --}}
-                        <a href="/?janela=login"
+                        <a href="/entrar"
                            class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-ava-acao py-2.5 text-center text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
                             <span>Inscrever-se</span>
                             <span aria-hidden="true">→</span>
@@ -82,7 +82,7 @@
         </ul>
 
         <div class="flex justify-center pt-2">
-            <a href="/?janela=login"
+            <a href="/entrar"
                class="inline-flex items-center gap-2 rounded-[10px] border border-ava-lilas bg-ava-lilas-fundo px-7 py-3 text-rotulo font-semibold text-ava-lilas transition-colors hover:bg-ava-lilas hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-lilas focus-visible:ring-offset-2">
                 <span>Veja mais cursos</span>
                 <span aria-hidden="true">→</span>

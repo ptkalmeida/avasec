@@ -67,4 +67,52 @@
             </div>
         </div>
     </x-componentes.moldura-pagina>
+
+    {{--
+        "A educação que orienta esta escola" — texto que MOROU na página inicial.
+
+        A skill `redesenhar-ava-lms` manda a home terminar no destaque Patrimônio
+        Vivo, e esta seção ficava depois dele. Ela era o único lugar do site onde
+        este texto existia, então mudou de endereço em vez de desaparecer: é a
+        página que fala da concepção pedagógica, e é aqui que ele faz sentido.
+
+        O texto é o mesmo, palavra por palavra. O botão "Conheça o projeto" que a
+        acompanhava na home saiu: ele apontava para esta página, e um botão que
+        leva à página onde ele já está é um beco.
+
+        Aqui havia, antes de 10/09/2026, uma homenagem nominal a um educador. A
+        menção saiu de todo o site por decisão da coordenação; os três princípios
+        continuam porque descrevem uma concepção pedagógica, não uma biografia.
+    --}}
+    <section id="nossa-concepcao" class="bg-white px-4 py-16 text-ava-tinta">
+        <div class="mx-auto max-w-5xl space-y-10 text-left">
+
+            <div class="space-y-3 text-center">
+                <p class="filete text-sobretitulo uppercase text-ava-tinta">Nossa concepção</p>
+                <h2 class="font-titulo text-3xl tracking-tight text-ava-tinta md:text-secao">A educação que orienta esta escola</h2>
+                <p class="font-sans text-nota tracking-wide text-escult-ink-2">Escola Estadual da Cultura RJ</p>
+            </div>
+
+            <p class="mx-auto max-w-2xl text-center text-apoio leading-relaxed text-escult-ink-2">
+                Ensinar é uma prática que começa pelo que o estudante já sabe. Nesta escola,
+                arte, cultura e economia criativa são o caminho para desenvolver leitura crítica
+                da realidade, autonomia e capacidade de transformar o próprio contexto — dentro e
+                fora da sala de aula.
+            </p>
+
+            <div class="grid grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-ava-borda">
+                @foreach ([
+                    ['Centrada em quem aprende', 'O processo parte do respeito e da bagagem que cada estudante já traz consigo.'],
+                    ['Diálogo, não transmissão', 'Aprender é via de mão dupla: quem ensina também aprende com a turma.'],
+                    ['Leitura crítica', 'Educar para a autonomia e a cidadania ativa, com reflexão sobre a realidade.'],
+                ] as [$titulo, $texto])
+                    <div class="space-y-2 sm:px-8 sm:first:pl-0 sm:last:pr-0">
+                        <span class="block h-[3px] w-7 rounded-full bg-ava-lilas" aria-hidden="true"></span>
+                        <strong class="block font-titulo text-cartao text-ava-tinta">{{ $titulo }}</strong>
+                        <p class="text-apoio leading-relaxed text-escult-ink-2">{{ $texto }}</p>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    </section>
 </x-layouts.publico>

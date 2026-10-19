@@ -76,7 +76,7 @@ final class CatalogoPublicoBladeTest extends TestCase
         $resposta = $this->get('/cursos');
 
         $resposta->assertSee('Veja mais cursos', escape: false);
-        $resposta->assertSee('href="/?janela=login"', escape: false);
+        $resposta->assertSee('href="/entrar"', escape: false);
     }
 
     /**

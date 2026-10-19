@@ -6,13 +6,12 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
-use App\Http\Middleware\JwtAuthenticate;
 use App\Rules\CepRule;
 use App\Rules\CpfRule;
 use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
-use App\Support\Jwt;
+use App\Support\SessaoJwt;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -149,7 +148,7 @@ final class AuthController extends Controller
 
     public function logout(): JsonResponse
     {
-        return response()->json(['success' => true])->withCookie(cookie()->forget(JwtAuthenticate::SESSION_COOKIE, '/'));
+        return response()->json(['success' => true])->withCookie(SessaoJwt::esquecer());
     }
 
     public function me(Request $request): JsonResponse
@@ -266,20 +265,16 @@ final class AuthController extends Controller
         return response()->json(['success' => true]);
     }
 
+    /**
+     * Delegado para `SessaoJwt`, que é onde o cookie é definido uma vez só.
+     *
+     * Com o login em Blade (fase M2) passaram a existir duas portas de entrada,
+     * e dois lugares escrevendo os mesmos atributos de cookie divergiriam —
+     * basta um `sameSite` diferente para o navegador guardar dois cookies e a
+     * pessoa entrar por uma porta e seguir deslogada na outra.
+     */
     private function sessionCookie(string $token): Cookie
     {
-        // Espelha SESSION_COOKIE_OPTIONS do Node: HttpOnly, SameSite=Lax, path=/,
-        // secure só em produção, expiração de 12h (em minutos para o helper do Laravel).
-        return cookie(
-            name: JwtAuthenticate::SESSION_COOKIE,
-            value: $token,
-            minutes: Jwt::TTL_SECONDS / 60,
-            path: '/',
-            domain: null,
-            secure: app()->environment('production'),
-            httpOnly: true,
-            raw: false,
-            sameSite: 'lax',
-        );
+        return SessaoJwt::cookie($token);
     }
 }

@@ -22,6 +22,18 @@ final class PaginaPublicaController extends Controller
 
     public function __construct(private readonly SitePageContentService $conteudo) {}
 
+    /**
+     * Página inicial pública — tela 1 do redesenho (conceito A aprovado).
+     *
+     * Não recebe conteúdo do `SitePageContentService`: a home nunca foi
+     * editável pelo admin, e inventar uma chave de conteúdo para ela aqui
+     * criaria uma tela que o painel promete editar e não edita.
+     */
+    public function inicio(): View
+    {
+        return view('publico.inicio');
+    }
+
     public function oAva(): View
     {
         return view('publico.o-ava', ['pagina' => $this->conteudo->get('o-ava')]);

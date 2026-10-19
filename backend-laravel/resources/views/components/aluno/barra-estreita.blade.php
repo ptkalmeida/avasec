@@ -11,11 +11,15 @@
     texto. Não é economia de layout; é que não existe foto de usuário no
     sistema, e um avatar com inicial colorida pareceria haver.
 
-    O botão de saída diz "Portal", e não "Sair", porque é o que ele faz: leva ao
-    portal, onde o "Sair" de verdade está. Encerrar a sessão daqui exigiria um
-    segundo caminho de logout — e o dia em que o JWT der lugar à sessão do
-    Laravel, os dois teriam de mudar juntos. É assim que fica sessão órfã.
-    Rótulo que promete o que não faz é pior que um clique a mais.
+    "Sair" voltou a ser Sair.
+
+    Enquanto o logout só existia dentro do SPA, este botão dizia "Portal" — era
+    o que ele fazia, e rótulo que promete o que não faz é pior que um clique a
+    mais. Com `/sair` em Blade (fase M2), ele encerra a sessão de verdade.
+
+    É um FORMULÁRIO, não um link: encerrar sessão por GET deixaria um
+    `<img src="/sair">` em qualquer página deslogar quem a abrisse. O `@csrf` é
+    o que garante que quem pediu para sair foi a pessoa, no formulário dela.
 --}}
 
 <header x-data="{ navAberta: false }" class="border-b border-ava-borda bg-white">
@@ -36,10 +40,13 @@
             <span class="block text-nota text-escult-ink-3">Aluno credenciado</span>
         </div>
 
-        <a href="/"
-           class="shrink-0 rounded-[10px] border border-ava-borda px-4 py-2 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
-            Portal
-        </a>
+        <form method="POST" action="/sair" class="shrink-0">
+            @csrf
+            <button type="submit"
+                    class="cursor-pointer rounded-[10px] border border-ava-borda px-4 py-2 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                Sair
+            </button>
+        </form>
     </div>
 
     <div id="nav-estreita" x-show="navAberta" x-cloak class="border-t border-ava-borda px-2 py-2 lg:hidden">

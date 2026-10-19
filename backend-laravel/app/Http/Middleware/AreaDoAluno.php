@@ -34,15 +34,17 @@ use Throwable;
  * não deve receber JSON nem a página de erro do framework: deve ser levado ao
  * login. A verificação é a mesma; o que muda é o que se faz quando ela falha.
  *
- * ## Onde o login está hoje
+ * ## Onde o login está
  *
- * No React, como um modal. Enquanto for assim, a volta é para `/?janela=login`
- * — a mesma porta que o cabeçalho em Blade usa.
+ * Em `/entrar`, como tela de verdade (fase M2). Era um modal dentro do SPA, e
+ * é por isso que este middleware nasceu mandando para `/?janela=login`: não
+ * havia endereço para onde mandar. Ter um é o que permite a uma rota protegida
+ * devolver a pessoa ao lugar certo.
  */
 final class AreaDoAluno
 {
     /** Para onde vai quem não pode ver a tela. */
-    private const LOGIN = '/?janela=login';
+    private const LOGIN = '/entrar';
 
     public function handle(Request $request, Closure $next): Response
     {

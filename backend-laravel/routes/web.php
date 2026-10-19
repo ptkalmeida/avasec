@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AreaDoAlunoController;
+use App\Http\Controllers\AutenticacaoWebController;
 use App\Http\Controllers\PaginaPublicaController;
 use App\Http\Controllers\UploadController;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +46,13 @@ Route::get('/uploads/{filename}', [UploadController::class, 'servePublic'])
  * As URLs não mudam (invariante 2): `/o-ava` era servida pelo React e passa a
  * ser servida pelo Blade, no mesmo endereço. Quem tem o link salvo não percebe.
  */
+/*
+ * A raiz. Era a última tela do portal público ainda servida pelo React, e
+ * esperava o login existir como endereço: enquanto o modal de entrar morasse
+ * dentro do SPA em `/`, migrar `/` deixaria o sistema sem porta de entrada.
+ */
+Route::get('/', [PaginaPublicaController::class, 'inicio'])->name('publico.inicio');
+
 Route::get('/o-ava', [PaginaPublicaController::class, 'oAva'])->name('publico.o-ava');
 Route::get('/duvidas', [PaginaPublicaController::class, 'duvidas'])->name('publico.duvidas');
 Route::get('/o-projeto', [PaginaPublicaController::class, 'oProjeto'])->name('publico.o-projeto');
@@ -69,6 +77,35 @@ Route::get('/cursos', [PaginaPublicaController::class, 'cursos'])->name('publico
  * caindo no fallback e sendo servido pelo React — e `rotas-laravel.json` as
  * declara em "exatos" para que o proxy de desenvolvimento faça o mesmo recorte.
  */
+/*
+ * Entrar, cadastrar-se e sair — fase M2, com validação humana explícita de
+ * 19/10/2026 para mexer no fluxo de autenticação (AGENTS.md).
+ *
+ * O mecanismo NÃO mudou: mesmo JWT, mesmo cookie, mesmo `AuthService`, mesmos
+ * limitadores de taxa (`throttle:auth-login` e `auth-register` são os mesmos
+ * baldes da API — um ataque não ganha o dobro de tentativas por existirem duas
+ * portas). O que mudou é que a porta passou a ser um endereço.
+ *
+ * Sair é POST, nunca GET: um `<img src="/sair">` numa página qualquer deslogaria
+ * quem a abrisse, e o token CSRF é o que impede isso.
+ */
+Route::get('/entrar', [AutenticacaoWebController::class, 'mostrarLogin'])->name('auth.entrar');
+Route::post('/entrar', [AutenticacaoWebController::class, 'entrar'])->middleware('throttle:auth-login');
+Route::get('/cadastro', [AutenticacaoWebController::class, 'mostrarCadastro'])->name('auth.cadastro');
+Route::post('/cadastro', [AutenticacaoWebController::class, 'cadastrar'])->middleware('throttle:auth-register');
+Route::post('/sair', [AutenticacaoWebController::class, 'sair'])->name('auth.sair');
+
+/*
+ * `/sair` no GET existe só para não cair no fallback.
+ *
+ * Sem esta linha, abrir `/sair` na barra de endereço entregava o casco do React
+ * com 200 — o fallback engolindo um caminho que É do servidor, que é a mesma
+ * armadilha registrada na M0 com `/uploads/../../.env`. Ela não desloga
+ * ninguém, de propósito: encerrar sessão por GET deixaria um `<img src="/sair">`
+ * deslogar quem abrisse a página.
+ */
+Route::get('/sair', static fn () => redirect('/'));
+
 Route::middleware('aluno.web')->group(function (): void {
     Route::get('/aluno', [AreaDoAlunoController::class, 'painel'])->name('aluno.painel');
     Route::get('/aluno/curso/{cursoRef}', [AreaDoAlunoController::class, 'curso'])->name('aluno.curso');

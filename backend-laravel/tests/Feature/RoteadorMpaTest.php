@@ -28,10 +28,15 @@ final class RoteadorMpaTest extends TestCase
     /**
      * Caminhos que o Laravel atende sem precisar estar no JSON.
      *
-     * O fallback não é um caminho — é o "todo o resto". E `/` é a raiz, que o
-     * Vite já serve em desenvolvimento por ser a própria página do React.
+     * Só o fallback, que não é um caminho — é o "todo o resto".
+     *
+     * `/` SAIU desta lista quando a home migrou (fase M2). Enquanto a raiz era
+     * React, o Vite a servia em desenvolvimento por ser a própria página dele;
+     * agora ela é Blade e precisa ser encaminhada como qualquer outra, ou a home
+     * seria React em DEV e Blade em produção — a divergência mais confusa que
+     * esta migração pode produzir.
      */
-    private const FORA_DA_REGRA = ['/', '{fallbackPlaceholder}'];
+    private const FORA_DA_REGRA = ['{fallbackPlaceholder}'];
 
     public function test_rota_registrada_e_atendida_em_blade_e_nao_pelo_react(): void
     {
@@ -207,7 +212,11 @@ final class RoteadorMpaTest extends TestCase
 
         foreach ($exatos as $uri) {
             $this->assertStringStartsWith('/', $uri, "Caminho exato sem barra inicial: {$uri}");
-            $this->assertSame(rtrim($uri, '/'), $uri, "Caminho exato com barra final: {$uri}");
+
+            // A raiz é a única entrada em que a barra final É o caminho.
+            if ($uri !== '/') {
+                $this->assertSame(rtrim($uri, '/'), $uri, "Caminho exato com barra final: {$uri}");
+            }
 
             // Um caminho exato que também está coberto por um prefixo não faz
             // nada — e esconde a intenção de quem lê o contrato depois.
@@ -241,6 +250,10 @@ final class RoteadorMpaTest extends TestCase
         foreach ($contrato['exatos'] ?? [] as $uri) {
             if (str_contains($uri, '{')) {
                 continue; // Rota com parâmetro: o filho dela é outra rota exata.
+            }
+
+            if ($uri === '/') {
+                continue; // "Abaixo da raiz" é o site inteiro; não há o que provar.
             }
 
             $filho = $uri.'/uma-secao-que-ainda-nao-migrou';
