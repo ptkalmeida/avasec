@@ -231,11 +231,16 @@ final class RoteadorMpaTest extends TestCase
     }
 
     /**
-     * A promessa que o caminho exato faz: cobre a rota e **nada** abaixo dela.
+     * A promessa que o caminho exato faz: cobre a rota e nada abaixo dela,
+     * **a não ser o que o próprio contrato declarar**.
      *
-     * Sem esta linha, declarar `/aluno` mandaria `/aluno/certificados` — que
-     * ainda é React — ao Laravel em desenvolvimento, e ela abriria em branco
-     * porque o fallback serve o `dist/` e o Vite não tem aqueles assets.
+     * Sem isto, declarar `/aluno` mandaria `/aluno/certificados` — que ainda é
+     * React — ao Laravel em desenvolvimento, e ela abriria em branco porque o
+     * fallback serve o `dist/` e o Vite não tem aqueles assets.
+     *
+     * A ressalva não é frouxidão: `/aluno/catalogo/{cursoRef}` é uma entrada do
+     * contrato, e um filho declarado DEVE ser atendido em Blade. O que o teste
+     * proíbe é o filho **não declarado** ser arrastado junto.
      */
     public function test_caminho_exato_nao_arrasta_o_que_esta_abaixo_dele(): void
     {
@@ -257,6 +262,17 @@ final class RoteadorMpaTest extends TestCase
             }
 
             $filho = $uri.'/uma-secao-que-ainda-nao-migrou';
+
+            /*
+             * Um filho que o PRÓPRIO contrato declara — como
+             * `/aluno/catalogo/{cursoRef}` — é Blade por decisão, e não por
+             * arrasto. O que este teste proíbe é o filho NÃO declarado ser
+             * levado junto. `{param}` casa exatamente um segmento.
+             */
+            if ($this->algumExatoCasa($contrato['exatos'] ?? [], $filho)) {
+                continue;
+            }
+
             $rota = Route::getRoutes()->match(
                 Request::create($filho, 'GET')
             );
@@ -266,5 +282,36 @@ final class RoteadorMpaTest extends TestCase
                 "{$filho} devia cair no fallback (React), e não numa rota Blade.",
             );
         }
+    }
+
+    /**
+     * Algum caminho exato do contrato casa com este endereço?
+     *
+     * `{param}` vira um segmento. Monta-se o padrão pelas PARTES entre os
+     * parâmetros, cada uma escapada: escapar a URI inteira e depois tentar
+     * desescapar as chaves é como se erra isto em silêncio.
+     *
+     * @param  list<string>  $exatos
+     */
+    private function algumExatoCasa(array $exatos, string $caminho): bool
+    {
+        foreach ($exatos as $uri) {
+            $partes = preg_split('/\{[^}]+\}/', $uri);
+
+            if ($partes === false) {
+                continue;
+            }
+
+            $padrao = '#^'.implode('[^/]+', array_map(
+                static fn (string $parte): string => preg_quote($parte, '#'),
+                $partes,
+            )).'$#';
+
+            if (preg_match($padrao, $caminho) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

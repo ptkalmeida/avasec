@@ -48,6 +48,9 @@
     "/aluno/curso/{cursoRef}",
     "/entrar",
     "/cadastro",
-    "/sair"
+    "/sair",
+    "/aluno/catalogo",
+    "/aluno/catalogo/{cursoRef}",
+    "/aluno/catalogo/{cursoRef}/matricula"
   ]
 }

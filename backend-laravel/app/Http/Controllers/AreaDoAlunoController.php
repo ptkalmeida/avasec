@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\ApiException;
 use App\Services\CourseService;
 use App\Services\EnrollmentService;
 use App\Support\ProgressoDoAluno;
@@ -173,6 +174,140 @@ final class AreaDoAlunoController extends Controller
         usort($lista, static fn (array $a, array $b): int => $ordem($a) <=> $ordem($b));
 
         return $lista;
+    }
+
+    /**
+     * Catálogo do aluno — a nova casa da matrícula.
+     *
+     * Ela vivia no painel, na seção "Disciplinas acadêmicas disponíveis", que a
+     * skill removeu. Decisão de 19/10: tirar do lugar sem tirar a função.
+     *
+     * Mostra o que o aluno **ainda não tem**. Curso em que ele já está não é
+     * oferta: continuar listando-o faria o cartão prometer uma matrícula que o
+     * servidor recusaria.
+     */
+    public function catalogo(Request $request): View
+    {
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        $matricula = $this->matriculaDe($aluno);
+        $meus = $this->idsDoAluno($matricula);
+
+        $disponiveis = [];
+        foreach ($this->cursosPorId($aluno) as $id => $curso) {
+            if (! in_array($id, $meus, true)) {
+                $disponiveis[] = $curso;
+            }
+        }
+
+        return view('aluno.catalogo', [
+            'cursos' => $disponiveis,
+            'concluidos' => $this->concluidos($matricula, $this->cursosPorId($aluno), $aluno),
+            'podeMatricular' => $this->podeMatricular($matricula),
+        ]);
+    }
+
+    /** Ficha do curso no catálogo: o que ele é, antes de a pessoa se matricular. */
+    public function fichaDoCatalogo(Request $request, string $cursoRef): View|RedirectResponse
+    {
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        $curso = $this->cursosPorId($aluno)[$resolvido['id']] ?? null;
+        abort_if($curso === null, 404);
+
+        $matricula = $this->matriculaDe($aluno);
+
+        // Já é dele: a ficha do catálogo não serve para nada, e a tela do curso
+        // sim. Mandar para lá é o que a pessoa queria ao clicar.
+        if (in_array($resolvido['id'], $this->idsDoAluno($matricula), true)) {
+            return redirect('/aluno/curso/'.($resolvido['slug'] !== '' ? $resolvido['slug'] : $resolvido['id']));
+        }
+
+        if (! $resolvido['canonico'] && $resolvido['slug'] !== '') {
+            return redirect('/aluno/catalogo/'.$resolvido['slug']);
+        }
+
+        return view('aluno.catalogo-ficha', [
+            'curso' => $curso,
+            'aulas' => $this->aulasEmOrdem($curso, $aluno),
+            'concluidos' => $this->concluidos($matricula, $this->cursosPorId($aluno), $aluno),
+            'podeMatricular' => $this->podeMatricular($matricula),
+        ]);
+    }
+
+    /**
+     * Efetiva a matrícula.
+     *
+     * Quem decide se pode é o `EnrollmentService` — penalidade por desistência,
+     * matrícula concorrente e duplicidade são regra de negócio dele, e
+     * reescrevê-las aqui criaria uma segunda verdade sobre quem pode estudar o
+     * quê. O controller só pergunta e traduz a resposta para a tela.
+     *
+     * O "Termo de Ciência" é validado NO SERVIDOR (`accepted`). No React ele só
+     * desabilitava o botão — e botão desabilitado não é regra, é sugestão.
+     */
+    public function matricular(Request $request, string $cursoRef): RedirectResponse
+    {
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        $request->validate(
+            ['ciente' => ['accepted']],
+            ['ciente.accepted' => 'É preciso confirmar que leu as regras de matrícula e certificação.'],
+        );
+
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        abort_if(! isset($this->cursosPorId($aluno)[$resolvido['id']]), 404);
+
+        try {
+            $this->matriculas->selfEnroll($resolvido['id'], $aluno);
+        } catch (ApiException $erro) {
+            return back()->withErrors(['matricula' => $erro->getMessage()]);
+        }
+
+        $destino = $resolvido['slug'] !== '' ? $resolvido['slug'] : $resolvido['id'];
+
+        return redirect('/aluno/curso/'.$destino)
+            ->with('aviso', 'Matrícula realizada. Você já pode iniciar seus estudos.');
+    }
+
+    /**
+     * Todos os cursos que o aluno tem: em andamento e concluídos.
+     *
+     * @param  array<string, mixed>  $matricula
+     * @return list<string>
+     */
+    private function idsDoAluno(array $matricula): array
+    {
+        $concluidos = is_array($matricula['completedCourseIds'] ?? null) ? $matricula['completedCourseIds'] : [];
+
+        return array_values(array_unique(array_merge(
+            $this->idsEmAndamento($matricula),
+            array_values(array_filter($concluidos, static fn (mixed $id): bool => is_string($id))),
+        )));
+    }
+
+    /**
+     * O aluno pode assumir mais um curso agora?
+     *
+     * Espelha a leitura do painel React: sem curso ativo, pode; com curso
+     * ativo, só quando a coordenação concedeu matrícula concorrente. Isto é
+     * **só para a tela** — quem recusa de verdade é o service, e é por isso que
+     * a tentativa continua indo até ele mesmo quando esta conta diz que não.
+     *
+     * @param  array<string, mixed>  $matricula
+     */
+    private function podeMatricular(array $matricula): bool
+    {
+        if ($this->idsEmAndamento($matricula) === []) {
+            return true;
+        }
+
+        return config('features.matriculasMultiplas') === true
+            && ($matricula['canMultiEnroll'] ?? false) === true;
     }
 
     /**
