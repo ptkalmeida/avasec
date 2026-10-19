@@ -12,7 +12,19 @@
     "Prefixo terminado em \"-\" é FAMÍLIA: cobre tudo que começa com ele. Existe por causa do",
     "Livewire, que serve seus endpoints em /livewire-<hash>, com o hash derivado da APP_KEY",
     "— de propósito, para dificultar varredura automatizada. O hash muda por ambiente, então",
-    "escrevê-lo aqui funcionaria em DEV e quebraria em HML e PRD."
+    "escrevê-lo aqui funcionaria em DEV e quebraria em HML e PRD.",
+    "",
+    "\"exatos\" existe para migrar uma ÁRVORE por partes. /aluno tem dez telas e só três",
+    "passaram para Blade; declará-lo em \"prefixos\" mandaria /aluno/certificados ao Laravel",
+    "também, e lá ele cairia no fallback, que serve o React a partir de dist/ — o build de",
+    "produção, não o que o Vite tem em mãos. A tela abriria em branco só na máquina de quem",
+    "desenvolve. Em produção o problema não existe: o Nginx já manda tudo ao Laravel e a",
+    "tabela de rotas decide. Por isso a correção fica no proxy, que é onde o defeito mora.",
+    "",
+    "Cada entrada de \"exatos\" é a URI da rota do Laravel, com a barra inicial e os",
+    "parâmetros entre chaves — a mesma grafia de routes/web.php. O Vite a converte em",
+    "expressão regular ancorada ({param} vira um segmento), e o RoteadorMpaTest compara a",
+    "entrada com a URI registrada, sem traduzir nada."
   ],
   "prefixos": [
     "/api",
@@ -29,5 +41,9 @@
     "/orientacoes",
     "/cursos",
     "/livewire-"
+  ],
+  "exatos": [
+    "/aluno",
+    "/aluno/curso/{cursoRef}"
   ]
 }

@@ -48,6 +48,32 @@
    * `ava-ciano` e enfeite e indicador: NAO carrega texto (2,88:1 sobre
    * branco). `ava-ciano-texto` e o que carrega (4,97:1).
    */
+  /*
+   * Lilas de apoio, pedido pela skill `redesenhar-ava-lms` (19/10/2026) e
+   * aprovado pelo humano no mesmo dia: a paleta deixa de ser so azul e passa a
+   * combinar fundo neutro com MAIS DE UMA cor de apoio, sem pintar a tela
+   * inteira de uma cor so.
+   *
+   * Ele NAO substitui `--color-ava-acao`: acao continua azul, porque trocar a
+   * cor do botao principal mudaria o significado aprendido de todo o portal. O
+   * lilas marca ESTADO (item ativo do menu lateral, marcador, etiqueta) e
+   * superficie de apoio — que e exatamente onde a skill o pede.
+   *
+   * #6D28D9 da 7,12:1 sobre branco, entao serve tambem para texto, e nao so
+   * para fundo; o par claro e superficie, nunca texto. A skill proibe aparencia
+   * pastel lavada, por isso o tom cheio e saturado, e nao um lilas de nevoa.
+   *
+   * Fica AQUI, no `@theme`, e nao dentro de `.tema-ava`: e o `@theme` que faz o
+   * Tailwind gerar as utilidades (`bg-ava-lilas`, `text-ava-lilas`). Declarado
+   * so no bloco do tema, o valor existia e a classe nao — a barra de progresso
+   * do painel saiu VAZIA, com o preenchimento pintado de nada. Variavel
+   * redefinida em `.tema-ava` muda o valor de uma utilidade que ja existe; nao
+   * cria utilidade nova.
+   */
+  --color-ava-lilas: #6D28D9;
+  --color-ava-lilas-fundo: #F1ECFE;
+  --color-ava-lilas-borda: #D9CCFB;
+
   --color-ava-acao: #540D6E;
   --color-ava-acao-escuro: #42095a;
   --color-ava-tinta: #1d2432;
@@ -214,22 +240,6 @@
   --color-escult-purple-dark: #003070;
   --font-titulo: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  /* Lilas de apoio, pedido pela skill `redesenhar-ava-lms` (19/10/2026) e
-     aprovado pelo humano no mesmo dia: a paleta deixa de ser so azul e passa a
-     combinar fundo neutro com MAIS DE UMA cor de apoio, sem pintar a tela
-     inteira de uma cor so.
-
-     Ele nao substitui `--color-ava-acao`: acao continua azul, porque trocar a
-     cor do botao principal mudaria o significado aprendido de todo o portal.
-     O lilas marca ESTADO (item ativo do menu lateral, marcador, etiqueta) e
-     superficie de apoio — que e exatamente onde a skill o pede.
-
-     #6D28D9 da 7,12:1 sobre branco, entao serve tambem para texto, e nao so
-     para fundo; o par claro e superficie, nunca texto. A skill proibe aparencia
-     pastel lavada, por isso o tom cheio e saturado, e nao um lilas de nevoa. */
-  --color-ava-lilas: #6D28D9;
-  --color-ava-lilas-fundo: #F1ECFE;
-  --color-ava-lilas-borda: #D9CCFB;
 }
 
 /* A Inter so parece "sans pesada" com peso alto e entreletra fechada; a

@@ -68,12 +68,27 @@ export function emitirToken(email: string): string {
 export async function entrarComoAluno(page: Page, email = 'joao.silva@lms.edu'): Promise<void> {
   const token = emitirToken(email);
 
+  /*
+   * `localhost` e `127.0.0.1` são origens diferentes para o cookie. O padrão do
+   * harness é `localhost` (baseURL do playwright.config), mas quem roda apontando
+   * direto para o Laravel usa `127.0.0.1` — e aí o cookie não acompanha, a tela
+   * redireciona para o login e o teste falha dizendo "não achei o painel".
+   */
+  const base = process.env.AVASEC_URL ?? 'http://localhost:5173';
+
   await page.context().addCookies([
-    { name: 'ava_session', value: token, domain: 'localhost', path: '/', httpOnly: true },
+    { name: 'ava_session', value: token, url: base, httpOnly: true },
   ]);
 
   await page.goto('/aluno');
-  await expect(page.getByRole('button', { name: /sair/i }).first()).toBeVisible();
+
+  /*
+   * A confirmação mudou junto com a tela: `/aluno` passou a ser Blade (fase M3)
+   * e a saudação é o que sempre existe nela, com ou sem curso. Antes se esperava
+   * o botão "Sair" do cabeçalho do React — que nesta tela não existe mais, porque
+   * quem encerra a sessão continua sendo o portal (ver barra-estreita.blade.php).
+   */
+  await expect(page.getByRole('heading', { level: 1, name: /^Olá, / })).toBeVisible();
 }
 
 /**
@@ -85,22 +100,14 @@ export async function entrarComoAluno(page: Page, email = 'joao.silva@lms.edu'):
  */
 export async function abrirPrimeiraAula(page: Page): Promise<void> {
   /*
-   * Dois rótulos porque há dois caminhos de entrada: "Continuar curso", na
-   * seção "Meus cursos" do painel, e "Entrar na sala de aula", que sobrevive no
-   * cartão do curso com vigência encerrada e na ficha do catálogo.
+   * O caminho até a aula atravessa as duas tecnologias enquanto a migração
+   * durar: painel e curso já são Blade (links), e a aula ainda é React. Por
+   * isso `getByRole('link')` nos dois primeiros passos e `button` no último —
+   * o mesmo passo com o papel errado falha com "elemento não encontrado", que
+   * manda procurar o problema no lugar errado.
    */
-  await page
-    .getByRole('button', { name: /continuar curso|entrar na sala de aula/i })
-    .first()
-    .click();
-
-  const iniciar = page.getByRole('button', { name: /iniciar primeira aula|continuar de onde parei/i });
-  if (await iniciar.count()) {
-    await iniciar.first().click();
-  } else {
-    // Curso já começado: a primeira aula da trilha serve igual.
-    await page.getByRole('button', { name: /^\s*1[\.\s]/ }).first().click();
-  }
+  await page.getByRole('link', { name: /^Continuar curso$/ }).first().click();
+  await page.getByRole('link', { name: /^Iniciar aula$/ }).click();
 
   await expect(page.getByRole('button', { name: /material didático/i })).toBeVisible();
 }

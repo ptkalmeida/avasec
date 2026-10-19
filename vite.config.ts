@@ -14,9 +14,28 @@ import {defineConfig} from 'vite';
  * `RoteadorMpaTest` falha se uma rota do Laravel não estiver no JSON.
  */
 const alvoLaravel = process.env.LARAVEL_URL || 'http://127.0.0.1:8000';
-const {prefixos} = JSON.parse(
+const {prefixos, exatos = []} = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, 'rotas-laravel.json'), 'utf-8'),
-) as {prefixos: string[]};
+) as {prefixos: string[]; exatos?: string[]};
+
+/*
+ * Caminho EXATO vira expressão regular ancorada.
+ *
+ * O Vite trata uma chave começada em `^` como regex, e é disso que a migração
+ * de uma árvore por partes depende: `/aluno` precisa chegar ao Laravel, e
+ * `/aluno/certificados` — que ainda é React — não. Como prefixo, o primeiro
+ * arrastaria o segundo junto, e o segundo abriria em branco em desenvolvimento,
+ * porque o fallback do Laravel serve o `dist/` e o Vite não tem aqueles assets.
+ *
+ * `{param}` é um segmento: a entrada é a URI da rota do Laravel, copiada como
+ * está, para não existirem duas grafias da mesma rota.
+ */
+const paraRegex = (uri: string): string =>
+  '^'
+  + uri
+    .replace(/[.*+?^${}()|[\]\\]/g, (c) => (c === '{' || c === '}' ? c : `\\${c}`))
+    .replace(/\{[^}]+\}/g, '[^/]+')
+  + '$';
 
 /*
  * `changeOrigin: false`, e isto não é detalhe.
@@ -33,9 +52,10 @@ const {prefixos} = JSON.parse(
  * que volta pelo proxy. Para as chamadas do React nada muda: elas sempre foram
  * relativas.
  */
-const proxyDoLaravel = Object.fromEntries(
-  prefixos.map((prefixo) => [prefixo, {target: alvoLaravel, changeOrigin: false}]),
-);
+const proxyDoLaravel = Object.fromEntries([
+  ...prefixos.map((prefixo) => [prefixo, {target: alvoLaravel, changeOrigin: false}]),
+  ...exatos.map((uri) => [paraRegex(uri), {target: alvoLaravel, changeOrigin: false}]),
+]);
 
 export default defineConfig(() => {
   return {

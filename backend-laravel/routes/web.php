@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AppShellController;
+use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\PaginaPublicaController;
 use App\Http\Controllers\UploadController;
 use Illuminate\Support\Facades\Route;
@@ -55,6 +56,23 @@ Route::get('/orientacoes', [PaginaPublicaController::class, 'orientacoes'])->nam
  * passa a ser servida pelo Blade, no mesmo endereço.
  */
 Route::get('/cursos', [PaginaPublicaController::class, 'cursos'])->name('publico.cursos');
+
+/*
+ * Área do aluno — fase M3, telas 3, 4 e 5 do redesenho (plano 18).
+ *
+ * `aluno.web` lê o MESMO cookie JWT que a API já usa; o que muda é o destino de
+ * quem não passa — o login, e não um JSON de erro. O fluxo de autenticação não
+ * foi tocado (ver App\Http\Middleware\AreaDoAluno).
+ *
+ * As rotas são declaradas uma a uma, e não como grupo com prefixo: `/aluno` é
+ * uma árvore de dez telas e só três migraram. O que não está aqui continua
+ * caindo no fallback e sendo servido pelo React — e `rotas-laravel.json` as
+ * declara em "exatos" para que o proxy de desenvolvimento faça o mesmo recorte.
+ */
+Route::middleware('aluno.web')->group(function (): void {
+    Route::get('/aluno', [AreaDoAlunoController::class, 'painel'])->name('aluno.painel');
+    Route::get('/aluno/curso/{cursoRef}', [AreaDoAlunoController::class, 'curso'])->name('aluno.curso');
+});
 
 /*
  * Tudo que não foi migrado: o SPA React.

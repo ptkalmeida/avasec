@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -115,9 +116,10 @@ final class RoteadorMpaTest extends TestCase
         $arquivo = base_path('../rotas-laravel.json');
         $this->assertFileExists($arquivo, 'O contrato de rotas sumiu; o proxy do Vite depende dele.');
 
-        /** @var array{prefixos: list<string>} $contrato */
+        /** @var array{prefixos: list<string>, exatos?: list<string>} $contrato */
         $contrato = json_decode((string) file_get_contents($arquivo), true, 512, JSON_THROW_ON_ERROR);
         $prefixos = $contrato['prefixos'];
+        $exatos = $contrato['exatos'] ?? [];
 
         $descobertas = [];
 
@@ -125,6 +127,17 @@ final class RoteadorMpaTest extends TestCase
             $caminho = '/'.ltrim($rota->uri(), '/');
 
             if (in_array($caminho, self::FORA_DA_REGRA, true) || $rota->isFallback) {
+                continue;
+            }
+
+            /*
+             * Caminho exato cobre a rota e NADA abaixo dela — é o que permite
+             * migrar `/aluno` sem arrastar `/aluno/certificados`, que ainda é
+             * React. A comparação é literal contra a URI registrada, inclusive
+             * os `{param}`: traduzir dos dois lados criaria duas grafias da
+             * mesma rota, e elas divergiriam.
+             */
+            if (in_array($caminho, $exatos, true)) {
                 continue;
             }
 
@@ -171,7 +184,7 @@ final class RoteadorMpaTest extends TestCase
      */
     public function test_contrato_de_rotas_e_json_valido_e_sem_prefixo_repetido(): void
     {
-        /** @var array{prefixos: list<string>} $contrato */
+        /** @var array{prefixos: list<string>, exatos?: list<string>} $contrato */
         $contrato = json_decode(
             (string) file_get_contents(base_path('../rotas-laravel.json')),
             true,
@@ -187,6 +200,58 @@ final class RoteadorMpaTest extends TestCase
         foreach ($prefixos as $prefixo) {
             $this->assertStringStartsWith('/', $prefixo, "Prefixo sem barra inicial: {$prefixo}");
             $this->assertSame(rtrim($prefixo, '/'), $prefixo, "Prefixo com barra final: {$prefixo}");
+        }
+
+        $exatos = $contrato['exatos'] ?? [];
+        $this->assertSame(array_values(array_unique($exatos)), $exatos, 'Caminho exato repetido no contrato.');
+
+        foreach ($exatos as $uri) {
+            $this->assertStringStartsWith('/', $uri, "Caminho exato sem barra inicial: {$uri}");
+            $this->assertSame(rtrim($uri, '/'), $uri, "Caminho exato com barra final: {$uri}");
+
+            // Um caminho exato que também está coberto por um prefixo não faz
+            // nada — e esconde a intenção de quem lê o contrato depois.
+            foreach ($prefixos as $prefixo) {
+                $coberto = str_ends_with($prefixo, '-')
+                    ? Str::startsWith($uri, $prefixo)
+                    : ($uri === $prefixo || Str::startsWith($uri, rtrim($prefixo, '/').'/'));
+
+                $this->assertFalse($coberto, "O caminho exato {$uri} já está coberto pelo prefixo {$prefixo}.");
+            }
+        }
+    }
+
+    /**
+     * A promessa que o caminho exato faz: cobre a rota e **nada** abaixo dela.
+     *
+     * Sem esta linha, declarar `/aluno` mandaria `/aluno/certificados` — que
+     * ainda é React — ao Laravel em desenvolvimento, e ela abriria em branco
+     * porque o fallback serve o `dist/` e o Vite não tem aqueles assets.
+     */
+    public function test_caminho_exato_nao_arrasta_o_que_esta_abaixo_dele(): void
+    {
+        /** @var array{exatos?: list<string>} $contrato */
+        $contrato = json_decode(
+            (string) file_get_contents(base_path('../rotas-laravel.json')),
+            true,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        foreach ($contrato['exatos'] ?? [] as $uri) {
+            if (str_contains($uri, '{')) {
+                continue; // Rota com parâmetro: o filho dela é outra rota exata.
+            }
+
+            $filho = $uri.'/uma-secao-que-ainda-nao-migrou';
+            $rota = Route::getRoutes()->match(
+                Request::create($filho, 'GET')
+            );
+
+            $this->assertTrue(
+                $rota->isFallback,
+                "{$filho} devia cair no fallback (React), e não numa rota Blade.",
+            );
         }
     }
 }
