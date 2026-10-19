@@ -46,6 +46,15 @@ Route::get('/uploads/{filename}', [UploadController::class, 'servePublic'])
  */
 Route::get('/o-ava', [PaginaPublicaController::class, 'oAva'])->name('publico.o-ava');
 Route::get('/duvidas', [PaginaPublicaController::class, 'duvidas'])->name('publico.duvidas');
+Route::get('/o-projeto', [PaginaPublicaController::class, 'oProjeto'])->name('publico.o-projeto');
+Route::get('/orientacoes', [PaginaPublicaController::class, 'orientacoes'])->name('publico.orientacoes');
+
+/*
+ * Catálogo público — primeira tela da fase M2, e a primeira do redesenho das
+ * cinco telas (plano 18). A URL não muda: `/cursos` era servida pelo React e
+ * passa a ser servida pelo Blade, no mesmo endereço.
+ */
+Route::get('/cursos', [PaginaPublicaController::class, 'cursos'])->name('publico.cursos');
 
 /*
  * Tudo que não foi migrado: o SPA React.

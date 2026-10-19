@@ -4435,7 +4435,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                 {/* Official Header */}
                 <div className="border-b border-double border-slate-300 pb-5 text-center space-y-2">
                   <span className="text-sobretitulo bg-slate-900 text-white px-2.5 py-0.5 rounded uppercase">Via Homologada de Autenticidade</span>
-                  <h3 className="text-base font-black uppercase text-slate-950 tracking-tight leading-none mt-1">Escola Estadual da Cultura</h3>
+                  <h3 className="text-base font-black uppercase text-slate-950 tracking-tight leading-none mt-1">Escola Estadual da Cultura RJ</h3>
                   <p className="text-sobretitulo text-escult-ink-2 uppercase mt-1.5">Setor de Registros e Certificações</p>
                 </div>
 
@@ -4564,7 +4564,7 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
                     </div>
 
                     <p className="text-rotulo text-slate-700 leading-relaxed text-justify indent-8 pt-2">
-                      Declaramos, para os devidos fins de direito e comprovação institucional acadêmica, que o estudante <strong className="font-bold text-slate-950 uppercase">{activeDocViewer.studentName}</strong> encontra-se regularmente cadastrado e ativamente matriculado nos sistemas desta Escola Estadual da Cultura, participando da grade didática atual no ano letivo corrente de 2026.
+                      Declaramos, para os devidos fins de direito e comprovação institucional acadêmica, que o estudante <strong className="font-bold text-slate-950 uppercase">{activeDocViewer.studentName}</strong> encontra-se regularmente cadastrado e ativamente matriculado nos sistemas desta Escola Estadual da Cultura RJ, participando da grade didática atual no ano letivo corrente de 2026.
                     </p>
 
                     <p className="text-rotulo text-slate-700 leading-normal text-justify">

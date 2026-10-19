@@ -57,7 +57,7 @@ export const ProjetoPage: React.FC<ProjetoPageProps> = ({ content }) => {
             <div className="w-full h-full rounded-2xl overflow-hidden shadow-xl relative bg-ava-marinho">
               <img
                 src={imageUrl}
-                alt="Escola Estadual da Cultura"
+                alt="Escola Estadual da Cultura RJ"
                 className="w-full h-full object-cover filter brightness-95"
                 referrerPolicy="no-referrer"
               />
@@ -68,7 +68,7 @@ export const ProjetoPage: React.FC<ProjetoPageProps> = ({ content }) => {
         {/* Texto e pilares do plano político-pedagógico */}
         <div className="lg:col-span-7 space-y-6 text-left">
           <p className="text-corpo text-escult-ink-2 leading-relaxed">
-            {pageField(content, 'description', 'A Escola Estadual da Cultura é um projeto estratégico estatal gerido pela Diretoria de Formação e Qualificação de Trabalhadores da Cultura. Nosso plano político-pedagógico tem como compromisso democratizar as ferramentas da Economia Criativa.')}
+            {pageField(content, 'description', 'A Escola Estadual da Cultura RJ é um projeto estratégico estatal gerido pela Diretoria de Formação e Qualificação de Trabalhadores da Cultura. Nosso plano político-pedagógico tem como compromisso democratizar as ferramentas da Economia Criativa.')}
           </p>
 
           <div className="space-y-4 pt-2">

@@ -36,7 +36,7 @@ final class ApiException extends RuntimeException
         return new self(
             403,
             'ACCOUNT_BLOCKED',
-            'Seu acesso à Escola Estadual da Cultura foi suspenso. Entre em contato com a coordenação para mais informações.',
+            'Seu acesso à Escola Estadual da Cultura RJ foi suspenso. Entre em contato com a coordenação para mais informações.',
         );
     }
 

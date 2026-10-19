@@ -8,7 +8,7 @@
     versão React eles já eram decoração cíclica (`ICONES[index % 3]`), nunca
     campo editável, e `aria-hidden` desde lá.
 --}}
-<x-layouts.publico :titulo="$pagina['title']" :descricao="$pagina['description']">
+<x-layouts.publico ativo="A Escola" :titulo="$pagina['title']" :descricao="$pagina['description']">
     <x-componentes.moldura-pagina
         :sobretitulo="$pagina['eyebrow']"
         :titulo="$pagina['title']"

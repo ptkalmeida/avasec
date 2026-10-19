@@ -5,7 +5,7 @@
     estático e fica em Blade puro; o acordeão, que é a parte interativa, é um
     componente Livewire — divisão que segue a decisão de 15/10/2026.
 --}}
-<x-layouts.publico :titulo="$pagina['title']" :descricao="$pagina['description']">
+<x-layouts.publico ativo="Ajuda" :titulo="$pagina['title']" :descricao="$pagina['description']">
     <x-componentes.moldura-pagina
         :sobretitulo="$pagina['eyebrow']"
         :titulo="$pagina['title']"

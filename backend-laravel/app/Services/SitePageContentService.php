@@ -164,7 +164,7 @@ final class SitePageContentService
         'o-ava' => [
             'eyebrow' => 'Ecossistema de Qualificação Digital',
             'title' => 'O que é o AVA?',
-            'description' => 'O AVA (Ambiente Virtual de Aprendizagem) da Escola Estadual da Cultura é um ecossistema digital inteligente voltado para a formação continuada, democrático e acessível a todos os fazedores de cultura.',
+            'description' => 'O AVA (Ambiente Virtual de Aprendizagem) da Escola Estadual da Cultura RJ é um ecossistema digital inteligente voltado para a formação continuada, democrático e acessível a todos os fazedores de cultura.',
             'items' => [
                 [
                     'id' => 'ava-1',
@@ -186,7 +186,7 @@ final class SitePageContentService
         'certificados' => [
             'eyebrow' => 'Qualificação Oficial Homologada',
             'title' => 'Certificados e Emissão',
-            'description' => 'Todos os cursos da Escola Estadual da Cultura dão direito a certificados de conclusão oficiais. Entenda os critérios necessários para emissão e valide certificados existentes abaixo.',
+            'description' => 'Todos os cursos da Escola Estadual da Cultura RJ dão direito a certificados de conclusão oficiais. Entenda os critérios necessários para emissão e valide certificados existentes abaixo.',
             'criteriaTitle' => 'Orientações de Aprovação & Emissão',
             'criteriaIntro' => 'Para estar elegível à geração do seu certificado digital, você deve atender aos seguintes critérios letivos na plataforma:',
             'noticeText' => 'Validação por Terceiros: Qualquer instituição pública ou parceira pode validar os certificados emitidos utilizando o nosso autenticador ao lado com o código de registro ou nome completo.',
@@ -213,7 +213,7 @@ final class SitePageContentService
         'o-projeto' => [
             'eyebrow' => 'Iniciativa de fomento público',
             'title' => 'O Projeto Pedagógico',
-            'description' => 'A Escola Estadual da Cultura é um projeto estratégico estatal gerido pela Diretoria de Formação e Qualificação de Trabalhadores da Cultura. Nosso plano político-pedagógico tem como compromisso democratizar as ferramentas da Economia Criativa.',
+            'description' => 'A Escola Estadual da Cultura RJ é um projeto estratégico estatal gerido pela Diretoria de Formação e Qualificação de Trabalhadores da Cultura. Nosso plano político-pedagógico tem como compromisso democratizar as ferramentas da Economia Criativa.',
             'imageUrl' => 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&q=80&w=600',
             'items' => [
                 [
@@ -323,7 +323,7 @@ final class SitePageContentService
         'orientacoes' => [
             'eyebrow' => 'Manual do Estudante',
             'title' => 'Orientações Gerais',
-            'description' => 'Consulte as orientações e diretrizes de como interagir com o AVA da Escola Estadual da Cultura e garanta uma experiência de aprendizado transformadora.',
+            'description' => 'Consulte as orientações e diretrizes de como interagir com o AVA da Escola Estadual da Cultura RJ e garanta uma experiência de aprendizado transformadora.',
             'items' => [
                 [
                     'id' => 'diretriz-1',

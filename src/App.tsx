@@ -50,7 +50,7 @@ function AvasecLogo() {
       <svg className="h-10 w-10 shrink-0" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Background art circle */}
         <circle cx="50" cy="50" r="46" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
-        {/* Segmentos abstratos da identidade visual da Escola Estadual da Cultura */}
+        {/* Segmentos abstratos da identidade visual da Escola Estadual da Cultura RJ */}
         <path d="M35 25h12v40H35z" fill="#3BCEAC" className="opacity-90" /> {/* Green left column */}
         <path d="M47 30h12v25H47z" fill="#EE4266" className="opacity-95" /> {/* Red center bar */}
         <path d="M59 20h12v50H59z" fill="#540D6E" className="opacity-95" /> {/* Blue right column */}
@@ -69,7 +69,7 @@ function AvasecLogo() {
         `justify-between`, e o bloco do logotipo não tinha `shrink-0` — então
         menu, busca e os dois botões o comprimiam até sobrar largura de uma
         palavra. Com `text-sobretitulo` (caixa alta e entreletra `0.12em`),
-        "ESCOLA ESTADUAL DA CULTURA" ocupa perto de 260px: espremido, viravam
+        "ESCOLA ESTADUAL DA CULTURA RJ" ocupa perto de 275px: espremido, viravam
         quatro linhas desalinhadas do símbolo.
 
         Duas linhas DELIBERADAS, com `whitespace-nowrap`, em vez de quebra por
@@ -81,7 +81,7 @@ function AvasecLogo() {
         <span className="text-nota font-semibold uppercase tracking-[0.08em] text-escult-ink-2 mt-1 hidden whitespace-nowrap sm:block">
           Escola Estadual
           <br />
-          da Cultura
+          da Cultura RJ
         </span>
       </div>
     </div>
@@ -304,6 +304,36 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     }
   }, []);
 
+  /*
+   * `?janela=` — como uma tela em Blade chega a uma janela que ainda vive aqui.
+   *
+   * Durante a migração (plano 16) as telas convivem: o cabeçalho e o rodapé já
+   * são Blade, mas login, cadastro e o painel de acessibilidade continuam sendo
+   * modais deste componente. Sem uma porta, o botão "Entrar" de uma tela Blade
+   * não teria destino — e construir um login em Blade agora mexeria no fluxo de
+   * autenticação, que exige validação humana explícita (AGENTS.md).
+   *
+   * O nome do parâmetro não é novo: `?janela=` já é a convenção do painel do
+   * aluno para "janela aberta sobre a tela" (src/router/studentRoutes.ts).
+   *
+   * Limpa o endereço depois de abrir, com `replaceState`: deixar o parâmetro
+   * faria a janela reabrir a cada F5, e o botão Voltar alternaria entre duas
+   * URLs que mostram a mesma tela.
+   */
+  useEffect(() => {
+    const janela = new URLSearchParams(window.location.search).get('janela');
+    if (janela === null) return;
+
+    if (janela === 'login') setIsLoginModalOpen(true);
+    else if (janela === 'cadastro') setIsRegisterModalOpen(true);
+    else if (janela === 'acessibilidade') setIsAccessibilityOpen(true);
+    else return; // Valor desconhecido: não abre nada e não mexe no endereço.
+
+    const limpo = new URL(window.location.href);
+    limpo.searchParams.delete('janela');
+    window.history.replaceState({}, '', `${limpo.pathname}${limpo.search}${limpo.hash}`);
+  }, []);
+
   const speakText = (text: string) => {
     if (!isSpeechEnabled) return;
     if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
@@ -321,7 +351,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
   const translations = {
     pt: {
       heroBadge: "Inscrições Abertas — Cursos Livres de Qualificação",
-      heroTitleLine1: "Escola Estadual da Cultura",
+      heroTitleLine1: "Escola Estadual da Cultura RJ",
       heroTitleLine2: "de Cultura e Economia Criativa",
       heroDesc: "A AVASEC é uma plataforma de cursos on-line destinada à formação e qualificação profissional em Cultura e Economia Criativa por meio da oferta de Cursos Livres. Cadastre-se e comece já!",
       btnDiscover: "Descubra mais",
@@ -343,7 +373,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     },
     en: {
       heroBadge: "Open Applications — Qualification Courses",
-      heroTitleLine1: "Escola Estadual da Cultura",
+      heroTitleLine1: "Escola Estadual da Cultura RJ",
       heroTitleLine2: "of Culture and Creative Economy",
       heroDesc: "AVASEC is an online course platform dedicated to professional qualification in Culture and Creative Economy through the offer of Courses.",
       btnDiscover: "Discover more",
@@ -365,7 +395,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     },
     es: {
       heroBadge: "Inscripciones Abiertas — Cursos Libres de Calificación",
-      heroTitleLine1: "Escola Estadual da Cultura",
+      heroTitleLine1: "Escola Estadual da Cultura RJ",
       heroTitleLine2: "de Cultura y Economía Creativa",
       heroDesc: "AVASEC es una plataforma de cursos en línea dedicada a la capacitación profesional en Cultura y Economía Creativa mediante la oferta de Cursos Libres.",
       btnDiscover: "Descubre más",
@@ -1452,7 +1482,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   </h1>
 
                   <p className="text-escult-ink-2 text-corpo leading-relaxed max-w-2xl">
-                    A AVASEC é o portal de capacitação e qualificação profissional da Escola Estadual da Cultura. Oferecemos cursos livres e de excelência em Cultura, Gestão Cultural, Economia Criativa e Linguagens Artísticas com certificação digital homologada.
+                    A AVASEC é o portal de capacitação e qualificação profissional da Escola Estadual da Cultura RJ. Oferecemos cursos livres e de excelência em Cultura, Gestão Cultural, Economia Criativa e Linguagens Artísticas com certificação digital homologada.
                   </p>
 
                   <div className="flex flex-col sm:flex-row gap-3 pt-2">
@@ -1501,7 +1531,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         Educação pública, gratuita e de qualidade
                       </span>
                       <span className="text-escult-ink-2 text-nota">
-                        Escola Estadual da Cultura
+                        Escola Estadual da Cultura RJ
                       </span>
                       <div className="flex flex-wrap justify-center gap-1.5 pt-1">
                         <span className="rounded-full border border-ava-acao/30 text-ava-acao text-nota font-semibold px-2.5 py-0.5">✦ Criatividade</span>
@@ -1614,7 +1644,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   </div>
 
                   <p className="text-apoio text-escult-ink-2 leading-relaxed">
-                    A Escola Estadual da Cultura foi lançada em janeiro de 2024 e é promovida pela Diretoria de Políticas para Trabalhadores da Cultura e da Economia Criativa por meio da Coordenação de Capacitação e Qualificação Profissional. Veja aqui os resultados já alcançados de nossa rede:
+                    A Escola Estadual da Cultura RJ foi lançada em janeiro de 2024 e é promovida pela Diretoria de Políticas para Trabalhadores da Cultura e da Economia Criativa por meio da Coordenação de Capacitação e Qualificação Profissional. Veja aqui os resultados já alcançados de nossa rede:
                   </p>
 
                   <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4 pt-2">
@@ -1712,7 +1742,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <div className="space-y-3 text-center">
                   <p className="filete text-sobretitulo text-ava-tinta uppercase">Nossa concepção</p>
                   <h2 className="text-3xl md:text-secao tracking-tight font-titulo text-ava-tinta">A educação que orienta esta escola</h2>
-                  <p className="text-escult-ink-2 font-sans tracking-wide text-nota">Escola Estadual da Cultura</p>
+                  <p className="text-escult-ink-2 font-sans tracking-wide text-nota">Escola Estadual da Cultura RJ</p>
                 </div>
 
                 <p className="text-escult-ink-2 text-apoio leading-relaxed max-w-2xl mx-auto text-center">
@@ -1801,7 +1831,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           <PageShell
             eyebrow={pageField(certContent, 'eyebrow', 'Qualificação Oficial Homologada')}
             title={pageField(certContent, 'title', 'Certificados e Emissão')}
-            description={pageField(certContent, 'description', 'Todos os cursos da Escola Estadual da Cultura dão direito a certificados de conclusão oficiais. Entenda os critérios necessários para emissão e valide certificados existentes abaixo.')}
+            description={pageField(certContent, 'description', 'Todos os cursos da Escola Estadual da Cultura RJ dão direito a certificados de conclusão oficiais. Entenda os critérios necessários para emissão e valide certificados existentes abaixo.')}
             align="center"
             background="bg-white"
           >
@@ -1942,7 +1972,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                         
                         {certLookupResult.revogado !== true && (
                           <p className="text-apoio text-emerald-700 leading-normal font-medium bg-white/50 p-2.5 rounded-lg border border-emerald-100/50">
-                            Certificado emitido em conformidade com as diretrizes do AVA da Escola Estadual da Cultura. Registro de presença homologado: {certLookupResult.attendancePercent}%.
+                            Certificado emitido em conformidade com as diretrizes do AVA da Escola Estadual da Cultura RJ. Registro de presença homologado: {certLookupResult.attendancePercent}%.
                           </p>
                         )}
                       </div>
@@ -1988,7 +2018,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                 <p className="filete text-sobretitulo text-ava-tinta uppercase">Catálogo</p>
                 <h2 className="text-3xl md:text-pagina text-ava-tinta tracking-tight font-titulo max-w-2xl">Cursos Disponíveis</h2>
                 <p className="text-corpo text-escult-ink-2 leading-relaxed max-w-2xl">
-                  Conheça os cursos oferecidos pela Escola Estadual da Cultura. Use os filtros para encontrar por área ou por nome.
+                  Conheça os cursos oferecidos pela Escola Estadual da Cultura RJ. Use os filtros para encontrar por área ou por nome.
                 </p>
 
                 <div className="relative w-full max-w-xl pt-2">
@@ -2126,7 +2156,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
             <div className="space-y-3">
               <strong className="block text-[22px] font-extrabold text-white ava:text-ava-tinta tracking-tight">AVASEC</strong>
               <p className="text-rotulo leading-relaxed text-[#c3c8d2] ava:text-escult-ink-2 max-w-xs">
-                Ambiente virtual de aprendizagem da Escola Estadual da Cultura.
+                Ambiente virtual de aprendizagem da Escola Estadual da Cultura RJ.
               </p>
             </div>
 
@@ -2191,7 +2221,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
           */}
           <div className="mt-7 pt-4 border-t border-[#313a4a] ava:border-ava-borda flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-apoio text-[#8b93a3] ava:text-escult-ink-2">
-              © 2026 AVASEC — Escola Estadual da Cultura. Todos os direitos reservados.
+              © 2026 AVASEC — Escola Estadual da Cultura RJ. Todos os direitos reservados.
             </p>
 
             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-apoio text-[#8b93a3] ava:text-escult-ink-2">
@@ -2443,7 +2473,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                   <span className="text-sobretitulo uppercase bg-escult-surface text-ava-acao px-2 py-0.5 rounded-md w-fit block">NAVEGAÇÃO COMPLETA</span>
                   <h3 className="font-black text-slate-900 text-sm md:text-base font-titulo flex items-center gap-2">
                     <BookOpen className="h-5 w-5 text-ava-acao" />
-                    <span>Mapa do Site — Escola Estadual da Cultura</span>
+                    <span>Mapa do Site — Escola Estadual da Cultura RJ</span>
                   </h3>
                 </div>
                 <button 
@@ -3150,7 +3180,7 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
                       if (result.pending) {
                         speakText('Cadastro recebido. Seu acesso será liberado após a confirmação da coordenação.');
                         window.alert(
-                          'Cadastro recebido com sucesso!\n\nSeu acesso será liberado assim que a coordenação da Escola Estadual da Cultura confirmar sua matrícula. Depois da confirmação, entre normalmente com seu e-mail e senha.'
+                          'Cadastro recebido com sucesso!\n\nSeu acesso será liberado assim que a coordenação da Escola Estadual da Cultura RJ confirmar sua matrícula. Depois da confirmação, entre normalmente com seu e-mail e senha.'
                         );
                       } else {
                         // Conta já ativa (fluxos administrativos): entra direto.

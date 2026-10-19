@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ $titulo ?? 'AVASEC' }} — Escola Estadual da Cultura</title>
+    <title>{{ $titulo ?? 'AVASEC' }} — Escola Estadual da Cultura RJ</title>
     @if (!empty($descricao))
         <meta name="description" content="{{ $descricao }}">
     @endif
@@ -23,16 +23,24 @@
     --}}
     @livewireStyles
 </head>
-<body class="bg-white font-sans text-ava-tinta antialiased">
+<body class="flex min-h-screen flex-col bg-white font-sans text-ava-tinta antialiased">
     {{--
-        Cabeçalho e rodapé institucionais ainda vivem no React (fase M2). Enquanto
-        isso, as telas migradas saem sem eles — e é por isso que a M1 começa pelas
-        páginas de conteúdo, onde a ausência é visível e inofensiva, e não pela
-        home, onde seria a tela inteira.
+        Cabeçalho e rodapé institucionais passaram a existir em Blade (M2, em
+        19/10/2026). Antes disso as telas migradas saíam sem eles, e era por isso
+        que a M1 começou pelas páginas de conteúdo — onde a ausência era visível
+        e inofensiva — e não pela home, onde seria a tela inteira.
+
+        `$ativo` é o rótulo da entrada do menu que deve acender. A página passa
+        o rótulo do GRUPO quando ela vive dentro de um: em Notícias, acende
+        "A Escola".
     --}}
-    <main>
+    <x-publico.cabecalho :ativo="$ativo ?? null" />
+
+    <main id="conteudo" class="flex-1">
         {{ $slot }}
     </main>
+
+    <x-publico.rodape />
 
     @livewireScripts
 </body>

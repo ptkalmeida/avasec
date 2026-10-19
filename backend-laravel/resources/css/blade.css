@@ -14,3 +14,15 @@
 
 @source '../views/**/*.blade.php';
 @source '../js/**/*.ts';
+
+/*
+ * `x-cloak` esconde o que o Alpine ainda não processou.
+ *
+ * Sem esta regra, o menu suspenso e o painel do menu em telas estreitas
+ * aparecem abertos por uma fração de segundo no carregamento, antes de o
+ * Alpine assumir — e some sozinho, que é o tipo de defeito que ninguém
+ * consegue reproduzir quando vai relatar.
+ */
+[x-cloak] {
+  display: none !important;
+}

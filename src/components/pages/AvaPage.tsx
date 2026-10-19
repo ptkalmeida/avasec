@@ -46,7 +46,7 @@ export const AvaPage: React.FC<AvaPageProps> = ({ content }) => {
     <PageShell
       eyebrow={pageField(content, 'eyebrow', 'Ecossistema de Qualificação Digital')}
       title={pageField(content, 'title', 'O que é o AVA?')}
-      description={pageField(content, 'description', 'O AVA (Ambiente Virtual de Aprendizagem) da Escola Estadual da Cultura é um ecossistema digital inteligente voltado para a formação continuada, democrático e acessível a todos os fazedores de cultura.')}
+      description={pageField(content, 'description', 'O AVA (Ambiente Virtual de Aprendizagem) da Escola Estadual da Cultura RJ é um ecossistema digital inteligente voltado para a formação continuada, democrático e acessível a todos os fazedores de cultura.')}
       align="center"
     >
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

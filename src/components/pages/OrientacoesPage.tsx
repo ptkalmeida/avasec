@@ -47,7 +47,7 @@ export const OrientacoesPage: React.FC<OrientacoesPageProps> = ({ content }) => 
     <PageShell
       eyebrow={pageField(content, 'eyebrow', 'Manual do Estudante')}
       title={pageField(content, 'title', 'Orientações Gerais')}
-      description={pageField(content, 'description', 'Consulte as orientações e diretrizes de como interagir com o AVA da Escola Estadual da Cultura e garanta uma experiência de aprendizado transformadora.')}
+      description={pageField(content, 'description', 'Consulte as orientações e diretrizes de como interagir com o AVA da Escola Estadual da Cultura RJ e garanta uma experiência de aprendizado transformadora.')}
       align="center"
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 text-left">
