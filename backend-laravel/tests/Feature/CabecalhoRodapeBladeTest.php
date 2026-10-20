@@ -96,17 +96,32 @@ final class CabecalhoRodapeBladeTest extends TestCase
         }
     }
 
-    /**
-     * Entrar e Cadastre-se apontam para as telas em Blade (fase M2).
-     * Acessibilidade ainda é janela do React — ela depende do painel de
-     * preferências, que é reimplementação, não cópia (risco 3 do plano 16).
-     */
+    /** Entrar e Cadastre-se apontam para as telas em Blade (fase M2). */
     public function test_as_portas_de_entrada_apontam_para_as_telas_certas(): void
     {
         $resposta = $this->get('/o-ava');
 
         $resposta->assertSee('href="/entrar"', escape: false);
         $resposta->assertSee('href="/cadastro"', escape: false);
-        $resposta->assertSee('href="/?janela=acessibilidade"', escape: false);
+    }
+
+    /**
+     * Nenhum link do portal aponta para uma janela do SPA.
+     *
+     * `?janela=` dependia de um efeito do React que rodava nas páginas públicas
+     * servidas por ele. Desde que a última delas passou para Blade (20/10/2026)
+     * não resta nenhuma, e esses links passaram a levar a lugar nenhum — o caso
+     * concreto era "Acessibilidade" no rodapé.
+     *
+     * O item saiu por decisão do responsável, e o painel fica para quando
+     * existir em Blade (plano 18, §18.4). Este teste existe para o link não
+     * voltar por distração: quem precisa do recurso clicaria, nada aconteceria,
+     * e concluiria que o recurso não funciona.
+     */
+    public function test_nenhum_link_publico_aponta_para_janela_do_spa(): void
+    {
+        foreach (['/', '/o-ava', '/cursos', '/noticias', '/certificados', '/calendario', '/duvidas'] as $rota) {
+            $this->get($rota)->assertDontSee('janela=', escape: false);
+        }
     }
 }

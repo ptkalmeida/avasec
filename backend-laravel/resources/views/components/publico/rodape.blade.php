@@ -6,16 +6,30 @@
     organização do menu (Estudar / A Escola / Ajuda): as duas navegações dizem a
     mesma coisa, e os destinos saem da mesma tabela de rotas.
 
-    ## A acessibilidade, dita com franqueza
+    ## Por que não há item de "Acessibilidade" aqui
 
-    No React, "Acessibilidade" abre um painel cujo estado (alto contraste, corpo
-    de texto, fonte para dislexia, narração) vive em `localStorage`. No MPA isso
-    vira preferência de servidor ou cookie aplicado na renderização — é
-    reimplementação, não cópia, e o plano 16 registra isso como risco 3.
+    O painel de preferências (alto contraste, corpo de texto, fonte para
+    dislexia, narração) vive no React, e seu estado fica em `localStorage`. O
+    item do rodapé apontava para `/?janela=acessibilidade`, contando com um
+    efeito do SPA que abria a janela.
 
-    Enquanto o painel não existe em Blade, o item leva ao SPA com `?janela=`, em
-    vez de sumir do rodapé. Esconder o acesso seria perder a função; apontar
-    para onde ela funciona hoje mantém a função e deixa a dívida visível.
+    Quando a última página pública passou para Blade (20/10/2026), esse efeito
+    deixou de rodar em qualquer endereço público, e o item passou a levar a
+    lugar nenhum. **Link que promete e não entrega é pior que ausência**: quem
+    precisa do recurso clica, não acontece nada, e conclui que o recurso não
+    funciona — em vez de concluir que ainda não existe aqui.
+
+    Por isso o item saiu, por decisão do responsável em 20/10/2026: refazer o
+    painel em Blade é reimplementação, não cópia (risco 3 do plano 16), e fica
+    para depois.
+
+    **Nada foi apagado.** O painel continua inteiro em `src/` e volta ao
+    rodapé assim que existir em Blade — ou assim que houver rota pública para
+    ele. A pendência está escrita no plano 18, §18.4.
+
+    O que é acessibilidade estrutural **continua aqui e não depende do painel**:
+    o salto para o conteúdo, a marcação de página atual por `aria-current`, o
+    contraste do texto e a navegação por cabeçalhos.
 --}}
 
 <footer class="border-t border-ava-linha bg-white font-sans text-escult-ink-2">
@@ -44,7 +58,6 @@
                     'Ajuda' => [
                         ['rotulo' => 'Dúvidas frequentes', 'rota' => '/duvidas'],
                         ['rotulo' => 'Orientações ao estudante', 'rota' => '/orientacoes'],
-                        ['rotulo' => 'Acessibilidade', 'rota' => '/?janela=acessibilidade'],
                     ],
                 ];
             @endphp
@@ -76,10 +89,6 @@
             </p>
 
             <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-apoio text-escult-ink-2">
-                <a href="/?janela=acessibilidade"
-                   class="underline-offset-[3px] transition-colors hover:text-ava-acao hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
-                    Acessibilidade
-                </a>
                 <a href="/o-ava"
                    class="underline-offset-[3px] transition-colors hover:text-ava-acao hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                     O que é o AVA
