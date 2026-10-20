@@ -6,9 +6,19 @@
     depois: descobrir que o acesso não é imediato só ao final é o que faz alguém
     tentar entrar três vezes e concluir que o sistema está quebrado.
 
-    Os campos opcionais (município, UF, área de interesse) continuam opcionais —
-    o `AuthService` já os aceita assim, e exigir mais dados do que o sistema usa
-    é coleta sem finalidade.
+    ## Os campos são os do cadastro que já estava no ar
+
+    Nome, CPF, e-mail e senha obrigatórios; nome social, identidade, celular,
+    CEP e endereço opcionais — os "dados cadastrais completos" da ADR 11, que o
+    formulário do React enviava. A primeira versão desta tela (19/10) pedia
+    município, UF e área de interesse no lugar deles: divergia nos dois
+    sentidos, e quem se cadastrou por ela chegou à coordenação sem celular,
+    endereço e nome social. Os três campos antigos continuam ACEITOS pelo
+    servidor, para não quebrar nada; só deixaram de ser pedidos.
+
+    O nome social vem logo depois do nome, e não no fim: é como a pessoa quer
+    ser chamada, e é direito dela (Decreto 8.727/2016) — não um detalhe opcional
+    escondido entre endereço e CEP.
 --}}
 <x-layouts.publico ativo="" titulo="Cadastre-se" descricao="Crie seu cadastro no Ambiente Virtual de Aprendizagem da Escola Estadual da Cultura RJ.">
 
@@ -33,38 +43,37 @@
             @csrf
 
             @php
+                /* nome, rótulo, tipo, obrigatório, autocomplete, inputmode, dica */
                 $campos = [
-                    ['name', 'Nome completo', 'text', true, 'name'],
-                    ['cpf', 'CPF', 'text', true, 'off'],
-                    ['email', 'E-mail', 'email', true, 'email'],
-                    ['municipio', 'Município (opcional)', 'text', false, 'address-level2'],
-                    ['areaInteresse', 'Área de interesse (opcional)', 'text', false, 'off'],
+                    ['name', 'Nome completo', 'text', true, 'name', null, null],
+                    ['nomeSocial', 'Nome social (opcional)', 'text', false, 'nickname', null, 'Como você prefere ser chamado(a).'],
+                    ['cpf', 'CPF', 'text', true, 'off', 'numeric', 'É com ele que você vai entrar na plataforma.'],
+                    ['identidade', 'Identidade / RG (opcional)', 'text', false, 'off', null, null],
+                    ['email', 'E-mail', 'email', true, 'email', null, null],
+                    ['celular', 'Celular (opcional)', 'tel', false, 'tel', 'numeric', null],
+                    ['cep', 'CEP (opcional)', 'text', false, 'postal-code', 'numeric', 'Oito dígitos.'],
+                    ['endereco', 'Endereço (opcional)', 'text', false, 'street-address', null, 'Rua, número, complemento e bairro.'],
                 ];
             @endphp
 
-            @foreach ($campos as [$nome, $rotulo, $tipo, $obrigatorio, $autocomplete])
+            @foreach ($campos as [$nome, $rotulo, $tipo, $obrigatorio, $autocomplete, $modo, $dica])
                 <div class="space-y-1.5">
                     <label for="{{ $nome }}" class="block text-rotulo font-semibold text-ava-tinta">{{ $rotulo }}</label>
                     <input id="{{ $nome }}" name="{{ $nome }}" type="{{ $tipo }}"
                            value="{{ old($nome) }}" autocomplete="{{ $autocomplete }}"
+                           @if ($modo) inputmode="{{ $modo }}" @endif
                            @if ($obrigatorio) required @endif
-                           @error($nome) aria-invalid="true" aria-describedby="erro-{{ $nome }}" @enderror
+                           @if ($dica) aria-describedby="dica-{{ $nome }}{{ $errors->has($nome) ? ' erro-'.$nome : '' }}" @elseif ($errors->has($nome)) aria-describedby="erro-{{ $nome }}" @endif
+                           @error($nome) aria-invalid="true" @enderror
                            class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">
+                    @if ($dica)
+                        <p id="dica-{{ $nome }}" class="text-apoio text-escult-ink-3">{{ $dica }}</p>
+                    @endif
                     @error($nome)
                         <p id="erro-{{ $nome }}" class="text-apoio text-ava-rosa">{{ $message }}</p>
                     @enderror
                 </div>
             @endforeach
-
-            <div class="space-y-1.5">
-                <label for="uf" class="block text-rotulo font-semibold text-ava-tinta">UF (opcional)</label>
-                <input id="uf" name="uf" type="text" maxlength="2" value="{{ old('uf') }}"
-                       autocomplete="address-level1"
-                       class="w-24 rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo uppercase text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">
-                @error('uf')
-                    <p class="text-apoio text-ava-rosa">{{ $message }}</p>
-                @enderror
-            </div>
 
             <div class="space-y-1.5">
                 <label for="password" class="block text-rotulo font-semibold text-ava-tinta">Senha</label>
@@ -73,7 +82,10 @@
                        class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">
                 {{-- A regra vem ANTES da tentativa, não como erro depois dela. --}}
                 <p id="regra-senha" class="text-apoio text-escult-ink-3">
-                    Pelo menos 8 caracteres, com letra maiúscula, minúscula e número.
+                    {{-- É a regra do servidor (StrongPasswordRule), dita como ela é.
+                         Dizia "maiúscula, minúscula e número": mais exigente que
+                         a regra real, e portanto falso. --}}
+                    Pelo menos 8 caracteres, com ao menos uma letra e um número.
                 </p>
                 @error('password')
                     <p class="text-apoio text-ava-rosa">{{ $message }}</p>

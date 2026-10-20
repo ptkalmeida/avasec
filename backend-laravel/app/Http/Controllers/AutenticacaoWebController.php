@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
 use App\Http\Middleware\JwtAuthenticate;
+use App\Rules\CepRule;
 use App\Rules\CpfRule;
 use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
@@ -150,6 +151,15 @@ final class AutenticacaoWebController extends Controller
             'email' => ['required', 'email', 'max:254'],
             'cpf' => ['required', 'string', 'max:20', new CpfRule],
             'password' => ['required', 'string', 'max:128', new StrongPasswordRule],
+            // Os mesmos campos opcionais da rota de API, com as mesmas regras:
+            // os dados cadastrais completos da ADR 11 que o formulário do
+            // React enviava, e os três antigos que esta tela pedia na primeira
+            // versão — aceitos para nada quebrar, embora não sejam mais pedidos.
+            'nomeSocial' => ['nullable', 'string', 'max:150'],
+            'identidade' => ['nullable', 'string', 'max:40'],
+            'celular' => ['nullable', 'string', 'max:20'],
+            'cep' => ['nullable', 'string', 'max:20', new CepRule],
+            'endereco' => ['nullable', 'string', 'max:191'],
             'municipio' => ['nullable', 'string', 'max:120'],
             'uf' => ['nullable', 'string', 'max:2'],
             'areaInteresse' => ['nullable', 'string', 'max:120'],
@@ -161,9 +171,14 @@ final class AutenticacaoWebController extends Controller
                 'email' => mb_strtolower(trim((string) $dados['email'])),
                 'password' => (string) $dados['password'],
                 'cpf' => (string) $dados['cpf'],
-                'municipio' => $dados['municipio'] ?? null,
-                'uf' => $dados['uf'] ?? null,
-                'areaInteresse' => $dados['areaInteresse'] ?? null,
+                'nomeSocial' => self::opcional($dados, 'nomeSocial'),
+                'identidade' => self::opcional($dados, 'identidade'),
+                'celular' => self::opcional($dados, 'celular'),
+                'cep' => self::opcional($dados, 'cep'),
+                'endereco' => self::opcional($dados, 'endereco'),
+                'municipio' => self::opcional($dados, 'municipio'),
+                'uf' => self::opcional($dados, 'uf'),
+                'areaInteresse' => self::opcional($dados, 'areaInteresse'),
             ], null);
         } catch (Throwable $erro) {
             return back()
@@ -201,5 +216,26 @@ final class AutenticacaoWebController extends Controller
         $papel = is_string($identidade['role']) ? $identidade['role'] : '';
 
         return redirect(self::RAIZ_DO_PAPEL[$papel] ?? '/');
+    }
+
+    /**
+     * Campo opcional do formulário: texto aparado, ou `null` quando vazio.
+     *
+     * Campo deixado em branco chega como string vazia (o middleware de
+     * conversão o transforma em `null`, mas aqui não se conta com isso), e
+     * gravar "" no lugar de NULL faria "tem nome social?" responder sim para
+     * quem não preencheu.
+     *
+     * @param  array<string, mixed>  $dados
+     */
+    private static function opcional(array $dados, string $campo): ?string
+    {
+        $valor = $dados[$campo] ?? null;
+
+        if (! is_string($valor) || trim($valor) === '') {
+            return null;
+        }
+
+        return trim($valor);
     }
 }

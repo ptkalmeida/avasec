@@ -235,4 +235,107 @@ final class AutenticacaoWebTest extends TestCase
         $this->assertNotNull($criado);
         $this->assertSame('student', $criado->role);
     }
+
+    /**
+     * Os dados cadastrais completos chegam ao banco.
+     *
+     * A primeira versão desta tela pedia município, UF e área de interesse, e
+     * não pedia o que o formulário do React enviava: nome social, identidade,
+     * celular, CEP e endereço. Quem se cadastrou por ela chegou à coordenação
+     * sem nenhum desses dados. Este teste é o que impede a divergência de
+     * voltar — ele confere o BANCO, não o formulário.
+     */
+    public function test_cadastro_grava_os_dados_cadastrais_completos(): void
+    {
+        $email = 'completo-'.uniqid().'@example.com';
+
+        $this->post('/cadastro', [
+            'name' => 'Pessoa Dados Completos',
+            'nomeSocial' => 'Alex',
+            'cpf' => $this->makeCpf(),
+            'identidade' => '12.345.678-9',
+            'email' => $email,
+            'celular' => '(21) 99999-0000',
+            'cep' => '20040-020',
+            'endereco' => 'Rua do Teste, 10',
+            'password' => 'SenhaForte123',
+        ])->assertRedirect('/entrar');
+
+        $criado = User::query()->where('email', $email)->first();
+        $this->assertNotNull($criado);
+        $this->assertSame('Alex', $criado->nomeSocial);
+        $this->assertSame('12.345.678-9', $criado->identidade);
+        $this->assertSame('(21) 99999-0000', $criado->celular);
+        $this->assertNotNull($criado->cep);
+        $this->assertSame('Rua do Teste, 10', $criado->endereco);
+    }
+
+    /**
+     * Campo opcional em branco é ausência, e não texto vazio: gravar "" faria
+     * "tem nome social?" responder sim para quem não preencheu.
+     */
+    public function test_campo_opcional_em_branco_vira_nulo(): void
+    {
+        $email = 'brancos-'.uniqid().'@example.com';
+
+        $this->post('/cadastro', [
+            'name' => 'Pessoa Sem Opcionais',
+            'nomeSocial' => '   ',
+            'cpf' => $this->makeCpf(),
+            'email' => $email,
+            'password' => 'SenhaForte123',
+        ])->assertRedirect('/entrar');
+
+        $criado = User::query()->where('email', $email)->first();
+        $this->assertNotNull($criado);
+        $this->assertNull($criado->nomeSocial);
+    }
+
+    public function test_cep_com_formato_invalido_e_recusado_com_a_mensagem_da_regra(): void
+    {
+        $email = 'cep-ruim-'.uniqid().'@example.com';
+
+        $this->from('/cadastro')->post('/cadastro', [
+            'name' => 'Pessoa Cep Ruim',
+            'cpf' => $this->makeCpf(),
+            'email' => $email,
+            'cep' => '123',
+            'password' => 'SenhaForte123',
+        ])->assertRedirect('/cadastro')->assertSessionHasErrors('cep');
+
+        $this->assertFalse(User::query()->where('email', $email)->exists());
+    }
+
+    /** O formulário pede o mesmo conjunto do cadastro que estava no ar. */
+    public function test_o_formulario_pede_os_campos_do_cadastro_original(): void
+    {
+        $resposta = $this->get('/cadastro');
+
+        foreach (['name', 'nomeSocial', 'cpf', 'identidade', 'email', 'celular', 'cep', 'endereco', 'password'] as $campo) {
+            $resposta->assertSee('name="'.$campo.'"', escape: false);
+        }
+    }
+
+    /**
+     * A dica de senha é a regra do servidor, dita como ela é. Dizia "letra
+     * maiúscula, minúscula e número" — mais exigente que a regra real
+     * (`StrongPasswordRule`: 8 caracteres, uma letra e um número).
+     */
+    public function test_a_dica_de_senha_diz_a_regra_real(): void
+    {
+        $resposta = $this->get('/cadastro');
+
+        $resposta->assertSee('Pelo menos 8 caracteres, com ao menos uma letra e um número.', escape: false);
+        $resposta->assertDontSee('maiúscula', escape: false);
+
+        // E a regra é mesmo essa: só minúsculas e números passa.
+        $email = 'regra-'.uniqid().'@example.com';
+        $this->post('/cadastro', [
+            'name' => 'Pessoa Regra Senha',
+            'cpf' => $this->makeCpf(),
+            'email' => $email,
+            'password' => 'senhasimples1',
+        ])->assertRedirect('/entrar');
+        $this->assertTrue(User::query()->where('email', $email)->exists());
+    }
 }
