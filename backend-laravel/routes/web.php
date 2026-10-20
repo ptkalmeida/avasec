@@ -110,6 +110,8 @@ Route::middleware('aluno.web')->group(function (): void {
     Route::get('/aluno', [AreaDoAlunoController::class, 'painel'])->name('aluno.painel');
     Route::get('/aluno/curso/{cursoRef}', [AreaDoAlunoController::class, 'curso'])->name('aluno.curso');
 
+    Route::get('/aluno/curso/{cursoRef}/aula/{aulaId}', [AreaDoAlunoController::class, 'aula'])->name('aluno.aula');
+
     // Catálogo do aluno: a nova casa da matrícula, que saiu do painel junto com
     // "Disciplinas acadêmicas disponíveis".
     Route::get('/aluno/catalogo', [AreaDoAlunoController::class, 'catalogo'])->name('aluno.catalogo');

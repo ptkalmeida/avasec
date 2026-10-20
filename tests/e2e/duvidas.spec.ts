@@ -19,18 +19,27 @@ test.describe('Dúvidas Frequentes — acordeão em Livewire', () => {
     await expect(page.locator('#root')).toHaveCount(0);
   });
 
+  /*
+   * Tudo aqui é contado DENTRO do conteúdo, e não na página inteira.
+   *
+   * O cabeçalho institucional (fase M2) trouxe os dois grupos do menu, que
+   * também são botões com `aria-expanded` — e a contagem global passou a achar
+   * cinco perguntas onde há três. O acordeão não mudou; o que mudou foi haver
+   * mais página em volta dele.
+   */
+  const acordeao = (page: import('@playwright/test').Page) => page.locator('#conteudo');
+
   test('começa com todas fechadas', async ({ page }) => {
     await page.goto('/duvidas');
 
-    const perguntas = page.getByRole('button', { expanded: false });
-    await expect(perguntas).toHaveCount(3);
-    await expect(page.getByRole('button', { expanded: true })).toHaveCount(0);
+    await expect(acordeao(page).getByRole('button', { expanded: false })).toHaveCount(3);
+    await expect(acordeao(page).getByRole('button', { expanded: true })).toHaveCount(0);
   });
 
   test('abrir uma pergunta mostra a resposta', async ({ page }) => {
     await page.goto('/duvidas');
 
-    const primeira = page.getByRole('button').first();
+    const primeira = acordeao(page).getByRole('button').first();
     await primeira.click();
 
     await expect(primeira).toHaveAttribute('aria-expanded', 'true');
@@ -42,7 +51,7 @@ test.describe('Dúvidas Frequentes — acordeão em Livewire', () => {
   test('abrir outra fecha a anterior — só uma por vez', async ({ page }) => {
     await page.goto('/duvidas');
 
-    const botoes = page.getByRole('button');
+    const botoes = acordeao(page).getByRole('button');
     await botoes.nth(0).click();
     await expect(botoes.nth(0)).toHaveAttribute('aria-expanded', 'true');
 
@@ -54,7 +63,7 @@ test.describe('Dúvidas Frequentes — acordeão em Livewire', () => {
   test('clicar na aberta fecha', async ({ page }) => {
     await page.goto('/duvidas');
 
-    const primeira = page.getByRole('button').first();
+    const primeira = acordeao(page).getByRole('button').first();
     await primeira.click();
     await expect(primeira).toHaveAttribute('aria-expanded', 'true');
 

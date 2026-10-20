@@ -51,6 +51,7 @@
     "/sair",
     "/aluno/catalogo",
     "/aluno/catalogo/{cursoRef}",
-    "/aluno/catalogo/{cursoRef}/matricula"
+    "/aluno/catalogo/{cursoRef}/matricula",
+    "/aluno/curso/{cursoRef}/aula/{aulaId}"
   ]
 }

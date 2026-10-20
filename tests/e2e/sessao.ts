@@ -100,16 +100,19 @@ export async function entrarComoAluno(page: Page, email = 'joao.silva@lms.edu'):
  */
 export async function abrirPrimeiraAula(page: Page): Promise<void> {
   /*
-   * O caminho até a aula atravessa as duas tecnologias enquanto a migração
-   * durar: painel e curso já são Blade (links), e a aula ainda é React. Por
-   * isso `getByRole('link')` nos dois primeiros passos e `button` no último —
-   * o mesmo passo com o papel errado falha com "elemento não encontrado", que
-   * manda procurar o problema no lugar errado.
+   * Painel → curso → aula, os três em Blade (fase M3). A confirmação é a aba
+   * "Material Didático", que só existe dentro de uma aula aberta — sem ela, um
+   * teste de layout passaria medindo a tela errada.
+   *
+   * `role: 'tab'`, e não `button`: no React era um `<button>` solto, e agora a
+   * tira tem papéis de verdade (`tablist`/`tab`), que é o que o leitor de tela
+   * precisa para anunciar "aba 1 de 2". O mesmo passo com o papel antigo falha
+   * com "elemento não encontrado" e manda procurar o problema no lugar errado.
    */
   await page.getByRole('link', { name: /^Continuar curso$/ }).first().click();
   await page.getByRole('link', { name: /^Iniciar aula$/ }).click();
 
-  await expect(page.getByRole('button', { name: /material didático/i })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /material didático/i })).toBeVisible();
 }
 
 /** `true` quando a página inteira rola na horizontal — nunca deve acontecer. */

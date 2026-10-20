@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\ApiException;
 use App\Services\CourseService;
 use App\Services\EnrollmentService;
+use App\Support\ConteudoDaAula;
 use App\Support\ProgressoDoAluno;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -174,6 +175,67 @@ final class AreaDoAlunoController extends Controller
         usort($lista, static fn (array $a, array $b): int => $ordem($a) <=> $ordem($b));
 
         return $lista;
+    }
+
+    /**
+     * Página da aula — tela 5.
+     *
+     * O layout aprovado é o B: título da aula **acima** do vídeo, vídeo em
+     * destaque, conteúdo escrito abaixo em largura de leitura, e a navegação
+     * das aulas recolhida no menu lateral — não na área principal, que fica só
+     * para o conteúdo.
+     *
+     * No lugar de "Aula X de Y" aparece o nome do curso, por decisão da skill:
+     * a posição na grade a pessoa vê na lista; o que ela precisa saber ali é
+     * onde está.
+     *
+     * Saíram: frequência, "frequência cumprida", o ícone decorativo do título,
+     * o selo "Online" e a duração em minutos.
+     */
+    public function aula(Request $request, string $cursoRef, string $aulaId): View|RedirectResponse
+    {
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        $matricula = $this->matriculaDe($aluno);
+        $porId = $this->cursosPorId($aluno);
+        $curso = $porId[$resolvido['id']] ?? null;
+
+        abort_if(
+            $curso === null || ! in_array($resolvido['id'], $this->idsDoAluno($matricula), true),
+            404,
+        );
+
+        if (! $resolvido['canonico'] && $resolvido['slug'] !== '') {
+            return redirect('/aluno/curso/'.$resolvido['slug'].'/aula/'.$aulaId);
+        }
+
+        $aulas = $this->aulasEmOrdem($curso, $aluno);
+        $posicao = null;
+        foreach ($aulas as $i => $aula) {
+            if (($aula['id'] ?? null) === $aulaId) {
+                $posicao = $i;
+                break;
+            }
+        }
+
+        // Aula que não é deste curso não é "aula vazia": é endereço que não
+        // existe. Responder 200 com a moldura e nada dentro esconderia um link
+        // quebrado — inclusive um link nosso, escrito errado.
+        abort_if($posicao === null, 404);
+
+        $aula = $aulas[$posicao];
+
+        return view('aluno.aula', [
+            'curso' => $this->comProgresso($curso, $aluno),
+            'aulas' => $aulas,
+            'aula' => $aula,
+            'blocos' => ConteudoDaAula::analisar(is_string($aula['content'] ?? null) ? $aula['content'] : null)['blocos'],
+            'anterior' => $aulas[$posicao - 1] ?? null,
+            'proxima' => $aulas[$posicao + 1] ?? null,
+            'concluidos' => $this->concluidos($matricula, $porId, $aluno),
+        ]);
     }
 
     /**
