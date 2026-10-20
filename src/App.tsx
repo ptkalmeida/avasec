@@ -9,6 +9,7 @@ import {
   PortalView, pathFromView, viewFromPath, caminhoConhecido, trilhaDaView,
   ehCaminhoAutenticado, caminhoBateComPapel, raizDoPapel,
 } from './router/portalRoutes';
+import { servidoPeloServidor } from './router/rotasDoServidor';
 import { LMSProvider, useLMS } from './context/LMSContext';
 import { StudentDashboard } from './components/StudentDashboard';
 import { InstructorDashboard } from './components/InstructorDashboard';
@@ -170,6 +171,34 @@ const isUserLoggedIn = activeUser && activeUser.name !== '';
     }
     navigate(pathFromView(view));
   };
+
+  /*
+   * Endereço que o SERVIDOR atende não é desenhado aqui.
+   *
+   * O React navega do lado do cliente: um `navigate('/aluno')` não pede nada
+   * ao servidor, e este componente desenharia ali a versão ANTIGA do painel —
+   * o aluno saía de uma seção ainda em React e via o painel de antes do
+   * redesenho, no mesmo endereço em que, recarregando, veria o novo. Aqui a
+   * navegação é entregue ao servidor, que é quem responde por aquele endereço.
+   *
+   * A primeira renderização fica de fora de propósito. O SPA só é servido em
+   * endereço que o servidor NÃO atende; se ele montou num que atende, o
+   * contrato de rotas está defasado em algum lado — e recarregar ali faria a
+   * página pedir a si mesma para sempre.
+   */
+  const primeiraRenderizacao = useRef(true);
+  useEffect(() => {
+    if (primeiraRenderizacao.current) {
+      primeiraRenderizacao.current = false;
+
+      return;
+    }
+
+    if (servidoPeloServidor(location.pathname)) {
+      window.location.assign(location.pathname + location.search + location.hash);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   // Endereço que não é de nenhuma tela vai para a raiz, sem deixar entrada no
   // histórico: senão o Voltar devolveria a pessoa ao endereço quebrado.

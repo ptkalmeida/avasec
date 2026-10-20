@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
+import {paraRegex} from './src/router/rotasDoServidor';
 
 /**
  * Os caminhos que o Laravel atende direto, lidos de `rotas-laravel.json`.
@@ -19,30 +20,11 @@ const {prefixos, exatos = []} = JSON.parse(
 ) as {prefixos: string[]; exatos?: string[]};
 
 /*
- * Caminho EXATO vira expressão regular ancorada.
- *
- * O Vite trata uma chave começada em `^` como regex, e é disso que a migração
- * de uma árvore por partes depende: `/aluno` precisa chegar ao Laravel, e
- * `/aluno/certificados` — que ainda é React — não. Como prefixo, o primeiro
- * arrastaria o segundo junto, e o segundo abriria em branco em desenvolvimento,
- * porque o fallback do Laravel serve o `dist/` e o Vite não tem aqueles assets.
- *
- * `{param}` é um segmento: a entrada é a URI da rota do Laravel, copiada como
- * está, para não existirem duas grafias da mesma rota.
- *
- * A QUERY STRING entra no fim, e isso não é zelo: o Vite casa a chave contra
- * `req.url`, que inclui o `?...`. Sem o trecho opcional, `/?verify=<hash>` —
- * o endereço que o QR impresso no certificado carrega — não casava com `^/$`,
- * caía no fallback do Vite e abria o React. O mesmo valia para `/?janela=login`.
- * Em produção o Nginx manda tudo ao Laravel e o defeito não aparece, o que o
- * torna pior: só quebra na máquina de quem desenvolve, e só com parâmetro.
+ * `paraRegex` mora em `src/router/rotasDoServidor.ts`, e não aqui: o SPA usa a
+ * MESMA regra para saber quando entregar uma navegação ao servidor. Duas cópias
+ * dela discordariam um dia, e o sintoma seria a página recarregando para sempre
+ * — o SPA mandando ao servidor um endereço que o proxy devolveria ao SPA.
  */
-const paraRegex = (uri: string): string =>
-  '^'
-  + uri
-    .replace(/[.*+?^${}()|[\]\\]/g, (c) => (c === '{' || c === '}' ? c : `\\${c}`))
-    .replace(/\{[^}]+\}/g, '[^/]+')
-  + '(\\?.*)?$';
 
 /*
  * `changeOrigin: false`, e isto não é detalhe.
