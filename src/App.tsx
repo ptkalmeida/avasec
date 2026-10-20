@@ -46,8 +46,8 @@ import { demoProfiles } from './dev/demoProfiles';
 // Avasec Logo Component representing the abstract artistic head profile in primary colors
 function AvasecLogo() {
   return (
-    <div className="flex items-center gap-2 select-none">
-      <svg className="h-10 w-10 shrink-0" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div className="flex items-center gap-1.5 sm:gap-2 select-none">
+      <svg className="h-8 w-8 sm:h-10 sm:w-10 shrink-0" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
         {/* Background art circle */}
         <circle cx="50" cy="50" r="46" fill="#f8fafc" stroke="#e2e8f0" strokeWidth="2" />
         {/* Segmentos abstratos da identidade visual da Escola Estadual da Cultura RJ */}
@@ -73,17 +73,21 @@ function AvasecLogo() {
         quatro linhas desalinhadas do símbolo.
 
         Duas linhas DELIBERADAS, com `whitespace-nowrap`, em vez de quebra por
-        acidente: a assinatura passa a ter largura previsível (~120px, próxima
-        da do logotipo "AVASEC") e o conjunto fica alinhado em qualquer largura.
+        acidente: a assinatura tem largura previsível e o conjunto fica
+        alinhado em qualquer largura.
+
+        O logotipo "AVASEC" saiu do topo em 20/10/2026, por decisão do
+        responsável: quem assina a página é a escola. O nome deixou de ser
+        descritor miúdo e passou a ser o texto da marca, visível em TODAS as
+        larguras — antes ele era `hidden` abaixo de `sm`, e tirar a palavra sem
+        mudar isso deixaria a marca sem texto no celular. Mesmo desenho de
+        `marca-avasec.blade.php`; as duas têm de continuar iguais.
       */}
-      <div className="leading-tight text-left">
-        <span className="font-sans font-black text-2xl tracking-tight text-ava-acao block">AVASEC</span>
-        <span className="text-nota font-semibold uppercase tracking-[0.08em] text-escult-ink-2 mt-1 hidden whitespace-nowrap sm:block">
-          Escola Estadual
-          <br />
-          da Cultura RJ
-        </span>
-      </div>
+      <span className="block whitespace-nowrap text-left font-sans text-[13px] font-extrabold leading-tight tracking-tight text-ava-tinta sm:text-base">
+        Escola Estadual
+        <br />
+        da Cultura RJ
+      </span>
     </div>
   );
 }

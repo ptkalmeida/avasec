@@ -47,10 +47,19 @@
     <nav aria-label="Navegação da área do aluno" class="sticky top-0 flex h-screen flex-col gap-1 overflow-y-auto p-3">
 
         <div class="mb-2 flex items-center justify-between gap-2 px-1 pt-1">
-            <a href="/" class="flex items-center gap-2 rounded-[10px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao"
+            {{--
+                A marca do topo é o nome da escola (decisão de 20/10/2026: o
+                "AVASEC" saiu do topo). Recolhido, fica só o símbolo — o nome
+                continua sendo o nome acessível do link, pelo `sr-only`, para o
+                leitor de tela não anunciar um link sem nome.
+            --}}
+            <a href="/" class="flex min-w-0 items-center gap-2 rounded-[10px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao"
                title="Voltar ao portal inicial">
-                <span class="font-sans text-xl font-black tracking-tight text-ava-acao" x-show="!recolhido">AVASEC</span>
-                <span class="font-sans text-xl font-black tracking-tight text-ava-acao" x-show="recolhido" x-cloak>A</span>
+                <x-publico.simbolo-da-escola classe="h-8 w-8" />
+                <span class="whitespace-nowrap font-sans text-sm font-extrabold leading-tight tracking-tight text-ava-tinta"
+                      :class="recolhido ? 'sr-only' : ''">
+                    Escola Estadual<br>da Cultura RJ
+                </span>
             </a>
 
             <button type="button" @click="recolhido = !recolhido"

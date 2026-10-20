@@ -25,7 +25,7 @@ final class CabecalhoRodapeBladeTest extends TestCase
             $resposta = $this->get($rota);
 
             $resposta->assertOk();
-            $resposta->assertSee('AVASEC', escape: false);
+            $resposta->assertSee('Escola Estadual', escape: false);
             $resposta->assertSee('Navegação principal', escape: false);
             $resposta->assertSee('Todos os direitos reservados', escape: false);
 
@@ -122,6 +122,31 @@ final class CabecalhoRodapeBladeTest extends TestCase
     {
         foreach (['/', '/o-ava', '/cursos', '/noticias', '/certificados', '/calendario', '/duvidas'] as $rota) {
             $this->get($rota)->assertDontSee('janela=', escape: false);
+        }
+    }
+
+    /**
+     * A marca do topo é o nome da escola, sem o logotipo "AVASEC" (decisão
+     * do responsável, 20/10/2026).
+     *
+     * Confere DENTRO do `<header>`: a palavra continua existindo no rodapé e
+     * no título da aba, e uma busca na página inteira passaria sem provar nada
+     * sobre o topo.
+     */
+    public function test_a_marca_do_topo_e_o_nome_da_escola_e_nao_avasec(): void
+    {
+        foreach (['/', ...self::TELAS] as $rota) {
+            $html = (string) $this->get($rota)->getContent();
+            $inicio = strpos($html, '<header');
+            $fim = strpos($html, '</header>');
+            $this->assertNotFalse($inicio, "Sem <header> em {$rota}.");
+            $this->assertNotFalse($fim, "Sem </header> em {$rota}.");
+
+            $cabecalho = substr($html, $inicio, $fim - $inicio);
+
+            $this->assertStringContainsString('Escola Estadual', $cabecalho, "Marca sem o nome em {$rota}.");
+            $this->assertStringContainsString('da Cultura RJ', $cabecalho, "Marca sem o nome em {$rota}.");
+            $this->assertStringNotContainsString('AVASEC', $cabecalho, "O logotipo AVASEC voltou ao topo em {$rota}.");
         }
     }
 }

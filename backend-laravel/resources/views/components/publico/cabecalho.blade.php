@@ -41,7 +41,7 @@
          @keydown.escape.window="grupoAberto = null; menuMovel = false"
          class="mx-auto max-w-7xl px-4 md:px-8">
 
-        <div class="flex items-center justify-between gap-4 py-3">
+        <div class="flex items-center justify-between gap-2 py-3 sm:gap-4">
 
             {{-- Marca. O logotipo é a porta de volta ao início; por isso "Início"
                  não ocupa vaga no menu. --}}
