@@ -357,6 +357,31 @@ final class AreaDoAlunoController extends Controller
     }
 
     /**
+     * As seções do aluno que existem no sistema mas estão DESLIGADAS.
+     *
+     * Eventos, solicitações acadêmicas, mensagens, exercícios práticos e sala
+     * ao vivo. Decisão do responsável em 20/10: o servidor passa a atender
+     * esses endereços e diz que a função está indisponível; cada tela é
+     * construída em Blade quando a função for ligada.
+     *
+     * O motivo de o SERVIDOR atender, em vez de deixar com o React: enquanto
+     * um só endereço de `/aluno` sobrasse para o SPA, bastava chegar nele para
+     * voltar a navegar, por dentro do React, às versões antigas de TODAS as
+     * telas já migradas.
+     *
+     * Com a função LIGADA isto não serve: dizer "indisponível" sobre algo que
+     * a escola ligou é mentira. Então a rota responde 501 — a tela ainda não
+     * existe —, e o `SecoesDesligadasDoAlunoTest` falha antes disso, apontando
+     * qual construir.
+     */
+    public function secaoDesligada(string $flag, string $titulo, string $explicacao): View
+    {
+        abort_if(config('features.'.$flag) === true, 501);
+
+        return view('aluno.secao-desligada', ['titulo' => $titulo, 'explicacao' => $explicacao]);
+    }
+
+    /**
      * O curso do endereço, quando é um curso DESTE aluno — a mesma conferência
      * da tela do curso e da aula. Curso alheio ou inexistente é 404.
      *

@@ -18,9 +18,10 @@ test.describe('Fronteira React → Blade na área do aluno', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAluno(page);
 
-    // Eventos ainda é React: o ponto de partida tem o casco do SPA. (Era a
-    // Biblioteca, até ela passar para Blade.)
-    await page.goto('/aluno/eventos');
+    // O painel do instrutor ainda é React: é o que sobrou de ponto de partida
+    // depois de a área do aluno inteira passar para Blade. (Era a Biblioteca,
+    // e depois Eventos.)
+    await page.goto('/inst');
     await expect(page.locator('#root')).toHaveCount(1);
 
     // O item "Painel" do menu do React navega do lado do cliente.

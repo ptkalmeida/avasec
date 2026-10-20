@@ -19,10 +19,28 @@ describe('servidoPeloServidor', () => {
   });
 
   it('exato casa só o próprio caminho, e não arrasta os filhos', () => {
-    // Com regras de exemplo, que não têm a biblioteca: o que não está nelas é React.
-    // Biblioteca ainda é React: entregar ao servidor abriria o casco velho.
+    // Nas REGRAS de exemplo, `/aluno` é exato: o que não está nelas é React.
+    // É assim que uma árvore se migra por partes.
     expect(servidoPeloServidor('/aluno/biblioteca', REGRAS)).toBe(false);
     expect(servidoPeloServidor('/aluno/mensagens', REGRAS)).toBe(false);
+  });
+
+  /*
+   * O prefixo casa na FRONTEIRA do segmento, como faz o RoteadorMpaTest. Com
+   * `startsWith` puro, `/cursos-antigos` seria entregue ao servidor, que o
+   * devolveria ao SPA: a página recarregaria para sempre.
+   */
+  it('prefixo não casa um nome que apenas começa igual', () => {
+    expect(servidoPeloServidor('/cursos-antigos', REGRAS)).toBe(false);
+    expect(servidoPeloServidor('/apiario', REGRAS)).toBe(false);
+    expect(servidoPeloServidor('/cursos/design', REGRAS)).toBe(true);
+  });
+
+  it('família (prefixo terminado em -) casa por início, sem exigir barra', () => {
+    const familia = { prefixos: ['/livewire-'] };
+
+    expect(servidoPeloServidor('/livewire-abc123/update', familia)).toBe(true);
+    expect(servidoPeloServidor('/livewire', familia)).toBe(false);
   });
 
   it('parâmetro entre chaves é um segmento, e só um', () => {
@@ -37,12 +55,19 @@ describe('servidoPeloServidor', () => {
   });
 
   it('lê o contrato de verdade quando não recebe regras', () => {
-    // As telas que já são Blade no contrato real do projeto.
+    /*
+     * A área do aluno INTEIRA é do servidor desde 20/10 — inclusive o endereço
+     * desconhecido, que o Laravel devolve ao painel. Enquanto um só endereço
+     * de `/aluno` sobrasse para o SPA, bastava chegar nele para navegar, por
+     * dentro do React, até as versões antigas das telas já migradas.
+     */
     expect(servidoPeloServidor('/aluno')).toBe(true);
     expect(servidoPeloServidor('/aluno/certificados')).toBe(true);
-    // E as que ainda são React.
-    expect(servidoPeloServidor('/aluno/eventos')).toBe(false);
+    expect(servidoPeloServidor('/aluno/inventado')).toBe(true);
+    expect(servidoPeloServidor('/aluno/curso/x/avaliacoes/y')).toBe(true);
+    // Instrutor e admin ainda são React.
     expect(servidoPeloServidor('/admin')).toBe(false);
+    expect(servidoPeloServidor('/inst')).toBe(false);
   });
 });
 

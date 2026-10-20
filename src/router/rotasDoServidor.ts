@@ -50,6 +50,21 @@ export const paraRegex = (uri: string): string =>
   + '(\\?.*)?$';
 
 /**
+ * O prefixo cobre este caminho?
+ *
+ * Na FRONTEIRA do segmento, como faz o `RoteadorMpaTest`: `/aluno` cobre
+ * `/aluno` e `/aluno/perfil`, e não `/alunos-de-2025`. Com `startsWith` puro,
+ * o SPA entregaria ao servidor um endereço que o servidor devolveria ao SPA.
+ *
+ * Prefixo terminado em `-` é família (`/livewire-<hash>`) e casa por início,
+ * sem exigir barra — é a mesma exceção do teste.
+ */
+const cobertoPor = (caminho: string, prefixo: string): boolean =>
+  prefixo.endsWith('-')
+    ? caminho.startsWith(prefixo)
+    : caminho === prefixo || caminho.startsWith(`${prefixo}/`);
+
+/**
  * O servidor atende este caminho?
  *
  * Mesma semântica do proxy do Vite: prefixo casa por `startsWith`, exato casa
@@ -58,7 +73,7 @@ export const paraRegex = (uri: string): string =>
  * sempre.
  */
 export function servidoPeloServidor(caminho: string, regras: ContratoDeRotas = contrato): boolean {
-  if (regras.prefixos.some((prefixo) => caminho.startsWith(prefixo))) return true;
+  if (regras.prefixos.some((prefixo) => cobertoPor(caminho, prefixo))) return true;
 
   return (regras.exatos ?? []).some((uri) => new RegExp(paraRegex(uri)).test(caminho));
 }

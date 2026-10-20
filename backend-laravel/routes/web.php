@@ -174,6 +174,41 @@ Route::middleware('aluno.web')->group(function (): void {
     Route::get('/aluno/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoAlunoController::class, 'prova'])->name('aluno.prova');
     Route::post('/aluno/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoAlunoController::class, 'responderProva']);
 
+    /*
+     * As seções que existem no sistema mas estão desligadas por flag. O
+     * servidor as atende para que NENHUM endereço de `/aluno` caia no React —
+     * ver AreaDoAlunoController::secaoDesligada.
+     */
+    Route::get('/aluno/eventos', static fn (AreaDoAlunoController $c) => $c->secaoDesligada(
+        'eventosWebinars',
+        'Eventos e webinars',
+        'A escola ainda não abriu eventos e webinars nesta plataforma.',
+    ))->name('aluno.eventos');
+
+    Route::get('/aluno/solicitacoes', static fn (AreaDoAlunoController $c) => $c->secaoDesligada(
+        'solicitacoesAcademicas',
+        'Solicitações',
+        'O pedido de documentos pela plataforma ainda não está aberto; a coordenação do seu curso atende por outros meios.',
+    ))->name('aluno.solicitacoes');
+
+    Route::get('/aluno/mensagens', static fn (AreaDoAlunoController $c) => $c->secaoDesligada(
+        'forum',
+        'Mensagens',
+        'A conversa com resposta dentro da plataforma ainda não está aberta. Você pode enviar uma dúvida ao gestor do curso, que responde pelos canais da escola.',
+    ))->name('aluno.mensagens');
+
+    Route::get('/aluno/curso/{cursoRef}/exercicios', static fn (AreaDoAlunoController $c) => $c->secaoDesligada(
+        'atividadesPraticasAvancadas',
+        'Exercícios práticos',
+        'Os exercícios práticos ainda não estão abertos nesta plataforma.',
+    ))->name('aluno.exercicios');
+
+    Route::get('/aluno/curso/{cursoRef}/ao-vivo/{sessaoId}', static fn (AreaDoAlunoController $c) => $c->secaoDesligada(
+        'liveClassroom',
+        'Sala ao vivo',
+        'A sala ao vivo dentro da plataforma ainda não está aberta. Quando há um encontro com link externo, ele aparece na tela do curso.',
+    ))->name('aluno.ao-vivo');
+
     // Catálogo do aluno: a nova casa da matrícula, que saiu do painel junto com
     // "Disciplinas acadêmicas disponíveis".
     Route::get('/aluno/catalogo', [AreaDoAlunoController::class, 'catalogo'])->name('aluno.catalogo');
@@ -181,6 +216,17 @@ Route::middleware('aluno.web')->group(function (): void {
     Route::post('/aluno/catalogo/{cursoRef}/matricula', [AreaDoAlunoController::class, 'matricular'])
         ->middleware('throttle:enrollment')
         ->name('aluno.matricular');
+
+    /*
+     * Qualquer outro endereço sob `/aluno` volta ao painel. REGISTRADA POR
+     * ÚLTIMO: ela casa com tudo, e antes de outra rota engoliria a tela certa.
+     *
+     * Sem ela, `/aluno/qualquer-coisa` caía no React, que tratava seção
+     * desconhecida como "painel" e desenhava o painel ANTIGO — e dali o aluno
+     * navegava, por dentro do SPA, para as versões velhas de todas as telas já
+     * migradas. É o que fecha a área do aluno: nenhum endereço dela é do React.
+     */
+    Route::get('/aluno/{resto}', static fn () => redirect('/aluno'))->where('resto', '.*');
 });
 
 /*
