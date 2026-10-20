@@ -2,6 +2,7 @@
 
 use App\Exceptions\ApiException;
 use App\Http\Middleware\AreaDoAluno;
+use App\Http\Middleware\AreaDoInstrutor;
 use App\Http\Middleware\FeatureGate;
 use App\Http\Middleware\IdentidadeOpcional;
 use App\Http\Middleware\JwtAuthenticate;
@@ -44,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // Versão web do `jwt`: mesma leitura do mesmo cookie, mas quem não
             // passa é levado ao login em vez de receber JSON de erro.
             'aluno.web' => AreaDoAluno::class,
+            'instrutor.web' => AreaDoInstrutor::class,
             'jwt' => JwtAuthenticate::class,
             'jwt.optional' => OptionalJwt::class,
             'active' => RequireActiveAccount::class,

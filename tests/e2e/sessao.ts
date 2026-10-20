@@ -115,6 +115,25 @@ export async function abrirPrimeiraAula(page: Page): Promise<void> {
   await expect(page.getByRole('tab', { name: /material didático/i })).toBeVisible();
 }
 
+/**
+ * Entra como o instrutor e para na escolha de curso.
+ *
+ * Mesma emissão de token do aluno: a conta de demonstração do gestor é
+ * `professor@avasec.local`, e a senha dela não está no repositório.
+ */
+export async function entrarComoInstrutor(page: Page, email = 'professor@avasec.local'): Promise<void> {
+  const token = emitirToken(email);
+  const base = process.env.AVASEC_URL ?? 'http://localhost:5173';
+
+  await page.context().addCookies([
+    { name: 'ava_session', value: token, url: base, httpOnly: true },
+  ]);
+
+  await page.goto('/inst');
+
+  await expect(page.getByRole('heading', { level: 1, name: /^Meus cursos$/ })).toBeVisible();
+}
+
 /** `true` quando a página inteira rola na horizontal — nunca deve acontecer. */
 export async function rolaNaHorizontal(page: Page): Promise<boolean> {
   return page.evaluate(

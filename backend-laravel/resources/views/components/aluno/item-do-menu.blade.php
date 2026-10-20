@@ -1,25 +1,16 @@
 @props(['rota', 'rotulo', 'ativo' => false, 'icone' => null])
 
 {{--
-    Um item do menu lateral.
+    Um item do menu lateral do ALUNO: a moldura compartilhada mais o ícone
+    desta área.
 
-    Existe como componente porque a regra de "como se mostra o item ativo" é uma
-    só e precisa continuar sendo uma só: fundo lilás claro, marcador lilás à
-    esquerda e `aria-current`. Repetida em nove lugares, ela viraria nove regras
-    parecidas, e a skill proíbe exatamente o que aconteceria em seguida —
-    distinguir o ativo só pela cor da fonte, porque alguém copiou metade.
-
-    Com o menu recolhido sobra o ícone, e o rótulo vira `title` + texto para
-    leitor de tela: ícone sozinho sem nome acessível é botão mudo.
+    A moldura (incluindo "como se mostra o item ativo") mora em
+    `componentes/item-de-menu`, desde que o instrutor ganhou menu próprio —
+    duas cópias daquela regra viram duas regras parecidas. Aqui fica só a
+    escolha do desenho, que é o que de fato muda entre as áreas.
 --}}
 
-<a href="{{ $rota }}"
-   @if ($ativo) aria-current="page" @endif
-   :title="recolhido ? '{{ $rotulo }}' : null"
-   class="flex items-center gap-3 rounded-[10px] px-3 py-2.5 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao
-          {{ $ativo ? 'bg-ava-lilas-fundo shadow-[inset_3px_0_0_0_var(--color-ava-lilas)]' : '' }}">
-
-    <span class="flex h-5 w-5 shrink-0 items-center justify-center {{ $ativo ? 'text-ava-lilas' : 'text-escult-ink-3' }}" aria-hidden="true">
+<x-componentes.item-de-menu :rota="$rota" :rotulo="$rotulo" :ativo="$ativo">
         @switch($icone)
             @case('painel')
                 <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4.25A1.25 1.25 0 0 1 4.25 3h4A1.25 1.25 0 0 1 9.5 4.25v4A1.25 1.25 0 0 1 8.25 9.5h-4A1.25 1.25 0 0 1 3 8.25v-4Zm7.5 0A1.25 1.25 0 0 1 11.75 3h4A1.25 1.25 0 0 1 17 4.25v4a1.25 1.25 0 0 1-1.25 1.25h-4A1.25 1.25 0 0 1 10.5 8.25v-4ZM3 11.75A1.25 1.25 0 0 1 4.25 10.5h4a1.25 1.25 0 0 1 1.25 1.25v4A1.25 1.25 0 0 1 8.25 17h-4A1.25 1.25 0 0 1 3 15.75v-4Zm7.5 0a1.25 1.25 0 0 1 1.25-1.25h4A1.25 1.25 0 0 1 17 11.75v4A1.25 1.25 0 0 1 15.75 17h-4a1.25 1.25 0 0 1-1.25-1.25v-4Z"/></svg>
@@ -46,8 +37,4 @@
                 <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0 1.5c-3 0-5.5 1.7-5.5 3.8V17h11v-1.7c0-2.1-2.5-3.8-5.5-3.8Z"/></svg>
                 @break
         @endswitch
-    </span>
-
-    <span x-show="!recolhido">{{ $rotulo }}</span>
-    <span class="sr-only" x-show="recolhido" x-cloak>{{ $rotulo }}</span>
-</a>
+</x-componentes.item-de-menu>

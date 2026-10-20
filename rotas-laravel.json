@@ -52,6 +52,7 @@
     "/",
     "/entrar",
     "/cadastro",
-    "/sair"
+    "/sair",
+    "/inst"
   ]
 }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AreaDoAlunoController;
+use App\Http\Controllers\AreaDoInstrutorController;
 use App\Http\Controllers\AutenticacaoWebController;
 use App\Http\Controllers\PaginaPublicaController;
 use App\Http\Controllers\PerfilDoAlunoController;
@@ -227,6 +228,17 @@ Route::middleware('aluno.web')->group(function (): void {
      * migradas. É o que fecha a área do aluno: nenhum endereço dela é do React.
      */
     Route::get('/aluno/{resto}', static fn () => redirect('/aluno'))->where('resto', '.*');
+});
+
+/*
+ * Área do instrutor (fase M4). Por enquanto só a escolha de curso: as seções
+ * de dentro do curso continuam no React, e por isso `/inst` entra no contrato
+ * de rotas como EXATO, não como prefixo — declarar o prefixo mandaria
+ * `/inst/curso/...` ao Laravel, onde cairia no fallback que serve o React de
+ * `dist/`, e a tela abriria em branco só na máquina de quem desenvolve.
+ */
+Route::middleware('instrutor.web')->group(function (): void {
+    Route::get('/inst', [AreaDoInstrutorController::class, 'escolha'])->name('instrutor.escolha');
 });
 
 /*

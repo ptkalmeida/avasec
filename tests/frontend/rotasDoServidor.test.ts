@@ -65,9 +65,16 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/aluno/certificados')).toBe(true);
     expect(servidoPeloServidor('/aluno/inventado')).toBe(true);
     expect(servidoPeloServidor('/aluno/curso/x/avaliacoes/y')).toBe(true);
-    // Instrutor e admin ainda são React.
+    /*
+     * A área do instrutor está no meio da travessia (M4): a escolha de curso
+     * já é Blade, e as seções de dentro do curso ainda são React. É por isso
+     * que `/inst` entra no contrato como EXATO — como prefixo, arrastaria
+     * `/inst/curso/...` junto.
+     */
+    expect(servidoPeloServidor('/inst')).toBe(true);
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia')).toBe(false);
+    // O admin ainda é React por inteiro.
     expect(servidoPeloServidor('/admin')).toBe(false);
-    expect(servidoPeloServidor('/inst')).toBe(false);
   });
 });
 

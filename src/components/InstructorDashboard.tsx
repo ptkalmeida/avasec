@@ -210,7 +210,24 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
    * na barra ou link herdado de outra conta).
    */
   useEffect(() => {
-    const precisaVoltarParaEscolha = destino.cursoRef !== null && cursoDoEndereco === null;
+    /*
+     * `courses.length > 0` é o que separa "curso que não é seu" de "a lista
+     * ainda não chegou".
+     *
+     * A hidratação do `LMSContext` é assíncrona, e este efeito roda antes dela.
+     * Enquanto o painel só era alcançado por navegação de dentro do SPA isso
+     * nunca aparecia — a lista já estava carregada. Com a escolha de curso em
+     * Blade (M4), chegar aqui passou a ser um carregamento de página inteiro:
+     * o efeito via a lista vazia, concluía "curso não é seu" e devolvia para
+     * `/inst`, que o servidor atende. Resultado: clicar num curso voltava para
+     * a lista, e nenhum curso abria.
+     *
+     * Com a lista vazia não há como responder a pergunta, e devolver é a
+     * resposta errada. O instrutor sem curso nenhum fica no painel, que já
+     * sabe dizer que não há curso sob a responsabilidade dele.
+     */
+    const listaCarregada = cursosQueGerencio.length > 0;
+    const precisaVoltarParaEscolha = destino.cursoRef !== null && cursoDoEndereco === null && listaCarregada;
     // `startsWith(RAIZ_INSTRUTOR)` sozinho casaria com `/institucional`. A
     // comparação exata mais a barra é o que separa a raiz do painel de um
     // caminho que só começa com as mesmas letras.
@@ -220,7 +237,7 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
       navigate(RAIZ_INSTRUTOR, { replace: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname, cursoDoEndereco, destino.cursoRef]);
+  }, [location.pathname, cursoDoEndereco, destino.cursoRef, cursosQueGerencio.length]);
 
   /*
    * Endereco com a referencia NAO canonica (id antigo) e trocado pelo de hoje,
