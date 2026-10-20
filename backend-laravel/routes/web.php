@@ -65,6 +65,17 @@ Route::get('/orientacoes', [PaginaPublicaController::class, 'orientacoes'])->nam
 Route::get('/noticias', [PaginaPublicaController::class, 'noticias'])->name('publico.noticias');
 
 /*
+ * Certificados — critérios e o autenticador público.
+ *
+ * Mesmo limitador da rota de API (`cert-lookup`): a consulta é a mesma, e as
+ * duas portas dividirem o balde é o que impede varrer o banco de nomes pela
+ * porta nova. Sem login, a chave só pode ser o IP.
+ */
+Route::get('/certificados', [PaginaPublicaController::class, 'certificados'])
+    ->middleware('throttle:cert-lookup')
+    ->name('publico.certificados');
+
+/*
  * Catálogo público — primeira tela da fase M2, e a primeira do redesenho das
  * cinco telas (plano 18). A URL não muda: `/cursos` era servida pelo React e
  * passa a ser servida pelo Blade, no mesmo endereço.

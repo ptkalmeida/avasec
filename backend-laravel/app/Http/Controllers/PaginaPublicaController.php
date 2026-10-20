@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Services\CertificateService;
 use App\Services\SitePageContentService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -21,7 +23,10 @@ final class PaginaPublicaController extends Controller
     /** Quantos cursos a vitrine mostra. Decisão da skill, não acaso de layout. */
     private const CURSOS_EM_DESTAQUE = 4;
 
-    public function __construct(private readonly SitePageContentService $conteudo) {}
+    public function __construct(
+        private readonly SitePageContentService $conteudo,
+        private readonly CertificateService $certificados,
+    ) {}
 
     /**
      * Página inicial pública — tela 1 do redesenho (conceito A aprovado).
@@ -30,9 +35,51 @@ final class PaginaPublicaController extends Controller
      * editável pelo admin, e inventar uma chave de conteúdo para ela aqui
      * criaria uma tela que o painel promete editar e não edita.
      */
-    public function inicio(): View
+    public function inicio(Request $request): View|RedirectResponse
     {
+        /*
+         * O QR impresso no PDF do certificado aponta para `/?verify=<hash>`
+         * (`CertificatePdfService`), e quem o lê é quem está com o papel na mão
+         * conferindo se vale. No React um efeito pegava o parâmetro na raiz e
+         * levava a consulta para a página de certificados; quando `/` passou a
+         * ser Blade, esse efeito deixou de rodar e o QR virou um link que abre
+         * a home e não responde nada.
+         *
+         * O hash viaja junto no redirecionamento: levar só o caminho perderia
+         * exatamente a consulta que a pessoa veio fazer.
+         */
+        $hash = trim((string) $request->query('verify', ''));
+
+        if ($hash !== '') {
+            return redirect()->to('/certificados?verify='.urlencode($hash));
+        }
+
         return view('publico.inicio');
+    }
+
+    /**
+     * Certificados — critérios de emissão e o autenticador público.
+     *
+     * A consulta é feita pelo MESMO `CertificateService` que a API já usa, com
+     * a mesma regra: o certificado revogado **aparece**, dizendo que foi
+     * revogado. Essa é a razão de a consulta pública existir — responder "não
+     * existe" sobre um papel que está impresso e anexado a um processo é
+     * diferente de responder "foi revogado" (ADR 12).
+     *
+     * O formulário é um GET com o campo `verify`, e não um POST nem um
+     * componente com estado: assim o resultado tem endereço próprio — o mesmo
+     * endereço que o QR do certificado já carrega.
+     */
+    public function certificados(Request $request): View
+    {
+        $termo = trim((string) $request->query('verify', ''));
+
+        return view('publico.certificados', [
+            'pagina' => $this->conteudo->get('certificados'),
+            'termo' => $termo,
+            'consultou' => $termo !== '',
+            'certificado' => $termo === '' ? null : $this->certificados->verifyCertificatePublic($termo),
+        ]);
     }
 
     public function oAva(): View
