@@ -7,17 +7,26 @@ namespace App\Support;
 use App\Services\SettingsService;
 
 /**
- * O canal de mensagens está aberto? — espelha src/utils/canalDeMensagens.ts.
+ * O canal de mensagens entre aluno e gestor está aberto?
  *
- * A condição é a mesma dos dois lados: a flag do fórum, a das mensagens
- * diretas e `allowDirectMessages`, que é chave **editável pelo administrador**.
- * No React ela já havia sido reunida num lugar só porque o sino do cabeçalho e
- * a aba de mensagens liam condições diferentes e discordavam — um sino
- * piscando levava a uma aba que não existia.
+ * ## Por que o fórum NÃO entra nesta conta
  *
- * Aqui ela existe pelo mesmo motivo, do lado do servidor: o item do menu, a
- * tela e (quando houver) o envio precisam concordar. Com `forum` desligada,
- * que é a configuração de hoje, o canal está fechado para todo mundo.
+ * No React a condição era `forum && mensagensDiretas && allowDirectMessages`,
+ * e isso misturava duas funcionalidades. `forum` é o MURAL DO CURSO
+ * (`/api/forum`: mensagens públicas da turma, com curtida e moderação). A
+ * conversa com o gestor é outra coisa, e vive em `/api/dms`.
+ *
+ * O preço dessa mistura foi concreto: de 19 a 20/10 o aluno não tinha como
+ * pedir ajuda, porque a tela de ler mensagens dependia de uma flag que estava
+ * desligada por causa do mural. E havia resposta do gestor no banco que o aluno
+ * nunca pôde ler.
+ *
+ * Aqui a conta é a que descreve a função: a flag das mensagens diretas, mais a
+ * permissão que o administrador controla. Decisão do responsável, 21/10.
+ *
+ * O React continua com a conta antiga em `src/utils/canalDeMensagens.ts` — ele
+ * sai na fase M7, e mudar as duas ao mesmo tempo mexeria numa tela que está
+ * sendo substituída.
  */
 final class CanalDeMensagens
 {
@@ -33,7 +42,7 @@ final class CanalDeMensagens
 
     private static function aberto(): bool
     {
-        if (config('features.forum') !== true || config('features.mensagensDiretas') !== true) {
+        if (config('features.mensagensDiretas') !== true) {
             return false;
         }
 

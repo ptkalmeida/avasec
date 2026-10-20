@@ -61,7 +61,7 @@
                 ['/aluno', 'Painel'],
                 ['/aluno/catalogo', 'Catálogo'],
                 ['/aluno/certificados', 'Certificados'],
-                config('features.materiaisComplementares') === true ? ['/aluno/biblioteca', 'Biblioteca'] : null,
+                config('features.bibliotecaDigital') === true ? ['/aluno/biblioteca', 'Biblioteca'] : null,
                 config('features.mensagensDiretas') === true ? ['/aluno/suporte', 'Suporte pedagógico'] : null,
                 ['/aluno/duvidas', 'Ajuda'],
                 ['/aluno/perfil', 'Perfil'],

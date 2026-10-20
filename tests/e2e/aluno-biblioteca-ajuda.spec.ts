@@ -7,17 +7,23 @@ import { entrarComoAluno, rolaNaHorizontal } from './sessao';
  * O conteúdo (escada de visibilidade, item sem endereço) é conferido no
  * PHPUnit; aqui, que o menu leva às telas, servidas pelo servidor, e que elas
  * cabem em tela estreita.
+ *
+ * A BIBLIOTECA está fora do MVP (decisão de 21/10): o endereço é do servidor e
+ * diz que a seção não está disponível, e o menu não a oferece. A tela
+ * existe e continua coberta no PHPUnit, com a flag ligada.
  */
 test.describe('Biblioteca e Ajuda do aluno — telas em Blade', () => {
-  test('o menu lateral leva à biblioteca, servida pelo servidor', async ({ page }) => {
+  test('a biblioteca está fora do MVP: fora do menu, e o endereço explica', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAluno(page);
 
-    await page.getByRole('link', { name: /^Biblioteca$/ }).first().click();
+    const menu = page.getByRole('navigation', { name: 'Navegação da área do aluno' });
+    await expect(menu.getByRole('link', { name: /^Biblioteca$/ })).toHaveCount(0);
 
-    await expect(page).toHaveURL(/\/aluno\/biblioteca$/);
+    await page.goto('/aluno/biblioteca');
+
     await expect(page.locator('#root')).toHaveCount(0);
-    await expect(page.getByRole('heading', { level: 1, name: /^Biblioteca$/ })).toBeVisible();
+    await expect(page.getByText('Esta seção não está disponível.')).toBeVisible();
   });
 
   test('o menu lateral leva à ajuda, e a pergunta abre a resposta', async ({ page }) => {
@@ -47,7 +53,7 @@ test.describe('Biblioteca e Ajuda do aluno — telas em Blade', () => {
   test('em tela estreita, o menu leva ao suporte, e não à tela de mensagens fechada', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 800 });
     await entrarComoAluno(page);
-    await page.goto('/aluno/biblioteca');
+    await page.goto('/aluno/duvidas');
 
     await page.getByRole('button', { name: /Abrir a navegação/ }).first().click();
     await page.getByRole('navigation', { name: /telas estreitas/ }).getByRole('link', { name: 'Suporte pedagógico' }).click();
@@ -55,7 +61,7 @@ test.describe('Biblioteca e Ajuda do aluno — telas em Blade', () => {
     await expect(page).toHaveURL(/\/aluno\/suporte$/);
   });
 
-  for (const caminho of ['/aluno/biblioteca', '/aluno/duvidas']) {
+  for (const caminho of ['/aluno/duvidas']) {
     for (const w of [320, 375, 768, 1440]) {
       test(`${caminho} em ${w}px: não rola na horizontal`, async ({ page }) => {
         await page.setViewportSize({ width: w, height: 900 });

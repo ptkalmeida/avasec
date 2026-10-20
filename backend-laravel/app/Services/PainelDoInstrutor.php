@@ -8,6 +8,7 @@ use App\Models\AdmissionRequest;
 use App\Models\Course;
 use App\Models\Lesson;
 use App\Models\StudentEnrollment;
+use App\Support\CanalDeMensagens;
 use App\Support\Fuso;
 use App\Support\InstructorScope;
 use App\Support\Visibilidade;
@@ -23,6 +24,8 @@ use Carbon\CarbonInterface;
  */
 final class PainelDoInstrutor
 {
+    public function __construct(private readonly CaixaDeMensagens $caixa) {}
+
     /**
      * Os cursos sob responsabilidade de quem está olhando.
      *
@@ -160,6 +163,25 @@ final class PainelDoInstrutor
                         ? '1 matrícula aguardando aprovação'
                         : $pendentes.' matrículas aguardando aprovação',
                     'rota' => '/inst',
+                ];
+            }
+        }
+
+        /*
+         * Aluno esperando resposta é trabalho diário, e era o que menos
+         * aparecia: a conversa ficava numa aba que o gestor precisava abrir
+         * para descobrir que havia alguém esperando.
+         */
+        if (CanalDeMensagens::abertoParaInstrutor()) {
+            $aguardando = $this->caixa->quantasAguardam($instrutor);
+            if ($aguardando > 0) {
+                $fila[] = [
+                    'id' => 'mensagens',
+                    'quantidade' => $aguardando,
+                    'texto' => $aguardando === 1
+                        ? '1 aluno aguardando resposta'
+                        : $aguardando.' alunos aguardando resposta',
+                    'rota' => '/inst/mensagens',
                 ];
             }
         }

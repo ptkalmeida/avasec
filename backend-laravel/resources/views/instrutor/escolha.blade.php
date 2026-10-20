@@ -9,7 +9,7 @@
     O que NÃO veio: o botão "Cadastrar Novo Curso" abre um formulário que ainda
     é React; ele entra na fatia seguinte, junto com a Gestão do Curso.
 --}}
-<x-layouts.instrutor titulo="Meus cursos" ativo="cursos" :pendenciasDoMenu="count($aFazer)">
+<x-layouts.instrutor titulo="Meus cursos" ativo="cursos">
 
     <div class="mx-auto max-w-5xl space-y-8">
 

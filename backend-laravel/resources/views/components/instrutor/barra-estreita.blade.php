@@ -51,7 +51,7 @@
                 $ref !== null && config('features.modulosAulas') === true ? ['/inst/curso/'.$ref.'/grade-curricular', 'Grade curricular'] : null,
                 $ref !== null && config('features.quizSimples') === true ? ['/inst/curso/'.$ref.'/avaliacoes', 'Avaliações'] : null,
                 $ref !== null && config('features.dadosGerenciais') === true ? ['/inst/curso/'.$ref.'/alunos', 'Alunos'] : null,
-                $ref !== null && \App\Support\CanalDeMensagens::abertoParaInstrutor() ? ['/inst/curso/'.$ref.'/mensagens', 'Mensagens'] : null,
+                \App\Support\CanalDeMensagens::abertoParaInstrutor() ? ['/inst/mensagens', 'Mensagens'] : null,
                 ['/', 'Portal'],
             ])) as [$rota, $rotulo])
                 <a href="{{ $rota }}"

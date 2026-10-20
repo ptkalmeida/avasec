@@ -174,9 +174,11 @@
         </div>
 
         <x-aluno.item-do-menu rota="/aluno/certificados" rotulo="Certificados" :ativo="$ativo === 'certificados'" icone="certificado" />
-        {{-- A biblioteca do aluno depende de `materiaisComplementares`, como
-             no React; `bibliotecaDigital` é a do painel do instrutor. --}}
-        @if (config('features.materiaisComplementares') === true)
+        {{-- `bibliotecaDigital` é a flag da biblioteca, e está desligada:
+             fora do MVP por decisão de 21/10. No React a tela dependia de
+             `materiaisComplementares`, que é a do MATERIAL DA AULA — desligar
+             a biblioteca por ela levaria os anexos das aulas junto. --}}
+        @if (config('features.bibliotecaDigital') === true)
             <x-aluno.item-do-menu rota="/aluno/biblioteca" rotulo="Biblioteca" :ativo="$ativo === 'biblioteca'" icone="biblioteca" />
         @endif
 

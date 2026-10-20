@@ -53,6 +53,7 @@
     "/entrar",
     "/cadastro",
     "/sair",
-    "/inst"
+    "/inst",
+    "/inst/mensagens"
   ]
 }

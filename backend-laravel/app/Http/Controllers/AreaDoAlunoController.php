@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
 use App\Models\Lesson;
+use App\Services\CaixaDeMensagens;
 use App\Services\CatalogService;
 use App\Services\CertificatePdfService;
 use App\Services\CertificateService;
@@ -13,7 +14,9 @@ use App\Services\CourseService;
 use App\Services\EnrollmentService;
 use App\Services\LearningService;
 use App\Services\MessagingService;
+use App\Support\AssuntoDaAula;
 use App\Support\BusinessRules;
+use App\Support\CanalDeMensagens;
 use App\Support\ConteudoDaAula;
 use App\Support\CourseAccess;
 use App\Support\ProgressoDoAluno;
@@ -43,6 +46,7 @@ final class AreaDoAlunoController extends Controller
         private readonly CertificatePdfService $pdf,
         private readonly MessagingService $mensagens,
         private readonly CatalogService $catalogo,
+        private readonly CaixaDeMensagens $caixa,
         private readonly LearningService $aprendizagem,
     ) {}
 
@@ -144,14 +148,27 @@ final class AreaDoAlunoController extends Controller
     }
 
     /**
-     * Biblioteca: os materiais complementares, para baixar ou abrir.
+     * Biblioteca: o acervo da plataforma, para baixar ou abrir.
      *
-     * Responde 404 com `materiaisComplementares` desligado, como a API — o item
-     * some do menu nesse caso, e o endereço digitado não abre uma tela vazia.
+     * **Fora do MVP, por decisão do responsável em 21/10.** A tela existe e
+     * funciona; enquanto a decisão valer, o endereço responde como as outras
+     * seções desligadas, em vez de 404 — quem chega por link salvo lê o que
+     * aconteceu.
+     *
+     * A flag passou a ser `bibliotecaDigital`, que é a da biblioteca e está
+     * desligada. Antes era `materiaisComplementares`, herdado do React, e
+     * aquela flag é de outra coisa: o MATERIAL DA AULA, que continua ligado.
+     * Desligar a biblioteca por ela teria levado junto os anexos das aulas.
      */
     public function biblioteca(Request $request): View
     {
-        abort_unless(config('features.materiaisComplementares') === true, 404);
+        if (config('features.bibliotecaDigital') !== true) {
+            return $this->secaoDesligada(
+                'bibliotecaDigital',
+                'Biblioteca',
+                'O acervo da plataforma ainda não está aberto. O material de cada curso fica na própria aula.',
+            );
+        }
 
         /** @var array{sub:string,name:string,role:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
@@ -221,11 +238,12 @@ final class AreaDoAlunoController extends Controller
      * aluno vem de uma aula, a mensagem leva `[Aula: título]` na frente, como
      * o React fazia — é por isso que o gestor sabe de que aula se trata.
      *
-     * ## O que esta tela NÃO promete
+     * ## A conversa, desde 21/10
      *
-     * Ler a resposta continua dependendo do canal de mensagens, que hoje está
-     * fechado para o aluno (`forum: false`). A tela diz que a mensagem chega ao
-     * gestor — e não que a resposta aparece aqui, porque não aparece.
+     * A tela passou a MOSTRAR a conversa, e não só a enviar. Antes, ler a
+     * resposta dependia da flag `forum`, que é a do mural do curso — outra
+     * funcionalidade. O preço foi concreto: havia resposta do gestor no banco
+     * que o aluno nunca pôde ler. Ver `App\Support\CanalDeMensagens`.
      */
     public function suporte(Request $request): View
     {
@@ -235,7 +253,8 @@ final class AreaDoAlunoController extends Controller
         return view('aluno.suporte', [
             'concluidos' => $this->concluidos($this->matriculaDe($aluno), $this->cursosPorId($aluno), $aluno),
             'aula' => $this->aulaDoAssunto($request->query('aula'), $aluno),
-            'ligado' => config('features.mensagensDiretas') === true,
+            'ligado' => CanalDeMensagens::abertoParaAluno(),
+            'conversa' => $this->caixa->conversa($aluno, $aluno['sub']),
         ]);
     }
 
@@ -246,7 +265,7 @@ final class AreaDoAlunoController extends Controller
 
         // A rota de API é guardada pela flag no middleware; a porta web tem de
         // guardar também, ou viraria o jeito de contornar o desligamento.
-        abort_unless(config('features.mensagensDiretas') === true, 404);
+        abort_unless(CanalDeMensagens::abertoParaAluno(), 404);
 
         $dados = $request->validate([
             'texto' => ['required', 'string', 'min:1', 'max:2000'],
@@ -258,8 +277,9 @@ final class AreaDoAlunoController extends Controller
 
         $this->mensagens->createDirectMessage([
             'studentUserId' => null,
-            // Mesmo formato do `comAssuntoDaAula` do React.
-            'text' => $aula === null ? $texto : '[Aula: '.trim($aula['title']).'] '.$texto,
+            // O formato do assunto mora num lugar só: quem monta e quem lê a
+            // etiqueta da aula precisam concordar.
+            'text' => AssuntoDaAula::montar($aula === null ? null : $aula['title'], $texto),
         ], $aluno);
 
         $destino = '/aluno/suporte'.($aula === null ? '' : '?aula='.urlencode($aula['id']));

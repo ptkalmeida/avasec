@@ -204,12 +204,25 @@ final class EscolhaDeCursoDoInstrutorTest extends TestCase
         $resposta->assertSee('Meus cursos', escape: false);
     }
 
-    /** Mensagens está fechada por `forum`: o menu não pode oferecê-la. */
-    public function test_o_menu_nao_oferece_mensagens_com_o_canal_fechado(): void
+    /**
+     * Mensagens fica fora do bloco do curso: a caixa é de todos eles, e antes
+     * o item só aparecia depois de escolher um curso.
+     */
+    public function test_o_menu_oferece_a_caixa_de_mensagens_sem_exigir_curso(): void
     {
         $eu = $this->instrutor('Instrutor Mensagens');
+        $this->curso('Curso Com Mensagens', $eu['id']);
+
+        $this->como($eu['token'])->get('/inst')->assertSee('href="/inst/mensagens"', escape: false);
+    }
+
+    /** Com as mensagens diretas desligadas, o item some. */
+    public function test_o_menu_nao_oferece_mensagens_com_o_canal_fechado(): void
+    {
+        config(['features.mensagensDiretas' => false]);
+        $eu = $this->instrutor('Instrutor Sem Mensagens');
         $this->curso('Curso Sem Mensagens', $eu['id']);
 
-        $this->como($eu['token'])->get('/inst')->assertDontSee('/mensagens', escape: false);
+        $this->como($eu['token'])->get('/inst')->assertDontSee('/inst/mensagens', escape: false);
     }
 }

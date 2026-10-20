@@ -16,11 +16,23 @@ use Tests\TestCase;
  *
  * O que importa: o aluno vê só o que está no ar para ele, e item sem endereço
  * de verdade não oferece um "Baixar" que não baixa nada.
+ *
+ * **A biblioteca está FORA do MVP** (decisão de 21/10): `bibliotecaDigital`
+ * está desligada e o endereço responde "não disponível". Os testes do conteúdo
+ * ligam a flag, para a tela continuar coberta no dia em que ela voltar — o
+ * último teste é o que prende a decisão de hoje.
  */
 final class BibliotecaDoAlunoTest extends TestCase
 {
     use DatabaseTransactions;
     use SeedsIdentity;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // O conteúdo da tela só existe com a biblioteca ligada.
+        config(['features.bibliotecaDigital' => true]);
+    }
 
     private function como(string $token): self
     {
@@ -107,14 +119,35 @@ final class BibliotecaDoAlunoTest extends TestCase
             ->assertDontSee('javascript:alert', escape: false);
     }
 
-    public function test_com_materiais_desligado_a_tela_e_o_item_do_menu_somem(): void
+    /**
+     * Fora do MVP: a tela diz o que aconteceu e o menu não a oferece. É o
+     * estado de HOJE — `bibliotecaDigital` vem desligada da configuração.
+     */
+    public function test_fora_do_mvp_a_tela_explica_e_o_item_do_menu_some(): void
     {
-        config(['features.materiaisComplementares' => false]);
+        config(['features.bibliotecaDigital' => false]);
         $aluno = $this->makeStudent('Aluno Biblioteca Flag');
 
-        $this->como($aluno['token'])->get('/aluno/biblioteca')->assertNotFound();
+        $this->como($aluno['token'])->get('/aluno/biblioteca')
+            ->assertOk()
+            ->assertSee('Esta seção não está disponível.', escape: false);
         $this->como($aluno['token'])->get('/aluno/perfil')
             ->assertDontSee('href="/aluno/biblioteca"', escape: false);
+    }
+
+    /**
+     * A flag da biblioteca não é a do material da aula. Desligar a biblioteca
+     * por `materiaisComplementares` levaria junto os anexos de toda aula.
+     */
+    public function test_a_biblioteca_nao_depende_da_flag_do_material_da_aula(): void
+    {
+        config(['features.materiaisComplementares' => false]);
+        $aluno = $this->makeStudent('Aluno Biblioteca Flags Separadas');
+        $this->item('Material Com Materiais Desligado');
+
+        $this->como($aluno['token'])->get('/aluno/biblioteca')
+            ->assertOk()
+            ->assertSee('Material Com Materiais Desligado', escape: false);
     }
 
     /**

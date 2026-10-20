@@ -239,6 +239,14 @@ Route::middleware('aluno.web')->group(function (): void {
  */
 Route::middleware('instrutor.web')->group(function (): void {
     Route::get('/inst', [AreaDoInstrutorController::class, 'escolha'])->name('instrutor.escolha');
+
+    /*
+     * A caixa de mensagens do gestor. Fica FORA de `/inst/curso/...` de
+     * propósito: a dúvida do aluno chega de uma aula, mas quem responde quer
+     * ver todas de uma vez, e não uma caixa por curso (decisão de 21/10).
+     */
+    Route::get('/inst/mensagens', [AreaDoInstrutorController::class, 'mensagens'])->name('instrutor.mensagens');
+    Route::post('/inst/mensagens', [AreaDoInstrutorController::class, 'responder']);
 });
 
 /*

@@ -8,6 +8,7 @@ use App\Http\Middleware\JwtAuthenticate;
 use App\Models\DirectMessage;
 use App\Models\Lesson;
 use App\Models\StudentEnrollment;
+use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Str;
 use Tests\Support\SeedsIdentity;
@@ -37,7 +38,7 @@ final class SuportePedagogicoTest extends TestCase
         $this->get('/aluno/suporte')->assertRedirect('/entrar');
     }
 
-    public function test_a_pagina_oferece_o_formulario_e_nao_promete_resposta_aqui(): void
+    public function test_a_pagina_oferece_o_formulario_e_promete_a_resposta_aqui(): void
     {
         $aluno = $this->makeStudent('Aluno Suporte Tela');
 
@@ -45,9 +46,80 @@ final class SuportePedagogicoTest extends TestCase
 
         $resposta->assertOk();
         $resposta->assertSee('Sua mensagem', escape: false);
-        $resposta->assertSee('chega ao gestor', escape: false);
-        // Ler a resposta depende do canal fechado; a tela não pode prometer isso.
-        $resposta->assertDontSee('resposta aparece', escape: false);
+        $resposta->assertSee('chega', escape: false);
+        // Desde 21/10 a resposta aparece aqui — e a tela pode prometê-la.
+        $resposta->assertSee('resposta dele aparece nesta página', escape: false);
+    }
+
+    /**
+     * O defeito que mais custou nesta tela: havia resposta do gestor no banco
+     * que o aluno NUNCA pôde ler, porque a leitura dependia da flag do mural
+     * do curso. Este teste é o que impede a volta.
+     */
+    public function test_o_aluno_le_a_resposta_do_gestor(): void
+    {
+        $aluno = $this->makeStudent('Aluno Suporte Le Resposta');
+
+        $this->como($aluno['token'])->post('/aluno/suporte', ['texto' => 'Minha duvida de teste.']);
+
+        $gestor = User::query()->where('role', 'instructor')->first();
+        $this->assertNotNull($gestor);
+        DirectMessage::query()->create([
+            'id' => 'dm-teste-'.uniqid(),
+            'studentName' => $aluno['name'],
+            'studentUserId' => $aluno['id'],
+            'senderName' => (string) $gestor->name,
+            'senderUserId' => (string) $gestor->id,
+            'senderRole' => 'instructor',
+            'text' => 'Resposta do gestor para o teste.',
+            'timestamp' => now()->toIso8601String(),
+            'enviadaEm' => now(),
+        ]);
+
+        $this->como($aluno['token'])->get('/aluno/suporte')
+            ->assertSee('Minha duvida de teste.', escape: false)
+            ->assertSee('Resposta do gestor para o teste.', escape: false)
+            ->assertSee(e((string) $gestor->name), false);
+    }
+
+    /** A conversa é a do próprio aluno: a de outro não aparece. */
+    public function test_a_conversa_de_outro_aluno_nao_aparece(): void
+    {
+        $eu = $this->makeStudent('Aluno Suporte Meu');
+        $outro = $this->makeStudent('Aluno Suporte Outro');
+
+        $this->como($outro['token'])->post('/aluno/suporte', ['texto' => 'Duvida do outro aluno.']);
+
+        $this->como($eu['token'])->get('/aluno/suporte')
+            ->assertDontSee('Duvida do outro aluno.', escape: false);
+    }
+
+    /** A etiqueta da aula sai do texto e vira rótulo. */
+    public function test_a_aula_aparece_como_etiqueta_e_nao_no_meio_do_texto(): void
+    {
+        $aluno = $this->makeStudent('Aluno Suporte Etiqueta');
+        $aula = Lesson::query()->first();
+        $this->assertNotNull($aula);
+
+        StudentEnrollment::query()->create([
+            'id' => (string) Str::uuid(),
+            'userId' => $aluno['id'],
+            'studentName' => $aluno['name'],
+            'enrolledCourseId' => $aula->courseId,
+            'enrolledAt' => now(),
+            'completedCourseIds' => [],
+            'dropOutPenaltyUntil' => null,
+            'canMultiEnroll' => false,
+            'extraCourseIds' => [],
+        ]);
+
+        $this->como($aluno['token'])
+            ->post('/aluno/suporte', ['texto' => 'Duvida com etiqueta.', 'aula' => $aula->id]);
+
+        $html = (string) $this->como($aluno['token'])->get('/aluno/suporte')->getContent();
+
+        $this->assertStringContainsString('Aula: '.e((string) $aula->title), $html);
+        $this->assertStringNotContainsString('[Aula:', $html);
     }
 
     public function test_a_mensagem_enviada_fica_registrada_no_canal_do_proprio_aluno(): void

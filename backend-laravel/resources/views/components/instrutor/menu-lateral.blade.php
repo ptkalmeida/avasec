@@ -1,4 +1,15 @@
-@props(['ativo' => null, 'curso' => null, 'pendencias' => 0])
+@props(['ativo' => null, 'curso' => null, 'aguardando' => null])
+
+{{--
+    Sem o número vindo da página, o menu o calcula. É a mesma armadilha que
+    o menu do aluno já pagou com "Cursos concluídos": toda tela nova que
+    esquecesse de passar a contagem faria o menu dizer que não há ninguém
+    esperando resposta. A forma em linha do `@php` é a única usada neste
+    arquivo — misturar as duas formas quebra o compilador do Blade.
+--}}
+@php($aguardando = $aguardando ?? (\App\Support\CanalDeMensagens::abertoParaInstrutor()
+    ? app(\App\Services\CaixaDeMensagens::class)->quantasAguardam(request()->attributes->get('auth_user'))
+    : 0))
 
 {{--
     Menu lateral da área do instrutor.
@@ -18,9 +29,9 @@
 
     ## As seções que não aparecem
 
-    Cada seção responde pela SUA flag, como na API. Mensagens depende de três
-    coisas ao mesmo tempo (`forum`, `mensagensDiretas` e a permissão que o admin
-    controla), e com `forum` desligada ela não aparece para ninguém.
+    Cada seção responde pela SUA flag, como na API. Mensagens depende da flag
+    das mensagens diretas e da permissão que o administrador controla — e NÃO
+    do fórum, que é o mural do curso (ver `App\Support\CanalDeMensagens`).
 --}}
 
 <div x-data="{
@@ -57,8 +68,11 @@
             </button>
         </div>
 
+        {{-- Sem contagem aqui: o aviso fica onde o trabalho está (Mensagens), e
+             a fila "A fazer" da própria tela `/inst` lista tudo. Um número nos
+             dois lugares contaria a mesma pendência duas vezes. --}}
         <x-instrutor.item-do-menu rota="/inst" rotulo="Meus cursos"
-            :ativo="$ativo === 'cursos'" icone="cursos" :contagem="$pendencias" />
+            :ativo="$ativo === 'cursos'" icone="cursos" />
 
         @if ($curso !== null)
             @php($ref = $curso['slug'] ?? $curso['id'])
@@ -85,13 +99,15 @@
                     :ativo="$ativo === 'alunos'" icone="alunos" />
             @endif
 
-            {{-- Mensagens só existe com as três condições, como na API e como no
-                 painel React: a flag do fórum, a das mensagens diretas e a
-                 permissão que o admin controla. --}}
-            @if (\App\Support\CanalDeMensagens::abertoParaInstrutor())
-                <x-instrutor.item-do-menu :rota="'/inst/curso/'.$ref.'/mensagens'" rotulo="Mensagens"
-                    :ativo="$ativo === 'mensagens'" icone="mensagens" />
-            @endif
+        @endif
+
+        {{-- Mensagens fica FORA do bloco do curso: a dúvida do aluno vem de uma
+             aula, mas quem responde quer ver todas de uma vez, e não uma caixa
+             por curso (decisão de 21/10). Dentro do bloco, o item só existia
+             depois de escolher um curso — e a caixa é de todos eles. --}}
+        @if (\App\Support\CanalDeMensagens::abertoParaInstrutor())
+            <x-instrutor.item-do-menu rota="/inst/mensagens" rotulo="Mensagens"
+                :ativo="$ativo === 'mensagens'" icone="mensagens" :contagem="$aguardando" />
         @endif
 
         <div class="mt-auto space-y-1 border-t border-ava-borda pt-2">

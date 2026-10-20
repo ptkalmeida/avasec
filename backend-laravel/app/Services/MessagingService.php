@@ -118,6 +118,24 @@ final class MessagingService
         // Aluno só escreve no próprio canal; staff endereça o aluno por userId (ADR 10).
         $studentUserId = Identity::resolveActorUserId($requester, $input['studentUserId'] ?? null);
 
+        /*
+         * O instrutor escreve para os alunos DELE — o mesmo escopo que a
+         * leitura aplica logo acima (`InstructorScope::studentIds`).
+         *
+         * A assimetria era antiga: ler era escopado, escrever não. Qualquer
+         * instrutor autenticado podia mandar mensagem a qualquer aluno da
+         * escola, inclusive de turma que não é dele, e a mensagem aparecia na
+         * caixa daquele aluno com o nome dele. Nada no produto pedia isso: o
+         * gestor responde quem o procurou.
+         *
+         * É mudança de regra de autorização, e foi decidida com o responsável
+         * em 21/10, junto com a tela de resposta (plano 18 §23).
+         */
+        if ($requester['role'] === 'instructor'
+            && ! in_array($studentUserId, InstructorScope::studentIds($requester), true)) {
+            throw ApiException::forbidden('Você só pode escrever para alunos dos seus cursos.');
+        }
+
         return DirectMessage::query()->create([
             'id' => 'dm-'.$this->nowMs(),
             'studentName' => Identity::displayName($studentUserId, $requester),
