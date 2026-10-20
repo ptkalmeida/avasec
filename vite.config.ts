@@ -29,13 +29,20 @@ const {prefixos, exatos = []} = JSON.parse(
  *
  * `{param}` é um segmento: a entrada é a URI da rota do Laravel, copiada como
  * está, para não existirem duas grafias da mesma rota.
+ *
+ * A QUERY STRING entra no fim, e isso não é zelo: o Vite casa a chave contra
+ * `req.url`, que inclui o `?...`. Sem o trecho opcional, `/?verify=<hash>` —
+ * o endereço que o QR impresso no certificado carrega — não casava com `^/$`,
+ * caía no fallback do Vite e abria o React. O mesmo valia para `/?janela=login`.
+ * Em produção o Nginx manda tudo ao Laravel e o defeito não aparece, o que o
+ * torna pior: só quebra na máquina de quem desenvolve, e só com parâmetro.
  */
 const paraRegex = (uri: string): string =>
   '^'
   + uri
     .replace(/[.*+?^${}()|[\]\\]/g, (c) => (c === '{' || c === '}' ? c : `\\${c}`))
     .replace(/\{[^}]+\}/g, '[^/]+')
-  + '$';
+  + '(\\?.*)?$';
 
 /*
  * `changeOrigin: false`, e isto não é detalhe.
