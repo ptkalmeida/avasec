@@ -199,8 +199,10 @@ new class extends Component
                 <div class="space-y-1.5 border-t border-ava-borda pt-2">
                     <span class="block text-apoio font-semibold text-ava-acao">Notícias ({{ count($noticias) }})</span>
                     @foreach ($noticias as $noticia)
+                        {{-- O termo vai junto: a página de notícias filtra por `?busca=`,
+                             e sem ele o resultado clicado abriria a lista inteira. --}}
                         <a wire:key="noticia-{{ $loop->index }}"
-                           href="/noticias"
+                           href="/noticias?busca={{ urlencode($noticia['title']) }}"
                            class="flex items-center gap-2 rounded-[10px] p-2 transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                             <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ava-icone-fundo text-xs font-bold text-ava-acao" aria-hidden="true">N</span>
                             <span class="min-w-0">

@@ -59,6 +59,12 @@ Route::get('/o-projeto', [PaginaPublicaController::class, 'oProjeto'])->name('pu
 Route::get('/orientacoes', [PaginaPublicaController::class, 'orientacoes'])->name('publico.orientacoes');
 
 /*
+ * Notícias — fechou o grupo "A Escola" em Blade. A busca do cabeçalho aponta
+ * para cá desde que ele virou Blade (M2), e até aqui o link caía no React.
+ */
+Route::get('/noticias', [PaginaPublicaController::class, 'noticias'])->name('publico.noticias');
+
+/*
  * Catálogo público — primeira tela da fase M2, e a primeira do redesenho das
  * cinco telas (plano 18). A URL não muda: `/cursos` era servida pelo React e
  * passa a ser servida pelo Blade, no mesmo endereço.

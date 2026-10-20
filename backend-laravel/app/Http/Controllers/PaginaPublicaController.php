@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Services\SitePageContentService;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
@@ -52,6 +53,40 @@ final class PaginaPublicaController extends Controller
     public function oProjeto(): View
     {
         return view('publico.o-projeto', ['pagina' => $this->conteudo->get('o-projeto')]);
+    }
+
+    /**
+     * Notícias & Novidades — a entrada de "A Escola" que faltava migrar.
+     *
+     * A busca do topo do portal aponta para cá desde que o cabeçalho virou
+     * Blade, e até agora caía no React. O termo viaja na URL (`?busca=`) em vez
+     * de ficar em estado de componente: assim o resultado filtrado é
+     * endereçável — dá para mandar o link para alguém — e volta igual ao usar o
+     * botão "voltar" do navegador, que era o que o `searchQuery` do SPA perdia.
+     *
+     * Os campos varridos são título e resumo, os mesmos do
+     * `NEWS_SEARCH_FIELDS` do React. A etiqueta fica de fora aqui, embora a
+     * busca do cabeçalho a inclua: quem filtra a página inteira procura
+     * assunto, e a busca rápida procura qualquer pista.
+     */
+    public function noticias(Request $request): View
+    {
+        $pagina = $this->conteudo->get('noticias');
+        $busca = trim((string) $request->query('busca', ''));
+
+        /** @var list<array<string, string>> $itens */
+        $itens = is_array($pagina['items'] ?? null) ? array_values($pagina['items']) : [];
+
+        $encontradas = $busca === '' ? $itens : array_values(array_filter(
+            $itens,
+            static fn (array $n): bool => mb_stripos(($n['title'] ?? '').' '.($n['description'] ?? ''), $busca) !== false,
+        ));
+
+        return view('publico.noticias', [
+            'pagina' => $pagina,
+            'noticias' => $encontradas,
+            'busca' => $busca,
+        ]);
     }
 
     public function orientacoes(): View
