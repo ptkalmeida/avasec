@@ -174,15 +174,23 @@ final class PaginaDaAulaTest extends TestCase
         }
     }
 
-    /** A função do suporte não sumiu: mudou para o menu lateral. */
-    public function test_suporte_pedagogico_continua_alcancavel_pelo_menu(): void
+    /**
+     * A função do suporte não sumiu: mudou para o menu lateral, e leva a aula
+     * junto para o gestor saber de que aula se trata.
+     *
+     * Este teste conferia `href="/aluno/mensagens"` — e passava justamente
+     * porque o link estava errado: aquela é a tela de LER mensagens, fechada
+     * para o aluno com a flag `forum` desligada. Conferir só o `href` provou que
+     * o link existia, não que levava a algum lugar.
+     */
+    public function test_suporte_pedagogico_continua_alcancavel_pelo_menu_com_a_aula(): void
     {
         ['aluno' => $aluno, 'curso' => $curso, 'aulas' => $aulas] = $this->cenario();
 
         $resposta = $this->como($aluno)->get($this->endereco($curso, $aulas[0]));
 
         $resposta->assertSee('Suporte pedagógico', escape: false);
-        $resposta->assertSee('href="/aluno/mensagens"', escape: false);
+        $resposta->assertSee('href="/aluno/suporte?aula='.urlencode((string) $aulas[0]->id).'"', escape: false);
     }
 
     public function test_navegacao_entre_aulas_na_primeira_e_na_ultima(): void

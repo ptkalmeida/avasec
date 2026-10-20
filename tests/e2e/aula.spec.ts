@@ -123,14 +123,23 @@ test.describe('Página da aula em Blade', () => {
     await expect(page.getByText(/tempo de resposta/i)).toHaveCount(0);
   });
 
-  test('o suporte continua alcançável, agora pelo menu lateral', async ({ page }) => {
+  test('o suporte continua alcançável pelo menu lateral, e leva a algum lugar', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAluno(page);
     await abrirPrimeiraAula(page);
 
+    /*
+     * Este teste conferia só o `href` — e passava com o link apontando para a
+     * tela de LER mensagens, que está fechada para o aluno e respondia "seção
+     * não disponível". Agora ele clica e exige o formulário do outro lado.
+     */
     const suporte = page.getByRole('link', { name: /suporte pedagógico/i });
     await expect(suporte).toBeVisible();
-    await expect(suporte).toHaveAttribute('href', '/aluno/mensagens');
+    await suporte.click();
+
+    await expect(page).toHaveURL(/\/aluno\/suporte\?aula=/);
+    await expect(page.getByLabel(/sua mensagem/i)).toBeVisible();
+    await expect(page.getByText(/Sobre a aula/i)).toBeVisible();
   });
 
   test('o progresso fala por número, e não só por cor', async ({ page }) => {

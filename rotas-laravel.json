@@ -55,6 +55,9 @@
     "/aluno/catalogo",
     "/aluno/catalogo/{cursoRef}",
     "/aluno/catalogo/{cursoRef}/matricula",
-    "/aluno/curso/{cursoRef}/aula/{aulaId}"
+    "/aluno/curso/{cursoRef}/aula/{aulaId}",
+    "/aluno/certificados",
+    "/aluno/certificados/{certificadoId}/pdf",
+    "/aluno/suporte"
   ]
 }

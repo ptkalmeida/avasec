@@ -131,6 +131,23 @@ Route::get('/sair', static fn () => redirect('/'));
 
 Route::middleware('aluno.web')->group(function (): void {
     Route::get('/aluno', [AreaDoAlunoController::class, 'painel'])->name('aluno.painel');
+
+    /*
+     * Certificados do aluno. O PDF passa pelo MESMO `CertificatePdfService`
+     * da API, que já recusa certificado de outra pessoa; `?modo=ver` só troca
+     * o `Content-Disposition` para o navegador abrir em vez de baixar.
+     */
+    Route::get('/aluno/certificados', [AreaDoAlunoController::class, 'certificados'])->name('aluno.certificados');
+    Route::get('/aluno/certificados/{certificadoId}/pdf', [AreaDoAlunoController::class, 'pdfDoCertificado'])
+        ->name('aluno.certificados.pdf');
+
+    /*
+     * Suporte pedagógico: enviar uma dúvida ao gestor. É a função do cartão
+     * que saiu da aula, e que ficou sem porta quando o menu passou a apontar
+     * para a tela de LER mensagens (fechada para o aluno com `forum` desligado).
+     */
+    Route::get('/aluno/suporte', [AreaDoAlunoController::class, 'suporte'])->name('aluno.suporte');
+    Route::post('/aluno/suporte', [AreaDoAlunoController::class, 'enviarSuporte']);
     Route::get('/aluno/curso/{cursoRef}', [AreaDoAlunoController::class, 'curso'])->name('aluno.curso');
 
     Route::get('/aluno/curso/{cursoRef}/aula/{aulaId}', [AreaDoAlunoController::class, 'aula'])->name('aluno.aula');

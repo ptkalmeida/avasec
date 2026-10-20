@@ -5,12 +5,18 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
+use App\Models\Lesson;
+use App\Services\CertificatePdfService;
+use App\Services\CertificateService;
 use App\Services\CourseService;
 use App\Services\EnrollmentService;
+use App\Services\MessagingService;
 use App\Support\ConteudoDaAula;
+use App\Support\CourseAccess;
 use App\Support\ProgressoDoAluno;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 
 /**
@@ -30,6 +36,9 @@ final class AreaDoAlunoController extends Controller
     public function __construct(
         private readonly EnrollmentService $matriculas,
         private readonly CourseService $cursos,
+        private readonly CertificateService $certificados,
+        private readonly CertificatePdfService $pdf,
+        private readonly MessagingService $mensagens,
     ) {}
 
     /**
@@ -67,6 +76,180 @@ final class AreaDoAlunoController extends Controller
             'emAndamento' => $emAndamento,
             'concluidos' => $this->concluidos($matricula, $porId, $aluno),
         ]);
+    }
+
+    /**
+     * Certificados do aluno.
+     *
+     * Duas listas numa página só, e não três abas como no React: "Disponíveis"
+     * e "Em andamento" são curtas, e esconder uma atrás de um controle só
+     * acrescenta um clique. A terceira aba era **Validação** — o mesmo
+     * autenticador da página pública `/certificados`, reimplementado dentro do
+     * painel. A função fica, apontando para onde ela já existe: duas cópias do
+     * mesmo formulário é o tipo de duplicata que diverge no dia em que uma
+     * delas muda.
+     *
+     * A frequência aparece AQUI, e é o lugar onde ela explica alguma coisa —
+     * saiu das telas de curso e de aula por decisão da skill, mas é o número
+     * que libera o documento.
+     *
+     * Quem calcula é o `CertificateService`, o mesmo que emite. A tela não
+     * refaz a conta: tê-la em dois lugares é como a tela passa a dizer 68%
+     * enquanto a emissão recusa por 64%.
+     */
+    public function certificados(Request $request): View
+    {
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        // `listCertificates` com papel de aluno devolve só as linhas dele.
+        $emitidos = $this->certificados->listCertificates($aluno, 0, 100)['items'];
+
+        $matricula = $this->matriculaDe($aluno);
+        $porId = $this->cursosPorId($aluno);
+        $comCertificado = [];
+        foreach ($emitidos as $cert) {
+            if (is_string($cert['courseId'] ?? null)) {
+                $comCertificado[$cert['courseId']] = true;
+            }
+        }
+
+        $emAndamento = [];
+        foreach ($this->idsEmAndamento($matricula) as $id) {
+            $curso = $porId[$id] ?? null;
+            if ($curso === null || isset($comCertificado[$id])) {
+                continue;
+            }
+
+            $emAndamento[] = [
+                'curso' => $curso,
+                'situacao' => $this->certificados->situacaoParaCertificado($id, $aluno['sub']),
+            ];
+        }
+
+        return view('aluno.certificados', [
+            'concluidos' => $this->concluidos($matricula, $porId, $aluno),
+            'emitidos' => $emitidos,
+            'emAndamento' => $emAndamento,
+            'cargaPorCurso' => array_map(
+                static fn (array $c): ?int => is_numeric($c['cargaHoraria'] ?? null) ? (int) $c['cargaHoraria'] : null,
+                $porId,
+            ),
+        ]);
+    }
+
+    /**
+     * O PDF do certificado, pelo mesmo serviço que a API usa.
+     *
+     * Duas portas para o mesmo documento, e a diferença é só o
+     * `Content-Disposition`: baixar salva o arquivo, ver abre no leitor do
+     * navegador. No React havia um terceiro caminho — um "Visualizar" que
+     * desenhava o certificado em HTML, uma SEGUNDA versão do mesmo documento,
+     * que podia divergir do papel que sai impresso. Aqui as duas portas levam
+     * ao mesmo PDF.
+     *
+     * Quem decide se esta pessoa pode é o serviço, que já recusa certificado de
+     * outro aluno.
+     */
+    public function pdfDoCertificado(Request $request, string $certificadoId): Response
+    {
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        $resultado = $this->pdf->renderPdf($certificadoId, $aluno);
+        $inline = $request->query('modo') === 'ver';
+
+        return response($resultado['content'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($inline ? 'inline' : 'attachment').'; filename="'.$resultado['filename'].'"',
+        ]);
+    }
+
+    /**
+     * Suporte pedagógico — a porta que a tela 5 deixou sem destino.
+     *
+     * ## O defeito que esta tela corrige
+     *
+     * O cartão "Suporte Pedagógico" da aula ENVIAVA uma mensagem ao gestor
+     * (`POST /api/dms`, flag `mensagensDiretas`, ligada). Quando a skill o tirou
+     * da aula, o item do menu passou a apontar para `/aluno/mensagens` — que é a
+     * tela de LER a conversa, e essa depende também da flag `forum`, desligada.
+     * O aluno clicava e lia "esta seção não está disponível": o único jeito de
+     * pedir ajuda tinha sumido, o contrário da decisão de 19/10 ("tirar do
+     * lugar sem tirar a função").
+     *
+     * Aqui a função volta, com o MESMO serviço e o MESMO formato: quando o
+     * aluno vem de uma aula, a mensagem leva `[Aula: título]` na frente, como
+     * o React fazia — é por isso que o gestor sabe de que aula se trata.
+     *
+     * ## O que esta tela NÃO promete
+     *
+     * Ler a resposta continua dependendo do canal de mensagens, que hoje está
+     * fechado para o aluno (`forum: false`). A tela diz que a mensagem chega ao
+     * gestor — e não que a resposta aparece aqui, porque não aparece.
+     */
+    public function suporte(Request $request): View
+    {
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        return view('aluno.suporte', [
+            'concluidos' => $this->concluidos($this->matriculaDe($aluno), $this->cursosPorId($aluno), $aluno),
+            'aula' => $this->aulaDoAssunto($request->query('aula'), $aluno),
+            'ligado' => config('features.mensagensDiretas') === true,
+        ]);
+    }
+
+    public function enviarSuporte(Request $request): RedirectResponse
+    {
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        // A rota de API é guardada pela flag no middleware; a porta web tem de
+        // guardar também, ou viraria o jeito de contornar o desligamento.
+        abort_unless(config('features.mensagensDiretas') === true, 404);
+
+        $dados = $request->validate([
+            'texto' => ['required', 'string', 'min:1', 'max:2000'],
+            'aula' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        $texto = trim((string) $dados['texto']);
+        $aula = $this->aulaDoAssunto($dados['aula'] ?? null, $aluno);
+
+        $this->mensagens->createDirectMessage([
+            'studentUserId' => null,
+            // Mesmo formato do `comAssuntoDaAula` do React.
+            'text' => $aula === null ? $texto : '[Aula: '.trim($aula['title']).'] '.$texto,
+        ], $aluno);
+
+        $destino = '/aluno/suporte'.($aula === null ? '' : '?aula='.urlencode($aula['id']));
+
+        return redirect($destino)->with('suporteEnviado', true);
+    }
+
+    /**
+     * A aula citada no assunto — só se ela for de um curso desta pessoa.
+     *
+     * O id vem da URL, e sem esta conferência qualquer aluno poderia pôr no
+     * assunto o título de uma aula de curso alheio — pouco grave, mas é o tipo
+     * de vazamento pequeno que ninguém procura.
+     *
+     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @return array{id:string,title:string}|null
+     */
+    private function aulaDoAssunto(mixed $aulaId, array $aluno): ?array
+    {
+        if (! is_string($aulaId) || $aulaId === '') {
+            return null;
+        }
+
+        $aula = Lesson::query()->find($aulaId);
+        if ($aula === null || ! in_array($aula->courseId, CourseAccess::accessibleCourseIds($aluno), true)) {
+            return null;
+        }
+
+        return ['id' => (string) $aula->id, 'title' => (string) $aula->title];
     }
 
     /**

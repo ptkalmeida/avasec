@@ -169,9 +169,21 @@
         <x-aluno.item-do-menu rota="/aluno/biblioteca" rotulo="Biblioteca" :ativo="$ativo === 'biblioteca'" icone="biblioteca" />
 
         <div class="mt-auto space-y-1 border-t border-ava-borda pt-2">
-            {{-- O suporte é o canal de mensagens de verdade, que registra e é
-                 respondido — e não um cartão decorativo no rodapé da aula. --}}
-            <x-aluno.item-do-menu rota="/aluno/mensagens" rotulo="Suporte pedagógico" :ativo="$ativo === 'suporte'" icone="suporte" />
+            {{--
+                O suporte leva à página de ENVIAR a dúvida ao gestor. Apontava
+                para `/aluno/mensagens`, que é a tela de LER a conversa — e essa
+                está fechada para o aluno enquanto a flag `forum` estiver
+                desligada: o aluno clicava e lia "seção não disponível".
+
+                Dentro de uma aula, a aula vai junto, e o gestor recebe o título
+                dela no assunto, como no cartão antigo. Com mensagens desligadas
+                o item some, em vez de levar a uma página que só diz que não dá.
+            --}}
+            @if (config('features.mensagensDiretas') === true)
+                <x-aluno.item-do-menu
+                    :rota="'/aluno/suporte'.($aulaAtual !== null ? '?aula='.urlencode((string) $aulaAtual) : '')"
+                    rotulo="Suporte pedagógico" :ativo="$ativo === 'suporte'" icone="suporte" />
+            @endif
             <x-aluno.item-do-menu rota="/aluno/duvidas" rotulo="Ajuda" :ativo="$ativo === 'ajuda'" icone="ajuda" />
             <x-aluno.item-do-menu rota="/aluno/perfil" rotulo="Perfil" :ativo="$ativo === 'perfil'" icone="perfil" />
         </div>

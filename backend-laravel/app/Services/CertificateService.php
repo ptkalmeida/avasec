@@ -210,6 +210,59 @@ final class CertificateService
     }
 
     /**
+     * O que ainda falta para o certificado de um curso sair — só leitura.
+     *
+     * Existe para a TELA não refazer a conta. A frequência é o número que
+     * decide a emissão, e tê-la calculada em dois lugares é como a tela passa a
+     * dizer 68% enquanto a emissão recusa por 64% — nenhum dos dois erra
+     * sozinho, e ninguém descobre qual está certo.
+     *
+     * As avaliações pendentes vêm junto porque desde a ADR 14 elas também
+     * seguram o certificado. O painel antigo só falava de frequência: com a
+     * frequência cumprida e uma prova em aberto, ele dizia "continue assistindo
+     * as aulas" para quem já tinha assistido todas.
+     *
+     * @return array{frequencia:int, minima:int, avaliacoesPendentes:list<string>, emite:bool}
+     */
+    public function situacaoParaCertificado(string $courseId, string $userId): array
+    {
+        $course = Course::query()->with(['lessons', 'liveSessions'])->find($courseId);
+
+        if ($course === null) {
+            return ['frequencia' => 0, 'minima' => BusinessRules::defaultMinAttendance(), 'avaliacoesPendentes' => [], 'emite' => false];
+        }
+
+        $progress = StudentProgress::query()
+            ->where('userId', $userId)
+            ->where('courseId', $courseId)
+            ->first();
+
+        return [
+            'frequencia' => $this->computeAttendancePercent($course, $progress),
+            'minima' => BusinessRules::courseMinAttendance($course->minAttendance),
+            'avaliacoesPendentes' => array_values($this->avaliacoesNaoAprovadas($courseId, $userId)),
+            /*
+             * Duas fontes dizem a mesma coisa, e isso está sinalizado em vez de
+             * resolvido em silêncio:
+             *
+             *  - a COLUNA `emiteCertificado`, que o admin edita e o cartão do
+             *    catálogo já lê (`NULL` conta como "emite", como no painel do
+             *    admin — a coluna nasceu depois dos cursos que já existiam);
+             *  - a CONVENÇÃO de escrever "Sem Certificado" na categoria, que é o
+             *    que a aba de certificados do React olhava.
+             *
+             * Hoje nenhum curso usa a convenção de texto, então as duas
+             * concordam. As duas são respeitadas aqui para que a migração não
+             * mude a resposta de um curso que alguém tenha rotulado assim; qual
+             * delas fica é decisão para a M5, quando o painel do admin for
+             * reescrito — é lá que a promessa de editar aparece.
+             */
+            'emite' => $course->emiteCertificado !== false
+                && ! str_contains((string) $course->category, 'Sem Certificado'),
+        ];
+    }
+
+    /**
      * Avaliações do curso em que o aluno ainda NÃO foi aprovado, por título.
      *
      * Três recortes, e cada um evita travar o certificado de quem não tem culpa:
