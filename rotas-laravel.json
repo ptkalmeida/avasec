@@ -58,6 +58,9 @@
     "/aluno/curso/{cursoRef}/aula/{aulaId}",
     "/aluno/certificados",
     "/aluno/certificados/{certificadoId}/pdf",
-    "/aluno/suporte"
+    "/aluno/suporte",
+    "/aluno/perfil",
+    "/aluno/perfil/nome",
+    "/aluno/perfil/senha"
   ]
 }

@@ -33,7 +33,7 @@
             <x-aluno.menu-lateral
                 :ativo="$ativo ?? null"
                 :curso="$cursoDoMenu ?? null"
-                :concluidos="$concluidosDoMenu ?? []"
+                :concluidos="$concluidosDoMenu ?? null"
                 :aulas="$aulasDoMenu ?? []"
                 :aulaAtual="$aulaAtual ?? null" />
         </div>

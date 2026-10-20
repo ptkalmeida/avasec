@@ -191,6 +191,25 @@ final class AuthService
         return $this->toPublicUser($user);
     }
 
+    /**
+     * A senha informada é a desta conta? Só leitura.
+     *
+     * Existe para confirmar uma alteração sensível (o nome, que sai nos
+     * certificados) sem passar pelo LOGIN. O perfil do React confirmava
+     * entrando de novo — e login errado conta tentativa: com cinco, a conta
+     * ficava bloqueada por quinze minutos, por causa de um erro de digitação
+     * numa tela de perfil. Aqui não há contador; o limite contra força bruta
+     * fica no limitador da rota (`auth-password`, por usuário).
+     */
+    public function senhaConfere(string $userId, string $senha): bool
+    {
+        $user = User::query()->find($userId);
+
+        return $user !== null
+            && is_string($user->passwordHash)
+            && password_verify($senha, $user->passwordHash);
+    }
+
     public function changePassword(string $userId, string $newPassword, string $currentPassword): void
     {
         $user = User::query()->find($userId);

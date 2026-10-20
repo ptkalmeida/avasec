@@ -4,6 +4,7 @@ use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\AutenticacaoWebController;
 use App\Http\Controllers\PaginaPublicaController;
+use App\Http\Controllers\PerfilDoAlunoController;
 use App\Http\Controllers\UploadController;
 use Illuminate\Support\Facades\Route;
 
@@ -148,6 +149,16 @@ Route::middleware('aluno.web')->group(function (): void {
      */
     Route::get('/aluno/suporte', [AreaDoAlunoController::class, 'suporte'])->name('aluno.suporte');
     Route::post('/aluno/suporte', [AreaDoAlunoController::class, 'enviarSuporte']);
+
+    /*
+     * Perfil: dados da conta, nome e senha. As duas alterações conferem a
+     * senha atual e usam o MESMO limitador da troca de senha da API
+     * (`auth-password`, 5 por 15 min por usuário): conferir senha é o que um
+     * ataque de força bruta procura, e as duas portas dividem o balde.
+     */
+    Route::get('/aluno/perfil', [PerfilDoAlunoController::class, 'mostrar'])->name('aluno.perfil');
+    Route::post('/aluno/perfil/nome', [PerfilDoAlunoController::class, 'alterarNome'])->middleware('throttle:auth-password');
+    Route::post('/aluno/perfil/senha', [PerfilDoAlunoController::class, 'alterarSenha'])->middleware('throttle:auth-password');
     Route::get('/aluno/curso/{cursoRef}', [AreaDoAlunoController::class, 'curso'])->name('aluno.curso');
 
     Route::get('/aluno/curso/{cursoRef}/aula/{aulaId}', [AreaDoAlunoController::class, 'aula'])->name('aluno.aula');

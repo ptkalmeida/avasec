@@ -1,4 +1,12 @@
-@props(['ativo' => null, 'curso' => null, 'concluidos' => [], 'aulas' => [], 'aulaAtual' => null])
+@props(['ativo' => null, 'curso' => null, 'concluidos' => null, 'aulas' => [], 'aulaAtual' => null])
+
+{{--
+    Sem a lista vinda da página, o menu a calcula — em vez de usar uma lista
+    vazia e afirmar "Nenhum curso concluído ainda" para quem concluiu. Ver
+    App\Services\MenuDoAluno. A forma em linha é a única usada neste arquivo:
+    misturar as duas formas da diretiva quebra o compilador do Blade.
+--}}
+@php($concluidos = $concluidos ?? app(\App\Services\MenuDoAluno::class)->concluidos(request()->attributes->get('auth_user')))
 
 {{--
     Menu lateral da área do aluno — a peça que a skill `redesenhar-ava-lms` pede
