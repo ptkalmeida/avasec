@@ -18,6 +18,7 @@ use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
 use App\Support\Payload;
+use App\Support\Visibilidade;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 
@@ -186,14 +187,9 @@ final class LearningService
             throw ApiException::forbidden('Você não participa deste curso.');
         }
 
-        $total = $quiz->questions->count();
-        $correct = 0;
-        foreach ($quiz->questions as $question) {
-            $given = $input['answers'][$question->id] ?? null;
-            if (is_int($given) && $given === $question->correctOptionIndex) {
-                $correct++;
-            }
-        }
+        $acertos = $this->acertosPorQuestao($quiz, $input['answers']);
+        $total = count($acertos);
+        $correct = count(array_filter($acertos));
         $scorePercent = $total === 0 ? 0 : (int) round(($correct / $total) * 100);
         $passed = $scorePercent >= BusinessRules::quizPassThreshold();
 
@@ -228,6 +224,152 @@ final class LearningService
             'submittedAt' => $agoraLocal->format('d/m/Y').' às '.$agoraLocal->format('H:i'),
             'enviadoEm' => $agora,
         ])->toArray();
+    }
+
+    /**
+     * Acerto de cada questão, pela ordem do quiz. É a ÚNICA comparação com o
+     * gabarito: a nota de `submitQuiz` e a correção que a tela mostra saem
+     * daqui, e por isso não podem discordar.
+     *
+     * @param  array<array-key, mixed>  $respostas  questionId => índice escolhido
+     * @return array<string, bool>
+     */
+    private function acertosPorQuestao(Quiz $quiz, array $respostas): array
+    {
+        $acertos = [];
+        foreach ($quiz->questions as $question) {
+            $dada = $respostas[$question->id] ?? null;
+            $acertos[(string) $question->id] = is_int($dada) && $dada === $question->correctOptionIndex;
+        }
+
+        return $acertos;
+    }
+
+    /**
+     * As avaliações de um curso como o aluno as vê, com a situação de cada uma.
+     *
+     * Só as publicadas (escada de `Visibilidade`) — a mesma regra que o
+     * certificado usa para decidir quais são exigidas.
+     *
+     * "Aprovada" segue o certificado: basta UMA tentativa aprovada. Refazer
+     * depois de aprovado e ir pior não desfaz a aprovação, e a tela não pode
+     * dizer outra coisa que o certificado diz. A nota mostrada é a da
+     * tentativa mais recente.
+     *
+     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @return list<array{id:string,title:string,questoes:int,aprovada:bool,tentativas:int,ultima:array{scorePercent:int,passed:bool,submittedAt:string}|null}>
+     */
+    public function avaliacoesDoCursoParaAluno(string $courseId, array $aluno): array
+    {
+        $consulta = Quiz::query()->withCount('questions')->where('courseId', $courseId);
+        Visibilidade::aplicar($consulta, 'student');
+        $quizzes = $consulta->orderBy('id')->get();
+
+        $tentativas = QuizSubmission::query()
+            ->where('userId', $aluno['sub'])
+            ->where('courseId', $courseId)
+            ->orderByDesc('enviadoEm')->orderByDesc('id')
+            ->get()
+            ->groupBy('quizId');
+
+        $lista = [];
+        foreach ($quizzes as $quiz) {
+            $doQuiz = $tentativas->get($quiz->id) ?? collect();
+            $ultima = $doQuiz->first();
+            $lista[] = [
+                'id' => (string) $quiz->id,
+                'title' => (string) $quiz->title,
+                'questoes' => is_numeric($n = $quiz->getAttribute('questions_count')) ? (int) $n : 0,
+                'aprovada' => $doQuiz->contains(static fn (QuizSubmission $t): bool => (bool) $t->passed),
+                'tentativas' => $doQuiz->count(),
+                'ultima' => $ultima === null ? null : [
+                    'scorePercent' => (int) $ultima->scorePercent,
+                    'passed' => (bool) $ultima->passed,
+                    'submittedAt' => (string) $ultima->submittedAt,
+                ],
+            ];
+        }
+
+        return $lista;
+    }
+
+    /**
+     * A prova para o aluno responder — enunciados e alternativas, SEM gabarito.
+     *
+     * Não sai daqui `correctOptionIndex`, `explanation`, `reviewMessage` nem
+     * `recommendedModule`. Na API eles vão junto (`listQuizzes`), e a tela do
+     * React mostrava a alternativa certa a cada questão e deixava refazer a
+     * questão até acertar: a nota "recalculada no servidor" era sobre
+     * respostas dadas depois de ver o gabarito. Decisão de 20/10: a prova é
+     * corrigida no fim, e o gabarito não chega ao navegador.
+     *
+     * Null quando o quiz não é deste curso ou não está publicado.
+     *
+     * @return array{id:string,title:string,questions:list<array{id:string,questionText:string,options:list<string>}>}|null
+     */
+    public function provaParaResponder(string $courseId, string $quizId): ?array
+    {
+        $consulta = Quiz::query()->with('questions')->whereKey($quizId)->where('courseId', $courseId);
+        Visibilidade::aplicar($consulta, 'student');
+        $quiz = $consulta->first();
+        if ($quiz === null) {
+            return null;
+        }
+
+        $questoes = [];
+        foreach ($quiz->questions as $q) {
+            $opcoes = is_array($q->options) ? $q->options : [];
+            $questoes[] = [
+                'id' => (string) $q->id,
+                'questionText' => (string) $q->questionText,
+                'options' => array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $opcoes)),
+            ];
+        }
+
+        return ['id' => (string) $quiz->id, 'title' => (string) $quiz->title, 'questions' => $questoes];
+    }
+
+    /**
+     * O que a tela de resultado mostra de cada questão, depois de enviada.
+     *
+     * Diz se acertou — mas NÃO qual era a alternativa certa: o aluno pode
+     * refazer a prova, e com a letra na mão a segunda tentativa deixaria de
+     * medir alguma coisa.
+     *
+     * Os dois textos da questão têm destinatários diferentes, e isso decide
+     * quem vê qual. Nos cursos cadastrados, `explanation` é escrita para QUEM
+     * ACERTOU ("Correto! As fotografias foram reunidas principalmente
+     * para…") — explica a resposta certa, e por isso a entrega. `reviewMessage`
+     * é a dica para quem errou ("Observe o objetivo das fotografias…"). Então:
+     * acertou, vê a explicação; errou, vê a dica e o módulo a revisar.
+     *
+     * @param  array<array-key, mixed>  $respostas
+     * @return list<array{numero:int,questionText:string,acertou:bool,explanation:string|null,reviewMessage:string|null,recommendedModule:string|null}>
+     */
+    public function correcaoParaAluno(string $quizId, array $respostas): array
+    {
+        $quiz = Quiz::query()->with('questions')->find($quizId);
+        if ($quiz === null) {
+            return [];
+        }
+
+        $acertos = $this->acertosPorQuestao($quiz, $respostas);
+        $texto = static fn (mixed $v): ?string => is_string($v) && trim($v) !== '' ? $v : null;
+
+        $correcao = [];
+        foreach ($quiz->questions->values() as $i => $q) {
+            $acertou = $acertos[(string) $q->id] ?? false;
+            $correcao[] = [
+                'numero' => $i + 1,
+                'questionText' => (string) $q->questionText,
+                'acertou' => $acertou,
+                'explanation' => $acertou ? $texto($q->explanation) : null,
+                'reviewMessage' => $acertou ? null : $texto($q->reviewMessage),
+                'recommendedModule' => $acertou ? null : $texto($q->recommendedModule),
+            ];
+        }
+
+        return $correcao;
     }
 
     // ---------- FÓRUM ----------

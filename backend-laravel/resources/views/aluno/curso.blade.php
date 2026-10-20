@@ -79,9 +79,8 @@
                     </a>
                 </div>
 
-                {{-- Avaliações continuam no React (ainda não migradas). O link
-                     preserva o acesso: a aba sumiria junto com a tela antiga, e
-                     avaliação é o que decide a certificação. --}}
+                {{-- Avaliação é o que decide a certificação: o caminho até ela
+                     fica à vista na tela do curso. --}}
                 <a href="/aluno/curso/{{ $ref }}/avaliacoes"
                    class="inline-flex items-center gap-1.5 text-rotulo font-semibold text-ava-acao underline-offset-[3px] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                     <span>Avaliações do curso</span>

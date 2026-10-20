@@ -11,7 +11,9 @@ use App\Services\CertificatePdfService;
 use App\Services\CertificateService;
 use App\Services\CourseService;
 use App\Services\EnrollmentService;
+use App\Services\LearningService;
 use App\Services\MessagingService;
+use App\Support\BusinessRules;
 use App\Support\ConteudoDaAula;
 use App\Support\CourseAccess;
 use App\Support\ProgressoDoAluno;
@@ -41,6 +43,7 @@ final class AreaDoAlunoController extends Controller
         private readonly CertificatePdfService $pdf,
         private readonly MessagingService $mensagens,
         private readonly CatalogService $catalogo,
+        private readonly LearningService $aprendizagem,
     ) {}
 
     /**
@@ -350,6 +353,166 @@ final class AreaDoAlunoController extends Controller
             'curso' => $curso,
             'aulas' => $this->aulasEmOrdem($curso, $aluno),
             'concluidos' => $this->concluidos($matricula, $porId, $aluno),
+        ]);
+    }
+
+    /**
+     * O curso do endereço, quando é um curso DESTE aluno — a mesma conferência
+     * da tela do curso e da aula. Curso alheio ou inexistente é 404.
+     *
+     * Devolve o redirecionamento para o endereço de hoje (slug) quando o
+     * pedido veio pelo id ou por um slug antigo — DEPOIS da conferência, pelo
+     * mesmo motivo registrado em `curso()`.
+     *
+     * Além do curso, devolve `id` e `ref` (o slug, ou o id quando não há
+     * slug) já como texto — é o que as telas de dentro do curso usam.
+     *
+     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @return array{curso:array<string, mixed>,id:string,ref:string}|RedirectResponse
+     */
+    private function meuCurso(array $aluno, string $cursoRef, string $resto = ''): array|RedirectResponse
+    {
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        $curso = $this->cursosPorId($aluno)[$resolvido['id']] ?? null;
+
+        abort_if(
+            $curso === null || ! in_array($resolvido['id'], $this->idsDoAluno($this->matriculaDe($aluno)), true),
+            404,
+        );
+
+        if (! $resolvido['canonico'] && $resolvido['slug'] !== '') {
+            return redirect('/aluno/curso/'.$resolvido['slug'].$resto);
+        }
+
+        return [
+            'curso' => $curso,
+            'id' => $resolvido['id'],
+            'ref' => $resolvido['slug'] !== '' ? $resolvido['slug'] : $resolvido['id'],
+        ];
+    }
+
+    /**
+     * Avaliações do curso: a lista, com a situação de cada uma.
+     *
+     * Com `quizSimples` desligado, 404 — como a API.
+     */
+    public function avaliacoes(Request $request, string $cursoRef): View|RedirectResponse
+    {
+        abort_unless(config('features.quizSimples') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($aluno, $cursoRef, '/avaliacoes');
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        return view('aluno.avaliacoes', [
+            'curso' => $meu['curso'],
+            'ref' => $meu['ref'],
+            'avaliacoes' => $this->aprendizagem->avaliacoesDoCursoParaAluno($meu['id'], $aluno),
+            'minimo' => BusinessRules::quizPassThreshold(),
+        ]);
+    }
+
+    /**
+     * A prova: todas as questões numa página, para responder e enviar.
+     *
+     * Quando a página chega logo depois de um envio, mostra o resultado — que
+     * vem da sessão, uma vez só. Recarregar depois volta à prova em branco, e a
+     * nota continua na lista de avaliações.
+     */
+    public function prova(Request $request, string $cursoRef, string $quizId): View|RedirectResponse
+    {
+        abort_unless(config('features.quizSimples') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($aluno, $cursoRef, '/avaliacoes/'.rawurlencode($quizId));
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $prova = $this->aprendizagem->provaParaResponder($meu['id'], $quizId);
+        abort_if($prova === null, 404);
+
+        $resultado = $request->session()->get('resultadoDaProva');
+
+        return view('aluno.prova', [
+            'curso' => $meu['curso'],
+            'ref' => $meu['ref'],
+            'prova' => $prova,
+            'resultado' => is_array($resultado) && ($resultado['quizId'] ?? null) === $prova['id'] ? $resultado : null,
+            'minimo' => BusinessRules::quizPassThreshold(),
+        ]);
+    }
+
+    /**
+     * Envia a prova. Quem corrige e grava é o `LearningService::submitQuiz`, o
+     * mesmo da API: a nota sai das respostas, nunca do formulário.
+     *
+     * Sem limitador de frequência, como o envio pela API. Cada envio grava uma
+     * tentativa (ADR 12) — sinalizado no plano 18 §21.
+     */
+    public function responderProva(Request $request, string $cursoRef, string $quizId): RedirectResponse
+    {
+        abort_unless(config('features.quizSimples') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        // Endereço antigo num POST: o formulário veio de uma página velha. A
+        // prova não é corrigida por um endereço que não é o de hoje.
+        $meu = $this->meuCurso($aluno, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $prova = $this->aprendizagem->provaParaResponder($meu['id'], $quizId);
+        abort_if($prova === null || $prova['questions'] === [], 404);
+
+        $enviadas = $request->input('respostas');
+        $enviadas = is_array($enviadas) ? $enviadas : [];
+
+        // Cada questão precisa de uma alternativa que exista. Faltando alguma,
+        // a prova volta com o que já foi marcado, e nada é gravado: tentativa
+        // registrada pela metade contaria como nota.
+        $respostas = [];
+        $faltam = [];
+        foreach ($prova['questions'] as $i => $q) {
+            $valor = $enviadas[$q['id']] ?? null;
+            if (is_string($valor) && ctype_digit($valor) && (int) $valor < count($q['options'])) {
+                $respostas[$q['id']] = (int) $valor;
+            } else {
+                $faltam[] = $i + 1;
+            }
+        }
+
+        $voltar = '/aluno/curso/'.$meu['ref'].'/avaliacoes/'.rawurlencode($quizId);
+
+        if ($faltam !== []) {
+            $ultima = array_pop($faltam);
+
+            return redirect($voltar)->withInput()->withErrors([
+                'respostas' => $faltam === []
+                    ? 'Falta responder a questão '.$ultima.'.'
+                    : 'Faltam responder as questões '.implode(', ', $faltam).' e '.$ultima.'.',
+            ]);
+        }
+
+        try {
+            $tentativa = $this->aprendizagem->submitQuiz(['quizId' => $prova['id'], 'answers' => $respostas], $aluno);
+        } catch (ApiException $e) {
+            return redirect($voltar)->withInput()->withErrors(['respostas' => $e->getMessage()]);
+        }
+
+        return redirect($voltar)->with('resultadoDaProva', [
+            'quizId' => $prova['id'],
+            'scorePercent' => is_numeric($tentativa['scorePercent'] ?? null) ? (int) $tentativa['scorePercent'] : 0,
+            'passed' => ! empty($tentativa['passed']),
+            'correcao' => $this->aprendizagem->correcaoParaAluno($prova['id'], $respostas),
         ]);
     }
 

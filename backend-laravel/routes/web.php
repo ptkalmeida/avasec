@@ -166,6 +166,14 @@ Route::middleware('aluno.web')->group(function (): void {
 
     Route::get('/aluno/curso/{cursoRef}/aula/{aulaId}', [AreaDoAlunoController::class, 'aula'])->name('aluno.aula');
 
+    /*
+     * Avaliações: a lista e a prova. A prova é corrigida no FIM, no servidor,
+     * e o gabarito não vai para a página (decisão de 20/10).
+     */
+    Route::get('/aluno/curso/{cursoRef}/avaliacoes', [AreaDoAlunoController::class, 'avaliacoes'])->name('aluno.avaliacoes');
+    Route::get('/aluno/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoAlunoController::class, 'prova'])->name('aluno.prova');
+    Route::post('/aluno/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoAlunoController::class, 'responderProva']);
+
     // Catálogo do aluno: a nova casa da matrícula, que saiu do painel junto com
     // "Disciplinas acadêmicas disponíveis".
     Route::get('/aluno/catalogo', [AreaDoAlunoController::class, 'catalogo'])->name('aluno.catalogo');

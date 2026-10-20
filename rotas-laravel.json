@@ -63,6 +63,8 @@
     "/aluno/perfil/nome",
     "/aluno/perfil/senha",
     "/aluno/biblioteca",
-    "/aluno/duvidas"
+    "/aluno/duvidas",
+    "/aluno/curso/{cursoRef}/avaliacoes",
+    "/aluno/curso/{cursoRef}/avaliacoes/{quizId}"
   ]
 }
