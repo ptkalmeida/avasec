@@ -76,6 +76,12 @@ Route::get('/certificados', [PaginaPublicaController::class, 'certificados'])
     ->name('publico.certificados');
 
 /*
+ * Calendário — a última página pública em React. A agenda vem dos encontros
+ * realmente marcados, e não de conteúdo digitado (ver App\Support\AgendaAoVivo).
+ */
+Route::get('/calendario', [PaginaPublicaController::class, 'calendario'])->name('publico.calendario');
+
+/*
  * Catálogo público — primeira tela da fase M2, e a primeira do redesenho das
  * cinco telas (plano 18). A URL não muda: `/cursos` era servida pelo React e
  * passa a ser servida pelo Blade, no mesmo endereço.

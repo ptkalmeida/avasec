@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\WebinarEvent;
 use App\Services\CertificateService;
+use App\Services\CourseService;
 use App\Services\SitePageContentService;
+use App\Support\AgendaAoVivo;
+use App\Support\Fuso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -26,6 +30,7 @@ final class PaginaPublicaController extends Controller
     public function __construct(
         private readonly SitePageContentService $conteudo,
         private readonly CertificateService $certificados,
+        private readonly CourseService $cursos,
     ) {}
 
     /**
@@ -133,6 +138,40 @@ final class PaginaPublicaController extends Controller
             'pagina' => $pagina,
             'noticias' => $encontradas,
             'busca' => $busca,
+        ]);
+    }
+
+    /**
+     * Calendário de aulas ao vivo.
+     *
+     * Diferente das outras páginas institucionais, esta **não** lista conteúdo
+     * editável: o cabeçalho vem do `SitePageContentService`, mas a agenda vem
+     * dos encontros realmente marcados. O esquema de edição ainda guarda os
+     * `items` do tempo em que a agenda era digitada à mão — eles não são lidos
+     * por ninguém desde então, e isso está sinalizado no plano 18 como
+     * decoração a remover do painel do admin, que é onde a promessa de edição
+     * aparece.
+     *
+     * Os cursos vêm de `listCoursesFor(null)`: é a mesma lista que o React
+     * recebia, e com ela vêm as regras de visibilidade da escada da ADR 12 —
+     * curso em rascunho ou restrito não tem encontro divulgado aqui.
+     *
+     * Webinar só entra com a flag `eventosWebinars` ligada (hoje desligada por
+     * decisão de produto de 04/09/2026), exatamente como no React.
+     */
+    public function calendario(): View
+    {
+        $webinars = config('features.eventosWebinars') === true
+            ? array_values(WebinarEvent::query()->get()->map(static fn (WebinarEvent $w): array => $w->toArray())->all())
+            : [];
+
+        $agora = Fuso::agora();
+
+        return view('publico.calendario', [
+            'pagina' => $this->conteudo->get('calendario'),
+            'agenda' => AgendaAoVivo::montar(array_values($this->cursos->listCoursesFor(null)), $webinars, $agora),
+            'agora' => $agora,
+            'dias' => AgendaAoVivo::DIAS,
         ]);
     }
 
