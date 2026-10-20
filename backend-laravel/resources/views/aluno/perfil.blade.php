@@ -13,8 +13,8 @@
     cargos que nem batem com os do modelo de certificado que o admin edita.
     Nada nele é verificável: não há código que o autenticador público
     reconheça. Um papel com cara de documento oficial e assinatura que ninguém
-    deu não é algo que uma escola pública possa entregar. A decisão de
-    reconstruí-lo com dados e signatários reais é do responsável (plano 18).
+    deu não é algo que uma escola pública possa entregar. O responsável
+    decidiu em 20/10 deixá-lo fora por ora (plano 18 §20.3).
 --}}
 <x-layouts.aluno titulo="Perfil" ativo="perfil">
 
