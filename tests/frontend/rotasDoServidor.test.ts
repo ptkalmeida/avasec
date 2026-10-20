@@ -19,7 +19,7 @@ describe('servidoPeloServidor', () => {
   });
 
   it('exato casa só o próprio caminho, e não arrasta os filhos', () => {
-    expect(servidoPeloServidor('/aluno', REGRAS)).toBe(true);
+    // Com regras de exemplo, que não têm a biblioteca: o que não está nelas é React.
     // Biblioteca ainda é React: entregar ao servidor abriria o casco velho.
     expect(servidoPeloServidor('/aluno/biblioteca', REGRAS)).toBe(false);
     expect(servidoPeloServidor('/aluno/mensagens', REGRAS)).toBe(false);
@@ -41,7 +41,7 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/aluno')).toBe(true);
     expect(servidoPeloServidor('/aluno/certificados')).toBe(true);
     // E as que ainda são React.
-    expect(servidoPeloServidor('/aluno/biblioteca')).toBe(false);
+    expect(servidoPeloServidor('/aluno/eventos')).toBe(false);
     expect(servidoPeloServidor('/admin')).toBe(false);
   });
 });

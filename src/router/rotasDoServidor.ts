@@ -30,7 +30,7 @@ export interface ContratoDeRotas {
  *
  * O Vite trata uma chave começada em `^` como regex, e é disso que a migração
  * de uma árvore por partes depende: `/aluno` precisa chegar ao Laravel, e
- * `/aluno/biblioteca` — que ainda é React — não. Como prefixo, o primeiro
+ * `/aluno/eventos` — que ainda é React — não. Como prefixo, o primeiro
  * arrastaria o segundo junto.
  *
  * `{param}` é um segmento: a entrada é a URI da rota do Laravel, copiada como

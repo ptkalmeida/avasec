@@ -7,6 +7,8 @@ namespace App\Services;
 use App\Models\LibraryItem;
 use App\Models\WebinarEvent;
 use App\Support\DataTexto;
+use App\Support\SafeUrl;
+use App\Support\Visibilidade;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -20,6 +22,42 @@ final class CatalogService
     public function listLibraryItems(): Collection
     {
         return LibraryItem::all();
+    }
+
+    /**
+     * A biblioteca como um papel a enxerga: só o que está no ar para ele, na
+     * escada de `Visibilidade`, em ordem de categoria e título.
+     *
+     * `listLibraryItems` (a da API) devolve tudo o que não está inativado,
+     * inclusive item restrito ou em rascunho — está sinalizado no plano 18
+     * §21 e fica como está até o React sair, porque o painel do admin o usa.
+     *
+     * `href` é a URL quando ela é segura e aponta para algum lugar. Item
+     * cadastrado com `#` (os seis de demonstração) sai com `href` nulo, e a
+     * tela diz que o arquivo ainda não está disponível em vez de oferecer um
+     * "Baixar" que não baixa nada.
+     *
+     * @return list<array{id:string,title:string,type:string,category:string,description:string|null,href:string|null}>
+     */
+    public function listLibraryItemsFor(?string $role): array
+    {
+        $consulta = LibraryItem::query();
+        Visibilidade::aplicar($consulta, $role);
+
+        $itens = [];
+        foreach ($consulta->orderBy('category')->orderBy('title')->get() as $item) {
+            $url = SafeUrl::sanitize(is_string($item->url) ? $item->url : null);
+            $itens[] = [
+                'id' => (string) $item->id,
+                'title' => (string) $item->title,
+                'type' => (string) $item->type,
+                'category' => (string) $item->category,
+                'description' => is_string($item->description) && $item->description !== '' ? $item->description : null,
+                'href' => $url,
+            ];
+        }
+
+        return $itens;
     }
 
     /** @param array<string, mixed> $data */

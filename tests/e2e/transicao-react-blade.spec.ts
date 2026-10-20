@@ -7,7 +7,7 @@ import { entrarComoAluno } from './sessao';
  * Durante a migração, parte de `/aluno` é Blade e parte ainda é React. O React
  * navega DO LADO DO CLIENTE: um `navigate('/aluno')` dentro do SPA não pede
  * nada ao servidor — o React Router desenha a versão antiga do painel ali
- * mesmo. O aluno saía da Biblioteca pelo menu e via o painel de antes do
+ * mesmo. O aluno saía de uma seção em React pelo menu e via o painel de antes do
  * redesenho, no mesmo endereço em que, recarregando, veria o novo.
  *
  * O que este arquivo exige: quando o destino de uma navegação do React é uma
@@ -18,8 +18,9 @@ test.describe('Fronteira React → Blade na área do aluno', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAluno(page);
 
-    // Biblioteca ainda é React: o ponto de partida tem o casco do SPA.
-    await page.goto('/aluno/biblioteca');
+    // Eventos ainda é React: o ponto de partida tem o casco do SPA. (Era a
+    // Biblioteca, até ela passar para Blade.)
+    await page.goto('/aluno/eventos');
     await expect(page.locator('#root')).toHaveCount(1);
 
     // O item "Painel" do menu do React navega do lado do cliente.

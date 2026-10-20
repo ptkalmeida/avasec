@@ -142,6 +142,9 @@ Route::middleware('aluno.web')->group(function (): void {
     Route::get('/aluno/certificados/{certificadoId}/pdf', [AreaDoAlunoController::class, 'pdfDoCertificado'])
         ->name('aluno.certificados.pdf');
 
+    Route::get('/aluno/biblioteca', [AreaDoAlunoController::class, 'biblioteca'])->name('aluno.biblioteca');
+    Route::get('/aluno/duvidas', [AreaDoAlunoController::class, 'ajuda'])->name('aluno.ajuda');
+
     /*
      * Suporte pedagógico: enviar uma dúvida ao gestor. É a função do cartão
      * que saiu da aula, e que ficou sem porta quando o menu passou a apontar

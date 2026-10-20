@@ -51,15 +51,21 @@
 
     <div id="nav-estreita" x-show="navAberta" x-cloak class="border-t border-ava-borda px-2 py-2 lg:hidden">
         <nav aria-label="Navegação da área do aluno (telas estreitas)" class="grid grid-cols-2 gap-1">
-            @foreach ([
+            {{--
+                Os mesmos itens e as mesmas condições do menu lateral. O suporte
+                apontava aqui para `/aluno/mensagens` — a tela de LER, fechada ao
+                aluno — depois de o menu largo já ter sido corrigido: duas listas
+                para o mesmo menu divergem, e o teste confere as duas.
+            --}}
+            @foreach (array_values(array_filter([
                 ['/aluno', 'Painel'],
                 ['/aluno/catalogo', 'Catálogo'],
                 ['/aluno/certificados', 'Certificados'],
-                ['/aluno/biblioteca', 'Biblioteca'],
-                ['/aluno/mensagens', 'Suporte pedagógico'],
+                config('features.materiaisComplementares') === true ? ['/aluno/biblioteca', 'Biblioteca'] : null,
+                config('features.mensagensDiretas') === true ? ['/aluno/suporte', 'Suporte pedagógico'] : null,
                 ['/aluno/duvidas', 'Ajuda'],
                 ['/aluno/perfil', 'Perfil'],
-            ] as [$rota, $rotulo])
+            ])) as [$rota, $rotulo])
                 <a href="{{ $rota }}"
                    class="rounded-[10px] px-3 py-2.5 text-rotulo font-semibold text-ava-tinta hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                     {{ $rotulo }}

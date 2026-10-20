@@ -61,6 +61,8 @@
     "/aluno/suporte",
     "/aluno/perfil",
     "/aluno/perfil/nome",
-    "/aluno/perfil/senha"
+    "/aluno/perfil/senha",
+    "/aluno/biblioteca",
+    "/aluno/duvidas"
   ]
 }

@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
 use App\Models\Lesson;
+use App\Services\CatalogService;
 use App\Services\CertificatePdfService;
 use App\Services\CertificateService;
 use App\Services\CourseService;
@@ -39,6 +40,7 @@ final class AreaDoAlunoController extends Controller
         private readonly CertificateService $certificados,
         private readonly CertificatePdfService $pdf,
         private readonly MessagingService $mensagens,
+        private readonly CatalogService $catalogo,
     ) {}
 
     /**
@@ -136,6 +138,40 @@ final class AreaDoAlunoController extends Controller
                 $porId,
             ),
         ]);
+    }
+
+    /**
+     * Biblioteca: os materiais complementares, para baixar ou abrir.
+     *
+     * Responde 404 com `materiaisComplementares` desligado, como a API — o item
+     * some do menu nesse caso, e o endereço digitado não abre uma tela vazia.
+     */
+    public function biblioteca(Request $request): View
+    {
+        abort_unless(config('features.materiaisComplementares') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        return view('aluno.biblioteca', [
+            'itens' => $this->catalogo->listLibraryItemsFor($aluno['role']),
+        ]);
+    }
+
+    /**
+     * Ajuda: as dúvidas frequentes, e para onde ir quando elas não bastam.
+     *
+     * O conteúdo é o MESMO do `/duvidas` público, que a coordenação edita no
+     * admin. A aba do React tinha seis perguntas escritas no código, e quatro
+     * das respostas descreviam o que não existe: presença contada por
+     * "confirmação de leitura", arquivamento preventivo do curso, uma
+     * "política de saída de 5 dias", a aba de mensagens (fechada ao aluno) e
+     * aulas ao vivo gravadas em 24 horas. Com uma fonte só, o que a escola
+     * corrige no admin vale para as duas telas.
+     */
+    public function ajuda(): View
+    {
+        return view('aluno.ajuda');
     }
 
     /**

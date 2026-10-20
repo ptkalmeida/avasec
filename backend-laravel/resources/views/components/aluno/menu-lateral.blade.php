@@ -174,7 +174,11 @@
         </div>
 
         <x-aluno.item-do-menu rota="/aluno/certificados" rotulo="Certificados" :ativo="$ativo === 'certificados'" icone="certificado" />
-        <x-aluno.item-do-menu rota="/aluno/biblioteca" rotulo="Biblioteca" :ativo="$ativo === 'biblioteca'" icone="biblioteca" />
+        {{-- A biblioteca do aluno depende de `materiaisComplementares`, como
+             no React; `bibliotecaDigital` é a do painel do instrutor. --}}
+        @if (config('features.materiaisComplementares') === true)
+            <x-aluno.item-do-menu rota="/aluno/biblioteca" rotulo="Biblioteca" :ativo="$ativo === 'biblioteca'" icone="biblioteca" />
+        @endif
 
         <div class="mt-auto space-y-1 border-t border-ava-borda pt-2">
             {{--
