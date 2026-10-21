@@ -66,6 +66,7 @@
     "/inst/curso/{cursoRef}/aulas/{aulaId}",
     "/inst/curso/{cursoRef}/aulas/{aulaId}/identificacao",
     "/inst/curso/{cursoRef}/aulas/{aulaId}/video",
+    "/inst/curso/{cursoRef}/aulas/{aulaId}/material",
     "/inst/curso/{cursoRef}/aulas/{aulaId}/anexos",
     "/inst/curso/{cursoRef}/aulas/{aulaId}/anexos/{documentoId}/remover",
     "/inst/curso/{cursoRef}/avaliacoes",

@@ -124,12 +124,272 @@
         {{-- 3. Material didático --}}
         <x-instrutor.zona-da-aula id="material" titulo="Material didático"
                                   :dica="$secoes.($secoes === 1 ? ' seção' : ' seções').($blocos['temCodigo'] ? ' · contém bloco de código' : '')"
-                                  :editavel="false">
-            <p class="mb-3 text-sobretitulo uppercase text-escult-ink-2">Como o aluno vê</p>
-            @if ($blocos['blocos'] === [])
-                <p class="text-apoio italic text-escult-ink-2">Esta aula ainda não tem material escrito.</p>
+                                  :editando="$editar === 'material'">
+            @if ($editar !== 'material')
+                <p class="mb-3 text-sobretitulo uppercase text-escult-ink-2">Como o aluno vê</p>
+                @if ($blocos['blocos'] === [])
+                    <p class="text-apoio italic text-escult-ink-2">Esta aula ainda não tem material escrito. Use “Editar” para começar.</p>
+                @else
+                    <x-aluno.conteudo-da-aula :blocos="$blocos['blocos']" />
+                @endif
             @else
-                <x-aluno.conteudo-da-aula :blocos="$blocos['blocos']" />
+                @php
+                    $rotulos = ['secao' => 'Seção', 'subsecao' => 'Subtítulo', 'paragrafo' => 'Parágrafo', 'listaNumerada' => 'Lista numerada', 'listaMarcadores' => 'Lista', 'codigo' => 'Bloco de código', 'imagem' => 'Imagem', 'video' => 'Vídeo'];
+                    $palavras = trim($conteudo) === '' ? 0 : count(preg_split('/\s+/u', trim($conteudo)) ?: []);
+                    $lista = $blocos['blocos'];
+                    $botaoNeutro = 'inline-flex cursor-pointer items-center rounded-[10px] border border-ava-borda bg-white px-3 py-1.5 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao';
+                    $corpo = $base.'/material';
+                @endphp
+
+                <div class="space-y-3">
+                    <p class="text-apoio text-escult-ink-2">
+                        Esta é a tela do aluno. Cada alteração é gravada na hora, só no texto desta aula.
+                    </p>
+
+                    <details class="rounded-xl border border-ava-borda bg-ava-faixa/50 p-3 text-apoio text-ava-tinta">
+                        <summary class="cursor-pointer font-semibold">Como funciona</summary>
+                        <ul class="mt-2 list-disc space-y-1 pl-5 leading-relaxed">
+                            <li><strong>Editar</strong> abre o trecho para alteração; <strong>Remover</strong> o tira do texto.</li>
+                            <li><strong>Subir</strong> e <strong>Descer</strong> trocam o trecho de lugar. Figura e código levam a legenda junto.</li>
+                            <li><strong>+ Adicionar</strong>, entre dois trechos, insere algo novo ali.</li>
+                            <li><strong>Seção</strong> numera a parte e cria o índice “Nesta aula”; <strong>Subtítulo</strong> separa assuntos dentro dela.</li>
+                            <li>Ao editar um trecho, o campo <strong>Tipo</strong> converte o que já está escrito — uma lista numerada vira Seção sem redigitar. Use isso quando os títulos estiverem saindo todos como “1.”: a Seção numera 1, 2, 3 pela aula inteira.</li>
+                            <li><strong>Imagem</strong> exige uma <strong>descrição</strong>: é o que o aluno recebe quando a imagem não carrega, e o que o leitor de tela lê em voz alta. A legenda (“Figura 1 - …”) aparece abaixo da figura.</li>
+                            <li><strong>Vídeo</strong> encaixa um vídeo do YouTube no meio da explicação. O vídeo <em>principal</em> da aula fica na zona do topo.</li>
+                            <li>Imagem enviada fica num endereço público: quem tiver o link abre o arquivo sem estar matriculado. <strong>Não use imagem para prova, gabarito ou dado pessoal.</strong></li>
+                        </ul>
+                    </details>
+
+                    @if ($errors->has('material'))
+                        <p role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-apoio font-semibold text-rose-800">{{ $errors->first('material') }}</p>
+                    @endif
+                    @foreach (session('avisosDoMaterial', []) as $aviso)
+                        <p role="status" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-apoio text-amber-950">{{ $aviso }}</p>
+                    @endforeach
+
+                    @if ($lista === [])
+                        <div class="space-y-3 rounded-2xl border border-dashed border-ava-borda bg-ava-faixa/50 p-6 text-center">
+                            <p class="text-apoio italic text-escult-ink-2">Esta aula ainda não tem material escrito.</p>
+                            <x-instrutor.menu-adicionar :apos="-1" :base="$base" :versao="$versao" :aberto="$novo === null"
+                                                        :novo="$novo !== null && $apos === -1 ? $novo : null" :campo="$campo" :uploadAtivo="$uploadAtivo" />
+                        </div>
+                    @else
+                        <x-instrutor.menu-adicionar :apos="-1" :base="$base" :versao="$versao" :aberto="$adicionarEm === -1 && $novo === null"
+                                                    :novo="$novo !== null && $apos === -1 ? $novo : null" :campo="$campo" :uploadAtivo="$uploadAtivo" />
+
+                        <ol role="list" class="space-y-1">
+                            @foreach ($lista as $i => $bloco)
+                                @php
+                                    $tipo = $bloco['tipo'];
+                                @endphp
+                                <li id="bloco-{{ $i }}" class="scroll-mt-6">
+                                    @if ($editarBloco === $i)
+                                        @php
+                                            $textoAtual = match ($tipo) {
+                                                'listaNumerada', 'listaMarcadores' => implode("\n", $bloco['itens'] ?? []),
+                                                'secao', 'subsecao', 'paragrafo' => $bloco['texto'] ?? '',
+                                                default => '',
+                                            };
+                                            $linguagens = \App\Support\MaterialDaAula::LINGUAGENS;
+                                            if ($tipo === 'codigo' && is_string($bloco['linguagem'] ?? null) && ! in_array($bloco['linguagem'], $linguagens, true)) {
+                                                $linguagens[] = $bloco['linguagem'];
+                                            }
+                                            $ehTexto = in_array($tipo, \App\Support\MaterialDaAula::CONVERSIVEIS, true);
+                                        @endphp
+                                        <form method="POST" action="{{ $corpo }}" enctype="multipart/form-data"
+                                              @if ($ehTexto) x-data="{ tipo: @js(old('tipo', $tipo)) }" @endif
+                                              class="space-y-4 rounded-xl border-2 border-ava-acao/60 bg-ava-faixa/40 p-4">
+                                            @csrf
+                                            <input type="hidden" name="acao" value="atualizar">
+                                            <input type="hidden" name="versao" value="{{ $versao }}">
+                                            <input type="hidden" name="indice" value="{{ $i }}">
+                                            @if ($tipo === 'imagem' || $tipo === 'video')
+                                                <input type="hidden" name="tipo" value="{{ $tipo }}">
+                                            @endif
+
+                                            <p class="text-sobretitulo uppercase text-ava-acao">Editando: {{ mb_strtolower($rotulos[$tipo] ?? $tipo) }}</p>
+
+                                            @if ($errors->has('material'))
+                                                <p role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-apoio font-semibold text-rose-800">{{ $errors->first('material') }}</p>
+                                            @endif
+
+                                            @if ($ehTexto)
+                                                <div class="space-y-1.5">
+                                                    <label for="tipo-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Tipo</label>
+                                                    <select id="tipo-{{ $i }}" name="tipo" x-model="tipo" class="{{ $campo }}">
+                                                        @foreach (\App\Support\MaterialDaAula::CONVERSIVEIS as $c)
+                                                            <option value="{{ $c }}">{{ $rotulos[$c] }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+
+                                                <div class="space-y-1.5">
+                                                    <label for="texto-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">
+                                                        <span x-show="tipo === 'secao'">Título da seção (entra no índice)</span>
+                                                        <span x-show="tipo === 'subsecao'" x-cloak>Subtítulo</span>
+                                                        <span x-show="tipo === 'paragrafo'" x-cloak>Texto do parágrafo</span>
+                                                        <span x-show="tipo === 'listaNumerada' || tipo === 'listaMarcadores'" x-cloak>Itens — um por linha</span>
+                                                    </label>
+                                                    <p id="dica-texto-{{ $i }}" class="text-apoio text-escult-ink-2">
+                                                        <span x-show="tipo === 'paragrafo'">Para destacar uma palavra, envolva com dois asteriscos: **assim**.</span>
+                                                        <span x-show="tipo === 'listaNumerada' || tipo === 'listaMarcadores'" x-cloak>A numeração é automática; não precisa escrever “1.” nem “-”.</span>
+                                                        <span x-show="tipo === 'secao' || tipo === 'subsecao'" x-cloak>Uma linha só: se houver várias, elas são juntadas.</span>
+                                                    </p>
+                                                    <textarea id="texto-{{ $i }}" name="texto" rows="4" required aria-describedby="dica-texto-{{ $i }}" class="{{ $campo }}">{{ old('texto', $textoAtual) }}</textarea>
+                                                </div>
+
+                                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                                    <div class="min-w-0 space-y-1.5" x-show="tipo === 'paragrafo'" x-cloak>
+                                                        <label for="tamanho-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Tamanho</label>
+                                                        <select id="tamanho-{{ $i }}" name="tamanho" class="{{ $campo }}">
+                                                            @foreach (['pequeno' => 'Pequeno', 'normal' => 'Normal', 'grande' => 'Grande', 'muito-grande' => 'Muito grande'] as $v => $r)
+                                                                <option value="{{ $v }}" @selected(old('tamanho', $bloco['tamanho'] ?? 'normal') === $v)>{{ $r }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="min-w-0 space-y-1.5" x-show="tipo === 'paragrafo' || tipo === 'subsecao'" x-cloak>
+                                                        <label for="alinhamento-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Alinhamento</label>
+                                                        <select id="alinhamento-{{ $i }}" name="alinhamento" class="{{ $campo }}">
+                                                            @foreach (['esquerda' => 'À esquerda', 'centro' => 'Centralizado', 'direita' => 'À direita', 'justificado' => 'Justificado'] as $v => $r)
+                                                                <option value="{{ $v }}" @selected(old('alinhamento', $bloco['alinhamento'] ?? 'esquerda') === $v)>{{ $r }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <p class="text-apoio text-escult-ink-2">Em tela de celular, o justificado pode abrir espaços entre as palavras.</p>
+                                                    </div>
+                                                </div>
+                                            @elseif ($tipo === 'codigo')
+                                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                                    <div class="min-w-0 space-y-1.5">
+                                                        <label for="linguagem-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Linguagem</label>
+                                                        <select id="linguagem-{{ $i }}" name="linguagem" class="{{ $campo }}">
+                                                            @foreach ($linguagens as $l)
+                                                                <option value="{{ $l }}" @selected(old('linguagem', $bloco['linguagem'] ?? 'java') === $l)>{{ ['java' => 'Java', 'javascript' => 'JavaScript', 'typescript' => 'TypeScript', 'php' => 'PHP', 'python' => 'Python', 'sql' => 'SQL', 'json' => 'JSON', 'css' => 'CSS', 'html' => 'HTML', 'bash' => 'Terminal'][$l] ?? $l }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    <div class="min-w-0 space-y-1.5 sm:col-span-2">
+                                                        <label for="legenda-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Legenda <span class="font-normal text-escult-ink-2">(opcional)</span></label>
+                                                        <input id="legenda-{{ $i }}" name="legenda" type="text" class="{{ $campo }}"
+                                                               placeholder="Ex.: Código 1: declaração da classe" value="{{ old('legenda', $bloco['legenda'] ?? '') }}">
+                                                    </div>
+                                                </div>
+                                                <div class="space-y-1.5">
+                                                    <label for="codigo-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Código</label>
+                                                    <textarea id="codigo-{{ $i }}" name="codigo" rows="9" spellcheck="false"
+                                                              class="{{ $campo }} font-mono text-apoio leading-relaxed">{{ old('codigo', $bloco['codigo'] ?? '') }}</textarea>
+                                                </div>
+                                            @elseif ($tipo === 'imagem')
+                                                @php
+                                                    $imagemAtual = \App\Support\SafeUrl::sanitize($bloco['url'] ?? null);
+                                                @endphp
+                                                @if ($imagemAtual !== null)
+                                                    <div class="flex items-center gap-3 rounded-xl border border-ava-borda bg-white p-2.5">
+                                                        <img src="{{ $imagemAtual }}" alt="" class="h-14 w-14 shrink-0 rounded-lg border border-ava-borda object-cover">
+                                                        <p class="text-apoio font-semibold text-ava-tinta">Imagem atual da aula</p>
+                                                    </div>
+                                                @endif
+                                                @if ($uploadAtivo)
+                                                    <div class="space-y-1.5">
+                                                        <label for="arquivo-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Trocar imagem <span class="font-normal text-escult-ink-2">(opcional)</span></label>
+                                                        <input id="arquivo-{{ $i }}" name="arquivo" type="file" accept="image/png,image/jpeg,image/webp,image/gif"
+                                                               class="block w-full text-apoio text-ava-tinta file:mr-3 file:cursor-pointer file:rounded-[10px] file:border file:border-ava-borda file:bg-white file:px-4 file:py-2 file:text-rotulo file:font-semibold file:text-ava-tinta hover:file:bg-ava-faixa">
+                                                    </div>
+                                                @endif
+                                                <div class="space-y-1.5">
+                                                    <label for="descricao-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Descrição da imagem (obrigatória)</label>
+                                                    <input id="descricao-{{ $i }}" name="descricao" type="text" required class="{{ $campo }}" value="{{ old('descricao', $bloco['alt'] ?? '') }}">
+                                                </div>
+                                                <div class="space-y-1.5">
+                                                    <label for="legenda-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Legenda <span class="font-normal text-escult-ink-2">(opcional)</span></label>
+                                                    <input id="legenda-{{ $i }}" name="legenda" type="text" class="{{ $campo }}"
+                                                           placeholder="Ex.: Figura 1 - fluxo de matrícula" value="{{ old('legenda', $bloco['legenda'] ?? '') }}">
+                                                </div>
+                                            @else
+                                                <div class="space-y-1.5">
+                                                    <label for="url-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Link do vídeo no YouTube</label>
+                                                    <input id="url-{{ $i }}" name="url" type="text" inputmode="url" required class="{{ $campo }}" value="{{ old('url', $bloco['url'] ?? '') }}">
+                                                </div>
+                                                <div class="space-y-1.5">
+                                                    <label for="descricao-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Título do vídeo (obrigatório)</label>
+                                                    <input id="descricao-{{ $i }}" name="descricao" type="text" required class="{{ $campo }}" value="{{ old('descricao', $bloco['titulo'] ?? '') }}">
+                                                </div>
+                                                <div class="space-y-1.5">
+                                                    <label for="legenda-{{ $i }}" class="block text-rotulo font-semibold text-ava-tinta">Legenda <span class="font-normal text-escult-ink-2">(opcional)</span></label>
+                                                    <input id="legenda-{{ $i }}" name="legenda" type="text" class="{{ $campo }}"
+                                                           placeholder="Ex.: Vídeo 1 - demonstração" value="{{ old('legenda', $bloco['legenda'] ?? '') }}">
+                                                </div>
+                                            @endif
+
+                                            <div class="flex flex-wrap justify-end gap-2">
+                                                <a href="{{ request()->url() }}?editar=material#bloco-{{ $i }}" class="{{ $botaoNeutro }}">Cancelar</a>
+                                                <button type="submit" class="{{ $salvar }}">Aplicar</button>
+                                            </div>
+                                        </form>
+                                    @else
+                                        <div class="rounded-xl border border-transparent px-3 py-2 hover:border-ava-borda hover:bg-ava-faixa/40" x-data="{ removendo: false }">
+                                            <div class="mb-2 flex flex-wrap items-center gap-2" x-show="! removendo">
+                                                <span class="mr-auto rounded-full bg-ava-faixa px-2 py-0.5 text-sobretitulo uppercase text-escult-ink-2">{{ $rotulos[$tipo] ?? $tipo }}</span>
+
+                                                @foreach (['up' => ['Subir', $i > 0], 'down' => ['Descer', $i < count($lista) - 1]] as $direcao => [$rotuloMover, $pode])
+                                                    @if ($pode)
+                                                        <form method="POST" action="{{ $corpo }}">
+                                                            @csrf
+                                                            <input type="hidden" name="acao" value="mover">
+                                                            <input type="hidden" name="versao" value="{{ $versao }}">
+                                                            <input type="hidden" name="indice" value="{{ $i }}">
+                                                            <input type="hidden" name="direcao" value="{{ $direcao }}">
+                                                            <button type="submit" class="{{ $botaoNeutro }}">{{ $rotuloMover }}<span class="sr-only"> {{ mb_strtolower($rotulos[$tipo] ?? $tipo) }} {{ $i + 1 }}</span></button>
+                                                        </form>
+                                                    @endif
+                                                @endforeach
+
+                                                <a href="{{ request()->url() }}?editar=material&bloco={{ $i }}#bloco-{{ $i }}" class="{{ $botaoNeutro }}">
+                                                    Editar<span class="sr-only"> {{ mb_strtolower($rotulos[$tipo] ?? $tipo) }} {{ $i + 1 }}</span>
+                                                </a>
+                                                <button type="button" @click="removendo = true"
+                                                        class="cursor-pointer rounded-[10px] border border-ava-borda bg-white px-3 py-1.5 text-rotulo font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
+                                                    Remover<span class="sr-only"> {{ mb_strtolower($rotulos[$tipo] ?? $tipo) }} {{ $i + 1 }}</span>
+                                                </button>
+                                            </div>
+
+                                            <form method="POST" action="{{ $corpo }}" x-show="removendo" x-cloak
+                                                  class="mb-2 space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                                                @csrf
+                                                <input type="hidden" name="acao" value="remover">
+                                                <input type="hidden" name="versao" value="{{ $versao }}">
+                                                <input type="hidden" name="indice" value="{{ $i }}">
+                                                <p class="text-apoio text-rose-900">
+                                                    Tirar este trecho do texto da aula? O que está escrito nele sai da aula. A remoção fica no registro de auditoria, com o texto do trecho.
+                                                </p>
+                                                <div class="flex flex-wrap gap-2">
+                                                    <button type="submit"
+                                                            class="cursor-pointer rounded-[10px] bg-rose-700 px-4 py-2 text-rotulo font-semibold text-white transition-colors hover:bg-rose-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2">
+                                                        Remover o trecho
+                                                    </button>
+                                                    <button type="button" @click="removendo = false" class="{{ $botaoNeutro }}">Manter</button>
+                                                </div>
+                                            </form>
+
+                                            <x-aluno.conteudo-da-aula :blocos="[$bloco]" />
+                                        </div>
+                                    @endif
+
+                                    <x-instrutor.menu-adicionar :apos="$i" :base="$base" :versao="$versao" :aberto="$adicionarEm === $i && $novo === null"
+                                                                :novo="$novo !== null && $apos === $i ? $novo : null" :campo="$campo" :uploadAtivo="$uploadAtivo" />
+                                </li>
+                            @endforeach
+                        </ol>
+                    @endif
+
+                    <p class="flex flex-wrap gap-x-4 gap-y-1 text-apoio font-semibold text-escult-ink-2">
+                        <span>{{ $secoes === 1 ? '1 seção' : $secoes.' seções' }}</span>
+                        <span>{{ count($lista) === 1 ? '1 trecho' : count($lista).' trechos' }}</span>
+                        <span>{{ $palavras === 1 ? '1 palavra' : $palavras.' palavras' }}</span>
+                        @if ($blocos['temCodigo'])
+                            <span class="text-ava-acao">contém bloco de código</span>
+                        @endif
+                    </p>
+                </div>
             @endif
         </x-instrutor.zona-da-aula>
 
@@ -146,7 +406,9 @@
             @else
                 <ul role="list" class="grid grid-cols-1 gap-2.5 {{ $editar === 'anexos' ? '' : 'sm:grid-cols-2' }}">
                     @foreach ($documentos as $doc)
-                        @php($endereco = \App\Support\SafeUrl::sanitize($doc['url'] ?? null))
+                        @php
+                            $endereco = \App\Support\SafeUrl::sanitize($doc['url'] ?? null);
+                        @endphp
                         <li class="min-w-0 rounded-xl border border-ava-borda bg-ava-faixa/50 px-3 py-2.5"
                             x-data="{ desvinculando: false }">
                             <div class="flex min-w-0 items-center gap-2.5">

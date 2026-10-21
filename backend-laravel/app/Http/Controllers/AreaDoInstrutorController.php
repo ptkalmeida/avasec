@@ -17,13 +17,18 @@ use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;
 use App\Support\ConteudoDaAula;
 use App\Support\DuracaoDaGrade;
+use App\Support\EdicaoDaAula;
 use App\Support\Fuso;
+use App\Support\MaterialDaAula;
 use App\Support\QuestaoDeProva;
+use App\Support\VideoProvider;
+use App\Support\VideoSource;
 use App\Support\VigenciaDoCurso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
+use InvalidArgumentException;
 
 /**
  * Área do instrutor em Blade — fase M4 do plano 16.
@@ -547,7 +552,27 @@ final class AreaDoInstrutorController extends Controller
             'conteudo' => $conteudo,
             'versao' => CourseService::versaoDoConteudo($conteudo),
             'editar' => is_string($editar) && in_array($editar, ['identificacao', 'video', 'material', 'anexos'], true) ? $editar : null,
+            // Dentro do material: qual bloco está com o formulário aberto, onde o
+            // menu "Adicionar" está aberto, e a mídia nova em criação. Tudo vem do
+            // endereço, como a zona.
+            'editarBloco' => self::inteiroDaQuery($request->query('bloco'), 0),
+            'adicionarEm' => self::inteiroDaQuery($request->query('adicionar'), -1),
+            'novo' => in_array($request->query('novo'), ['imagem', 'video'], true) ? $request->query('novo') : null,
+            'apos' => self::inteiroDaQuery($request->query('apos'), -1) ?? -1,
+            'uploadAtivo' => config('features.uploadArquivos') === true,
         ]);
+    }
+
+    /** Um número inteiro do endereço, a partir de `$minimo`; qualquer outra coisa é "não pedido". */
+    private static function inteiroDaQuery(mixed $valor, int $minimo): ?int
+    {
+        if (! is_string($valor) || preg_match('/^-?\d{1,6}$/', $valor) !== 1) {
+            return null;
+        }
+
+        $n = (int) $valor;
+
+        return $n >= $minimo ? $n : null;
     }
 
     /** Salva título e carga da aula — e só eles. */
@@ -601,6 +626,184 @@ final class AreaDoInstrutorController extends Controller
         $this->audit->log($request, 'Alteração de Curso', 'Aula '.$aulaId.' do curso '.$meu['id'].' atualizada ('.$zona.').');
 
         return redirect($pagina.'#'.$zona)->with('avisoDoCurso', $aviso);
+    }
+
+    /**
+     * Todas as escritas do material didático, num só endereço: o campo `acao`
+     * diz qual — mover, remover, atualizar ou inserir um bloco.
+     *
+     * Cada ação grava NA HORA e só o texto da aula, com a trava de versão do
+     * `CourseService::editarConteudoDaAula`: se o texto mudou desde que a pessoa
+     * abriu a página, nada é aplicado e ela recebe o aviso para recarregar. O
+     * painel React guardava um rascunho no navegador até o "Salvar material" e
+     * então regravava o curso inteiro; aqui não há rascunho para perder.
+     *
+     * A imagem enviada passa pelo mesmo `UploadService` da API. O índice do bloco
+     * vem da leitura que a pessoa viu — por isso a versão: um índice velho
+     * trocaria o trecho errado.
+     */
+    public function material(Request $request, string $cursoRef, string $aulaId): RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $dados = $request->validate([
+            'acao' => ['required', 'in:mover,remover,atualizar,inserir'],
+            'versao' => ['required', 'string'],
+            'indice' => ['nullable', 'integer', 'min:0'],
+            'apos' => ['nullable', 'integer', 'min:-1'],
+            'direcao' => ['nullable', 'in:up,down'],
+        ]);
+
+        $acao = $dados['acao'];
+        $indice = (int) ($dados['indice'] ?? 0);
+        $apos = (int) ($dados['apos'] ?? -1);
+        $pagina = '/inst/curso/'.$meu['ref'].'/aulas/'.rawurlencode($aulaId);
+        $campos = [];
+        foreach (['tipo', 'texto', 'tamanho', 'alinhamento', 'linguagem', 'legenda', 'codigo', 'url', 'descricao'] as $chave) {
+            $valor = $request->input($chave);
+            if (is_string($valor)) {
+                $campos[$chave] = $valor;
+            }
+        }
+
+        // O tipo pedido (imagem, vídeo, ou o tipo de texto de destino), lido uma vez.
+        $tipoPedido = $campos['tipo'] ?? '';
+
+        $aula = $this->aulaDoCurso($meu['curso'], $aulaId);
+        $videoPrincipal = is_string($aula['aula']['videoUrl'] ?? null) ? $aula['aula']['videoUrl'] : null;
+        $removido = null;
+        $avisos = [];
+
+        try {
+            // A imagem sobe ANTES da transação: o arquivo é gravado em disco e não
+            // se desfaz com ela. Se a versão estiver velha, sobra um arquivo sem
+            // uso, que não aparece em aula nenhuma.
+            $arquivo = $request->file('arquivo');
+            if ($arquivo instanceof UploadedFile && in_array($acao, ['atualizar', 'inserir'], true)) {
+                $campos['url'] = $this->enviarImagem($arquivo, $instrutor['sub'], $avisos);
+            }
+
+            $this->cursos->editarConteudoDaAula(
+                $meu['id'],
+                $aulaId,
+                $dados['versao'],
+                function (string $atual) use ($acao, $indice, $apos, $dados, $tipoPedido, &$campos, &$removido, $arquivo): string {
+                    try {
+                        return match ($acao) {
+                            'mover' => MaterialDaAula::mover($atual, $indice, $dados['direcao'] ?? 'up'),
+                            'remover' => (static function () use ($atual, $indice, &$removido): string {
+                                $removido = EdicaoDaAula::serializar(MaterialDaAula::bloco($atual, $indice));
+
+                                return MaterialDaAula::remover($atual, $indice);
+                            })(),
+                            'atualizar' => (function () use ($atual, $indice, &$campos, $arquivo): string {
+                                // Sem arquivo novo, a imagem fica com o endereço que o bloco já
+                                // tem — vindo do TEXTO gravado, e nunca do formulário.
+                                $bloco = MaterialDaAula::bloco($atual, $indice);
+                                if (($bloco['tipo'] ?? null) === 'imagem' && ! $arquivo instanceof UploadedFile) {
+                                    $campos['url'] = is_string($bloco['url'] ?? null) ? $bloco['url'] : '';
+                                }
+
+                                return MaterialDaAula::atualizar($atual, $indice, $campos);
+                            })(),
+                            default => in_array($tipoPedido, ['imagem', 'video'], true)
+                                ? MaterialDaAula::inserir($atual, $apos, MaterialDaAula::midiaNova($tipoPedido, $campos))
+                                : MaterialDaAula::inserirModelo($atual, $apos, $tipoPedido),
+                        };
+                    } catch (InvalidArgumentException $e) {
+                        throw ApiException::validation($e->getMessage());
+                    }
+                },
+                $instrutor,
+            );
+        } catch (ApiException $e) {
+            $volta = match ($acao) {
+                'atualizar' => '?editar=material&bloco='.$indice.'#bloco-'.$indice,
+                'inserir' => in_array($tipoPedido, ['imagem', 'video'], true)
+                    ? '?editar=material&novo='.$tipoPedido.'&apos='.$apos.'#novo'
+                    : '?editar=material#material',
+                default => '?editar=material#material',
+            };
+
+            return redirect($pagina.$volta)->withErrors(['material' => $e->getMessage()])->withInput($request->except(['arquivo', 'versao']));
+        }
+
+        if ($removido !== null) {
+            $this->audit->log(
+                $request,
+                'Alteração de Curso',
+                'Trecho removido do material da aula '.$aulaId.' do curso '.$meu['id'].': "'.mb_substr($removido, 0, 300).'".',
+                'WARNING',
+            );
+        } else {
+            $this->audit->log($request, 'Alteração de Curso', 'Material da aula '.$aulaId.' do curso '.$meu['id'].' alterado ('.$acao.').');
+        }
+
+        if ($tipoPedido === 'video' && self::repeteOVideoPrincipal($campos['url'] ?? '', $videoPrincipal)) {
+            $avisos[] = 'Este já é o vídeo principal da aula, no topo. Repetir aqui faz o aluno ver o mesmo vídeo duas vezes.';
+        }
+
+        [$destino, $aviso] = match ($acao) {
+            'mover' => ['?editar=material#bloco-'.max(0, $indice + (($dados['direcao'] ?? 'up') === 'up' ? -1 : 1)), 'Trecho movido.'],
+            'remover' => ['?editar=material#material', 'Trecho removido do texto da aula.'],
+            'atualizar' => ['?editar=material#bloco-'.$indice, 'Trecho atualizado.'],
+            default => in_array($tipoPedido, ['imagem', 'video'], true)
+                ? ['?editar=material#bloco-'.($apos + 1), 'Trecho adicionado.']
+                : ['?editar=material&bloco='.($apos + 1).'#bloco-'.($apos + 1), 'Trecho adicionado. Edite o texto dele abaixo.'],
+        };
+
+        $resposta = redirect($pagina.$destino)->with('avisoDoCurso', $aviso);
+
+        return $avisos === [] ? $resposta : $resposta->with('avisosDoMaterial', $avisos);
+    }
+
+    /**
+     * Envia a imagem pelo `UploadService` e devolve o endereço dela.
+     *
+     * Só imagem: o serviço aceita também PDF e Word, e um PDF num bloco de imagem
+     * apareceria quebrado para o aluno.
+     *
+     * @param  list<string>  $avisos  recebe o aviso de imagem pesada
+     */
+    private function enviarImagem(UploadedFile $arquivo, string $donoId, array &$avisos): string
+    {
+        if (! $arquivo->isValid()) {
+            throw ApiException::validation('O arquivo não pôde ser recebido: ele é maior do que o servidor aceita. Tente um arquivo menor.');
+        }
+        if (config('features.uploadArquivos') !== true) {
+            throw ApiException::validation('O envio de arquivos está desligado nesta instalação.');
+        }
+        if (! in_array(strtolower($arquivo->getClientOriginalExtension()), ['png', 'jpg', 'jpeg', 'webp', 'gif'], true)) {
+            throw ApiException::validation('Escolha um arquivo de imagem: PNG, JPG, WEBP ou GIF.');
+        }
+
+        // Acima de 2 MB o aluno sente no celular: o servidor não redimensiona nada.
+        // É aviso, não bloqueio.
+        if ((int) $arquivo->getSize() > 2 * 1024 * 1024) {
+            $avisos[] = 'Esta imagem é pesada ('.number_format((int) $arquivo->getSize() / (1024 * 1024), 1, ',', '.').' MB) e pode demorar para abrir no celular do aluno.';
+        }
+
+        return $this->uploads->store($arquivo, 'public', $donoId)['url'];
+    }
+
+    /** Mesmo vídeo? YouTube compara pelo id; arquivo, pelo endereço. */
+    private static function repeteOVideoPrincipal(string $url, ?string $principal): bool
+    {
+        $a = VideoSource::tryParse($url);
+        $b = $principal === null ? null : VideoSource::tryParse($principal);
+        if ($a === null || $b === null || $a->provider !== $b->provider) {
+            return false;
+        }
+
+        return $a->provider === VideoProvider::Youtube ? $a->videoId === $b->videoId : $a->canonicalUrl === $b->canonicalUrl;
     }
 
     /**

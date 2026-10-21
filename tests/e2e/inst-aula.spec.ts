@@ -68,6 +68,39 @@ test.describe('Página da aula do instrutor — Blade', () => {
     await expect(page.getByLabel('Arquivo do seu computador')).toBeVisible();
   });
 
+  test('o material abre com os controles de cada trecho e o menu Adicionar', async ({ page }) => {
+    await entrarComoInstrutor(page);
+    await page.goto(`${AULA_COM_VIDEO}?editar=material`);
+
+    await expect(page.getByText('Esta é a tela do aluno')).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Editar parágrafo 2$/ }).or(page.getByRole('link', { name: /^Editar .+ 1$/ })).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Remover / }).first()).toBeVisible();
+
+    // O menu abre pelo endereço, sem JavaScript, e oferece os tipos — menos código.
+    await page.getByRole('link', { name: /^\+ Adicionar/ }).first().click();
+    await expect(page).toHaveURL(/adicionar=-1/);
+    await expect(page.getByText('Adicionar aqui')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Parágrafo', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Imagem', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: /código/i })).toHaveCount(0);
+  });
+
+  test('o formulário de um trecho abre pelo endereço e pede o texto', async ({ page }) => {
+    await entrarComoInstrutor(page);
+    await page.goto(`${AULA_COM_VIDEO}?editar=material&bloco=0`);
+
+    await expect(page.getByRole('button', { name: 'Aplicar' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Cancelar' })).toBeVisible();
+  });
+
+  test('o formulário de imagem nova exige descrição e arquivo', async ({ page }) => {
+    await entrarComoInstrutor(page);
+    await page.goto(`${AULA_COM_VIDEO}?editar=material&novo=imagem&apos=0`);
+
+    await expect(page.getByLabel('Descrição da imagem (obrigatória)')).toBeVisible();
+    await expect(page.getByLabel('Arquivo da imagem')).toBeVisible();
+  });
+
   test('o formulário da aula nova abre com a carga padrão', async ({ page }) => {
     await entrarComoInstrutor(page);
     await page.goto(`${CURSO}/aulas/nova`);
@@ -91,7 +124,7 @@ test.describe('Página da aula do instrutor — Blade', () => {
       await page.setViewportSize({ width: w, height: 900 });
       await entrarComoInstrutor(page);
 
-      for (const url of [AULA_COM_VIDEO, `${AULA_COM_VIDEO}?editar=identificacao`, `${AULA_COM_VIDEO}?editar=video`, `${AULA_COM_VIDEO}?editar=anexos`, `${CURSO}/aulas/nova`]) {
+      for (const url of [AULA_COM_VIDEO, `${AULA_COM_VIDEO}?editar=identificacao`, `${AULA_COM_VIDEO}?editar=video`, `${AULA_COM_VIDEO}?editar=anexos`, `${AULA_COM_VIDEO}?editar=material`, `${AULA_COM_VIDEO}?editar=material&bloco=1`, `${AULA_COM_VIDEO}?editar=material&novo=imagem&apos=0`, `${CURSO}/aulas/nova`]) {
         await page.goto(url);
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 
