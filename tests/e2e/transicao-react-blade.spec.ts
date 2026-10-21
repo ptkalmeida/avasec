@@ -21,9 +21,10 @@ test.describe('Fronteira React → Blade', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoInstrutor(page);
 
-    // O painel de um curso ainda é React: o ponto de partida tem o casco do SPA.
+    // A grade curricular ainda é React: o ponto de partida tem o casco do SPA.
     await page.getByRole('link', { name: /Aulas/ }).first().click();
-    await expect(page).toHaveURL(/\/inst\/curso\/[^/]+$/);
+    await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
+    await expect(page).toHaveURL(/\/grade-curricular$/);
     await expect(page.locator('#root')).toHaveCount(1);
 
     // A trilha do painel React navega para `/inst` do lado do cliente.

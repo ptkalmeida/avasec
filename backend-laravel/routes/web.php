@@ -247,6 +247,14 @@ Route::middleware('instrutor.web')->group(function (): void {
      */
     Route::get('/inst/mensagens', [AreaDoInstrutorController::class, 'mensagens'])->name('instrutor.mensagens');
     Route::post('/inst/mensagens', [AreaDoInstrutorController::class, 'responder']);
+
+    /*
+     * Gestão do Curso. As seções de dentro do curso (grade, avaliações, alunos)
+     * continuam no React, e por isso cada rota entra no contrato como EXATA.
+     */
+    Route::get('/inst/curso/{cursoRef}', [AreaDoInstrutorController::class, 'curso'])->name('instrutor.curso');
+    Route::post('/inst/curso/{cursoRef}/propriedades', [AreaDoInstrutorController::class, 'salvarPropriedades']);
+    Route::post('/inst/curso/{cursoRef}/vigencia', [AreaDoInstrutorController::class, 'salvarVigencia']);
 });
 
 /*

@@ -54,6 +54,9 @@
     "/cadastro",
     "/sair",
     "/inst",
-    "/inst/mensagens"
+    "/inst/mensagens",
+    "/inst/curso/{cursoRef}",
+    "/inst/curso/{cursoRef}/propriedades",
+    "/inst/curso/{cursoRef}/vigencia"
   ]
 }

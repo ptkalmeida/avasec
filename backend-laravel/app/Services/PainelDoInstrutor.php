@@ -7,10 +7,13 @@ namespace App\Services;
 use App\Models\AdmissionRequest;
 use App\Models\Course;
 use App\Models\Lesson;
+use App\Models\Quiz;
 use App\Models\StudentEnrollment;
+use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;
 use App\Support\Fuso;
 use App\Support\InstructorScope;
+use App\Support\SafeUrl;
 use App\Support\VigenciaDoCurso;
 use App\Support\Visibilidade;
 use Carbon\CarbonInterface;
@@ -94,6 +97,85 @@ final class PainelDoInstrutor
                 'publicado' => is_numeric($visibilidade) && (int) $visibilidade === Visibilidade::PUBLICADO,
             ];
         }
+
+        return $lista;
+    }
+
+    /**
+     * O panorama de um curso, como a Gestão do Curso o mostra.
+     *
+     * Nada aqui é recalculado por conta própria: a frequência mínima efetiva
+     * vem de `BusinessRules`, a vigência de `VigenciaDoCurso` e as contagens do
+     * próprio banco. O painel React montava estes números filtrando listas já
+     * carregadas no navegador, e por isso eles mudavam de valor conforme a
+     * hidratação.
+     *
+     * @param  array<string, mixed>  $curso  Como `CourseService::getCourseById` o entrega.
+     * @param  array{sub:string,name:string,role:string}  $instrutor
+     * @return array{curso:array<string, mixed>,aulas:int,avaliacoes:int,alunos:int,minimaEfetiva:int,minimaDoCurso:int|null,vigenciaVencida:bool,vigenciaAte:string|null,emiteCertificado:bool,encontros:list<array{titulo:string,quando:string,link:string|null}>}
+     */
+    public function panoramaDoCurso(array $curso, array $instrutor): array
+    {
+        $id = is_string($curso['id'] ?? null) ? $curso['id'] : '';
+
+        $avaliacoes = Quiz::query()->where('courseId', $id);
+        Visibilidade::aplicar($avaliacoes, 'student');
+
+        $minimaDoCurso = is_numeric($curso['minAttendance'] ?? null) ? (int) $curso['minAttendance'] : null;
+
+        return [
+            'curso' => $curso,
+            'aulas' => is_array($curso['lessons'] ?? null) ? count($curso['lessons']) : 0,
+            'avaliacoes' => $avaliacoes->count(),
+            'alunos' => $this->quantosAlunos($id),
+            'minimaEfetiva' => BusinessRules::courseMinAttendance($minimaDoCurso),
+            'minimaDoCurso' => $minimaDoCurso,
+            'vigenciaVencida' => VigenciaDoCurso::vencida($curso),
+            'vigenciaAte' => VigenciaDoCurso::diaParaPessoa($curso),
+            /*
+             * `emiteCertificado` tem DUAS fontes no sistema: esta coluna e a
+             * categoria do curso conter "Sem Certificado"
+             * (`CertificateService::situacaoParaCertificado`). A tela mostra o
+             * que a emissão de fato usa — as duas juntas —, para não prometer
+             * certificado que não sai. A duplicação está sinalizada no plano 18.
+             */
+            'emiteCertificado' => ($curso['emiteCertificado'] ?? null) !== false
+                && ! str_contains(is_string($curso['category'] ?? null) ? $curso['category'] : '', 'Sem Certificado'),
+            'encontros' => $this->encontros($curso),
+        ];
+    }
+
+    /**
+     * Os encontros ao vivo agendados, do mais próximo ao mais distante.
+     *
+     * Só leitura nesta fatia. O botão "Acessar Sala" do painel React não veio:
+     * ele abria a sala interna, que está desligada (`liveClassroom`), e o
+     * clique não fazia nada. O link externo do encontro, quando existe, é o que
+     * de fato leva a algum lugar.
+     *
+     * @param  array<string, mixed>  $curso
+     * @return list<array{titulo:string,quando:string,link:string|null}>
+     */
+    private function encontros(array $curso): array
+    {
+        $sessoes = is_array($curso['liveSessions'] ?? null) ? $curso['liveSessions'] : [];
+
+        $lista = [];
+        foreach ($sessoes as $sessao) {
+            if (! is_array($sessao)) {
+                continue;
+            }
+            $link = SafeUrl::sanitize(is_string($sessao['meetingLink'] ?? null) ? $sessao['meetingLink'] : null);
+            $lista[] = [
+                'titulo' => is_string($sessao['title'] ?? null) ? $sessao['title'] : 'Encontro',
+                // `scheduledAt` é texto local, já no fuso de exibição: não se
+                // converte de novo (a armadilha está documentada em `Fuso`).
+                'quando' => is_string($sessao['scheduledAt'] ?? null) ? $sessao['scheduledAt'] : '',
+                'link' => $link,
+            ];
+        }
+
+        usort($lista, static fn (array $a, array $b): int => strcmp($a['quando'], $b['quando']));
 
         return $lista;
     }
