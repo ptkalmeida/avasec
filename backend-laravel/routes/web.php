@@ -263,6 +263,15 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/mover', [AreaDoInstrutorController::class, 'moverAula']);
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/remover', [AreaDoInstrutorController::class, 'removerAula']);
 
+    // A página de UMA aula (fase M6). Em `/aulas` (plural) e não em `/aula`: o
+    // editor React segue em `/aula/{id}` até estas rotas cobrirem tudo, e dois
+    // donos para o mesmo endereço deixariam a tela mudar conforme a máquina.
+    Route::get('/inst/curso/{cursoRef}/aulas/nova', [AreaDoInstrutorController::class, 'formularioDeAula'])->name('instrutor.aula.nova');
+    Route::post('/inst/curso/{cursoRef}/aulas', [AreaDoInstrutorController::class, 'criarAula']);
+    Route::get('/inst/curso/{cursoRef}/aulas/{aulaId}', [AreaDoInstrutorController::class, 'aula'])->name('instrutor.aula');
+    Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/identificacao', [AreaDoInstrutorController::class, 'salvarIdentificacao']);
+    Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/video', [AreaDoInstrutorController::class, 'salvarVideo']);
+
     /*
      * Avaliações do curso. A de exercícios está desligada (`atividadesPraticasAvancadas`)
      * e responde pelo servidor, como a seção desligada do aluno.

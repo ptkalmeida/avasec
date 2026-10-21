@@ -443,6 +443,184 @@ final class CourseService
         });
     }
 
+    /**
+     * Cria UMA aula no fim da grade.
+     *
+     * O React gravava o curso inteiro (`PUT /api/courses/{id}` com todas as
+     * aulas) para acrescentar uma. Aqui só a aula nova é escrita, e a posição é
+     * calculada no servidor, dentro da transação: a lista que a tela tinha pode
+     * estar velha, e dois instrutores criando ao mesmo tempo não disputam o mesmo
+     * número.
+     *
+     * @param  array{title:string,duration:string,videoUrl?:?string,content?:?string}  $dados
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return string o id da aula criada
+     */
+    public function criarAula(string $courseId, array $dados, array $requester): string
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        $campos = $this->camposDaAula($dados, exigeTitulo: true);
+        if (($campos['content'] ?? null) === null) {
+            throw ApiException::validation('Informe o texto de estudo da aula.');
+        }
+
+        return DB::transaction(function () use ($courseId, $campos): string {
+            // Trava o curso para serializar as criações: sem isso, duas aulas
+            // nascidas juntas leem o mesmo "maior número" e empatam na grade.
+            Course::query()->whereKey($courseId)->lockForUpdate()->first();
+
+            $maior = Lesson::query()->where('courseId', $courseId)->max('lesson_order');
+            $id = 'lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+
+            Lesson::query()->create([
+                'id' => $id,
+                'courseId' => $courseId,
+                'lesson_order' => (is_numeric($maior) ? (int) $maior : 0) + 1,
+            ] + $campos);
+
+            return $id;
+        });
+    }
+
+    /**
+     * Atualiza título, carga, vídeo e/ou texto de UMA aula. Só as chaves enviadas
+     * mudam; as outras ficam como estão.
+     *
+     * Existe no lugar do `PUT /api/courses/{id}` que reenviava todas as aulas do
+     * curso: com ele, quem salvava a identificação de uma aula também regravava o
+     * texto de todas as outras com o que a tela dela guardava, e uma aba velha
+     * desfazia em silêncio o trabalho de outra pessoa.
+     *
+     * @param  array{title?:string,duration?:string,videoUrl?:?string,content?:?string}  $campos
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function atualizarAula(string $courseId, string $lessonId, array $campos, array $requester): void
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        $novos = $this->camposDaAula($campos, exigeTitulo: false);
+
+        DB::transaction(function () use ($courseId, $lessonId, $novos): void {
+            $this->aulaTravada($courseId, $lessonId)->fill($novos)->save();
+        });
+    }
+
+    /**
+     * Edita o TEXTO da aula com trava otimista.
+     *
+     * A edição de um bloco parte de uma posição lida numa tela que pode estar
+     * velha; se o texto mudou desde então, aplicar a edição na mesma posição
+     * trocaria o trecho errado. `$versao` é o hash do texto que a pessoa viu
+     * (`versaoDoConteudo`): se não bate com o que está gravado, nada é escrito e
+     * ela recebe o aviso para recarregar.
+     *
+     * @param  callable(string): string  $edicao  recebe o texto ATUAL e devolve o novo
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return string o texto novo
+     */
+    public function editarConteudoDaAula(string $courseId, string $lessonId, string $versao, callable $edicao, array $requester): string
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        return DB::transaction(function () use ($courseId, $lessonId, $versao, $edicao): string {
+            $aula = $this->aulaTravada($courseId, $lessonId);
+            $atual = is_string($aula->content) ? $aula->content : '';
+
+            if (! hash_equals(self::versaoDoConteudo($atual), $versao)) {
+                throw ApiException::validation('O texto desta aula mudou desde que você abriu a página. Recarregue para ver a versão atual e refaça a alteração.');
+            }
+
+            $novo = $edicao($atual);
+            $campos = $this->camposDaAula(['content' => $novo], exigeTitulo: false);
+            if (($campos['content'] ?? null) === null) {
+                throw ApiException::validation('O material didático não pode ficar vazio.');
+            }
+            $aula->fill($campos)->save();
+
+            return is_string($campos['content'] ?? null) ? $campos['content'] : '';
+        });
+    }
+
+    /** Hash do texto da aula, para a trava otimista de `editarConteudoDaAula`. */
+    public static function versaoDoConteudo(?string $conteudo): string
+    {
+        return hash('sha256', $conteudo ?? '');
+    }
+
+    /**
+     * A aula, com a linha travada para a transação. 404 quando não é deste curso
+     * ou já foi retirada: o id de outro curso nunca alcança a aula alheia.
+     */
+    private function aulaTravada(string $courseId, string $lessonId): Lesson
+    {
+        $aula = Lesson::query()->where('courseId', $courseId)->whereKey($lessonId)->lockForUpdate()->first();
+        if ($aula === null) {
+            throw ApiException::notFound('Aula não encontrada neste curso.');
+        }
+
+        return $aula;
+    }
+
+    /**
+     * Valida e normaliza os campos de uma aula. Os limites são os da coluna, não
+     * os do contrato da API: `title` é varchar(191), e aceitar 200 caracteres
+     * viraria um erro de banco em vez de uma mensagem.
+     *
+     * @param  array<string, mixed>  $dados
+     * @return array<string, mixed>
+     */
+    private function camposDaAula(array $dados, bool $exigeTitulo): array
+    {
+        $campos = [];
+
+        if (array_key_exists('title', $dados) || $exigeTitulo) {
+            $titulo = is_string($dados['title'] ?? null) ? trim($dados['title']) : '';
+            if ($titulo === '') {
+                throw ApiException::validation('O título da aula não pode ficar vazio.');
+            }
+            if (mb_strlen($titulo) > 191) {
+                throw ApiException::validation('O título da aula pode ter no máximo 191 caracteres.');
+            }
+            $campos['title'] = $titulo;
+        }
+
+        if (array_key_exists('duration', $dados) || $exigeTitulo) {
+            $carga = is_string($dados['duration'] ?? null) ? trim($dados['duration']) : '';
+            if ($carga === '') {
+                throw ApiException::validation('Informe a carga da aula, por exemplo "20 min".');
+            }
+            if (mb_strlen($carga) > 30) {
+                throw ApiException::validation('A carga da aula pode ter no máximo 30 caracteres.');
+            }
+            $campos['duration'] = $carga;
+        }
+
+        if (array_key_exists('videoUrl', $dados)) {
+            $video = is_string($dados['videoUrl']) ? trim($dados['videoUrl']) : '';
+            if ($video === '') {
+                $campos['videoUrl'] = null;
+            } else {
+                // A forma canônica (ADR 08): youtu.be, embed e shorts viram watch?v=.
+                $fonte = VideoSource::tryParse($video);
+                if ($fonte === null) {
+                    throw ApiException::validation('Informe um link de vídeo do YouTube ou um arquivo de vídeo (mp4, webm, ogg, m4v, mov).');
+                }
+                $campos['videoUrl'] = $fonte->canonicalUrl;
+            }
+        }
+
+        if (array_key_exists('content', $dados)) {
+            $texto = is_string($dados['content']) ? trim($dados['content']) : '';
+            if (mb_strlen($texto) > 20000) {
+                throw ApiException::validation('O material didático pode ter no máximo 20.000 caracteres.');
+            }
+            $campos['content'] = $texto === '' ? null : $texto;
+        }
+
+        return $campos;
+    }
+
     /** @param array{sub:string,name:string,role:string} $requester */
     private function assertCourseOwnership(string $courseId, array $requester): void
     {

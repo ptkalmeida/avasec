@@ -14,6 +14,7 @@ use App\Services\MessagingService;
 use App\Services\PainelDoInstrutor;
 use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;
+use App\Support\ConteudoDaAula;
 use App\Support\DuracaoDaGrade;
 use App\Support\Fuso;
 use App\Support\QuestaoDeProva;
@@ -441,6 +442,181 @@ final class AreaDoInstrutorController extends Controller
 
         return redirect('/inst/curso/'.$meu['ref'].'/grade-curricular')
             ->with('avisoDoCurso', 'Aula retirada da grade.'.($titulo === '' ? '' : ' “'.$titulo.'” continua guardada no sistema.'));
+    }
+
+    /**
+     * `/inst/curso/{ref}/aulas/nova` — o formulário da aula nova.
+     *
+     * A aula nasce com título, carga e texto de estudo (o painel React exigia os
+     * três), e o vídeo é opcional. Depois de criada, quem abre é a página da aula,
+     * onde o texto se edita bloco a bloco.
+     */
+    public function formularioDeAula(Request $request, string $cursoRef): View|RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef, '/aulas/nova');
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        return view('instrutor.aula-nova', ['curso' => $meu['curso'], 'ref' => $meu['ref']]);
+    }
+
+    /** Cria a aula no fim da grade e abre a página dela. */
+    public function criarAula(Request $request, string $cursoRef): RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $dados = $request->validate([
+            'titulo' => ['nullable', 'string'],
+            'carga' => ['nullable', 'string'],
+            'video' => ['nullable', 'string'],
+            'texto' => ['nullable', 'string'],
+        ]);
+
+        try {
+            $id = $this->cursos->criarAula($meu['id'], [
+                'title' => $dados['titulo'] ?? '',
+                'duration' => $dados['carga'] ?? '',
+                'videoUrl' => $dados['video'] ?? null,
+                'content' => $dados['texto'] ?? '',
+            ], $instrutor);
+        } catch (ApiException $e) {
+            return redirect('/inst/curso/'.$meu['ref'].'/aulas/nova')->withErrors(['aula' => $e->getMessage()])->withInput();
+        }
+
+        $this->audit->log($request, 'Alteração de Curso', 'Aula "'.trim($dados['titulo'] ?? '').'" ('.$id.') criada no curso '.$meu['id'].'.');
+
+        return redirect('/inst/curso/'.$meu['ref'].'/aulas/'.rawurlencode($id))->with('avisoDoCurso', 'Aula criada no fim da grade.');
+    }
+
+    /**
+     * `/inst/curso/{ref}/aulas/{id}` — a página de UMA aula, com as quatro zonas
+     * na ordem em que o aluno as recebe: identificação, vídeo, material didático
+     * e anexos.
+     *
+     * A zona aberta para edição vem do endereço (`?editar=video`), e não de
+     * JavaScript: o F5 no meio da edição volta para o mesmo formulário, e o erro
+     * de validação reabre a zona certa.
+     */
+    public function aula(Request $request, string $cursoRef, string $aulaId): View|RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef, '/aulas/'.rawurlencode($aulaId));
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $achada = $this->aulaDoCurso($meu['curso'], $aulaId);
+        if ($achada === null) {
+            // Link velho, id digitado, aula já retirada: a grade é o lugar certo.
+            return redirect('/inst/curso/'.$meu['ref'].'/grade-curricular')
+                ->withErrors(['grade' => 'Essa aula não existe mais neste curso.']);
+        }
+
+        $editar = $request->query('editar');
+        $conteudo = is_string($achada['aula']['content'] ?? null) ? $achada['aula']['content'] : '';
+
+        return view('instrutor.aula', [
+            'curso' => $meu['curso'],
+            'ref' => $meu['ref'],
+            'aula' => $achada['aula'],
+            'posicao' => $achada['posicao'],
+            'total' => $achada['total'],
+            'documentos' => is_array($achada['aula']['documents'] ?? null) ? array_values($achada['aula']['documents']) : [],
+            'blocos' => ConteudoDaAula::analisar($conteudo),
+            'conteudo' => $conteudo,
+            'versao' => CourseService::versaoDoConteudo($conteudo),
+            'editar' => is_string($editar) && in_array($editar, ['identificacao', 'video', 'material', 'anexos'], true) ? $editar : null,
+        ]);
+    }
+
+    /** Salva título e carga da aula — e só eles. */
+    public function salvarIdentificacao(Request $request, string $cursoRef, string $aulaId): RedirectResponse
+    {
+        $dados = $request->validate(['titulo' => ['nullable', 'string'], 'carga' => ['nullable', 'string']]);
+
+        return $this->gravarAula($request, $cursoRef, $aulaId, 'identificacao', [
+            'title' => $dados['titulo'] ?? '',
+            'duration' => $dados['carga'] ?? '',
+        ], 'Identificação da aula atualizada.');
+    }
+
+    /** Salva o vídeo da aula; vazio tira o vídeo. */
+    public function salvarVideo(Request $request, string $cursoRef, string $aulaId): RedirectResponse
+    {
+        $dados = $request->validate(['video' => ['nullable', 'string']]);
+        $video = trim($dados['video'] ?? '');
+
+        return $this->gravarAula($request, $cursoRef, $aulaId, 'video', ['videoUrl' => $video], $video === '' ? 'Vídeo removido da aula.' : 'Vídeo da aula atualizado.');
+    }
+
+    /**
+     * A escrita comum das zonas: resolve o curso, grava via `CourseService` (que
+     * reconfere a posse) e volta para a página da aula. Erro do serviço reabre a
+     * zona com o que a pessoa digitou.
+     *
+     * @param  array<string, mixed>  $campos
+     */
+    private function gravarAula(Request $request, string $cursoRef, string $aulaId, string $zona, array $campos, string $aviso): RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $pagina = '/inst/curso/'.$meu['ref'].'/aulas/'.rawurlencode($aulaId);
+
+        try {
+            /** @var array{title?:string,duration?:string,videoUrl?:?string,content?:?string} $campos */
+            $this->cursos->atualizarAula($meu['id'], $aulaId, $campos, $instrutor);
+        } catch (ApiException $e) {
+            return redirect($pagina.'?editar='.$zona.'#'.$zona)->withErrors([$zona => $e->getMessage()])->withInput();
+        }
+
+        $this->audit->log($request, 'Alteração de Curso', 'Aula '.$aulaId.' do curso '.$meu['id'].' atualizada ('.$zona.').');
+
+        return redirect($pagina.'#'.$zona)->with('avisoDoCurso', $aviso);
+    }
+
+    /**
+     * A aula dentro do curso já carregado, com a posição na grade.
+     *
+     * @param  array<string, mixed>  $curso
+     * @return array{aula:array<string, mixed>,posicao:int,total:int}|null
+     */
+    private function aulaDoCurso(array $curso, string $aulaId): ?array
+    {
+        $aulas = is_array($curso['lessons'] ?? null) ? array_values($curso['lessons']) : [];
+
+        foreach ($aulas as $i => $aula) {
+            if (is_array($aula) && ($aula['id'] ?? null) === $aulaId) {
+                return ['aula' => $aula, 'posicao' => $i + 1, 'total' => count($aulas)];
+            }
+        }
+
+        return null;
     }
 
     /**
