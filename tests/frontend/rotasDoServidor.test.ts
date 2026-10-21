@@ -66,29 +66,27 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/aluno/inventado')).toBe(true);
     expect(servidoPeloServidor('/aluno/curso/x/avaliacoes/y')).toBe(true);
     /*
-     * A área do instrutor está no meio da travessia (M4): a escolha de curso
-     * já é Blade, e as seções de dentro do curso ainda são React. É por isso
-     * que `/inst` entra no contrato como EXATO — como prefixo, arrastaria
-     * `/inst/curso/...` junto.
+     * A área do instrutor inteira passou para o Laravel (fases M4 e M6): `/inst` é
+     * prefixo, como `/aluno`, inclusive o editor de aula e o endereço desconhecido,
+     * que o Laravel devolve à escolha de curso. Um só endereço sob `/inst` que
+     * sobrasse para o SPA bastaria para navegar, por dentro do React, até as
+     * versões antigas das telas já migradas.
      */
     expect(servidoPeloServidor('/inst')).toBe(true);
     expect(servidoPeloServidor('/inst/mensagens')).toBe(true);
-    // Tudo do instrutor é Blade, EXCETO o editor de aula (React até a M6).
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia')).toBe(true);
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/grade-curricular')).toBe(true);
-    // Avaliações do curso também são Blade, inclusive o formulário e a sub-aba desligada.
-    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/avaliacoes')).toBe(true);
-    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/avaliacoes/nova')).toBe(true);
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/avaliacoes/quiz-1/editar')).toBe(true);
-    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/avaliacoes/exercicios')).toBe(true);
-    // Alunos, a caixa de mensagens e os endereços antigos que sobraram.
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/alunos')).toBe(true);
-    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/mensagens')).toBe(true);
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/secao-qualquer')).toBe(true);
     expect(servidoPeloServidor('/inst/endereco-qualquer')).toBe(true);
-    // O editor de aula é React, com endereço próprio para não voltar ao Blade.
-    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/lesson-1')).toBe(false);
-    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/nova')).toBe(false);
+    // O editor de aula: a página nova e os endereços antigos, que o Laravel redireciona.
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aulas/lesson-1')).toBe(true);
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aulas/nova')).toBe(true);
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/lesson-1')).toBe(true);
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/nova')).toBe(true);
+    // Pela fronteira do segmento: `/institucional` não é da área do instrutor.
+    expect(servidoPeloServidor('/institucional')).toBe(false);
     // O admin ainda é React por inteiro.
     expect(servidoPeloServidor('/admin')).toBe(false);
   });

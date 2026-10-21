@@ -9,9 +9,9 @@ import { entrarComoInstrutor, rolaNaHorizontal } from './sessao';
  * PHPUnit. Aqui: que as telas são servidas pelo servidor, que de uma se chega
  * à outra, e que cabem nas larguras.
  *
- * A grade curricular também é do servidor. O EDITOR de aula, as avaliações e
- * os alunos ainda são React, e a fronteira com eles é o que mais quebrou nesta
- * migração.
+ * A grade curricular e a página da aula também são do servidor. A fronteira com
+ * o React foi o que mais quebrou nesta migração, e agora não há mais lado do
+ * React na área do instrutor.
  */
 test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
   test('a escolha é servida pelo servidor e lista os cursos', async ({ page }) => {
@@ -46,46 +46,43 @@ test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
   });
 
   /*
-   * A fronteira que sobrou: o EDITOR de aula é React, com endereço próprio.
+   * A página da aula é do servidor, com endereço próprio (`/aulas/{id}`).
    *
-   * Dois defeitos nasceram aqui e ficam presos:
-   *  1. o efeito que devolve "curso que não é seu" para `/inst` rodava ANTES de
-   *     a lista de cursos chegar — clicar no editor voltava para a lista;
-   *  2. se a aula aberta vivesse DENTRO de `/grade-curricular`, o servidor a
-   *     levaria de volta ao Blade e o editor ficaria inalcançável.
-   * Esperar quatro segundos é o que separa "abriu" de "abriu e voltou": sem a
-   * espera, o teste passa com o defeito presente.
+   * Dois defeitos nasceram quando ela ainda era React, e a pergunta continua
+   * valendo: abrir e voltar sozinho. Esperar quatro segundos é o que separa
+   * "abriu" de "abriu e voltou": sem a espera, o teste passa com o defeito
+   * presente.
    */
-  test('da grade se chega ao editor da aula, que é React e não volta sozinho', async ({ page }) => {
+  test('da grade se chega à página da aula, servida pelo servidor, e ela não volta sozinha', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoInstrutor(page);
     await page.getByRole('link', { name: /Aulas/ }).first().click();
     await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
 
     await page.getByRole('link', { name: /^Editar conteúdo/ }).first().click();
-    await expect(page).toHaveURL(/\/aula\/[^/]+$/);
-    const enderecoDoEditor = page.url();
+    await expect(page).toHaveURL(/\/aulas\/[^/]+$/);
+    const enderecoDaAula = page.url();
 
     await page.waitForTimeout(4000);
 
-    expect(page.url()).toBe(enderecoDoEditor);
-    await expect(page.locator('#root')).toHaveCount(1);
-    await expect(page.getByText('Voltar ao currículo')).toBeVisible();
+    expect(page.url()).toBe(enderecoDaAula);
+    await expect(page.locator('#root')).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 2, name: 'Identificação da aula' })).toBeVisible();
   });
 
-  test('do editor, voltar ao currículo leva à grade do servidor', async ({ page }) => {
+  test('da página da aula, a trilha leva de volta à grade do servidor', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoInstrutor(page);
     await page.getByRole('link', { name: /Aulas/ }).first().click();
     await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
     await page.getByRole('link', { name: /^Editar conteúdo/ }).first().click();
-    await page.getByText('Voltar ao currículo').click();
+    await page.getByRole('navigation', { name: 'Trilha de navegação' }).getByRole('link', { name: 'Grade curricular' }).click();
 
     await expect(page).toHaveURL(/\/grade-curricular$/);
     await expect(page.locator('#root')).toHaveCount(0);
   });
 
-  test('a F5 no editor volta para a MESMA aula, e não para a lista', async ({ page }) => {
+  test('a F5 na página da aula volta para a MESMA aula, e não para a lista', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoInstrutor(page);
     await page.getByRole('link', { name: /Aulas/ }).first().click();
@@ -94,10 +91,35 @@ test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
     const endereco = page.url();
 
     await page.reload();
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(1500);
 
     expect(page.url()).toBe(endereco);
-    await expect(page.getByText('Voltar ao currículo')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Identificação da aula' })).toBeVisible();
+  });
+
+  test('Criar nova aula leva ao formulário do servidor', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await entrarComoInstrutor(page);
+    await page.getByRole('link', { name: /Aulas/ }).first().click();
+    await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
+
+    await page.getByRole('link', { name: 'Criar nova aula' }).click();
+
+    await expect(page).toHaveURL(/\/aulas\/nova$/);
+    await expect(page.locator('#root')).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1, name: 'Nova aula' })).toBeVisible();
+  });
+
+  test('os endereços antigos do editor levam à página nova', async ({ page }) => {
+    await entrarComoInstrutor(page);
+
+    await page.goto('/inst/curso/portfolio-de-comprovacao-da-atuacao-cultural/aula/nova');
+    await expect(page).toHaveURL(/\/aulas\/nova$/);
+    await expect(page.locator('#root')).toHaveCount(0);
+
+    await page.goto('/inst/curso/portfolio-de-comprovacao-da-atuacao-cultural/aula/lesson-course-1789497468067-1789497813942');
+    await expect(page).toHaveURL(/\/aulas\/lesson-course-1789497468067-1789497813942$/);
+    await expect(page.getByRole('heading', { level: 2, name: 'Identificação da aula' })).toBeVisible();
   });
 
   /*

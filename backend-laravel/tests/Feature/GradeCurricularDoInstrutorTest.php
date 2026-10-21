@@ -108,9 +108,10 @@ final class GradeCurricularDoInstrutorTest extends TestCase
         $resposta->assertSeeInOrder(['Aula numero 1', 'Aula numero 2', 'Aula numero 3'], false);
         // 3 × 30 min = 90 min = 1,5 h.
         $resposta->assertSee('tempo total 1,5 h', escape: false);
-        // O editor é React, com endereço próprio.
-        $resposta->assertSee('href="/inst/curso/'.$curso->slug.'/aula/nova"', escape: false);
-        $resposta->assertSee('/aula/lesson-grade-', escape: false);
+        // A página da aula é do servidor, com endereço próprio.
+        $resposta->assertSee('href="/inst/curso/'.$curso->slug.'/aulas/nova"', escape: false);
+        $resposta->assertSee('/aulas/lesson-grade-', escape: false);
+        $resposta->assertDontSee('/aula/lesson-grade-', escape: false);
     }
 
     public function test_curso_de_outro_instrutor_responde_404_na_leitura_e_nas_escritas(): void

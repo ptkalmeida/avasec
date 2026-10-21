@@ -1,9 +1,9 @@
 {{--
     `/inst/curso/{ref}/grade-curricular` — as aulas do curso, em ordem.
 
-    Só a lista é do servidor: mudar a ordem e retirar uma aula. O CONTEÚDO da
-    aula (texto, vídeo, anexos) é o editor, que continua em React até a fase M6
-    do plano 16 e tem endereço próprio (`/aula/{id}` e `/aula/nova`).
+    Mudar a ordem e retirar uma aula é daqui. O CONTEÚDO da aula (texto, vídeo,
+    anexos) é a página da aula, que tem endereço próprio (`/aulas/{id}` e
+    `/aulas/nova`) e também é do servidor desde a fase M6 do plano 16.
 
     O que NÃO veio do painel React:
 
@@ -50,8 +50,7 @@
                 </p>
             </div>
 
-            {{-- O editor é React: carregamento de página inteira. --}}
-            <a href="/inst/curso/{{ $ref }}/aula/nova"
+            <a href="/inst/curso/{{ $ref }}/aulas/nova"
                class="inline-flex shrink-0 items-center justify-center rounded-[10px] bg-ava-acao px-5 py-2.5 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
                 Criar nova aula
             </a>
@@ -113,8 +112,7 @@
                                 </p>
 
                                 <div class="flex flex-wrap gap-2 pt-1" x-show="! removendo">
-                                    {{-- O editor é React: carregamento de página inteira. --}}
-                                    <a href="/inst/curso/{{ $ref }}/aula/{{ rawurlencode($aula['id']) }}"
+                                    <a href="/inst/curso/{{ $ref }}/aulas/{{ rawurlencode($aula['id']) }}"
                                        class="inline-flex items-center rounded-[10px] border border-ava-borda bg-white px-4 py-2 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                                         Editar conteúdo
                                         <span class="sr-only">da aula {{ $i + 1 }}, {{ $aula['title'] }}</span>

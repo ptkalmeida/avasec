@@ -299,6 +299,14 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::post('/inst/curso/{cursoRef}/pedidos/{pedidoId}', [AreaDoInstrutorController::class, 'decidirPedido']);
 
     /*
+     * O editor de aula do painel React vivia em `/aula/{id}` e `/aula/nova`; agora
+     * está em `/aulas/...` (acima). Os endereços antigos — que circulam em favoritos
+     * e em links já enviados — levam ao novo, sem perder o curso nem a aula.
+     */
+    Route::get('/inst/curso/{cursoRef}/aula/nova', static fn (string $cursoRef) => redirect('/inst/curso/'.rawurlencode($cursoRef).'/aulas/nova'));
+    Route::get('/inst/curso/{cursoRef}/aula/{aulaId}', static fn (string $cursoRef, string $aulaId) => redirect('/inst/curso/'.rawurlencode($cursoRef).'/aulas/'.rawurlencode($aulaId)));
+
+    /*
      * O que sobrou de endereço antigo. REGISTRADAS POR ÚLTIMO: casam com muito, e
      * antes de outra rota engoliriam a tela certa.
      *
@@ -306,13 +314,14 @@ Route::middleware('instrutor.web')->group(function (): void {
      * como "Gestão do Curso" e desenhava o painel ANTIGO — e dali o instrutor
      * navegava, por dentro do SPA, às versões velhas das telas já migradas.
      *
-     * Só o EDITOR DE AULA (`/aula/{id}`, `/aula/nova`) continua do React até a
-     * M6, e por isso `/inst` ainda não pode ser um prefixo no contrato de rotas:
-     * as exatas abaixo têm UM segmento depois do curso, e `/aula/{id}` tem dois.
+     * Com o editor de aula em Blade (M6), `/inst` inteiro é do Laravel e é um
+     * prefixo no contrato de rotas. A última rota casa com QUALQUER profundidade,
+     * de propósito: um endereço sob `/inst` que o Laravel não atendesse cairia no
+     * fallback, que serve o React — e o React o devolveria ao servidor, para sempre.
      */
     Route::get('/inst/curso/{cursoRef}/mensagens', static fn () => redirect('/inst/mensagens'));
     Route::get('/inst/curso/{cursoRef}/{resto}', static fn (string $cursoRef) => redirect('/inst/curso/'.rawurlencode($cursoRef)));
-    Route::get('/inst/{resto}', static fn () => redirect('/inst'));
+    Route::get('/inst/{resto}', static fn () => redirect('/inst'))->where('resto', '.*');
 });
 
 /*

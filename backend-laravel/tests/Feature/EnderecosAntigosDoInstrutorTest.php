@@ -20,7 +20,10 @@ use Tests\TestCase;
  * desenhava o painel ANTIGO — e dali o instrutor navegava, por dentro do React,
  * às versões velhas das telas já migradas.
  *
- * Só o editor de aula (`/aula/{id}`) continua React, até a M6.
+ * O editor de aula foi para `/aulas/{id}` (fase M6): os endereços `/aula/...` do
+ * painel React, que circulam em favoritos e em links já enviados, levam ao novo.
+ * E como `/inst` inteiro é do Laravel, NADA sob ele pode sobrar para o fallback,
+ * que serve o React — que o devolveria ao servidor, para sempre.
  */
 final class EnderecosAntigosDoInstrutorTest extends TestCase
 {
@@ -71,6 +74,36 @@ final class EnderecosAntigosDoInstrutorTest extends TestCase
         $this->como($t)->get('/inst/qualquer-coisa')->assertRedirect('/inst');
         // `/inst/curso` sem curso nenhum também.
         $this->como($t)->get('/inst/curso')->assertRedirect('/inst');
+    }
+
+    public function test_os_enderecos_antigos_do_editor_levam_aos_novos(): void
+    {
+        $t = $this->token();
+
+        $this->como($t)->get('/inst/curso/meu-curso/aula/nova')->assertRedirect('/inst/curso/meu-curso/aulas/nova');
+        $this->como($t)->get('/inst/curso/meu-curso/aula/lesson-123')->assertRedirect('/inst/curso/meu-curso/aulas/lesson-123');
+        // O curso e a aula são levados como estão, inclusive o que precisa de escape.
+        $this->como($t)->get('/inst/curso/meu curso/aula/a b')->assertRedirect('/inst/curso/meu%20curso/aulas/a%20b');
+    }
+
+    public function test_visitante_nos_enderecos_antigos_do_editor_vai_para_o_login(): void
+    {
+        $this->get('/inst/curso/x/aula/nova')->assertRedirect('/entrar');
+        $this->get('/inst/curso/x/aula/y')->assertRedirect('/entrar');
+    }
+
+    /** Qualquer profundidade: o que o Laravel não atende não pode cair no React. */
+    public function test_endereco_desconhecido_em_qualquer_profundidade_volta_para_a_escolha(): void
+    {
+        // Visitante primeiro: o cookie de `como()` fica no cliente de teste.
+        $this->get('/inst/a/b/c')->assertRedirect('/entrar');
+
+        $t = $this->token();
+
+        foreach (['/inst/a/b', '/inst/a/b/c/d', '/inst/curso/x/aulas/y/inexistente', '/inst/curso/x/aulas/y/anexos/z'] as $caminho) {
+            $this->como($t)->get($caminho)->assertRedirect();
+            $this->assertStringStartsWith('/inst', (string) parse_url((string) $this->como($t)->get($caminho)->headers->get('Location'), PHP_URL_PATH));
+        }
     }
 
     /** As rotas reais NÃO são engolidas pelas que casam com tudo. */
