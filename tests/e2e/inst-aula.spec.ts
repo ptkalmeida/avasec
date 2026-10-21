@@ -59,6 +59,15 @@ test.describe('Página da aula do instrutor — Blade', () => {
     await expect(page.getByRole('button', { name: 'Salvar vídeo' })).toBeVisible();
   });
 
+  test('a zona de anexos abre com o formulário de vínculo', async ({ page }) => {
+    await entrarComoInstrutor(page);
+    await page.goto(`${AULA_COM_VIDEO}?editar=anexos`);
+
+    await expect(page.getByRole('button', { name: 'Vincular documento' })).toBeVisible();
+    await expect(page.getByLabel('Endereço do conteúdo')).toBeVisible();
+    await expect(page.getByLabel('Arquivo do seu computador')).toBeVisible();
+  });
+
   test('o formulário da aula nova abre com a carga padrão', async ({ page }) => {
     await entrarComoInstrutor(page);
     await page.goto(`${CURSO}/aulas/nova`);
@@ -82,7 +91,7 @@ test.describe('Página da aula do instrutor — Blade', () => {
       await page.setViewportSize({ width: w, height: 900 });
       await entrarComoInstrutor(page);
 
-      for (const url of [AULA_COM_VIDEO, `${AULA_COM_VIDEO}?editar=identificacao`, `${AULA_COM_VIDEO}?editar=video`, `${CURSO}/aulas/nova`]) {
+      for (const url of [AULA_COM_VIDEO, `${AULA_COM_VIDEO}?editar=identificacao`, `${AULA_COM_VIDEO}?editar=video`, `${AULA_COM_VIDEO}?editar=anexos`, `${CURSO}/aulas/nova`]) {
         await page.goto(url);
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 

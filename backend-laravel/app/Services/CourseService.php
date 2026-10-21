@@ -16,6 +16,7 @@ use App\Support\CourseAccess;
 use App\Support\CursoSlug;
 use App\Support\DataTexto;
 use App\Support\Payload;
+use App\Support\SafeUrl;
 use App\Support\VideoSource;
 use App\Support\Visibilidade;
 use Carbon\CarbonImmutable;
@@ -539,6 +540,86 @@ final class CourseService
             $aula->fill($campos)->save();
 
             return is_string($campos['content'] ?? null) ? $campos['content'] : '';
+        });
+    }
+
+    /**
+     * Anexa UM documento (arquivo já enviado ou link) à aula.
+     *
+     * Só o anexo novo é escrito. O React regravava a lista inteira de anexos da
+     * aula — e, pelo `PUT` do curso, a de todas as aulas — a cada vínculo.
+     *
+     * @param  array{title:string,type:string,url:string,size?:?string}  $dados
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return string o id do documento criado
+     */
+    public function anexarDocumento(string $courseId, string $lessonId, array $dados, array $requester): string
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        $titulo = trim($dados['title']);
+        if ($titulo === '') {
+            throw ApiException::validation('Dê um título ao recurso.');
+        }
+        if (mb_strlen($titulo) > 191) {
+            throw ApiException::validation('O título do recurso pode ter no máximo 191 caracteres.');
+        }
+
+        if (! in_array($dados['type'], ['pdf', 'doc', 'url', 'drive', 'outro'], true)) {
+            throw ApiException::validation('Escolha o tipo do recurso.');
+        }
+
+        $url = trim($dados['url']);
+        if ($url === '') {
+            throw ApiException::validation('Informe o endereço do conteúdo ou selecione um arquivo.');
+        }
+        // A mesma regra de href da API: só http(s) ou caminho interno. Um anexo
+        // com `javascript:` viraria um link que roda código no navegador do aluno.
+        if (mb_strlen($url) > 2000 || ! SafeUrl::isValid($url)) {
+            throw ApiException::validation('O endereço deve ser uma URL http(s) válida ou um caminho interno começando com "/".');
+        }
+
+        $tamanho = isset($dados['size']) && is_string($dados['size']) ? trim($dados['size']) : '';
+        if (mb_strlen($tamanho) > 30) {
+            throw ApiException::validation('O tamanho pode ter no máximo 30 caracteres.');
+        }
+
+        return DB::transaction(function () use ($courseId, $lessonId, $titulo, $dados, $url, $tamanho): string {
+            $this->aulaTravada($courseId, $lessonId);
+
+            $id = 'doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+            LessonDocument::query()->create([
+                'id' => $id,
+                'lessonId' => $lessonId,
+                'title' => $titulo,
+                'type' => $dados['type'],
+                'url' => $url,
+                'size' => $tamanho === '' ? null : $tamanho,
+            ]);
+
+            return $id;
+        });
+    }
+
+    /**
+     * Desvincula um documento da aula. Não apaga (ADR 12): o registro fica, com
+     * quem desvinculou e quando.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function desvincularDocumento(string $courseId, string $lessonId, string $documentId, array $requester, ?string $motivo = null): void
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        DB::transaction(function () use ($courseId, $lessonId, $documentId, $requester, $motivo): void {
+            $this->aulaTravada($courseId, $lessonId);
+
+            $doc = LessonDocument::query()->where('lessonId', $lessonId)->whereKey($documentId)->first();
+            if ($doc === null) {
+                throw ApiException::notFound('Documento não encontrado nesta aula.');
+            }
+
+            $doc->inativar($requester['sub'], $motivo);
         });
     }
 

@@ -136,21 +136,122 @@
         {{-- 4. Anexos --}}
         <x-instrutor.zona-da-aula id="anexos" :titulo="'Material de apoio ('.count($documentos).')'"
                                   dica="Arquivos e links que o aluno abre no fim da aula."
-                                  :editavel="false">
+                                  :editando="$editar === 'anexos'">
+            @if ($errors->has('anexos'))
+                <p role="alert" class="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-apoio font-semibold text-rose-800">{{ $errors->first('anexos') }}</p>
+            @endif
+
             @if ($documentos === [])
                 <p class="text-apoio italic text-escult-ink-2">Nenhum documento vinculado.</p>
             @else
-                <ul role="list" class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                <ul role="list" class="grid grid-cols-1 gap-2.5 {{ $editar === 'anexos' ? '' : 'sm:grid-cols-2' }}">
                     @foreach ($documentos as $doc)
-                        <li class="flex min-w-0 items-center gap-2.5 rounded-xl border border-ava-borda bg-ava-faixa/50 px-3 py-2.5">
-                            <span class="shrink-0 rounded border border-ava-borda bg-white px-1.5 py-0.5 text-sobretitulo uppercase text-escult-ink-2">{{ $doc['type'] ?? '' }}</span>
-                            <span class="min-w-0 flex-1 truncate text-apoio font-semibold text-ava-tinta">{{ $doc['title'] ?? '' }}</span>
-                            @if (! empty($doc['size']))
-                                <span class="shrink-0 text-apoio text-escult-ink-2">{{ $doc['size'] }}</span>
+                        @php($endereco = \App\Support\SafeUrl::sanitize($doc['url'] ?? null))
+                        <li class="min-w-0 rounded-xl border border-ava-borda bg-ava-faixa/50 px-3 py-2.5"
+                            x-data="{ desvinculando: false }">
+                            <div class="flex min-w-0 items-center gap-2.5">
+                                <span class="shrink-0 rounded border border-ava-borda bg-white px-1.5 py-0.5 text-sobretitulo uppercase text-escult-ink-2">{{ $doc['type'] ?? '' }}</span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-apoio font-semibold text-ava-tinta">{{ $doc['title'] ?? '' }}</span>
+                                    @if ($editar === 'anexos')
+                                        <span class="block truncate text-nota text-escult-ink-2">{{ ! empty($doc['size']) ? $doc['size'].' · ' : '' }}{{ $doc['url'] ?? '' }}</span>
+                                    @endif
+                                </span>
+                                @if ($editar !== 'anexos' && ! empty($doc['size']))
+                                    <span class="shrink-0 text-apoio text-escult-ink-2">{{ $doc['size'] }}</span>
+                                @endif
+                            </div>
+
+                            @if ($editar === 'anexos')
+                                <div class="mt-2 flex flex-wrap gap-2" x-show="! desvinculando">
+                                    @if ($endereco !== null)
+                                        <a href="{{ $endereco }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
+                                           class="inline-flex items-center rounded-[10px] border border-ava-borda bg-white px-3 py-1.5 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                                            Abrir<span class="sr-only"> {{ $doc['title'] ?? '' }} em outra aba</span>
+                                        </a>
+                                    @endif
+                                    <button type="button" @click="desvinculando = true"
+                                            class="cursor-pointer rounded-[10px] border border-ava-borda bg-white px-3 py-1.5 text-rotulo font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
+                                        Desvincular<span class="sr-only"> {{ $doc['title'] ?? '' }}</span>
+                                    </button>
+                                </div>
+
+                                <form method="POST" action="{{ $base }}/anexos/{{ rawurlencode($doc['id'] ?? '') }}/remover"
+                                      x-show="desvinculando" x-cloak
+                                      class="mt-2 space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
+                                    @csrf
+                                    <p class="text-apoio text-rose-900">
+                                        Desvincular “{{ $doc['title'] ?? '' }}” da aula? Os alunos deixam de vê-lo. Nada é apagado:
+                                        o registro continua guardado, com quem o desvinculou e quando.
+                                    </p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button type="submit"
+                                                class="cursor-pointer rounded-[10px] bg-rose-700 px-4 py-2 text-rotulo font-semibold text-white transition-colors hover:bg-rose-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2">
+                                            Desvincular o documento
+                                        </button>
+                                        <button type="button" @click="desvinculando = false"
+                                                class="cursor-pointer rounded-[10px] border border-ava-borda bg-white px-4 py-2 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                                            Manter
+                                        </button>
+                                    </div>
+                                </form>
                             @endif
                         </li>
                     @endforeach
                 </ul>
+            @endif
+
+            @if ($editar === 'anexos')
+                <form method="POST" action="{{ $base }}/anexos" enctype="multipart/form-data"
+                      class="mt-5 space-y-4 border-t border-ava-borda pt-5">
+                    @csrf
+                    <p class="text-rotulo font-semibold text-ava-tinta">Anexar novo arquivo ou link</p>
+
+                    @if (config('features.uploadArquivos') === true)
+                        <div class="space-y-1.5">
+                            <label for="arquivo" class="block text-rotulo font-semibold text-ava-tinta">Arquivo do seu computador</label>
+                            <p id="dica-arquivo" class="text-apoio text-escult-ink-2">
+                                PDF, Word, imagens e outros. Se escolher um arquivo, o endereço abaixo é ignorado.
+                            </p>
+                            <input id="arquivo" name="arquivo" type="file" aria-describedby="dica-arquivo"
+                                   class="block w-full text-apoio text-ava-tinta file:mr-3 file:cursor-pointer file:rounded-[10px] file:border file:border-ava-borda file:bg-white file:px-4 file:py-2 file:text-rotulo file:font-semibold file:text-ava-tinta hover:file:bg-ava-faixa">
+                        </div>
+                        <p class="text-center text-sobretitulo uppercase text-escult-ink-2">ou informe um link</p>
+                    @endif
+
+                    <div class="space-y-1.5">
+                        <label for="anexo-url" class="block text-rotulo font-semibold text-ava-tinta">Endereço do conteúdo</label>
+                        <input id="anexo-url" name="url" type="text" inputmode="url" class="{{ $campo }}"
+                               placeholder="https://exemplo.com/material-aula-1" value="{{ old('url') }}">
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label for="anexo-titulo" class="block text-rotulo font-semibold text-ava-tinta">Título do recurso</label>
+                        <p id="dica-titulo" class="text-apoio text-escult-ink-2">Em branco, usa o nome do arquivo.</p>
+                        <input id="anexo-titulo" name="titulo" type="text" maxlength="191" aria-describedby="dica-titulo" class="{{ $campo }}"
+                               placeholder="Ex.: Slides — Primeiros passos" value="{{ old('titulo') }}">
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div class="min-w-0 space-y-1.5">
+                            <label for="anexo-tipo" class="block text-rotulo font-semibold text-ava-tinta">Tipo</label>
+                            <select id="anexo-tipo" name="tipo" class="{{ $campo }}">
+                                @foreach (['auto' => 'Detectar automaticamente', 'pdf' => 'Apostila (.pdf)', 'doc' => 'Anotações (.doc)', 'url' => 'Link externo', 'drive' => 'Google Drive', 'outro' => 'Outro tipo'] as $valor => $rotulo)
+                                    <option value="{{ $valor }}" @selected(old('tipo', 'auto') === $valor)>{{ $rotulo }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="min-w-0 space-y-1.5">
+                            <label for="anexo-tamanho" class="block text-rotulo font-semibold text-ava-tinta">Tamanho aproximado <span class="font-normal text-escult-ink-2">(opcional)</span></label>
+                            <input id="anexo-tamanho" name="tamanho" type="text" maxlength="30" class="{{ $campo }}"
+                                   placeholder="2,1 MB" value="{{ old('tamanho') }}">
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="{{ $salvar }}">Vincular documento</button>
+                    </div>
+                </form>
             @endif
         </x-instrutor.zona-da-aula>
     </div>

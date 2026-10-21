@@ -271,6 +271,8 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::get('/inst/curso/{cursoRef}/aulas/{aulaId}', [AreaDoInstrutorController::class, 'aula'])->name('instrutor.aula');
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/identificacao', [AreaDoInstrutorController::class, 'salvarIdentificacao']);
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/video', [AreaDoInstrutorController::class, 'salvarVideo']);
+    Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/anexos', [AreaDoInstrutorController::class, 'anexarDocumento']);
+    Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/anexos/{documentoId}/remover', [AreaDoInstrutorController::class, 'desvincularDocumento']);
 
     /*
      * Avaliações do curso. A de exercícios está desligada (`atividadesPraticasAvancadas`)

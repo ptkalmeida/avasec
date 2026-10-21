@@ -12,6 +12,7 @@ use App\Services\EnrollmentService;
 use App\Services\LearningService;
 use App\Services\MessagingService;
 use App\Services\PainelDoInstrutor;
+use App\Services\UploadService;
 use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;
 use App\Support\ConteudoDaAula;
@@ -21,6 +22,7 @@ use App\Support\QuestaoDeProva;
 use App\Support\VigenciaDoCurso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
 
 /**
@@ -40,6 +42,7 @@ final class AreaDoInstrutorController extends Controller
         private readonly EnrollmentService $matriculas,
         private readonly CaixaDeMensagens $caixa,
         private readonly MessagingService $mensagens,
+        private readonly UploadService $uploads,
     ) {}
 
     /**
@@ -598,6 +601,123 @@ final class AreaDoInstrutorController extends Controller
         $this->audit->log($request, 'Alteração de Curso', 'Aula '.$aulaId.' do curso '.$meu['id'].' atualizada ('.$zona.').');
 
         return redirect($pagina.'#'.$zona)->with('avisoDoCurso', $aviso);
+    }
+
+    /**
+     * Anexa um arquivo ou um link à aula.
+     *
+     * O arquivo, quando vem, é enviado pelo mesmo `UploadService` da API
+     * (extensão permitida, tamanho máximo, tipo real do conteúdo, nome gerado no
+     * servidor) e vira o endereço do anexo — como o React fazia pela rota
+     * `/api/upload`. Arquivo e link ao mesmo tempo: o arquivo vale, como no painel
+     * antigo, que desabilitava o campo de endereço depois de escolher um arquivo.
+     *
+     * Título, tipo e tamanho que a pessoa deixar em branco são deduzidos do que
+     * ela enviou — o painel antigo os preenchia sozinho na hora, por JavaScript.
+     */
+    public function anexarDocumento(Request $request, string $cursoRef, string $aulaId): RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $dados = $request->validate([
+            'titulo' => ['nullable', 'string'],
+            'tipo' => ['nullable', 'string'],
+            'tamanho' => ['nullable', 'string'],
+            'url' => ['nullable', 'string'],
+        ]);
+
+        $pagina = '/inst/curso/'.$meu['ref'].'/aulas/'.rawurlencode($aulaId);
+        $titulo = trim($dados['titulo'] ?? '');
+        $tipo = trim($dados['tipo'] ?? '') === '' ? 'auto' : trim($dados['tipo'] ?? '');
+        $tamanho = trim($dados['tamanho'] ?? '');
+        $url = trim($dados['url'] ?? '');
+
+        try {
+            $arquivo = $request->file('arquivo');
+            if ($arquivo instanceof UploadedFile) {
+                if (! $arquivo->isValid()) {
+                    throw ApiException::validation('O arquivo não pôde ser recebido: ele é maior do que o servidor aceita. Tente um arquivo menor.');
+                }
+                if (config('features.uploadArquivos') !== true) {
+                    throw ApiException::validation('O envio de arquivos está desligado nesta instalação. Informe o endereço de um link.');
+                }
+
+                $enviado = $this->uploads->store($arquivo, 'public', $instrutor['sub']);
+                $url = $enviado['url'];
+                $tamanho = $tamanho !== '' ? $tamanho : $enviado['size'];
+                $titulo = $titulo !== '' ? $titulo : self::tituloDoArquivo($enviado['fileName']);
+                $tipo = $tipo === 'auto' ? self::tipoDoArquivo($enviado['fileName']) : $tipo;
+            } elseif ($tipo === 'auto') {
+                $tipo = preg_match('~^https?://(?:docs|drive)\.google\.com/~i', $url) === 1 ? 'drive' : 'url';
+            }
+
+            $this->cursos->anexarDocumento($meu['id'], $aulaId, [
+                'title' => $titulo,
+                'type' => $tipo,
+                'url' => $url,
+                'size' => $tamanho,
+            ], $instrutor);
+        } catch (ApiException $e) {
+            return redirect($pagina.'?editar=anexos#anexos')
+                ->withErrors(['anexos' => $e->getMessage()])
+                ->withInput($request->except('arquivo'));
+        }
+
+        $this->audit->log($request, 'Alteração de Curso', 'Documento "'.$titulo.'" anexado à aula '.$aulaId.' do curso '.$meu['id'].'.');
+
+        return redirect($pagina.'#anexos')->with('avisoDoCurso', 'Documento anexado.');
+    }
+
+    /** Desvincula um documento da aula. Não apaga (ADR 12). */
+    public function desvincularDocumento(Request $request, string $cursoRef, string $aulaId, string $documentoId): RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $pagina = '/inst/curso/'.$meu['ref'].'/aulas/'.rawurlencode($aulaId);
+
+        try {
+            $this->cursos->desvincularDocumento($meu['id'], $aulaId, $documentoId, $instrutor, 'Desvinculado da aula pelo instrutor.');
+        } catch (ApiException $e) {
+            return redirect($pagina.'?editar=anexos#anexos')->withErrors(['anexos' => $e->getMessage()]);
+        }
+
+        $this->audit->log($request, 'Alteração de Curso', 'Documento '.$documentoId.' desvinculado da aula '.$aulaId.' do curso '.$meu['id'].' (registro preservado).', 'WARNING');
+
+        return redirect($pagina.'?editar=anexos#anexos')->with('avisoDoCurso', 'Documento desvinculado da aula. O registro continua guardado no sistema.');
+    }
+
+    /** "slides_aula-1.pdf" → "Slides Aula 1": o título que o painel antigo sugeria. */
+    private static function tituloDoArquivo(string $nome): string
+    {
+        $semExtensao = pathinfo($nome, PATHINFO_FILENAME);
+        $limpo = trim((string) preg_replace('/[_-]+/u', ' ', $semExtensao));
+
+        return (string) preg_replace_callback('/\b\p{L}/u', static fn (array $m): string => mb_strtoupper($m[0]), $limpo);
+    }
+
+    private static function tipoDoArquivo(string $nome): string
+    {
+        return match (strtolower(pathinfo($nome, PATHINFO_EXTENSION))) {
+            'pdf' => 'pdf',
+            'doc', 'docx' => 'doc',
+            default => 'outro',
+        };
     }
 
     /**
