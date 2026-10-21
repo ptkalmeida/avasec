@@ -11,6 +11,7 @@ use App\Models\StudentEnrollment;
 use App\Support\CanalDeMensagens;
 use App\Support\Fuso;
 use App\Support\InstructorScope;
+use App\Support\VigenciaDoCurso;
 use App\Support\Visibilidade;
 use Carbon\CarbonInterface;
 
@@ -79,6 +80,7 @@ final class PainelDoInstrutor
             $vencimento = $curso->getAttribute('vigenciaAte');
             $vencimento = $vencimento instanceof CarbonInterface ? $vencimento : null;
             $visibilidade = $curso->getAttribute('status');
+            $vigencia = ['vigenciaAte' => $vencimento, 'contractExpirationDate' => $curso->contractExpirationDate];
             $lista[] = [
                 'id' => (string) $curso->id,
                 'slug' => is_string($curso->slug) && $curso->slug !== '' ? $curso->slug : null,
@@ -86,17 +88,9 @@ final class PainelDoInstrutor
                 'category' => is_string($curso->category) && $curso->category !== '' ? $curso->category : null,
                 'aulas' => is_numeric($n = $aulas[$curso->id] ?? 0) ? (int) $n : 0,
                 'alunos' => $this->quantosAlunos((string) $curso->id),
-                'vigenciaAte' => $vencimento === null ? null : $vencimento->format('d/m/Y'),
-                /*
-                 * Vencida quando o DIA do vencimento já passou — o dia inteiro
-                 * vale. A comparação é entre TEXTOS `Y-m-d`, e não entre
-                 * instantes: `vigenciaAte` é data pura e o Carbon a lê como
-                 * meia-noite UTC, que é 21h do dia anterior em Brasília.
-                 * Comparando instantes, o curso que vence HOJE já nascia
-                 * vencido — foi o que o teste pegou. A armadilha está escrita
-                 * no `Course`, e ainda assim eu caí nela.
-                 */
-                'vigenciaVencida' => $vencimento !== null && $vencimento->format('Y-m-d') < $hoje,
+                'vigenciaAte' => VigenciaDoCurso::diaParaPessoa($vigencia),
+                // A pergunta tem uma resposta só, em `VigenciaDoCurso`.
+                'vigenciaVencida' => VigenciaDoCurso::vencida($vigencia),
                 'publicado' => is_numeric($visibilidade) && (int) $visibilidade === Visibilidade::PUBLICADO,
             ];
         }

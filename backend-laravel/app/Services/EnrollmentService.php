@@ -15,6 +15,7 @@ use App\Support\BusinessRules;
 use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
+use App\Support\VigenciaDoCurso;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -210,6 +211,33 @@ final class EnrollmentService
      */
     public function selfEnroll(string $courseId, array $requester): array
     {
+        /*
+         * Curso com a VIGÊNCIA VENCIDA não aceita matrícula nova.
+         *
+         * A licença de exibição acabou, e o painel do instrutor descreve esse
+         * estado como "bloqueado no catálogo de alunos para proteção jurídica
+         * contra distribuição ilegal de direitos autorais expirados". O
+         * bloqueio, porém, só existia no navegador: o React filtrava a lista,
+         * e nem esta função nem `listCoursesFor` olhavam a data. Bastava um
+         * POST para se matricular num curso vencido.
+         *
+         * A regra entra aqui, e não só na tela, porque a API é a mesma porta.
+         * Quem JÁ está matriculado não é afetado — tirar alguém do meio de um
+         * curso tem consequência acadêmica e é decisão do responsável
+         * (plano 18 §24).
+         */
+        $curso = Course::query()->find($courseId, ['vigenciaAte', 'contractExpirationDate']);
+        if ($curso !== null && VigenciaDoCurso::vencida([
+            'vigenciaAte' => $curso->getAttribute('vigenciaAte'),
+            'contractExpirationDate' => $curso->contractExpirationDate,
+        ])) {
+            throw new ApiException(
+                409,
+                'CONFLICT',
+                'A vigência de exibição deste curso terminou. Procure a coordenação.',
+            );
+        }
+
         $current = $this->ownEnrollment($requester);
         $extraCourseIds = $current->extraCourseIds ?? [];
 

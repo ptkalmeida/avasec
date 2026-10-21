@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use App\Support\Fuso;
 use App\Support\Jwt;
 use Illuminate\Support\Facades\DB;
 
@@ -54,8 +55,20 @@ trait SeedsIdentity
 
     protected function anotherSeededCourseId(string $excludeId): string
     {
-        $id = DB::table('Course')->where('id', '!=', $excludeId)->value('id');
-        $this->assertNotNull($id, 'Seed sem um segundo curso distinto — popular o MySQL de dev.');
+        /*
+         * No prazo, de propósito. Desde 21/10 curso com a vigência vencida não
+         * aceita matrícula nova, e o banco de desenvolvimento tem um vencido —
+         * três testes de visibilidade de material passaram a falhar com 409 ao
+         * sortearem justamente ele. Eles medem outra coisa, e continuam medindo.
+         */
+        $hoje = Fuso::agora()->format('Y-m-d');
+        $id = DB::table('Course')->where('id', '!=', $excludeId)
+            // `DB::table` não aplica o SoftDeletes do model: sem esta linha o
+            // sorteio cai num curso INATIVADO e a API responde 404.
+            ->whereNull('inativadoEm')
+            ->where(static fn ($q) => $q->whereNull('vigenciaAte')->orWhere('vigenciaAte', '>=', $hoje))
+            ->value('id');
+        $this->assertNotNull($id, 'Seed sem um segundo curso distinto e no prazo — popular o MySQL de dev.');
 
         return $id;
     }

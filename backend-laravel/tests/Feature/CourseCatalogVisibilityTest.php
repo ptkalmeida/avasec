@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Support\Fuso;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
@@ -151,8 +152,15 @@ final class CourseCatalogVisibilityTest extends TestCase
 
         // Curso extra: precisa ter aula com conteúdo E documento ativo, senão o
         // teste passaria por vacuidade na metade que motivou a correção.
+        // No prazo: curso vencido não aceita matrícula nova desde 21/10, e o
+        // banco de desenvolvimento tem um vencido. Este teste mede o MATERIAL
+        // do curso extra, não a vigência.
+        $hoje = Fuso::agora()->format('Y-m-d');
+        $noPrazo = static fn ($q) => $q->whereNull('vigenciaAte')->orWhere('vigenciaAte', '>=', $hoje);
+
         $extraId = DB::table('Course')
             ->whereNull('inativadoEm')->where('status', 1)
+            ->where($noPrazo)
             ->whereIn('id', DB::table('Lesson')
                 ->whereNull('inativadoEm')
                 ->whereNotNull('content')->where('content', '!=', '')
@@ -163,6 +171,7 @@ final class CourseCatalogVisibilityTest extends TestCase
 
         $principalId = DB::table('Course')
             ->whereNull('inativadoEm')->where('status', 1)
+            ->where($noPrazo)
             ->where('id', '!=', $extraId)
             ->value('id');
         $this->assertNotNull($principalId, 'Seed sem um segundo curso publicado.');

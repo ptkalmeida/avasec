@@ -20,6 +20,7 @@ use App\Support\CanalDeMensagens;
 use App\Support\ConteudoDaAula;
 use App\Support\CourseAccess;
 use App\Support\ProgressoDoAluno;
+use App\Support\VigenciaDoCurso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -683,9 +684,17 @@ final class AreaDoAlunoController extends Controller
         $matricula = $this->matriculaDe($aluno);
         $meus = $this->idsDoAluno($matricula);
 
+        /*
+         * Curso com a VIGÊNCIA VENCIDA não é oferecido. A licença de exibição
+         * acabou, e o painel do instrutor descreve esse estado como "bloqueado
+         * no catálogo de alunos para proteção jurídica". O bloqueio, porém, só
+         * existia no React: `listCoursesFor` nunca filtrou, e quando esta tela
+         * passou para Blade o filtro sumiu junto com a antiga. Ver
+         * `App\Support\VigenciaDoCurso`.
+         */
         $disponiveis = [];
         foreach ($this->cursosPorId($aluno) as $id => $curso) {
-            if (! in_array($id, $meus, true)) {
+            if (! in_array($id, $meus, true) && ! VigenciaDoCurso::vencida($curso)) {
                 $disponiveis[] = $curso;
             }
         }
@@ -705,7 +714,8 @@ final class AreaDoAlunoController extends Controller
 
         $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
         $curso = $this->cursosPorId($aluno)[$resolvido['id']] ?? null;
-        abort_if($curso === null, 404);
+        // Vencido não tem ficha: a ficha é a página de "quero me matricular".
+        abort_if($curso === null || VigenciaDoCurso::vencida($curso), 404);
 
         $matricula = $this->matriculaDe($aluno);
 
