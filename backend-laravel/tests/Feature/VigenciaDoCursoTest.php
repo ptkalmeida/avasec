@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
+use App\Models\AdmissionRequest;
 use App\Models\Course;
 use App\Models\StudentEnrollment;
+use App\Models\User;
+use App\Support\Jwt;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -129,6 +132,64 @@ final class VigenciaDoCursoTest extends TestCase
         $this->assertFalse(
             StudentEnrollment::query()->whereKey($aluno['id'])->where('enrolledCourseId', $curso->id)->exists(),
         );
+    }
+
+    /**
+     * A terceira porta: `POST /api/admissions`. Com a aprovação automática
+     * ligada (que é a configuração de hoje) este pedido MATRICULA na hora, e o
+     * bloqueio que primeiro cobriu só o `selfEnroll` não o alcançava.
+     */
+    public function test_pedido_de_matricula_pela_api_em_curso_vencido_e_recusado(): void
+    {
+        config(['features.aprovacaoAutomaticaMatricula' => true]);
+        $aluno = $this->makeStudent('Aluno Pedido Vencido');
+        $curso = $this->curso('Curso Vencido Pedido', now()->subDay()->format('Y-m-d'));
+
+        $this->withHeader('Authorization', 'Bearer '.$aluno['token'])
+            ->postJson('/api/admissions', ['courseId' => $curso->id])
+            ->assertStatus(409);
+
+        $this->assertFalse(
+            StudentEnrollment::query()->whereKey($aluno['id'])->where('enrolledCourseId', $curso->id)->exists(),
+            'O pedido matriculou o aluno num curso com a vigência vencida.',
+        );
+        $this->assertFalse(AdmissionRequest::query()->where('userId', $aluno['id'])->where('courseId', $curso->id)->exists());
+    }
+
+    /** A quarta: o gestor aprovando um pedido pendente de um curso que venceu depois. */
+    public function test_aprovar_pedido_pendente_de_curso_que_venceu_e_recusado(): void
+    {
+        config(['features.aprovacaoAutomaticaMatricula' => false]);
+        $aluno = $this->makeStudent('Aluno Pendente Venceu');
+        $curso = $this->curso('Curso Que Venceu Depois', now()->addDay()->format('Y-m-d'));
+
+        $pedido = $this->withHeader('Authorization', 'Bearer '.$aluno['token'])
+            ->postJson('/api/admissions', ['courseId' => $curso->id])
+            ->assertSuccessful()->json();
+        $this->assertSame('pending', $pedido['status']);
+
+        // O curso vence ENQUANTO o pedido espera.
+        Course::query()->whereKey($curso->id)->update([
+            'vigenciaAte' => now()->subDay()->format('Y-m-d'),
+            'contractExpirationDate' => now()->subDay()->format('Y-m-d'),
+        ]);
+
+        $admin = User::query()->where('role', 'admin')->first();
+        $this->assertNotNull($admin);
+        $tokenAdmin = Jwt::issue((string) $admin->id, (string) $admin->name, 'admin');
+
+        $this->withHeader('Authorization', 'Bearer '.$tokenAdmin)
+            ->putJson('/api/admissions/'.$pedido['id'], ['status' => 'approved'])
+            ->assertStatus(409);
+
+        $this->assertFalse(
+            StudentEnrollment::query()->whereKey($aluno['id'])->where('enrolledCourseId', $curso->id)->exists(),
+        );
+
+        // Reprovar continua possível: o gestor pode encerrar o pedido.
+        $this->withHeader('Authorization', 'Bearer '.$tokenAdmin)
+            ->putJson('/api/admissions/'.$pedido['id'], ['status' => 'rejected'])
+            ->assertSuccessful();
     }
 
     /**

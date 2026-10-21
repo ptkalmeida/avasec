@@ -66,6 +66,11 @@
     "/inst/curso/{cursoRef}/avaliacoes/exercicios",
     "/inst/curso/{cursoRef}/avaliacoes/{quizId}/editar",
     "/inst/curso/{cursoRef}/avaliacoes/{quizId}",
-    "/inst/curso/{cursoRef}/avaliacoes/{quizId}/remover"
+    "/inst/curso/{cursoRef}/avaliacoes/{quizId}/remover",
+    "/inst/curso/{cursoRef}/alunos",
+    "/inst/curso/{cursoRef}/pedidos/{pedidoId}",
+    "/inst/curso/{cursoRef}/mensagens",
+    "/inst/curso/{cursoRef}/{resto}",
+    "/inst/{resto}"
   ]
 }

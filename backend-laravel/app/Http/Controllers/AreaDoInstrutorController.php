@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Services\AuditLogger;
 use App\Services\CaixaDeMensagens;
 use App\Services\CourseService;
+use App\Services\EnrollmentService;
 use App\Services\LearningService;
 use App\Services\MessagingService;
 use App\Services\PainelDoInstrutor;
@@ -35,6 +36,7 @@ final class AreaDoInstrutorController extends Controller
         private readonly CourseService $cursos,
         private readonly AuditLogger $audit,
         private readonly LearningService $aprendizagem,
+        private readonly EnrollmentService $matriculas,
         private readonly CaixaDeMensagens $caixa,
         private readonly MessagingService $mensagens,
     ) {}
@@ -732,6 +734,84 @@ final class AreaDoInstrutorController extends Controller
             'titulo' => $titulo,
             'explicacao' => $explicacao,
         ]);
+    }
+
+    /**
+     * `/inst/curso/{ref}/alunos` — quem está cursando, e os pedidos de matrícula.
+     *
+     * A aba do painel React era, na prática, vazia: com a aprovação automática
+     * ligada ela só mostrava um aviso, embora o texto prometesse "acompanhamento
+     * de turmas". Aqui ela mostra a turma de verdade — com o que o banco sabe, e
+     * sem nenhum dos números que o painel antigo inventava.
+     */
+    public function alunos(Request $request, string $cursoRef): View|RedirectResponse
+    {
+        abort_unless(config('features.dadosGerenciais') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef, '/alunos');
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $automatica = config('features.aprovacaoAutomaticaMatricula') === true;
+
+        return view('instrutor.alunos', $this->painel->alunosDoCurso($meu['id']) + [
+            'curso' => $meu['curso'],
+            'ref' => $meu['ref'],
+            'automatica' => $automatica,
+            'pedidos' => $automatica ? [] : $this->painel->pedidosPendentes($meu['id']),
+        ]);
+    }
+
+    /**
+     * Aprovar ou reprovar um pedido de matrícula.
+     *
+     * Quem decide é o `EnrollmentService::updateAdmissionStatus`, o mesmo da
+     * API: ele confere a posse do curso, matricula na MESMA transação e, desde
+     * 21/10, recusa aprovar matrícula em curso com a vigência vencida.
+     *
+     * O pedido tem de ser DESTE curso: o endereço diz qual é, e um id de pedido
+     * de outro curso não se decide por aqui.
+     */
+    public function decidirPedido(Request $request, string $cursoRef, string $pedidoId): RedirectResponse
+    {
+        abort_unless(config('features.dadosGerenciais') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $dados = $request->validate(['decisao' => ['required', 'in:approved,rejected']]);
+        $decisao = $dados['decisao'] === 'approved' ? 'approved' : 'rejected';
+
+        $pendentes = array_column($this->painel->pedidosPendentes($meu['id']), null, 'id');
+        abort_unless(isset($pendentes[$pedidoId]), 404);
+
+        try {
+            $this->matriculas->updateAdmissionStatus($pedidoId, $decisao, $instrutor);
+        } catch (ApiException $e) {
+            return redirect('/inst/curso/'.$meu['ref'].'/alunos')->withErrors(['pedidos' => $e->getMessage()]);
+        }
+
+        $this->audit->log(
+            $request,
+            'Aprovação de Solicitação',
+            'Matrícula '.$pedidoId.' ('.$pendentes[$pedidoId]['aluno'].') marcada como "'.$decisao.'".',
+        );
+
+        return redirect('/inst/curso/'.$meu['ref'].'/alunos')->with(
+            'avisoDoCurso',
+            $decisao === 'approved'
+                ? 'Matrícula de '.$pendentes[$pedidoId]['aluno'].' aprovada.'
+                : 'Matrícula de '.$pendentes[$pedidoId]['aluno'].' reprovada.',
+        );
     }
 
     /** Campo de texto em branco é ausência de valor, não string vazia. */

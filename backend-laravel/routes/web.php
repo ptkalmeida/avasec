@@ -280,6 +280,27 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::get('/inst/curso/{cursoRef}/avaliacoes/{quizId}/editar', [AreaDoInstrutorController::class, 'formularioDeAvaliacao'])->name('instrutor.avaliacao.editar');
     Route::post('/inst/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoInstrutorController::class, 'salvarAvaliacao']);
     Route::post('/inst/curso/{cursoRef}/avaliacoes/{quizId}/remover', [AreaDoInstrutorController::class, 'removerAvaliacao']);
+
+    // Alunos do curso: a turma e a fila de matrículas. Com a aprovação automática
+    // ligada (hoje) a fila não existe, e a tela mostra só a turma.
+    Route::get('/inst/curso/{cursoRef}/alunos', [AreaDoInstrutorController::class, 'alunos'])->name('instrutor.alunos');
+    Route::post('/inst/curso/{cursoRef}/pedidos/{pedidoId}', [AreaDoInstrutorController::class, 'decidirPedido']);
+
+    /*
+     * O que sobrou de endereço antigo. REGISTRADAS POR ÚLTIMO: casam com muito, e
+     * antes de outra rota engoliriam a tela certa.
+     *
+     * Sem elas, estes endereços caíam no React, que tratava seção desconhecida
+     * como "Gestão do Curso" e desenhava o painel ANTIGO — e dali o instrutor
+     * navegava, por dentro do SPA, às versões velhas das telas já migradas.
+     *
+     * Só o EDITOR DE AULA (`/aula/{id}`, `/aula/nova`) continua do React até a
+     * M6, e por isso `/inst` ainda não pode ser um prefixo no contrato de rotas:
+     * as exatas abaixo têm UM segmento depois do curso, e `/aula/{id}` tem dois.
+     */
+    Route::get('/inst/curso/{cursoRef}/mensagens', static fn () => redirect('/inst/mensagens'));
+    Route::get('/inst/curso/{cursoRef}/{resto}', static fn (string $cursoRef) => redirect('/inst/curso/'.rawurlencode($cursoRef)));
+    Route::get('/inst/{resto}', static fn () => redirect('/inst'));
 });
 
 /*

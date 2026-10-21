@@ -73,7 +73,7 @@ describe('servidoPeloServidor', () => {
      */
     expect(servidoPeloServidor('/inst')).toBe(true);
     expect(servidoPeloServidor('/inst/mensagens')).toBe(true);
-    // Gestão, grade e avaliações são Blade; o editor de aula e os alunos ainda não.
+    // Tudo do instrutor é Blade, EXCETO o editor de aula (React até a M6).
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia')).toBe(true);
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/grade-curricular')).toBe(true);
     // Avaliações do curso também são Blade, inclusive o formulário e a sub-aba desligada.
@@ -81,6 +81,11 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/avaliacoes/nova')).toBe(true);
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/avaliacoes/quiz-1/editar')).toBe(true);
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/avaliacoes/exercicios')).toBe(true);
+    // Alunos, a caixa de mensagens e os endereços antigos que sobraram.
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/alunos')).toBe(true);
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/mensagens')).toBe(true);
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/secao-qualquer')).toBe(true);
+    expect(servidoPeloServidor('/inst/endereco-qualquer')).toBe(true);
     // O editor de aula é React, com endereço próprio para não voltar ao Blade.
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/lesson-1')).toBe(false);
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/nova')).toBe(false);

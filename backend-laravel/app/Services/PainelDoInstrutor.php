@@ -5,14 +5,19 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\AdmissionRequest;
+use App\Models\Certificate;
 use App\Models\Course;
 use App\Models\Lesson;
 use App\Models\Quiz;
+use App\Models\QuizSubmission;
 use App\Models\StudentEnrollment;
+use App\Models\StudentProgress;
+use App\Models\User;
 use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;
 use App\Support\Fuso;
 use App\Support\InstructorScope;
+use App\Support\ProgressoDoAluno;
 use App\Support\SafeUrl;
 use App\Support\VigenciaDoCurso;
 use App\Support\Visibilidade;
@@ -176,6 +181,113 @@ final class PainelDoInstrutor
         }
 
         usort($lista, static fn (array $a, array $b): int => strcmp($a['quando'], $b['quando']));
+
+        return $lista;
+    }
+
+    /**
+     * Os alunos do curso, como o instrutor os acompanha.
+     *
+     * Quem entra: os que estão CURSANDO — matrícula principal ou concorrente —,
+     * que é o mesmo escopo de `InstructorScope::studentIds`. Quem já concluiu
+     * não aparece com nome, e sim na contagem: ex-aluno não fica no alcance do
+     * instrutor para sempre (a decisão está registrada no `InstructorScope`).
+     *
+     * Cada número vem de onde o resto do sistema o tira:
+     *  - progresso: `ProgressoDoAluno`, que só conta aula que AINDA existe;
+     *  - avaliações: uma tentativa aprovada basta, como o certificado;
+     *  - certificado: a linha em `Certificate`, que nunca é apagada (ADR 12).
+     *
+     * O painel React mostrava, na aba de mensagens, uma "presença" tirada de uma
+     * tabela fixa por nome de aluno, e e-mail inventado a partir do nome. Nada
+     * disso veio: aqui, só o que o banco sabe.
+     *
+     * @return array{cursando:list<array{id:string,nome:string,email:string|null,aulasFeitas:int,aulas:int,provasAprovadas:int,provas:int,certificado:bool}>,concluiram:int}
+     */
+    public function alunosDoCurso(string $courseId): array
+    {
+        $idsDasAulas = array_values(Lesson::query()->where('courseId', $courseId)->pluck('id')->all());
+        $json = '"'.$courseId.'"';
+
+        $matriculas = StudentEnrollment::query()
+            ->where(static function ($q) use ($courseId, $json): void {
+                $q->where('enrolledCourseId', $courseId)
+                    ->orWhere('extraCourseIds', 'like', '%'.$json.'%');
+            })
+            ->get(['userId', 'studentName']);
+
+        $concluiram = StudentEnrollment::query()
+            ->where('completedCourseIds', 'like', '%'.$json.'%')
+            ->count();
+
+        $ids = $matriculas->pluck('userId')->filter()->unique()->values()->all();
+        if ($ids === []) {
+            return ['cursando' => [], 'concluiram' => $concluiram];
+        }
+
+        $usuarios = User::query()->whereIn('id', $ids)->get(['id', 'name', 'email'])->keyBy('id');
+        $progresso = StudentProgress::query()->where('courseId', $courseId)->whereIn('userId', $ids)->get()->keyBy('userId');
+
+        $publicadas = Quiz::query()->where('courseId', $courseId);
+        Visibilidade::aplicar($publicadas, 'student');
+        $idsDasProvas = $publicadas->pluck('id')->all();
+
+        $aprovadas = QuizSubmission::query()
+            ->where('courseId', $courseId)->where('passed', true)
+            ->whereIn('quizId', $idsDasProvas)->whereIn('userId', $ids)
+            ->get(['userId', 'quizId'])
+            ->groupBy('userId')
+            ->map(static fn ($linhas): int => $linhas->pluck('quizId')->unique()->count());
+
+        $comCertificado = Certificate::query()->where('courseId', $courseId)->whereIn('userId', $ids)
+            ->pluck('userId')->flip();
+
+        $lista = [];
+        foreach ($matriculas as $m) {
+            $uid = (string) $m->userId;
+            $usuario = $usuarios->get($uid);
+            $feitas = $progresso->get($uid)?->completedLessons;
+
+            $lista[] = [
+                'id' => $uid,
+                'nome' => $usuario !== null ? (string) $usuario->name : (string) $m->studentName,
+                'email' => $usuario !== null && is_string($usuario->email) && $usuario->email !== '' ? $usuario->email : null,
+                'aulasFeitas' => ProgressoDoAluno::contarValidas(is_array($feitas) ? array_values($feitas) : [], $idsDasAulas),
+                'aulas' => count($idsDasAulas),
+                'provasAprovadas' => (int) ($aprovadas->get($uid) ?? 0),
+                'provas' => count($idsDasProvas),
+                'certificado' => $comCertificado->has($uid),
+            ];
+        }
+
+        usort($lista, static fn (array $a, array $b): int => strcasecmp($a['nome'], $b['nome']));
+
+        return ['cursando' => $lista, 'concluiram' => $concluiram];
+    }
+
+    /**
+     * Pedidos de matrícula aguardando decisão neste curso.
+     *
+     * Só existem com a aprovação automática DESLIGADA: com ela ligada — a
+     * configuração de hoje — o pedido nasce aprovado. A tela decide mostrar a
+     * fila pela REGRA, e não por a lista estar vazia.
+     *
+     * @return list<array{id:string,aluno:string,enviadoEm:string}>
+     */
+    public function pedidosPendentes(string $courseId): array
+    {
+        $lista = [];
+        $pedidos = AdmissionRequest::query()
+            ->where('courseId', $courseId)->where('status', 'pending')
+            ->orderBy('id')->get(['id', 'studentName', 'submittedAt']);
+
+        foreach ($pedidos as $p) {
+            $lista[] = [
+                'id' => (string) $p->id,
+                'aluno' => (string) $p->studentName,
+                'enviadoEm' => (string) $p->submittedAt,
+            ];
+        }
 
         return $lista;
     }

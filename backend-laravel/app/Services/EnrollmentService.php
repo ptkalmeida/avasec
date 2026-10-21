@@ -211,32 +211,7 @@ final class EnrollmentService
      */
     public function selfEnroll(string $courseId, array $requester): array
     {
-        /*
-         * Curso com a VIGÊNCIA VENCIDA não aceita matrícula nova.
-         *
-         * A licença de exibição acabou, e o painel do instrutor descreve esse
-         * estado como "bloqueado no catálogo de alunos para proteção jurídica
-         * contra distribuição ilegal de direitos autorais expirados". O
-         * bloqueio, porém, só existia no navegador: o React filtrava a lista,
-         * e nem esta função nem `listCoursesFor` olhavam a data. Bastava um
-         * POST para se matricular num curso vencido.
-         *
-         * A regra entra aqui, e não só na tela, porque a API é a mesma porta.
-         * Quem JÁ está matriculado não é afetado — tirar alguém do meio de um
-         * curso tem consequência acadêmica e é decisão do responsável
-         * (plano 18 §24).
-         */
-        $curso = Course::query()->find($courseId, ['vigenciaAte', 'contractExpirationDate']);
-        if ($curso !== null && VigenciaDoCurso::vencida([
-            'vigenciaAte' => $curso->getAttribute('vigenciaAte'),
-            'contractExpirationDate' => $curso->contractExpirationDate,
-        ])) {
-            throw new ApiException(
-                409,
-                'CONFLICT',
-                'A vigência de exibição deste curso terminou. Procure a coordenação.',
-            );
-        }
+        $this->recusarCursoComVigenciaVencida($courseId);
 
         $current = $this->ownEnrollment($requester);
         $extraCourseIds = $current->extraCourseIds ?? [];
@@ -380,6 +355,11 @@ final class EnrollmentService
      */
     public function createAdmission(array $input, array $requester): array
     {
+        // Vigência vencida não aceita pedido de matrícula: com a aprovação
+        // automática ligada este pedido MATRICULA na hora, e era uma porta que o
+        // bloqueio de `selfEnroll` não cobria.
+        $this->recusarCursoComVigenciaVencida($input['courseId']);
+
         $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
 
         $duplicate = AdmissionRequest::query()
@@ -450,6 +430,11 @@ final class EnrollmentService
             throw ApiException::validation('Status de matrícula inválido.');
         }
 
+        // Aprovar MATRICULA. Reprovar um pedido de curso vencido continua possível.
+        if ($status === 'approved') {
+            $this->recusarCursoComVigenciaVencida((string) $admission->courseId);
+        }
+
         // Aprovação efetiva a matrícula na MESMA transação — nunca "aprovada" sem matricular.
         $updated = DB::transaction(function () use ($admission, $status) {
             $admission->status = $status;
@@ -466,6 +451,43 @@ final class EnrollmentService
     }
 
     // ---------- helpers ----------
+
+    /**
+     * Curso com a VIGÊNCIA VENCIDA não aceita matrícula nova, por nenhuma porta.
+     *
+     * A licença de exibição acabou, e o painel do instrutor descreve esse estado
+     * como "bloqueado no catálogo de alunos para proteção jurídica contra
+     * distribuição ilegal de direitos autorais expirados". O bloqueio só existia
+     * no navegador: o React filtrava a lista, e o servidor não olhava a data.
+     *
+     * Há TRÊS portas que matriculam — `selfEnroll`, `createAdmission` (que com a
+     * aprovação automática matricula na hora) e `updateAdmissionStatus` ao
+     * aprovar —, e a primeira correção cobriu só a primeira. Esta função existe
+     * para a regra ter UM lugar.
+     *
+     * Quem JÁ está matriculado não é afetado: tirar alguém do meio de um curso
+     * tem consequência acadêmica, e é decisão do responsável (plano 18 §24).
+     *
+     * @throws ApiException 409
+     */
+    private function recusarCursoComVigenciaVencida(string $courseId): void
+    {
+        $curso = Course::query()->find($courseId, ['vigenciaAte', 'contractExpirationDate']);
+        if ($curso === null) {
+            return;
+        }
+
+        if (VigenciaDoCurso::vencida([
+            'vigenciaAte' => $curso->getAttribute('vigenciaAte'),
+            'contractExpirationDate' => $curso->contractExpirationDate,
+        ])) {
+            throw new ApiException(
+                409,
+                'CONFLICT',
+                'A vigência de exibição deste curso terminou. Procure a coordenação.',
+            );
+        }
+    }
 
     /** @param array{sub:string,name:string,role:string} $requester */
     private function assertInstructorCanManage(?string $courseId, array $requester): void
