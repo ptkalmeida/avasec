@@ -60,6 +60,12 @@
     "/inst/curso/{cursoRef}/vigencia",
     "/inst/curso/{cursoRef}/grade-curricular",
     "/inst/curso/{cursoRef}/aulas/{aulaId}/mover",
-    "/inst/curso/{cursoRef}/aulas/{aulaId}/remover"
+    "/inst/curso/{cursoRef}/aulas/{aulaId}/remover",
+    "/inst/curso/{cursoRef}/avaliacoes",
+    "/inst/curso/{cursoRef}/avaliacoes/nova",
+    "/inst/curso/{cursoRef}/avaliacoes/exercicios",
+    "/inst/curso/{cursoRef}/avaliacoes/{quizId}/editar",
+    "/inst/curso/{cursoRef}/avaliacoes/{quizId}",
+    "/inst/curso/{cursoRef}/avaliacoes/{quizId}/remover"
   ]
 }

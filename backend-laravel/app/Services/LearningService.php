@@ -18,6 +18,7 @@ use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
 use App\Support\Payload;
+use App\Support\QuestaoDeProva;
 use App\Support\Visibilidade;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -64,6 +65,28 @@ final class LearningService
         $courseId = is_string($input['courseId'] ?? null) ? $input['courseId'] : null;
         $this->assertInstructorOwnsCourse($courseId, $requester);
 
+        /*
+         * O gabarito tem de apontar para uma alternativa que EXISTE. Até 21/10
+         * esta conferência só morava no navegador (`problemaNaQuestao`), e a API
+         * aceitava `correctOptionIndex` qualquer: duas alternativas com gabarito
+         * 9 eram gravadas sem reclamação, e a prova ficava impossível de
+         * acertar — bloqueando o certificado da turma inteira, já que a prova é
+         * exigida para ele.
+         */
+        foreach (Payload::assocList($input['questions'] ?? []) as $i => $questao) {
+            $opcoes = is_array($questao['options'] ?? null)
+                ? array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $questao['options']))
+                : [];
+            $problema = QuestaoDeProva::problema(
+                is_string($questao['questionText'] ?? null) ? $questao['questionText'] : '',
+                $opcoes,
+                is_numeric($questao['correctOptionIndex'] ?? null) ? (int) $questao['correctOptionIndex'] : 0,
+            );
+            if ($problema !== null) {
+                throw ApiException::validation('Questão '.($i + 1).': '.$problema);
+            }
+        }
+
         $id = is_string($input['id'] ?? null) ? $input['id'] : ('quiz-'.$this->nowMs());
         $quiz = Quiz::query()->withTrashed()->find($id);
         // Um quiz existente não pode ser sequestrado para outro curso alheio.
@@ -77,15 +100,37 @@ final class LearningService
         }
 
         $questions = Payload::assocList($input['questions'] ?? []);
-        $keptIds = array_values(array_filter(array_map(fn ($q) => $q['id'] ?? null, $questions)));
+
+        /*
+         * O id da questão é DECIDIDO AQUI, e não aceito do cliente.
+         *
+         * O editor React mandava `rascunho-N`, um marcador provisório cujo
+         * contador recomeça a cada carregamento da página. O servidor tratava
+         * qualquer id existente como EDIÇÃO — inclusive o de OUTRA prova. Foi o
+         * que aconteceu: ao criar o "Desafio 2", `rascunho-3` já existia no
+         * "Desafio 1", e a questão foi MOVIDA para a prova nova com o texto
+         * sobrescrito. A original se perdeu.
+         *
+         * É também um furo de autorização: `assertInstructorOwnsCourse` confere
+         * a prova, não a questão, então quem soubesse (ou adivinhasse) o id de
+         * uma questão de outro curso a sobrescrevia.
+         *
+         * Regra: id vindo do cliente só vale se a questão JÁ PERTENCE a esta
+         * prova. Qualquer outro caso ganha id novo.
+         */
+        $idsDasQuestoes = [];
+        foreach ($questions as $i => $q) {
+            $idsDasQuestoes[$i] = $this->idDaQuestao(is_string($q['id'] ?? null) ? $q['id'] : null, $id, $i);
+        }
+        $keptIds = array_values($idsDasQuestoes);
         // Questão que saiu da edição é INATIVADA, não apagada (ADR 12): a
         // resposta que o aluno já deu continua apontando para um item existente.
         QuizQuestion::query()->where('quizId', $id)
             ->when(count($keptIds) > 0, fn ($q) => $q->whereNotIn('id', $keptIds))
             ->delete();
 
-        foreach ($questions as $q) {
-            $qId = is_string($q['id'] ?? null) ? $q['id'] : ($id.'-q-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+        foreach ($questions as $i => $q) {
+            $qId = $idsDasQuestoes[$i];
             $data = [
                 'quizId' => $id,
                 'questionText' => $q['questionText'],
@@ -111,6 +156,22 @@ final class LearningService
         }
 
         return Quiz::query()->with('questions')->find($id)?->toArray() ?? [];
+    }
+
+    /**
+     * O id que a questão terá. O pedido do cliente só é aceito quando a questão
+     * já pertence a ESTA prova (ver o comentário em `createQuiz`).
+     */
+    private function idDaQuestao(?string $pedido, string $quizId, int $posicao): string
+    {
+        if ($pedido !== null) {
+            $existente = QuizQuestion::query()->withTrashed()->find($pedido, ['id', 'quizId']);
+            if ($existente !== null && $existente->quizId === $quizId) {
+                return $pedido;
+            }
+        }
+
+        return $quizId.'-q-'.$this->nowMs().'-'.$posicao.'-'.Str::lower(Str::random(5));
     }
 
     /**
@@ -291,6 +352,100 @@ final class LearningService
         }
 
         return $lista;
+    }
+
+    /**
+     * As avaliações de um curso como o INSTRUTOR as vê.
+     *
+     * Conta ALUNOS, e não tentativas. O painel React somava tentativas: com
+     * refazer ilimitado, um aluno que tentou três vezes contava três vezes em
+     * "respostas" e, se passou nas três, três vezes em "aprovados".
+     *
+     * "Aprovado" segue o certificado — uma tentativa aprovada basta, mesmo que
+     * a última tenha sido pior —, para a tela não dizer outra coisa que a
+     * emissão diz.
+     *
+     * Entram as avaliações que o PAPEL alcança na escada de `Visibilidade`: o
+     * instrutor vê as restritas, que é onde ele as prepara, e o admin vê também
+     * os rascunhos. O aluno só alcança as publicadas — e só elas contam para o
+     * certificado (`avaliacoesNaoAprovadas`).
+     *
+     * @return list<array{id:string,title:string,questoes:int,alunos:int,aprovados:int,tentativas:int}>
+     */
+    public function avaliacoesDoCurso(string $courseId, string $papel): array
+    {
+        $consulta = Quiz::query()->withCount('questions')->where('courseId', $courseId);
+        Visibilidade::aplicar($consulta, $papel);
+        $quizzes = $consulta->orderBy('id')->get();
+
+        $tentativas = QuizSubmission::query()
+            ->where('courseId', $courseId)
+            ->get(['quizId', 'userId', 'passed'])
+            ->groupBy('quizId');
+
+        $lista = [];
+        foreach ($quizzes as $quiz) {
+            $doQuiz = $tentativas->get($quiz->id) ?? collect();
+            $porAluno = $doQuiz->groupBy('userId');
+
+            $n = $quiz->getAttribute('questions_count');
+            $lista[] = [
+                'id' => (string) $quiz->id,
+                'title' => (string) $quiz->title,
+                'questoes' => is_numeric($n) ? (int) $n : 0,
+                'alunos' => $porAluno->count(),
+                'aprovados' => $porAluno->filter(
+                    static fn ($linhas): bool => $linhas->contains(static fn (QuizSubmission $t): bool => (bool) $t->passed),
+                )->count(),
+                'tentativas' => $doQuiz->count(),
+            ];
+        }
+
+        return $lista;
+    }
+
+    /**
+     * Uma avaliação, com o gabarito, para o instrutor editar.
+     *
+     * Aqui o gabarito VAI — é para quem o escreve. A diferença para
+     * `provaParaResponder`, que o esconde do aluno, é de quem pergunta, e é por
+     * isso que as duas são funções separadas: uma só, com um parâmetro, seria
+     * um `if` entre mostrar e esconder a resposta.
+     *
+     * Null quando a avaliação não é deste curso.
+     *
+     * @return array{id:string,title:string,questions:list<array{id:string,questionText:string,options:list<string>,correctOptionIndex:int,explanation:string|null,reviewMessage:string|null,recommendedModule:string|null,allowRetry:bool}>}|null
+     */
+    public function avaliacaoParaEditar(string $courseId, string $quizId): ?array
+    {
+        $quiz = Quiz::query()->with('questions')->whereKey($quizId)->where('courseId', $courseId)->first();
+        if ($quiz === null) {
+            return null;
+        }
+
+        $questoes = [];
+        foreach ($quiz->questions as $q) {
+            $opcoes = is_array($q->options) ? $q->options : [];
+            $questoes[] = [
+                'id' => (string) $q->id,
+                'questionText' => (string) $q->questionText,
+                'options' => array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $opcoes)),
+                'correctOptionIndex' => (int) $q->correctOptionIndex,
+                'explanation' => is_string($q->explanation) ? $q->explanation : null,
+                'reviewMessage' => is_string($q->reviewMessage) ? $q->reviewMessage : null,
+                'recommendedModule' => is_string($q->recommendedModule) ? $q->recommendedModule : null,
+                // `null` no banco quer dizer "usar o padrão", que é permitir.
+                'allowRetry' => $q->allowRetry !== false,
+            ];
+        }
+
+        return ['id' => (string) $quiz->id, 'title' => (string) $quiz->title, 'questions' => $questoes];
+    }
+
+    /** Quantos alunos já responderam esta avaliação — o aviso de quem edita uma publicada. */
+    public function quantosJaResponderam(string $quizId): int
+    {
+        return QuizSubmission::query()->where('quizId', $quizId)->distinct()->count('userId');
     }
 
     /**

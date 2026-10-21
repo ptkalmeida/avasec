@@ -123,7 +123,7 @@
 
                 @foreach ($prova['questions'] as $i => $q)
                     @php($marcada = old('respostas.'.$q['id']))
-                    <fieldset class="space-y-3 rounded-2xl border border-ava-borda bg-white p-5">
+                    <fieldset class="min-w-0 space-y-3 rounded-2xl border border-ava-borda bg-white p-5">
                         <legend class="sr-only">Questão {{ $i + 1 }} de {{ $total }}</legend>
                         <p aria-hidden="true" class="text-sobretitulo uppercase text-escult-ink-3">Questão {{ $i + 1 }} de {{ $total }}</p>
                         <p id="enunciado-{{ $i }}" class="text-corpo font-semibold leading-relaxed text-ava-tinta break-words">{{ $q['questionText'] }}</p>

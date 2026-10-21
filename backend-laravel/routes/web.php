@@ -7,6 +7,7 @@ use App\Http\Controllers\AutenticacaoWebController;
 use App\Http\Controllers\PaginaPublicaController;
 use App\Http\Controllers\PerfilDoAlunoController;
 use App\Http\Controllers\UploadController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -261,6 +262,24 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::get('/inst/curso/{cursoRef}/grade-curricular', [AreaDoInstrutorController::class, 'grade'])->name('instrutor.grade');
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/mover', [AreaDoInstrutorController::class, 'moverAula']);
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/remover', [AreaDoInstrutorController::class, 'removerAula']);
+
+    /*
+     * Avaliações do curso. A de exercícios está desligada (`atividadesPraticasAvancadas`)
+     * e responde pelo servidor, como a seção desligada do aluno.
+     */
+    Route::get('/inst/curso/{cursoRef}/avaliacoes', [AreaDoInstrutorController::class, 'avaliacoes'])->name('instrutor.avaliacoes');
+    Route::get('/inst/curso/{cursoRef}/avaliacoes/nova', [AreaDoInstrutorController::class, 'formularioDeAvaliacao'])->name('instrutor.avaliacao.nova');
+    Route::post('/inst/curso/{cursoRef}/avaliacoes', [AreaDoInstrutorController::class, 'salvarAvaliacao']);
+    Route::get('/inst/curso/{cursoRef}/avaliacoes/exercicios', static fn (Request $r, string $cursoRef) => app(AreaDoInstrutorController::class)->secaoDesligada(
+        $r,
+        $cursoRef,
+        'atividadesPraticasAvancadas',
+        'Exercícios práticos',
+        'Os exercícios práticos ainda não estão abertos nesta plataforma.',
+    ))->name('instrutor.exercicios');
+    Route::get('/inst/curso/{cursoRef}/avaliacoes/{quizId}/editar', [AreaDoInstrutorController::class, 'formularioDeAvaliacao'])->name('instrutor.avaliacao.editar');
+    Route::post('/inst/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoInstrutorController::class, 'salvarAvaliacao']);
+    Route::post('/inst/curso/{cursoRef}/avaliacoes/{quizId}/remover', [AreaDoInstrutorController::class, 'removerAvaliacao']);
 });
 
 /*

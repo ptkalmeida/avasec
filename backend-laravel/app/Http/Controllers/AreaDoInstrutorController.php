@@ -8,11 +8,14 @@ use App\Exceptions\ApiException;
 use App\Services\AuditLogger;
 use App\Services\CaixaDeMensagens;
 use App\Services\CourseService;
+use App\Services\LearningService;
 use App\Services\MessagingService;
 use App\Services\PainelDoInstrutor;
+use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;
 use App\Support\DuracaoDaGrade;
 use App\Support\Fuso;
+use App\Support\QuestaoDeProva;
 use App\Support\VigenciaDoCurso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +34,7 @@ final class AreaDoInstrutorController extends Controller
         private readonly PainelDoInstrutor $painel,
         private readonly CourseService $cursos,
         private readonly AuditLogger $audit,
+        private readonly LearningService $aprendizagem,
         private readonly CaixaDeMensagens $caixa,
         private readonly MessagingService $mensagens,
     ) {}
@@ -435,6 +439,299 @@ final class AreaDoInstrutorController extends Controller
 
         return redirect('/inst/curso/'.$meu['ref'].'/grade-curricular')
             ->with('avisoDoCurso', 'Aula retirada da grade.'.($titulo === '' ? '' : ' “'.$titulo.'” continua guardada no sistema.'));
+    }
+
+    /**
+     * `/inst/curso/{ref}/avaliacoes` — as provas do curso.
+     *
+     * Só provas. A sub-aba "Exercícios" do painel React existe atrás de
+     * `atividadesPraticasAvancadas`, que está desligada, e tem rota própria
+     * (`/avaliacoes/exercicios`) que diz isso.
+     */
+    public function avaliacoes(Request $request, string $cursoRef): View|RedirectResponse
+    {
+        abort_unless(config('features.quizSimples') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef, '/avaliacoes');
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        return view('instrutor.avaliacoes', [
+            'curso' => $meu['curso'],
+            'ref' => $meu['ref'],
+            'avaliacoes' => $this->aprendizagem->avaliacoesDoCurso($meu['id'], $instrutor['role']),
+            'minimo' => BusinessRules::quizPassThreshold(),
+        ]);
+    }
+
+    /**
+     * O formulário de uma avaliação — a mesma tela cria e edita.
+     *
+     * `$quizId` nulo é prova nova. O curso vem SEMPRE do endereço: o formulário
+     * não tem campo de curso, e por isso uma prova não muda de curso por edição.
+     * (O editor React tinha o seletor, e a API aceita `courseId` no corpo.)
+     */
+    public function formularioDeAvaliacao(Request $request, string $cursoRef, ?string $quizId = null): View|RedirectResponse
+    {
+        abort_unless(config('features.quizSimples') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef, $quizId === null ? '/avaliacoes/nova' : '/avaliacoes/'.rawurlencode($quizId).'/editar');
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $prova = null;
+        if ($quizId !== null) {
+            $prova = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $quizId);
+            abort_if($prova === null, 404);
+        }
+
+        return view('instrutor.avaliacao-form', [
+            'curso' => $meu['curso'],
+            'ref' => $meu['ref'],
+            'prova' => $prova,
+            'inicial' => $this->questoesIniciais($prova),
+            'jaResponderam' => $prova === null ? 0 : $this->aprendizagem->quantosJaResponderam($prova['id']),
+            'minimo' => BusinessRules::quizPassThreshold(),
+        ]);
+    }
+
+    /**
+     * O que o formulário mostra ao abrir: o que a pessoa acabou de digitar (se
+     * a gravação falhou), a prova que se edita, ou uma questão em branco.
+     *
+     * @param  array{id:string,title:string,questions:list<array{id:string,questionText:string,options:list<string>,correctOptionIndex:int,explanation:string|null,reviewMessage:string|null,recommendedModule:string|null,allowRetry:bool}>}|null  $prova
+     * @return list<array{id:string,enunciado:string,alternativas:list<string>,correta:int,explicacao:string,revisao:string,modulo:string}>
+     */
+    private function questoesIniciais(?array $prova): array
+    {
+        $digitado = old('questoes');
+        if (is_array($digitado) && $digitado !== []) {
+            $lista = [];
+            foreach (array_values($digitado) as $q) {
+                $q = is_array($q) ? $q : [];
+                $alternativas = is_array($q['alternativas'] ?? null) ? array_values($q['alternativas']) : ['', '', '', ''];
+                $lista[] = [
+                    'id' => is_string($q['id'] ?? null) ? $q['id'] : '',
+                    'enunciado' => is_string($q['enunciado'] ?? null) ? $q['enunciado'] : '',
+                    'alternativas' => array_map(static fn (mixed $a): string => is_string($a) ? $a : '', $alternativas),
+                    'correta' => is_numeric($q['correta'] ?? null) ? (int) $q['correta'] : 0,
+                    'explicacao' => is_string($q['explicacao'] ?? null) ? $q['explicacao'] : '',
+                    'revisao' => is_string($q['revisao'] ?? null) ? $q['revisao'] : '',
+                    'modulo' => is_string($q['modulo'] ?? null) ? $q['modulo'] : '',
+                ];
+            }
+
+            return $lista;
+        }
+
+        if ($prova !== null && $prova['questions'] !== []) {
+            return array_map(static fn (array $q): array => [
+                'id' => $q['id'],
+                'enunciado' => $q['questionText'],
+                'alternativas' => $q['options'],
+                'correta' => $q['correctOptionIndex'],
+                'explicacao' => $q['explanation'] ?? '',
+                'revisao' => $q['reviewMessage'] ?? '',
+                'modulo' => $q['recommendedModule'] ?? '',
+            ], $prova['questions']);
+        }
+
+        return [['id' => '', 'enunciado' => '', 'alternativas' => ['', '', '', ''], 'correta' => 0, 'explicacao' => '', 'revisao' => '', 'modulo' => '']];
+    }
+
+    /**
+     * Grava uma avaliação, nova ou editada.
+     *
+     * Quem grava é o `LearningService::createQuiz`, o mesmo da API — que agora
+     * recusa gabarito impossível e não aceita id de questão de outra prova. A
+     * conferência feita AQUI serve para dizer o problema da questão N em
+     * português; o invariante mora no serviço.
+     *
+     * O curso é o do ENDEREÇO. O id da prova só vale se ela é deste curso.
+     */
+    public function salvarAvaliacao(Request $request, string $cursoRef, ?string $quizId = null): RedirectResponse
+    {
+        abort_unless(config('features.quizSimples') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $existente = null;
+        if ($quizId !== null) {
+            $existente = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $quizId);
+            abort_if($existente === null, 404);
+        }
+
+        $titulo = $request->string('titulo')->trim()->toString();
+        $brutas = $request->input('questoes');
+        $brutas = is_array($brutas) ? array_values($brutas) : [];
+
+        $erros = [];
+        if ($titulo === '' || mb_strlen($titulo) > 200) {
+            $erros['titulo'] = $titulo === '' ? 'Dê um título à avaliação.' : 'O título pode ter até 200 caracteres.';
+        }
+        if ($brutas === []) {
+            $erros['questoes'] = 'Uma avaliação precisa de pelo menos uma questão.';
+        }
+        if (count($brutas) > 100) {
+            $erros['questoes'] = 'No máximo 100 questões por avaliação.';
+        }
+
+        // O que a questão tinha de `allowRetry` antes: a prova do aluno é
+        // corrigida no fim e o campo deixou de ser usado, mas o que já estava
+        // gravado não é jogado fora por quem edita outra coisa.
+        $reentrada = [];
+        foreach ($existente['questions'] ?? [] as $antiga) {
+            $reentrada[$antiga['id']] = $antiga['allowRetry'];
+        }
+
+        $questoes = [];
+        foreach ($brutas as $i => $bruta) {
+            $bruta = is_array($bruta) ? $bruta : [];
+            $enunciado = is_string($bruta['enunciado'] ?? null) ? trim($bruta['enunciado']) : '';
+            $digitadas = is_array($bruta['alternativas'] ?? null) ? array_values($bruta['alternativas']) : [];
+            $alternativas = array_map(static fn (mixed $a): string => is_string($a) ? $a : '', $digitadas);
+
+            // Vazias do FIM não contam; a do MEIO é problema (desloca o gabarito).
+            while ($alternativas !== [] && trim((string) end($alternativas)) === '') {
+                array_pop($alternativas);
+            }
+
+            $correta = is_numeric($bruta['correta'] ?? null) ? (int) $bruta['correta'] : -1;
+            $problema = QuestaoDeProva::problema($enunciado, $alternativas, $correta);
+
+            if ($problema === null) {
+                if (mb_strlen($enunciado) > 2000) {
+                    $problema = 'O enunciado pode ter até 2000 caracteres.';
+                } elseif (collect($alternativas)->contains(static fn (string $a): bool => mb_strlen($a) > 500)) {
+                    $problema = 'Cada alternativa pode ter até 500 caracteres.';
+                }
+            }
+            if ($problema !== null) {
+                $erros['questoes.'.$i] = 'Questão '.($i + 1).': '.$problema;
+
+                continue;
+            }
+
+            $idPedido = is_string($bruta['id'] ?? null) && $bruta['id'] !== '' ? $bruta['id'] : null;
+            $texto = static fn (mixed $v): ?string => is_string($v) && trim($v) !== '' ? trim($v) : null;
+
+            $questoes[] = array_filter([
+                'id' => $idPedido,
+                'questionText' => $enunciado,
+                'options' => array_map(static fn (string $a): string => trim($a), $alternativas),
+                'correctOptionIndex' => $correta,
+                'explanation' => $texto($bruta['explicacao'] ?? null),
+                'reviewMessage' => $texto($bruta['revisao'] ?? null),
+                'recommendedModule' => $texto($bruta['modulo'] ?? null),
+                'allowRetry' => $idPedido !== null ? ($reentrada[$idPedido] ?? true) : true,
+            ], static fn (mixed $v): bool => $v !== null);
+        }
+
+        if ($erros !== []) {
+            return back()->withInput()->withErrors($erros);
+        }
+
+        try {
+            $salva = $this->aprendizagem->createQuiz(array_filter([
+                'id' => $existente['id'] ?? null,
+                'courseId' => $meu['id'],
+                'title' => $titulo,
+                'questions' => $questoes,
+            ], static fn (mixed $v): bool => $v !== null), $instrutor);
+        } catch (ApiException $e) {
+            return back()->withInput()->withErrors(['questoes' => $e->getMessage()]);
+        }
+
+        $this->audit->log(
+            $request,
+            $existente === null ? 'Criação de Avaliação' : 'Alteração de Avaliação',
+            'Avaliação "'.$titulo.'" ('.(is_string($salva['id'] ?? null) ? $salva['id'] : '?').') do curso '.$meu['id']
+                .($existente === null ? ' criada.' : ' alterada.'),
+        );
+
+        return redirect('/inst/curso/'.$meu['ref'].'/avaliacoes')->with(
+            'avisoDoCurso',
+            $existente === null ? 'Avaliação criada.' : 'Avaliação salva.',
+        );
+    }
+
+    /**
+     * Tira a avaliação do ar. As respostas dos alunos continuam registradas
+     * (ADR 12) — `LearningService::deleteQuiz` inativa só a prova.
+     */
+    public function removerAvaliacao(Request $request, string $cursoRef, string $quizId): RedirectResponse
+    {
+        abort_unless(config('features.quizSimples') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        // A prova tem de ser DESTE curso: o `deleteQuiz` da API confere o dono
+        // do curso da prova, mas o endereço também tem de dizer a verdade.
+        $prova = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $quizId);
+        abort_if($prova === null, 404);
+
+        try {
+            $this->aprendizagem->deleteQuiz($quizId, $instrutor, 'Retirada pelo instrutor.');
+        } catch (ApiException $e) {
+            return redirect('/inst/curso/'.$meu['ref'].'/avaliacoes')->withErrors(['avaliacoes' => $e->getMessage()]);
+        }
+
+        $this->audit->log(
+            $request,
+            'Inativação de Avaliação',
+            'Avaliação "'.$prova['title'].'" ('.$quizId.') do curso '.$meu['id'].' retirada (respostas preservadas).',
+            'WARNING',
+        );
+
+        return redirect('/inst/curso/'.$meu['ref'].'/avaliacoes')
+            ->with('avisoDoCurso', 'Avaliação retirada. As respostas dos alunos continuam registradas.');
+    }
+
+    /**
+     * Seções do instrutor que existem no sistema mas estão DESLIGADAS: o
+     * servidor atende o endereço e diz isso, em vez de o React desenhar o
+     * mesmo aviso. Com a flag LIGADA responde 501 — a tela ainda não existe —,
+     * e o `SecoesDesligadasDoInstrutorTest` falha antes, apontando qual
+     * construir. É a mesma decisão tomada para o aluno em 21/10.
+     */
+    public function secaoDesligada(Request $request, string $cursoRef, string $flag, string $titulo, string $explicacao): View|RedirectResponse
+    {
+        abort_if(config('features.'.$flag) === true, 501);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        return view('instrutor.secao-desligada', [
+            'curso' => $meu['curso'],
+            'ref' => $meu['ref'],
+            'titulo' => $titulo,
+            'explicacao' => $explicacao,
+        ]);
     }
 
     /** Campo de texto em branco é ausência de valor, não string vazia. */
