@@ -367,6 +367,82 @@ final class CourseService
         Course::query()->find($courseId)?->inativar($requester['sub'] ?? null, $motivo);
     }
 
+    /**
+     * Troca a aula de lugar com a vizinha, e renumera a grade de 1 a N.
+     *
+     * Existe porque a tela de grade em Blade não pode reenviar o curso inteiro
+     * para mudar uma posição. O React fazia isso (`PUT /api/courses/{id}` com o
+     * array `lessons` completo), e dois instrutores — ou duas abas — editando o
+     * mesmo curso se sobrescreviam sem aviso: quem salvasse por último levava o
+     * trabalho do outro. Aqui só a ordem muda, e só o que mudou é gravado.
+     *
+     * A ordem de partida é a mesma que a tela mostra (`lesson_order`, depois
+     * `id`), então "subir" move a aula que a pessoa está VENDO, mesmo quando o
+     * banco tem posições repetidas ou com buraco.
+     *
+     * @param  'up'|'down'  $direcao
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function moverAula(string $courseId, string $lessonId, string $direcao, array $requester): void
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        DB::transaction(function () use ($courseId, $lessonId, $direcao): void {
+            /** @var list<string> $ids */
+            $ids = $this->somenteStrings(
+                Lesson::query()->where('courseId', $courseId)
+                    ->orderBy('lesson_order')->orderBy('id')
+                    ->lockForUpdate()
+                    ->pluck('id')->all()
+            );
+
+            $posicao = array_search($lessonId, $ids, true);
+            if ($posicao === false) {
+                throw ApiException::notFound('Aula não encontrada neste curso.');
+            }
+
+            $destino = $direcao === 'up' ? $posicao - 1 : $posicao + 1;
+            // Primeira não sobe e última não desce: nada a fazer, e não é erro.
+            if ($destino >= 0 && $destino < count($ids)) {
+                [$ids[$posicao], $ids[$destino]] = [$ids[$destino], $ids[$posicao]];
+            }
+
+            foreach ($ids as $i => $id) {
+                Lesson::query()->whereKey($id)->update(['lesson_order' => $i + 1]);
+            }
+        });
+    }
+
+    /**
+     * Tira a aula do ar. Não apaga (ADR 12).
+     *
+     * O progresso dos alunos que apontava para ela é limpo, porque id órfão em
+     * `completedLessons` contava como aula concluída: um curso com 1 aula e 2
+     * ids órfãos dava 200% — e a frequência inflada é o gatilho da emissão
+     * automática de certificado (ver `limparProgressoOrfao`).
+     *
+     * Existe também porque `updateCourse` NÃO consegue tirar a ÚLTIMA aula de
+     * um curso: o `syncLessons` só inativa as que "saíram" quando a lista que
+     * sobrou não está vazia (`when(count($keptIds) > 0, ...)`), então mandar o
+     * curso sem aula nenhuma não inativa nenhuma.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function inativarAula(string $courseId, string $lessonId, array $requester, ?string $motivo = null): void
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        $aula = Lesson::query()->where('courseId', $courseId)->whereKey($lessonId)->first();
+        if ($aula === null) {
+            throw ApiException::notFound('Aula não encontrada neste curso.');
+        }
+
+        DB::transaction(function () use ($aula, $requester, $motivo, $courseId): void {
+            $aula->inativar($requester['sub'], $motivo);
+            $this->limparProgressoOrfao($courseId);
+        });
+    }
+
     /** @param array{sub:string,name:string,role:string} $requester */
     private function assertCourseOwnership(string $courseId, array $requester): void
     {

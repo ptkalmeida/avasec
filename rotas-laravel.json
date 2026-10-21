@@ -57,6 +57,9 @@
     "/inst/mensagens",
     "/inst/curso/{cursoRef}",
     "/inst/curso/{cursoRef}/propriedades",
-    "/inst/curso/{cursoRef}/vigencia"
+    "/inst/curso/{cursoRef}/vigencia",
+    "/inst/curso/{cursoRef}/grade-curricular",
+    "/inst/curso/{cursoRef}/aulas/{aulaId}/mover",
+    "/inst/curso/{cursoRef}/aulas/{aulaId}/remover"
   ]
 }

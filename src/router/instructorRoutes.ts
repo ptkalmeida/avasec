@@ -80,6 +80,18 @@ export interface DestinoInstrutor {
   subAba: SubAbaAvaliacoes;
   /** Janela aberta sobre a tela, quando houver (vem de `?janela=`). */
   janela: string | null;
+  /**
+   * Aula aberta no editor (`/inst/curso/<ref>/aula/<id>`), ou null.
+   *
+   * O editor de conteúdo continua sendo React até a fase M6, enquanto a lista
+   * de aulas (`/grade-curricular`) passou a ser do servidor. Por isso ele tem
+   * endereço PRÓPRIO, fora da grade: o servidor atende a grade inteira, e uma
+   * aula aberta dentro dela voltaria para o Blade. Era também estado local —
+   * um F5 no meio da edição perdia onde a pessoa estava.
+   */
+  aulaId: string | null;
+  /** Editor aberto para uma aula NOVA (`/inst/curso/<ref>/aula/nova`). */
+  novaAula: boolean;
 }
 
 /**
@@ -91,7 +103,9 @@ export interface DestinoInstrutor {
 export function parseInstrutor(pathname: string, search = ''): DestinoInstrutor {
   const partes = pathname.replace(/\/+$/, '').split('/').filter((p) => p !== '');
   const janela = new URLSearchParams(search).get('janela');
-  const vazio: DestinoInstrutor = { cursoRef: null, secao: 'gestao', subAba: 'provas', janela };
+  const vazio: DestinoInstrutor = {
+    cursoRef: null, secao: 'gestao', subAba: 'provas', janela, aulaId: null, novaAula: false,
+  };
 
   // ['inst'] | ['inst','curso',<id>] | ['inst','curso',<id>,<secao>] | (+ subaba)
   if (partes[0] !== 'inst' || partes[1] !== 'curso' || typeof partes[2] !== 'string' || partes[2] === '') {
@@ -103,6 +117,15 @@ export function parseInstrutor(pathname: string, search = ''): DestinoInstrutor 
   if (nomeSecao === undefined) {
     return { ...vazio, cursoRef };
   }
+  if (nomeSecao === 'aula') {
+    // O editor vive na seção da grade, mas com endereço próprio (ver `aulaId`).
+    // `aula` sem id é a grade, e não um editor em branco.
+    const qual = partes[4] === undefined ? null : decodeURIComponent(partes[4]);
+    if (qual === null || qual === '') return { ...vazio, cursoRef, secao: 'grade-curricular', janela };
+    if (qual === 'nova') return { ...vazio, cursoRef, secao: 'grade-curricular', janela, novaAula: true };
+
+    return { ...vazio, cursoRef, secao: 'grade-curricular', janela, aulaId: qual };
+  }
   if (!SECOES_NO_CAMINHO.includes(nomeSecao as SecaoInstrutor)) {
     // Seção desconhecida vira a entrada do curso, e não a tela de escolha: o
     // curso do endereço é informação boa mesmo com o resto errado.
@@ -112,7 +135,7 @@ export function parseInstrutor(pathname: string, search = ''): DestinoInstrutor 
   const secao = nomeSecao as SecaoInstrutor;
   const subAba: SubAbaAvaliacoes = secao === 'avaliacoes' && partes[4] === 'exercicios' ? 'exercicios' : 'provas';
 
-  return { cursoRef, secao, subAba, janela };
+  return { cursoRef, secao, subAba, janela, aulaId: null, novaAula: false };
 }
 
 /** Monta o endereço de um destino. */
@@ -121,8 +144,10 @@ export function caminhoInstrutor(destino: {
   secao?: SecaoInstrutor;
   subAba?: SubAbaAvaliacoes;
   janela?: string | null;
+  aulaId?: string | null;
+  novaAula?: boolean;
 }): string {
-  const { cursoRef, secao = 'gestao', subAba = 'provas', janela = null } = destino;
+  const { cursoRef, secao = 'gestao', subAba = 'provas', janela = null, aulaId = null, novaAula = false } = destino;
   const comJanela = (base: string): string =>
     janela !== null && janela !== '' ? `${base}?janela=${encodeURIComponent(janela)}` : base;
 
@@ -133,6 +158,15 @@ export function caminhoInstrutor(destino: {
   }
 
   let caminho = `${RAIZ_INSTRUTOR}/curso/${encodeURIComponent(cursoRef)}`;
+
+  // O editor de aula é da grade, mas tem endereço próprio — ver `aulaId`.
+  if (secao === 'grade-curricular' && aulaId !== null && aulaId !== '') {
+    return comJanela(`${caminho}/aula/${encodeURIComponent(aulaId)}`);
+  }
+  if (secao === 'grade-curricular' && novaAula) {
+    return comJanela(`${caminho}/aula/nova`);
+  }
+
   if (secao !== 'gestao') caminho += `/${secao}`;
   // A sub-aba padrão fica FORA do endereço: `/avaliacoes` e
   // `/avaliacoes/provas` seriam a mesma tela com dois endereços.

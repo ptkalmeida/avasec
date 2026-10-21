@@ -9,8 +9,9 @@ import { entrarComoInstrutor, rolaNaHorizontal } from './sessao';
  * PHPUnit. Aqui: que as telas são servidas pelo servidor, que de uma se chega
  * à outra, e que cabem nas larguras.
  *
- * A grade curricular, as avaliações e os alunos ainda são React, e a fronteira
- * com eles é o que mais quebrou nesta migração.
+ * A grade curricular também é do servidor. O EDITOR de aula, as avaliações e
+ * os alunos ainda são React, e a fronteira com eles é o que mais quebrou nesta
+ * migração.
  */
 test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
   test('a escolha é servida pelo servidor e lista os cursos', async ({ page }) => {
@@ -32,12 +33,7 @@ test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Panorama' })).toBeVisible();
   });
 
-  /*
-   * A fronteira que sobrou: a grade curricular ainda é React. Sair do Blade
-   * para ela é um carregamento de página inteiro, e tem de abrir o painel do
-   * curso — e não a tela de escolha.
-   */
-  test('da Gestão do Curso se chega à grade, que ainda é React', async ({ page }) => {
+  test('da Gestão do Curso se chega à grade, também servida pelo servidor', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoInstrutor(page);
     await page.getByRole('link', { name: /Aulas/ }).first().click();
@@ -45,28 +41,83 @@ test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
     await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
 
     await expect(page).toHaveURL(/\/grade-curricular$/);
-    await expect(page.locator('#root')).toHaveCount(1);
+    await expect(page.locator('#root')).toHaveCount(0);
+    await expect(page.getByRole('heading', { level: 1, name: 'Grade curricular' })).toBeVisible();
   });
 
   /*
-   * O defeito que a escolha em Blade criou, preso aqui.
+   * A fronteira que sobrou: o EDITOR de aula é React, com endereço próprio.
    *
-   * Chegar ao painel React passou a ser um carregamento de página inteiro, e o
-   * efeito que devolve "curso que não é seu" para `/inst` rodava ANTES de a
-   * lista de cursos chegar: clicar num curso voltava para a lista, e nenhum
-   * curso abria. Esperar quatro segundos é o que separa "abriu" de "abriu e
-   * voltou" — sem a espera, o teste passa com o defeito presente.
+   * Dois defeitos nasceram aqui e ficam presos:
+   *  1. o efeito que devolve "curso que não é seu" para `/inst` rodava ANTES de
+   *     a lista de cursos chegar — clicar no editor voltava para a lista;
+   *  2. se a aula aberta vivesse DENTRO de `/grade-curricular`, o servidor a
+   *     levaria de volta ao Blade e o editor ficaria inalcançável.
+   * Esperar quatro segundos é o que separa "abriu" de "abriu e voltou": sem a
+   * espera, o teste passa com o defeito presente.
    */
-  test('abrir a grade não volta para a lista enquanto o painel carrega', async ({ page }) => {
+  test('da grade se chega ao editor da aula, que é React e não volta sozinho', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoInstrutor(page);
     await page.getByRole('link', { name: /Aulas/ }).first().click();
     await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
-    const enderecoDaGrade = page.url();
+
+    await page.getByRole('link', { name: /^Editar conteúdo/ }).first().click();
+    await expect(page).toHaveURL(/\/aula\/[^/]+$/);
+    const enderecoDoEditor = page.url();
 
     await page.waitForTimeout(4000);
 
-    expect(page.url()).toBe(enderecoDaGrade);
+    expect(page.url()).toBe(enderecoDoEditor);
+    await expect(page.locator('#root')).toHaveCount(1);
+    await expect(page.getByText('Voltar ao currículo')).toBeVisible();
+  });
+
+  test('do editor, voltar ao currículo leva à grade do servidor', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await entrarComoInstrutor(page);
+    await page.getByRole('link', { name: /Aulas/ }).first().click();
+    await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
+    await page.getByRole('link', { name: /^Editar conteúdo/ }).first().click();
+    await page.getByText('Voltar ao currículo').click();
+
+    await expect(page).toHaveURL(/\/grade-curricular$/);
+    await expect(page.locator('#root')).toHaveCount(0);
+  });
+
+  test('a F5 no editor volta para a MESMA aula, e não para a lista', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await entrarComoInstrutor(page);
+    await page.getByRole('link', { name: /Aulas/ }).first().click();
+    await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
+    await page.getByRole('link', { name: /^Editar conteúdo/ }).first().click();
+    const endereco = page.url();
+
+    await page.reload();
+    await page.waitForTimeout(3000);
+
+    expect(page.url()).toBe(endereco);
+    await expect(page.getByText('Voltar ao currículo')).toBeVisible();
+  });
+
+  /*
+   * Nenhum teste aqui MOVE ou RETIRA aula: o curso de demonstração é
+   * compartilhado, e mudar a ordem dele mudaria a aula que os outros testes
+   * abrem primeiro. A gravação é conferida no PHPUnit, em transação. Aqui: que
+   * a confirmação de retirada abre, diz o que acontece e pode ser recusada.
+   */
+  test('retirar pede confirmação na página, e Manter desiste', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await entrarComoInstrutor(page);
+    await page.getByRole('link', { name: /Aulas/ }).first().click();
+    await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
+
+    await page.getByRole('button', { name: /^Retirar da grade/ }).first().click();
+    await expect(page.getByText('Nada é apagado').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Retirar a aula' }).first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Manter' }).first().click();
+    await expect(page.getByRole('button', { name: 'Retirar a aula' }).first()).toBeHidden();
   });
 
   test('o menu não oferece seção de curso antes da escolha', async ({ page }) => {
@@ -107,7 +158,7 @@ test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
   });
 
   for (const w of [320, 375, 768, 1440]) {
-    test(`${w}px: escolha e Gestão do Curso não rolam na horizontal`, async ({ page }) => {
+    test(`${w}px: escolha, Gestão do Curso e grade não rolam na horizontal`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: 900 });
       await entrarComoInstrutor(page);
 
@@ -115,6 +166,11 @@ test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
 
       await page.getByRole('link', { name: /Aulas/ }).first().click();
       await expect(page.getByRole('heading', { level: 2, name: 'Panorama' })).toBeVisible();
+
+      expect(await rolaNaHorizontal(page)).toBe(false);
+
+      await page.getByRole('link', { name: /^Grade curricular/ }).first().click();
+      await expect(page.getByRole('heading', { level: 1, name: 'Grade curricular' })).toBeVisible();
 
       expect(await rolaNaHorizontal(page)).toBe(false);
     });

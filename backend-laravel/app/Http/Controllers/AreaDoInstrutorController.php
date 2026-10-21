@@ -11,6 +11,7 @@ use App\Services\CourseService;
 use App\Services\MessagingService;
 use App\Services\PainelDoInstrutor;
 use App\Support\CanalDeMensagens;
+use App\Support\DuracaoDaGrade;
 use App\Support\Fuso;
 use App\Support\VigenciaDoCurso;
 use Illuminate\Http\RedirectResponse;
@@ -313,6 +314,127 @@ final class AreaDoInstrutorController extends Controller
             'avisoDoCurso',
             $nova === null ? 'Vigência agora é permanente.' : 'Vigência renovada até '.VigenciaDoCurso::diaParaPessoa(['vigenciaAte' => $nova]).'.',
         );
+    }
+
+    /**
+     * `/inst/curso/{ref}/grade-curricular` — as aulas do curso, em ordem.
+     *
+     * Só a LISTA é do servidor: mudar a ordem e tirar uma aula do ar. O que
+     * mexe no CONTEÚDO da aula (texto, vídeo, anexos) é o editor, que continua
+     * em React até a fase M6 do plano 16 e tem endereço próprio —
+     * `/inst/curso/{ref}/aula/{id}` e `/aula/nova`.
+     */
+    public function grade(Request $request, string $cursoRef): View|RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef, '/grade-curricular');
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $aulas = is_array($meu['curso']['lessons'] ?? null) ? array_values($meu['curso']['lessons']) : [];
+
+        return view('instrutor.grade', [
+            'curso' => $meu['curso'],
+            'ref' => $meu['ref'],
+            'aulas' => array_map(static function (mixed $aula): array {
+                $a = is_array($aula) ? $aula : [];
+                $documentos = is_array($a['documents'] ?? null) ? $a['documents'] : [];
+
+                return [
+                    'id' => is_string($a['id'] ?? null) ? $a['id'] : '',
+                    'title' => is_string($a['title'] ?? null) ? $a['title'] : '',
+                    'duration' => is_string($a['duration'] ?? null) && $a['duration'] !== '' ? $a['duration'] : null,
+                    'temVideo' => is_string($a['videoUrl'] ?? null) && $a['videoUrl'] !== '',
+                    'documentos' => count($documentos),
+                ];
+            }, $aulas),
+            'tempoTotal' => DuracaoDaGrade::texto(array_map(
+                static fn (mixed $a): array => is_array($a) ? $a : [],
+                $aulas,
+            )),
+            'vigenciaVencida' => VigenciaDoCurso::vencida($meu['curso']),
+            'vigenciaAte' => VigenciaDoCurso::diaParaPessoa($meu['curso']),
+        ]);
+    }
+
+    /**
+     * Sobe ou desce uma aula na grade.
+     *
+     * Quem grava é o `CourseService::moverAula`, que troca a aula com a vizinha
+     * e renumera — e que só mexe na ORDEM. O React reenviava o curso inteiro
+     * (`PUT /api/courses/{id}` com todas as aulas), e dois instrutores
+     * editando o mesmo curso se sobrescreviam sem aviso.
+     */
+    public function moverAula(Request $request, string $cursoRef, string $aulaId): RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $dados = $request->validate(['direcao' => ['required', 'in:up,down']]);
+
+        try {
+            $this->cursos->moverAula($meu['id'], $aulaId, $dados['direcao'] === 'up' ? 'up' : 'down', $instrutor);
+        } catch (ApiException $e) {
+            return redirect('/inst/curso/'.$meu['ref'].'/grade-curricular')->withErrors(['grade' => $e->getMessage()]);
+        }
+
+        $this->audit->log($request, 'Alteração de Curso', 'Ordem das aulas do curso '.$meu['id'].' alterada.');
+
+        // O foco volta para a aula que se moveu: sem a âncora, a página recarrega
+        // no topo e quem usa teclado perde o lugar a cada clique.
+        return redirect('/inst/curso/'.$meu['ref'].'/grade-curricular#aula-'.rawurlencode($aulaId));
+    }
+
+    /**
+     * Tira uma aula do ar. Não apaga (ADR 12): a aula fica no banco com quem
+     * tirou e quando, e o progresso dos alunos que apontava para ela é limpo.
+     */
+    public function removerAula(Request $request, string $cursoRef, string $aulaId): RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $titulo = '';
+        foreach (is_array($meu['curso']['lessons'] ?? null) ? $meu['curso']['lessons'] : [] as $aula) {
+            if (is_array($aula) && ($aula['id'] ?? null) === $aulaId && is_string($aula['title'] ?? null)) {
+                $titulo = $aula['title'];
+            }
+        }
+
+        try {
+            $this->cursos->inativarAula($meu['id'], $aulaId, $instrutor, 'Removida da grade pelo instrutor.');
+        } catch (ApiException $e) {
+            return redirect('/inst/curso/'.$meu['ref'].'/grade-curricular')->withErrors(['grade' => $e->getMessage()]);
+        }
+
+        $this->audit->log(
+            $request,
+            'Alteração de Curso',
+            'Aula "'.$titulo.'" ('.$aulaId.') do curso '.$meu['id'].' retirada da grade (registro preservado).',
+            'WARNING',
+        );
+
+        return redirect('/inst/curso/'.$meu['ref'].'/grade-curricular')
+            ->with('avisoDoCurso', 'Aula retirada da grade.'.($titulo === '' ? '' : ' “'.$titulo.'” continua guardada no sistema.'));
     }
 
     /** Campo de texto em branco é ausência de valor, não string vazia. */

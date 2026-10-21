@@ -336,7 +336,18 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const [newCourseExpiration, setNewCourseExpiration] = useState('');
 
   // Create Lesson State
-  const [isCreatingLesson, setIsCreatingLesson] = usarJanela('nova-aula');
+  /*
+   * "Nova aula" saiu de `?janela=nova-aula` para `/aula/nova`: a janela ficava
+   * na seção da grade, que agora é do servidor, e abrir o editor por ela
+   * devolveria a pessoa ao Blade. Ver `instructorRoutes.aulaId`.
+   */
+  const isCreatingLesson = destino.novaAula;
+  const setIsCreatingLesson = (aberta: boolean): void => {
+    navigate(
+      caminhoInstrutor({ cursoRef: refDoCursoAtual, secao: 'grade-curricular', novaAula: aberta }),
+      { replace: !aberta }
+    );
+  };
   const [lessonTitle, setLessonTitle] = useState('');
   const [lessonDuration, setLessonDuration] = useState('15 min');
   const [lessonContent, setLessonContent] = useState('');
@@ -346,7 +357,15 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
 
   // Expanded & Documents state inside curriculum
   // Aula aberta na página de gestão (substituiu o painel que expandia na lista).
-  const [managingLessonId, setManagingLessonId] = useState<string | null>(null);
+  // A aula aberta vem do ENDEREÇO (`/aula/<id>`), e não de estado local: assim o
+  // F5 no meio da edição volta para a mesma aula, em vez de para a lista.
+  const managingLessonId = destino.aulaId;
+  const setManagingLessonId = (aulaId: string | null): void => {
+    navigate(
+      caminhoInstrutor({ cursoRef: refDoCursoAtual, secao: 'grade-curricular', aulaId }),
+      { replace: aulaId === null }
+    );
+  };
   const [newDocTitle, setNewDocTitle] = useState('');
   const [newDocType, setNewDocType] = useState<'pdf' | 'doc' | 'url' | 'drive' | 'outro'>('pdf');
   const [newDocUrl, setNewDocUrl] = useState('');
@@ -989,6 +1008,22 @@ export const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ onBack
   const managedLesson = managingLessonId === null
     ? null
     : activeCourse?.lessons.find((l) => l.id === managingLessonId) ?? null;
+
+  /*
+   * `/aula/<id>` com uma aula que não existe neste curso — link velho, id
+   * digitado, aula já removida — volta para a grade, que agora é do servidor.
+   * Sem isto, o painel ficaria numa tela vazia: a aba é a da grade, mas não há
+   * aula para mostrar e a lista antiga já não é o destino.
+   *
+   * Só age com o curso JÁ carregado: com a lista ainda vazia não há como saber
+   * se a aula existe, e devolver seria a resposta errada.
+   */
+  useEffect(() => {
+    if (destino.aulaId !== null && cursoDoEndereco !== null && managedLesson === null) {
+      navigate(caminhoInstrutor({ cursoRef: refDoCursoAtual, secao: 'grade-curricular' }), { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [destino.aulaId, cursoDoEndereco, managedLesson]);
 
   // Simulated Student Directory tracking data
   const simulatedStudents = studentsList.map(item => ({

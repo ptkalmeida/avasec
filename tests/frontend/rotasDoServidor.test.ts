@@ -73,9 +73,12 @@ describe('servidoPeloServidor', () => {
      */
     expect(servidoPeloServidor('/inst')).toBe(true);
     expect(servidoPeloServidor('/inst/mensagens')).toBe(true);
-    // A Gestão do Curso é Blade; a grade, as avaliações e os alunos ainda não.
+    // Gestão e grade são Blade; o editor de aula, as avaliações e os alunos ainda não.
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia')).toBe(true);
-    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/grade-curricular')).toBe(false);
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/grade-curricular')).toBe(true);
+    // O editor de aula é React, com endereço próprio para não voltar ao Blade.
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/lesson-1')).toBe(false);
+    expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/nova')).toBe(false);
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/avaliacoes')).toBe(false);
     // O admin ainda é React por inteiro.
     expect(servidoPeloServidor('/admin')).toBe(false);

@@ -111,6 +111,61 @@ describe('sub-abas de Avaliações', () => {
   });
 });
 
+/*
+ * O editor de aula tem endereço PRÓPRIO, fora da grade.
+ *
+ * A lista de aulas (`/grade-curricular`) passou a ser do servidor, e o editor de
+ * conteúdo continua React até a M6. Se a aula aberta vivesse DENTRO da grade, o
+ * servidor a levaria de volta ao Blade e o editor ficaria inalcançável. Era
+ * também estado local: um F5 no meio da edição perdia a aula.
+ */
+describe('editor de aula', () => {
+  it('aula aberta tem endereço próprio e fica na seção da grade', () => {
+    const dest = parseInstrutor('/inst/curso/c1/aula/lesson-9');
+
+    expect(dest).toMatchObject({ cursoRef: 'c1', secao: 'grade-curricular', aulaId: 'lesson-9', novaAula: false });
+  });
+
+  it('aula nova também', () => {
+    expect(parseInstrutor('/inst/curso/c1/aula/nova')).toMatchObject({
+      cursoRef: 'c1', secao: 'grade-curricular', aulaId: null, novaAula: true,
+    });
+  });
+
+  it('`aula` sem id é a grade, e não um editor em branco', () => {
+    expect(parseInstrutor('/inst/curso/c1/aula')).toMatchObject({
+      secao: 'grade-curricular', aulaId: null, novaAula: false,
+    });
+  });
+
+  it('monta o endereço da aula e o da aula nova', () => {
+    expect(caminhoInstrutor({ cursoRef: 'c1', secao: 'grade-curricular', aulaId: 'lesson-9' }))
+      .toBe('/inst/curso/c1/aula/lesson-9');
+    expect(caminhoInstrutor({ cursoRef: 'c1', secao: 'grade-curricular', novaAula: true }))
+      .toBe('/inst/curso/c1/aula/nova');
+  });
+
+  it('sem aula, a grade volta a ser a grade', () => {
+    expect(caminhoInstrutor({ cursoRef: 'c1', secao: 'grade-curricular', aulaId: null }))
+      .toBe('/inst/curso/c1/grade-curricular');
+    expect(caminhoInstrutor({ cursoRef: 'c1', secao: 'grade-curricular', novaAula: false }))
+      .toBe('/inst/curso/c1/grade-curricular');
+  });
+
+  it('ida e volta com id que tem caractere especial', () => {
+    const id = 'lesson/ç 1';
+    const caminho = caminhoInstrutor({ cursoRef: 'c1', secao: 'grade-curricular', aulaId: id });
+
+    expect(parseInstrutor(caminho).aulaId).toBe(id);
+  });
+
+  it('o editor só vale na seção da grade', () => {
+    // Pedir uma aula dentro de outra seção não inventa endereço de editor.
+    expect(caminhoInstrutor({ cursoRef: 'c1', secao: 'avaliacoes', aulaId: 'lesson-9' }))
+      .toBe('/inst/curso/c1/avaliacoes');
+  });
+});
+
 describe('janelas (modais) no endereço', () => {
   it('a janela entra e sai do endereço', () => {
     // É o que faz o Voltar do navegador FECHAR o modal em vez de trocar de página.

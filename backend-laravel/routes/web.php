@@ -255,6 +255,12 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::get('/inst/curso/{cursoRef}', [AreaDoInstrutorController::class, 'curso'])->name('instrutor.curso');
     Route::post('/inst/curso/{cursoRef}/propriedades', [AreaDoInstrutorController::class, 'salvarPropriedades']);
     Route::post('/inst/curso/{cursoRef}/vigencia', [AreaDoInstrutorController::class, 'salvarVigencia']);
+
+    // Grade curricular: a lista, a ordem e a retirada. O EDITOR de aula é React
+    // até a M6 e vive em `/inst/curso/{ref}/aula/...`, que não está aqui.
+    Route::get('/inst/curso/{cursoRef}/grade-curricular', [AreaDoInstrutorController::class, 'grade'])->name('instrutor.grade');
+    Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/mover', [AreaDoInstrutorController::class, 'moverAula']);
+    Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/remover', [AreaDoInstrutorController::class, 'removerAula']);
 });
 
 /*
