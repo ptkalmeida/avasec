@@ -95,8 +95,10 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/admin/equipe')).toBe(true);
     expect(servidoPeloServidor('/admin/cursos')).toBe(true);
     expect(servidoPeloServidor('/admin/cursos/course-1/retirar')).toBe(true);
-    expect(servidoPeloServidor('/admin/alunos')).toBe(false);
-    expect(servidoPeloServidor('/admin/alunos/qualquer-id')).toBe(false);
+    expect(servidoPeloServidor('/admin/alunos')).toBe(true);
+    expect(servidoPeloServidor('/admin/alunos/qualquer-id')).toBe(true);
+    expect(servidoPeloServidor('/admin/alunos/qualquer-id/senha')).toBe(true);
+    expect(servidoPeloServidor('/admin/templates')).toBe(false);
   });
 });
 

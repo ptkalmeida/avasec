@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AlunosDoAdminController;
 use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\AreaDoInstrutorController;
@@ -341,6 +342,13 @@ Route::middleware('instrutor.web')->group(function (): void {
  * Fatia 4: Cursos & Trilhas (prover, trocar responsável, tipo, vigência, capa, retirar do ar).
  */
 Route::middleware('admin.web')->group(function (): void {
+    Route::get('/admin/alunos', [AlunosDoAdminController::class, 'listar'])->name('admin.alunos');
+    Route::get('/admin/alunos/{alunoId}', [AlunosDoAdminController::class, 'ficha'])->name('admin.aluno');
+    Route::post('/admin/alunos', [AlunosDoAdminController::class, 'cadastrar']);
+    // Mesmo limitador da rota de API de redefinição administrativa (`auth-password`).
+    Route::post('/admin/alunos/{alunoId}/senha', [AlunosDoAdminController::class, 'redefinirSenha'])->middleware('throttle:auth-password');
+    Route::post('/admin/alunos/{alunoId}/matricula-multipla', [AlunosDoAdminController::class, 'matriculaMultipla']);
+    Route::post('/admin/alunos/{alunoId}/inativar', [AlunosDoAdminController::class, 'inativar']);
     Route::get('/admin/cursos', [CursosDoAdminController::class, 'listar'])->name('admin.cursos');
     Route::post('/admin/cursos', [CursosDoAdminController::class, 'criar']);
     Route::post('/admin/cursos/{cursoId}/instrutor', [CursosDoAdminController::class, 'trocarInstrutor']);
