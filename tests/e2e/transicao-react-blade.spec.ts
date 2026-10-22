@@ -26,8 +26,8 @@ test.describe('Fronteira React → Blade', () => {
     ]);
 
     // O ponto de partida é o casco do SPA.
-    await page.goto('/admin/equipe');
-    await expect(page).toHaveURL(/\/admin\/equipe$/);
+    await page.goto('/admin/alunos');
+    await expect(page).toHaveURL(/\/admin\/alunos$/);
     await expect(page.locator('#root')).toHaveCount(1);
 
     // O menu do portal, dentro do painel React, navega do lado do cliente.

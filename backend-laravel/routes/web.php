@@ -4,6 +4,7 @@ use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\AreaDoInstrutorController;
 use App\Http\Controllers\AutenticacaoWebController;
+use App\Http\Controllers\EquipeDoAdminController;
 use App\Http\Controllers\PaginaPublicaController;
 use App\Http\Controllers\PainelDoAdminController;
 use App\Http\Controllers\PerfilDoAdminController;
@@ -335,8 +336,10 @@ Route::middleware('instrutor.web')->group(function (): void {
  * Fatia 1: a moldura (D §1) e os dois itens do menu do usuário que o painel
  * React não tinha — "Meu perfil" e "Trocar senha".
  * Fatia 2: Dashboard e os relatórios, só leitura.
+ * Fatia 3: a Equipe Pedagógica (lista e busca).
  */
 Route::middleware('admin.web')->group(function (): void {
+    Route::get('/admin/equipe', [EquipeDoAdminController::class, 'listar'])->name('admin.equipe');
     Route::get('/admin', [PainelDoAdminController::class, 'dashboard'])->name('admin.painel');
     Route::get('/admin/relatorio/{sub}', [PainelDoAdminController::class, 'dashboard'])->name('admin.relatorio');
 

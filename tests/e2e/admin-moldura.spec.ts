@@ -55,8 +55,8 @@ test.describe('Painel administrativo — moldura em Blade', () => {
     await entrarComoAdmin(page);
 
     // Das seções ainda em React: a sidebar do servidor leva para lá.
-    await page.getByRole('link', { name: /Equipe Pedagógica/ }).click();
-    await expect(page).toHaveURL(/\/admin\/equipe$/);
+    await page.getByRole('link', { name: /^Alunos$/ }).click();
+    await expect(page).toHaveURL(/\/admin\/alunos$/);
 
     await page.getByRole('link', { name: 'Meu perfil' }).click();
     await expect(page).toHaveURL(/\/admin\/perfil$/);

@@ -56,6 +56,7 @@
     "/sair",
     "/admin",
     "/admin/relatorio/{sub}",
+    "/admin/equipe",
     "/admin/perfil",
     "/admin/perfil/senha"
   ]

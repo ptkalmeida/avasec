@@ -92,7 +92,8 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/admin')).toBe(true);
     expect(servidoPeloServidor('/admin/relatorio/alunos')).toBe(true);
     expect(servidoPeloServidor('/admin/perfil/senha')).toBe(true);
-    expect(servidoPeloServidor('/admin/equipe')).toBe(false);
+    expect(servidoPeloServidor('/admin/equipe')).toBe(true);
+    expect(servidoPeloServidor('/admin/alunos')).toBe(false);
     expect(servidoPeloServidor('/admin/alunos/qualquer-id')).toBe(false);
   });
 });
