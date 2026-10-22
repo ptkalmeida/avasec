@@ -376,6 +376,18 @@ Route::middleware('admin.web')->group(function (): void {
     Route::get('/admin/perfil', [PerfilDoAdminController::class, 'perfil'])->name('admin.perfil');
     Route::get('/admin/perfil/senha', [PerfilDoAdminController::class, 'formularioDeSenha'])->name('admin.senha');
     Route::post('/admin/perfil/senha', [PerfilDoAdminController::class, 'alterarSenha'])->middleware('throttle:auth-password');
+
+    /*
+     * As seções que existem no sistema mas estão desligadas por flag. O servidor
+     * as atende para que NENHUM endereço de `/admin` caia no React — ver
+     * PainelDoAdminController::secaoDesligada. Ligada a flag, a rota responde 501
+     * e `SecoesDesligadasDoAdminTest` falha apontando qual tela construir.
+     */
+    Route::get('/admin/exercicios', static fn (PainelDoAdminController $c) => $c->secaoDesligada('atividadesPraticasAvancadas', 'exercicios', 'A escola ainda não abriu os exercícios práticos nesta plataforma.'))->name('admin.exercicios');
+    Route::get('/admin/documentos', static fn (PainelDoAdminController $c) => $c->secaoDesligada('solicitacoesAcademicas', 'requests', 'A escola ainda não abriu as solicitações acadêmicas nesta plataforma.'))->name('admin.documentos');
+
+    // O que sobrar de `/admin` volta ao Dashboard. Sem isto, o fallback serviria o React.
+    Route::get('/admin/{resto}', static fn () => redirect('/admin'))->where('resto', '.*');
 });
 
 /*

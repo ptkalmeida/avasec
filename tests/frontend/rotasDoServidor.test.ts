@@ -87,26 +87,21 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/nova')).toBe(true);
     // Pela fronteira do segmento: `/institucional` não é da área do instrutor.
     expect(servidoPeloServidor('/institucional')).toBe(false);
-    // O admin migra por partes: o Dashboard e o perfil já são do servidor, as
-    // demais seções ainda são React e NÃO podem ser engolidas pelo contrato.
-    expect(servidoPeloServidor('/admin')).toBe(true);
-    expect(servidoPeloServidor('/admin/relatorio/alunos')).toBe(true);
-    expect(servidoPeloServidor('/admin/perfil/senha')).toBe(true);
-    expect(servidoPeloServidor('/admin/equipe')).toBe(true);
-    expect(servidoPeloServidor('/admin/cursos')).toBe(true);
-    expect(servidoPeloServidor('/admin/cursos/course-1/retirar')).toBe(true);
-    expect(servidoPeloServidor('/admin/alunos')).toBe(true);
-    expect(servidoPeloServidor('/admin/alunos/qualquer-id')).toBe(true);
-    expect(servidoPeloServidor('/admin/alunos/qualquer-id/senha')).toBe(true);
-    expect(servidoPeloServidor('/admin/templates')).toBe(true);
-    expect(servidoPeloServidor('/admin/templates/certificado')).toBe(true);
-    expect(servidoPeloServidor('/admin/configuracoes')).toBe(true);
-    expect(servidoPeloServidor('/admin/paginas-do-site')).toBe(true);
-    expect(servidoPeloServidor('/admin/paginas-do-site/duvidas')).toBe(true);
-    expect(servidoPeloServidor('/admin/dados-gerenciais')).toBe(true);
-    expect(servidoPeloServidor('/admin/dados-gerenciais/baixar/alunos')).toBe(true);
-    // Só as seções desligadas por flag seguem no React.
-    expect(servidoPeloServidor('/admin/exercicios')).toBe(false);
+    // O painel administrativo é todo do servidor (22/10): `/admin` é prefixo, e
+    // NENHUM endereço dele serve o React — nem as seções desligadas por flag, nem o
+    // endereço desconhecido.
+    for (const endereco of [
+      '/admin', '/admin/relatorio/alunos', '/admin/perfil/senha', '/admin/equipe',
+      '/admin/cursos', '/admin/cursos/course-1/retirar', '/admin/alunos', '/admin/alunos/qualquer-id',
+      '/admin/alunos/qualquer-id/senha', '/admin/templates', '/admin/templates/certificado',
+      '/admin/configuracoes', '/admin/paginas-do-site', '/admin/paginas-do-site/duvidas',
+      '/admin/dados-gerenciais', '/admin/dados-gerenciais/baixar/alunos',
+      '/admin/exercicios', '/admin/documentos', '/admin/qualquer-coisa',
+    ]) {
+      expect(servidoPeloServidor(endereco), endereco).toBe(true);
+    }
+    // Pela fronteira do segmento: `/administrador` não é o painel.
+    expect(servidoPeloServidor('/administrador')).toBe(false);
   });
 });
 

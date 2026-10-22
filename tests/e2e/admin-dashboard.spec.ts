@@ -57,16 +57,13 @@ test.describe('Dashboard do administrador — tela em Blade', () => {
     await expect(page.getByRole('button', { name: 'Imprimir relatório' })).toBeVisible();
   });
 
-  test('de uma seção que ainda é React, "Dashboard & Relatórios" carrega a tela do servidor', async ({ page }) => {
+  test('um endereço desconhecido sob /admin volta ao Dashboard, e não ao React', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAdmin(page);
-    await page.goto('/admin/exercicios');
-    await expect(page.locator('#root')).toHaveCount(1);
 
-    await page.getByRole('button', { name: /Dashboard & Relatórios/ }).first().click();
+    await page.goto('/admin/qualquer-coisa');
 
     await expect(page).toHaveURL(/\/admin$/);
-    // Sem casco do React: o SPA entregou a navegação ao servidor.
     await expect(page.locator('#root')).toHaveCount(0);
     await expect(page.getByRole('heading', { level: 2, name: /^Relatório:/ })).toBeVisible();
   });

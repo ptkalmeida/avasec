@@ -50,15 +50,16 @@ test.describe('Painel administrativo — moldura em Blade', () => {
     await expect(page.getByLabel('Confirme a nova senha')).toBeVisible();
   });
 
-  test('do painel que ainda é React se chega a "Meu perfil", e a página do servidor não volta sozinha', async ({ page }) => {
+  test('de qualquer tela do painel se chega a "Meu perfil" pelo menu do usuário, e a página não volta sozinha', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAdmin(page);
 
-    // A única tela do painel que ainda é React é a de uma seção desligada por flag.
+    // A tela de uma seção desligada por flag tem a mesma moldura que as outras.
     await page.goto('/admin/exercicios');
-    await expect(page.locator('#root')).toHaveCount(1);
+    await expect(page.locator('#root')).toHaveCount(0);
 
-    await page.getByRole('link', { name: 'Meu perfil' }).click();
+    await page.getByRole('button', { name: /Administrador/ }).first().click();
+    await page.getByRole('menuitem', { name: 'Meu perfil' }).click();
     await expect(page).toHaveURL(/\/admin\/perfil$/);
     await expect(page.locator('#root')).toHaveCount(0);
 
