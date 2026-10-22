@@ -57,6 +57,8 @@
     "/admin",
     "/admin/relatorio/{sub}",
     "/admin/equipe",
+    "/admin/paginas-do-site",
+    "/admin/paginas-do-site/{pagina}",
     "/admin/configuracoes",
     "/admin/templates",
     "/admin/templates/{tipo}",

@@ -363,7 +363,7 @@ final class SitePageContentService
      * Schema de campos de todas as páginas — consumido pela tela do admin para
      * montar os formulários com rótulos em português.
      *
-     * @return array<string, array<string, mixed>>
+     * @return array<string, array{label: string, itemsLabel: string, maxItems: int, header: list<array{key:string,label:string,type:string,maxLength:int}>, item: list<array{key:string,label:string,type:string,maxLength:int}>}>
      */
     public function schema(): array
     {

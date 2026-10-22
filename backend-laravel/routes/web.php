@@ -10,6 +10,7 @@ use App\Http\Controllers\CursosDoAdminController;
 use App\Http\Controllers\EquipeDoAdminController;
 use App\Http\Controllers\ModelosDoAdminController;
 use App\Http\Controllers\PaginaPublicaController;
+use App\Http\Controllers\PaginasDoSiteAdminController;
 use App\Http\Controllers\PainelDoAdminController;
 use App\Http\Controllers\PerfilDoAdminController;
 use App\Http\Controllers\PerfilDoAlunoController;
@@ -344,6 +345,8 @@ Route::middleware('instrutor.web')->group(function (): void {
  * Fatia 4: Cursos & Trilhas (prover, trocar responsável, tipo, vigência, capa, retirar do ar).
  */
 Route::middleware('admin.web')->group(function (): void {
+    Route::get('/admin/paginas-do-site', [PaginasDoSiteAdminController::class, 'mostrar'])->name('admin.paginas');
+    Route::post('/admin/paginas-do-site/{pagina}', [PaginasDoSiteAdminController::class, 'salvar']);
     Route::get('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'mostrar'])->name('admin.configuracoes');
     Route::post('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'salvar']);
     Route::get('/admin/templates', [ModelosDoAdminController::class, 'mostrar'])->name('admin.templates');

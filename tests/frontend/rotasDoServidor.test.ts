@@ -101,6 +101,8 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/admin/templates')).toBe(true);
     expect(servidoPeloServidor('/admin/templates/certificado')).toBe(true);
     expect(servidoPeloServidor('/admin/configuracoes')).toBe(true);
+    expect(servidoPeloServidor('/admin/paginas-do-site')).toBe(true);
+    expect(servidoPeloServidor('/admin/paginas-do-site/duvidas')).toBe(true);
     expect(servidoPeloServidor('/admin/dados-gerenciais')).toBe(false);
   });
 });
