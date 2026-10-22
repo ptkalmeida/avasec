@@ -7,6 +7,7 @@ use App\Http\Controllers\AreaDoInstrutorController;
 use App\Http\Controllers\AutenticacaoWebController;
 use App\Http\Controllers\ConfiguracoesDoAdminController;
 use App\Http\Controllers\CursosDoAdminController;
+use App\Http\Controllers\DadosGerenciaisAdminController;
 use App\Http\Controllers\EquipeDoAdminController;
 use App\Http\Controllers\ModelosDoAdminController;
 use App\Http\Controllers\PaginaPublicaController;
@@ -345,6 +346,9 @@ Route::middleware('instrutor.web')->group(function (): void {
  * Fatia 4: Cursos & Trilhas (prover, trocar responsável, tipo, vigência, capa, retirar do ar).
  */
 Route::middleware('admin.web')->group(function (): void {
+    Route::get('/admin/dados-gerenciais', [DadosGerenciaisAdminController::class, 'mostrar'])->name('admin.dados');
+    // Mesmo limitador da API de exportação (`export`): são dados pessoais, em volume.
+    Route::get('/admin/dados-gerenciais/baixar/{base}', [DadosGerenciaisAdminController::class, 'baixar'])->middleware('throttle:export');
     Route::get('/admin/paginas-do-site', [PaginasDoSiteAdminController::class, 'mostrar'])->name('admin.paginas');
     Route::post('/admin/paginas-do-site/{pagina}', [PaginasDoSiteAdminController::class, 'salvar']);
     Route::get('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'mostrar'])->name('admin.configuracoes');

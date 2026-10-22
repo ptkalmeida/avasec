@@ -54,9 +54,9 @@ test.describe('Painel administrativo — moldura em Blade', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAdmin(page);
 
-    // Das seções ainda em React: a sidebar do servidor leva para lá.
-    await page.getByRole('link', { name: /Dados Gerenciais/ }).click();
-    await expect(page).toHaveURL(/\/admin\/dados-gerenciais$/);
+    // A única tela do painel que ainda é React é a de uma seção desligada por flag.
+    await page.goto('/admin/exercicios');
+    await expect(page.locator('#root')).toHaveCount(1);
 
     await page.getByRole('link', { name: 'Meu perfil' }).click();
     await expect(page).toHaveURL(/\/admin\/perfil$/);

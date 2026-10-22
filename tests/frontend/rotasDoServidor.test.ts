@@ -103,7 +103,10 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/admin/configuracoes')).toBe(true);
     expect(servidoPeloServidor('/admin/paginas-do-site')).toBe(true);
     expect(servidoPeloServidor('/admin/paginas-do-site/duvidas')).toBe(true);
-    expect(servidoPeloServidor('/admin/dados-gerenciais')).toBe(false);
+    expect(servidoPeloServidor('/admin/dados-gerenciais')).toBe(true);
+    expect(servidoPeloServidor('/admin/dados-gerenciais/baixar/alunos')).toBe(true);
+    // Só as seções desligadas por flag seguem no React.
+    expect(servidoPeloServidor('/admin/exercicios')).toBe(false);
   });
 });
 
