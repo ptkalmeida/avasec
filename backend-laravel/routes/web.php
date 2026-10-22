@@ -4,6 +4,7 @@ use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\AreaDoInstrutorController;
 use App\Http\Controllers\AutenticacaoWebController;
+use App\Http\Controllers\CursosDoAdminController;
 use App\Http\Controllers\EquipeDoAdminController;
 use App\Http\Controllers\PaginaPublicaController;
 use App\Http\Controllers\PainelDoAdminController;
@@ -337,8 +338,16 @@ Route::middleware('instrutor.web')->group(function (): void {
  * React não tinha — "Meu perfil" e "Trocar senha".
  * Fatia 2: Dashboard e os relatórios, só leitura.
  * Fatia 3: a Equipe Pedagógica (lista e busca).
+ * Fatia 4: Cursos & Trilhas (prover, trocar responsável, tipo, vigência, capa, retirar do ar).
  */
 Route::middleware('admin.web')->group(function (): void {
+    Route::get('/admin/cursos', [CursosDoAdminController::class, 'listar'])->name('admin.cursos');
+    Route::post('/admin/cursos', [CursosDoAdminController::class, 'criar']);
+    Route::post('/admin/cursos/{cursoId}/instrutor', [CursosDoAdminController::class, 'trocarInstrutor']);
+    Route::post('/admin/cursos/{cursoId}/propriedades', [CursosDoAdminController::class, 'salvarPropriedades']);
+    Route::post('/admin/cursos/{cursoId}/vigencia', [CursosDoAdminController::class, 'salvarVigencia']);
+    Route::post('/admin/cursos/{cursoId}/capa', [CursosDoAdminController::class, 'salvarCapa']);
+    Route::post('/admin/cursos/{cursoId}/retirar', [CursosDoAdminController::class, 'retirar']);
     Route::get('/admin/equipe', [EquipeDoAdminController::class, 'listar'])->name('admin.equipe');
     Route::get('/admin', [PainelDoAdminController::class, 'dashboard'])->name('admin.painel');
     Route::get('/admin/relatorio/{sub}', [PainelDoAdminController::class, 'dashboard'])->name('admin.relatorio');

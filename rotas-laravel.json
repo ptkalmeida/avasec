@@ -57,6 +57,12 @@
     "/admin",
     "/admin/relatorio/{sub}",
     "/admin/equipe",
+    "/admin/cursos",
+    "/admin/cursos/{cursoId}/instrutor",
+    "/admin/cursos/{cursoId}/propriedades",
+    "/admin/cursos/{cursoId}/vigencia",
+    "/admin/cursos/{cursoId}/capa",
+    "/admin/cursos/{cursoId}/retirar",
     "/admin/perfil",
     "/admin/perfil/senha"
   ]
