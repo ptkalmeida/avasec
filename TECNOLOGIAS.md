@@ -6,19 +6,19 @@ backend para Laravel (histórico completo em `MIGRACAO_LARAVEL.md`).
 
 ## Visão geral
 
-Frontend **React + Vite + Tailwind (TypeScript)** consumindo uma API REST em
-**Laravel + MySQL**, com autenticação JWT em cookie HttpOnly e camada de
+Aplicação **Laravel + MySQL** com telas em **Blade, Livewire e Tailwind** (MPA, ADR 017
+e 020) e uma API REST sob `/api`, com autenticação JWT em cookie HttpOnly e camada de
 segurança completa (rate limit, validação, RBAC, feature flags no servidor,
-security headers). Em produção, Nginx serve o SPA e faz proxy `/api` para o
-PHP-FPM (`DEPLOY_LARAVEL.md`).
+security headers). Em produção, o Nginx faz proxy para o PHP-FPM (`DEPLOY_LARAVEL.md`).
+O React foi removido na fase M7 (ADR 020).
 
 ## Frontend
 
 | Tecnologia | Versão | Papel |
 |---|---|---|
 | **TypeScript** | ~5.8 | Tipagem estática (verificação via `tsc --noEmit`) |
-| **React** | 19 | Biblioteca de UI (componentes) |
-| **Vite** | 6 | Build tool + dev server (proxy `/api` → Laravel em dev) |
+| **Livewire** | 4 | Interatividade das telas (traz o Alpine) |
+| **Vite** | 6 | Build dos assets Blade (`npm run build`) |
 | **Tailwind CSS** | 4 | Estilização por classes utilitárias |
 | **lucide-react** | 0.546 | Ícones |
 | **motion** (Framer Motion) | 12 | Animações e transições |
@@ -59,8 +59,7 @@ FK-first, `BusinessRules`, `Jwt`).
 | **PHPUnit** | 13 — 363 testes do backend (`npm run test:api`) |
 | **Laravel Pint** | Lint PSR-12 (`./vendor/bin/pint --test`) |
 | **PHPStan + Larastan** | Análise estática, nível 9 (máximo) como gate (`phpstan.neon`) |
-| **Vitest + Testing Library** | Vitest 5 — 722 testes do frontend, em memória (`npm test`) |
-| **Playwright** | 1.64 — 13 testes de tela montada, em navegador real (`npm run e2e`). Exige os servidores de pé; por isso ficam FORA do `npm test` |
+| **Playwright** | 1.64 — 13 testes de tela montada, em navegador real (`npm run e2e`). Exige o Laravel de pé (`npm run api`) e `npm run build` feito |
 | **Docker / docker-compose** | MySQL 8 local (`npm run db:up`) e espelho de produção Nginx + PHP-FPM + Redis (`npm run espelho:up`) |
 | **Composer / npm** | Dependências (backend / frontend) |
 
@@ -70,11 +69,10 @@ FK-first, `BusinessRules`, `Jwt`).
 |---|---|
 | `npm run db:up` / `db:down` | Sobe / derruba o MySQL via Docker |
 | `npm run api` | Sobe o backend Laravel em `http://127.0.0.1:8000` |
-| `npm run dev` | Sobe o Vite em `http://localhost:5173` (proxy `/api` → Laravel) |
-| `npm run build` | Build de produção do frontend (`dist/`) |
-| `npm test` / `test:frontend` | Testes do frontend (Vitest) |
+| `npm run dev` | Vite de desenvolvimento dos assets Blade (porta 5174) |
+| `npm run build` | Compila os assets das telas (`backend-laravel/public/build`) |
 | `npm run test:api` | Testes do backend (PHPUnit) |
-| `npm run e2e` | Testes de tela em navegador real (Playwright). **Exige `npm run dev` e `npm run api` de pé** |
+| `npm run e2e` | Testes de tela em navegador real (Playwright). **Exige `npm run api` de pé e `npm run build` feito** |
 | `npm run e2e:relatorio` | Abre o relatório HTML da última execução do Playwright |
 | `npm run test:api:coverage` | Cobertura do backend (PHPUnit + Xdebug, relatório em texto) |
 | `npm run db:migrate` | Migrations do Laravel (`php artisan migrate`) |

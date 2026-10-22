@@ -1,9 +1,8 @@
 # Espelho local de produção — Nginx + PHP-FPM + Redis, ao lado do MySQL de dev.
 #
 # PARA QUE SERVE
-# No fluxo normal (`npm run dev`), quem atende o navegador é o Vite e o Laravel
-# só recebe o que o proxy encaminha. A configuração de produção — raiz no
-# Laravel, /assets saindo do dist, index.html servido pelo PHP — não é executada
+# No desenvolvimento o Laravel roda por `artisan serve`. A configuração de
+# produção — Nginx, PHP-FPM, cabeçalhos de segurança, /uploads — não é executada
 # em lugar nenhum. Este espelho a executa, com o MESMO arquivo de locations que
 # vai para o servidor.
 #
@@ -17,9 +16,8 @@
 #   npm run espelho:up     sobe (http://localhost:8080)
 #   npm run espelho:down   desce
 #
-# Exige `npm run build` antes: sem `dist/index.html`, as telas ainda não
-# migradas respondem 503 — que é o comportamento correto, e não o que se quer
-# observar aqui.
+# Exige `npm run build` antes: sem `backend-laravel/public/build`, as telas
+# saem sem CSS.
 services:
   php:
     build:

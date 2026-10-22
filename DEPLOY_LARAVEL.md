@@ -1,8 +1,8 @@
-# Deploy de produção — AVASEC (Laravel + React)
+# Deploy de produção — AVASEC (Laravel + Blade)
 
 Documento de referência para o **corte final** da migração Node → Laravel: como
-colocar em produção a topologia decidida (Nginx serve o build estático do React +
-proxy `/api` para PHP-FPM/Laravel). Escrito para ser executado no VPS, fora deste
+colocar em produção a topologia decidida (Nginx na frente de PHP-FPM/Laravel; todas
+as telas são Blade/Livewire). Escrito para ser executado no VPS, fora deste
 ambiente de desenvolvimento.
 
 > Contexto: este é o Passo 4 do plano de corte (ver `HARDENING.md`/histórico do
@@ -12,24 +12,20 @@ ambiente de desenvolvimento.
 
 ## Arquitetura alvo
 
-> **Mudou em 08/10/2026 (ADR 017).** O Laravel passou a ser a porta de entrada.
-> Antes o Nginx tinha a raiz em `dist/` e o Laravel ficava pendurado em `/api`;
-> agora a raiz é `backend-laravel/public`, e é o Laravel que decide, rota a rota,
-> se entrega uma tela em Blade ou o SPA React. Isso é o que torna possível migrar
-> uma tela de cada vez sem reconfigurar o servidor a cada fase — ver
-> `.ai/planejamento/16-migracao-mpa-blade.md`.
+> **Mudou em 08/10/2026 (ADR 017) e fechou na M7 (ADR 020).** O Laravel é a única
+> aplicação: a raiz do Nginx é `backend-laravel/public`, e não existe mais SPA React,
+> `dist/` nem fallback. Endereço que nenhuma rota atende é 404.
 
 ```
 [Navegador] ──HTTPS──> [Nginx]
-                          ├── /assets/*      -> serve dist/assets/ (JS e CSS do build React)
                           ├── /uploads/*     -> serve uploads/public/ (arquivos estáticos)
+                          ├── /build/*       -> arquivo estático de public/ (CSS/JS das telas)
                           └── /*             -> PHP-FPM (Laravel) ─── tabela de rotas
                                    │                                        │
                                    │                       ┌────────────────┴────────────────┐
                                    │                       ▼                                 ▼
                                    │                 rota registrada                 nada bateu
-                                   │                 -> view Blade                   -> fallback
-                                   │                                                 -> dist/index.html
+                                   │                 -> view Blade                   -> 404
                                    └── MySQL 8
 ```
 
@@ -127,22 +123,17 @@ backend Node — ver `HARDENING.md`):
   é a segunda barreira. Se preferir o `logrotate` do sistema, aponte-o para
   `storage/logs/*.log` e mantenha `LOG_STACK=single`.
 
-## 4. Build do frontend (React/Vite)
+## 4. Build dos assets (Vite)
 
 ```bash
 cd /var/www/avasec
 npm ci
-npm run build   # gera dist/
+npm run build   # gera backend-laravel/public/build
 ```
 
-O `dist/assets/` é servido direto pelo Nginx; o `dist/index.html` é lido pelo Laravel
-e devolvido nas rotas que ainda não migraram para Blade (ADR 017). Rode o build a cada
-deploy (CI/CD ou manual).
-
-**Enquanto a migração durar, o build continua obrigatório.** Sem `dist/index.html` o
-Laravel responde 503 nas telas não migradas, em vez de uma página quebrada — mas 503
-é indisponibilidade, não "ainda não migrei". Isto deixa de valer na fase M7, quando o
-React sair.
+O build só compila o CSS e o JS das telas Blade (Tailwind, FontAwesome). O Nginx os
+serve de `public/build` como qualquer arquivo estático. Rode o build a cada deploy
+(CI/CD ou manual): sem ele as telas saem sem estilo.
 
 ## 5. Uploads compartilhados
 
@@ -180,7 +171,7 @@ server {
     ssl_certificate     /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
 
-    # A raiz é o Laravel (ADR 017): ele decide, rota a rota, Blade ou React.
+    # A raiz é o Laravel (ADR 017, 020): a tabela de rotas dele decide tudo.
     root /var/www/avasec/backend-laravel/public;
     index index.php;
 
@@ -221,8 +212,6 @@ server {
     #
     #   cp /var/www/avasec/docker/nginx/avasec-locations.conf /etc/nginx/
     #   echo 'fastcgi_pass unix:/run/php/php8.4-fpm.sock;' > /etc/nginx/avasec-upstream.conf
-    set $raiz_dist /var/www/avasec/dist;
-
     include /etc/nginx/avasec-locations.conf;
 }
 ```
@@ -267,10 +256,10 @@ qualquer outro serviço padrão do Linux.
 
 ## 8. Verificação pós-deploy (checklist)
 
-- [ ] `curl https://seu-dominio.com/` retorna o HTML do React.
+- [ ] `curl https://seu-dominio.com/` retorna a página inicial (HTML do Blade, sem `id="root"`).
 - [ ] `curl https://seu-dominio.com/api/health-laravel` retorna `{"status":"ok","database":"ok"}`.
 - [ ] `curl -i https://seu-dominio.com/health/ready` retorna **JSON** com status 200 (se vier
-      HTML do React, o Nginx está sem o bloco de saúde) e `/sistema/status` abre a página.
+      HTML, o Nginx está sem o bloco de saúde) e `/sistema/status` abre a página.
 - [ ] Login funciona no navegador e o cookie `ava_session` aparece como HttpOnly/Secure
       (inspecionar em DevTools → Application → Cookies).
 - [ ] Upload de um arquivo público funciona e a URL retornada carrega via `/uploads/...`.
