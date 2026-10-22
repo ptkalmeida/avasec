@@ -53,6 +53,8 @@
     "/",
     "/entrar",
     "/cadastro",
-    "/sair"
+    "/sair",
+    "/admin/perfil",
+    "/admin/perfil/senha"
   ]
 }

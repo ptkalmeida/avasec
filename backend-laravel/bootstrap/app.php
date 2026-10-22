@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiException;
+use App\Http\Middleware\AreaDoAdmin;
 use App\Http\Middleware\AreaDoAluno;
 use App\Http\Middleware\AreaDoInstrutor;
 use App\Http\Middleware\FeatureGate;
@@ -44,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature' => FeatureGate::class,
             // Versão web do `jwt`: mesma leitura do mesmo cookie, mas quem não
             // passa é levado ao login em vez de receber JSON de erro.
+            'admin.web' => AreaDoAdmin::class,
             'aluno.web' => AreaDoAluno::class,
             'instrutor.web' => AreaDoInstrutor::class,
             'jwt' => JwtAuthenticate::class,

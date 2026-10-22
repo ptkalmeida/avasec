@@ -5,6 +5,7 @@ use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\AreaDoInstrutorController;
 use App\Http\Controllers\AutenticacaoWebController;
 use App\Http\Controllers\PaginaPublicaController;
+use App\Http\Controllers\PerfilDoAdminController;
 use App\Http\Controllers\PerfilDoAlunoController;
 use App\Http\Controllers\UploadController;
 use Illuminate\Http\Request;
@@ -322,6 +323,21 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::get('/inst/curso/{cursoRef}/mensagens', static fn () => redirect('/inst/mensagens'));
     Route::get('/inst/curso/{cursoRef}/{resto}', static fn (string $cursoRef) => redirect('/inst/curso/'.rawurlencode($cursoRef)));
     Route::get('/inst/{resto}', static fn () => redirect('/inst'))->where('resto', '.*');
+});
+
+/*
+ * Área do administrador (M5, plano 16). O painel migra por partes, então cada
+ * rota entra no contrato (`rotas-laravel.json`) como EXATA: declarar `/admin`
+ * como prefixo mandaria ao Laravel seções que ainda são React, e lá elas
+ * cairiam no fallback.
+ *
+ * Fatia 1: a moldura (D §1) e os dois itens do menu do usuário que o painel
+ * React não tinha — "Meu perfil" e "Trocar senha".
+ */
+Route::middleware('admin.web')->group(function (): void {
+    Route::get('/admin/perfil', [PerfilDoAdminController::class, 'perfil'])->name('admin.perfil');
+    Route::get('/admin/perfil/senha', [PerfilDoAdminController::class, 'formularioDeSenha'])->name('admin.senha');
+    Route::post('/admin/perfil/senha', [PerfilDoAdminController::class, 'alterarSenha'])->middleware('throttle:auth-password');
 });
 
 /*

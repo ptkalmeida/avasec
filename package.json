@@ -28,6 +28,7 @@
     "blade:build": "vite build --config vite.blade.config.ts"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "7.3.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "lucide-react": "^0.546.0",

@@ -32,7 +32,12 @@ const RAIZ_LARAVEL = path.resolve(__dirname, 'backend-laravel');
 export default defineConfig({
   plugins: [
     laravel({
-      input: ['backend-laravel/resources/css/blade.css', 'backend-laravel/resources/js/blade.ts'],
+      input: [
+        'backend-laravel/resources/css/blade.css',
+        // Back-office: Anexo D §1 (tokens próprios, FontAwesome), sem os tokens do portal.
+        'backend-laravel/resources/css/admin.css',
+        'backend-laravel/resources/js/blade.ts',
+      ],
       // O refresh do plugin reinicia a página quando um .blade.php muda.
       refresh: ['backend-laravel/resources/views/**'],
       publicDirectory: 'backend-laravel/public',

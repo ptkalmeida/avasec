@@ -134,6 +134,23 @@ export async function entrarComoInstrutor(page: Page, email = 'professor@avasec.
   await expect(page.getByRole('heading', { level: 1, name: /^Meus cursos$/ })).toBeVisible();
 }
 
+/**
+ * Entra como o administrador e para em "Meu perfil", a primeira tela do painel
+ * que é do servidor (as demais seções do Admin migram por fatias).
+ */
+export async function entrarComoAdmin(page: Page, email = 'admin@avasec.local'): Promise<void> {
+  const token = emitirToken(email);
+  const base = process.env.AVASEC_URL ?? 'http://localhost:5173';
+
+  await page.context().addCookies([
+    { name: 'ava_session', value: token, url: base, httpOnly: true },
+  ]);
+
+  await page.goto('/admin/perfil');
+
+  await expect(page.getByRole('heading', { level: 1, name: /^Meu perfil$/ })).toBeVisible();
+}
+
 /** `true` quando a página inteira rola na horizontal — nunca deve acontecer. */
 export async function rolaNaHorizontal(page: Page): Promise<boolean> {
   return page.evaluate(

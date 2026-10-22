@@ -1056,6 +1056,17 @@ export function AdminDashboard({ onBackToLanding, speakText, onPreviewPage }: Ad
             <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-sobretitulo uppercase bg-blue-50 text-blue-600">
               Administrador Superior
             </span>
+            {/*
+              Meu perfil e Trocar senha são telas do servidor (Anexo D §1.4.2): o
+              painel React não tinha nenhuma das duas. Link comum, que recarrega a
+              página — `/admin/perfil` está em `rotas-laravel.json`.
+            */}
+            <a
+              href="/admin/perfil"
+              className="border border-slate-200 text-slate-700 rounded-[6px] font-medium text-xs px-3 py-1.5 hover:bg-slate-50 transition-colors"
+            >
+              Meu perfil
+            </a>
           </div>
         </header>
 
