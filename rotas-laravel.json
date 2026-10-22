@@ -54,6 +54,8 @@
     "/entrar",
     "/cadastro",
     "/sair",
+    "/admin",
+    "/admin/relatorio/{sub}",
     "/admin/perfil",
     "/admin/perfil/senha"
   ]

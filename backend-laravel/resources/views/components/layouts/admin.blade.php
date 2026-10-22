@@ -37,7 +37,7 @@
 
     <x-admin.menu-lateral :ativo="$ativo ?? null" />
 
-    <div class="flex min-h-screen min-w-0 flex-col lg:pl-64">
+    <div class="flex min-h-screen min-w-0 flex-col lg:pl-64 print:pl-0">
         <x-admin.barra-superior
             :titulo="$cabecalho ?? ($titulo ?? 'Painel administrativo')"
             :contexto="$contexto ?? null"

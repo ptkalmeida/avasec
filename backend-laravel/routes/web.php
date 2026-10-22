@@ -5,6 +5,7 @@ use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\AreaDoInstrutorController;
 use App\Http\Controllers\AutenticacaoWebController;
 use App\Http\Controllers\PaginaPublicaController;
+use App\Http\Controllers\PainelDoAdminController;
 use App\Http\Controllers\PerfilDoAdminController;
 use App\Http\Controllers\PerfilDoAlunoController;
 use App\Http\Controllers\UploadController;
@@ -333,8 +334,12 @@ Route::middleware('instrutor.web')->group(function (): void {
  *
  * Fatia 1: a moldura (D §1) e os dois itens do menu do usuário que o painel
  * React não tinha — "Meu perfil" e "Trocar senha".
+ * Fatia 2: Dashboard e os relatórios, só leitura.
  */
 Route::middleware('admin.web')->group(function (): void {
+    Route::get('/admin', [PainelDoAdminController::class, 'dashboard'])->name('admin.painel');
+    Route::get('/admin/relatorio/{sub}', [PainelDoAdminController::class, 'dashboard'])->name('admin.relatorio');
+
     Route::get('/admin/perfil', [PerfilDoAdminController::class, 'perfil'])->name('admin.perfil');
     Route::get('/admin/perfil/senha', [PerfilDoAdminController::class, 'formularioDeSenha'])->name('admin.senha');
     Route::post('/admin/perfil/senha', [PerfilDoAdminController::class, 'alterarSenha'])->middleware('throttle:auth-password');

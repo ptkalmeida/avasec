@@ -10,7 +10,7 @@
     topbar a traz de volta; em telas largas ela é sempre visível.
 --}}
 <aside id="menu-lateral"
-       class="fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-slate-300 transition-[transform,visibility] duration-200 lg:visible lg:translate-x-0"
+       class="fixed inset-y-0 left-0 z-40 flex w-64 print:hidden flex-col bg-sidebar text-slate-300 transition-[transform,visibility] duration-200 lg:visible lg:translate-x-0"
        :class="menuAberto ? 'visible translate-x-0 shadow-elevada' : 'invisible -translate-x-full'">
 
     <div class="flex items-center gap-3 border-b border-white/10 px-4 py-4">

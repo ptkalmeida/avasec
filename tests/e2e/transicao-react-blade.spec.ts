@@ -13,7 +13,7 @@ import { emitirToken } from './sessao';
  *
  * O exemplo já foi a Biblioteca do aluno, depois Eventos, depois o painel do
  * instrutor — a cada fatia migrada o caso anterior deixa de existir, que é o
- * sinal de que a travessia está andando. Hoje o único painel que ainda é React
+ * sinal de que a travessia está andando. Hoje o único painel que ainda é React (nas seções que faltam)
  * é o do administrador (fase M5), e dele se sai para o portal, que é do
  * servidor. Quando o React sair (M7), este arquivo sai com ele.
  */
@@ -26,8 +26,8 @@ test.describe('Fronteira React → Blade', () => {
     ]);
 
     // O ponto de partida é o casco do SPA.
-    await page.goto('/admin');
-    await expect(page).toHaveURL(/\/admin$/);
+    await page.goto('/admin/equipe');
+    await expect(page).toHaveURL(/\/admin\/equipe$/);
     await expect(page.locator('#root')).toHaveCount(1);
 
     // O menu do portal, dentro do painel React, navega do lado do cliente.

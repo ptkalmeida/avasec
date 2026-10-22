@@ -87,8 +87,13 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/inst/curso/curso-de-fotografia/aula/nova')).toBe(true);
     // Pela fronteira do segmento: `/institucional` não é da área do instrutor.
     expect(servidoPeloServidor('/institucional')).toBe(false);
-    // O admin ainda é React por inteiro.
-    expect(servidoPeloServidor('/admin')).toBe(false);
+    // O admin migra por partes: o Dashboard e o perfil já são do servidor, as
+    // demais seções ainda são React e NÃO podem ser engolidas pelo contrato.
+    expect(servidoPeloServidor('/admin')).toBe(true);
+    expect(servidoPeloServidor('/admin/relatorio/alunos')).toBe(true);
+    expect(servidoPeloServidor('/admin/perfil/senha')).toBe(true);
+    expect(servidoPeloServidor('/admin/equipe')).toBe(false);
+    expect(servidoPeloServidor('/admin/alunos/qualquer-id')).toBe(false);
   });
 });
 
