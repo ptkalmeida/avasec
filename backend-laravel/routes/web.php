@@ -5,8 +5,10 @@ use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\AreaDoInstrutorController;
 use App\Http\Controllers\AutenticacaoWebController;
+use App\Http\Controllers\ConfiguracoesDoAdminController;
 use App\Http\Controllers\CursosDoAdminController;
 use App\Http\Controllers\EquipeDoAdminController;
+use App\Http\Controllers\ModelosDoAdminController;
 use App\Http\Controllers\PaginaPublicaController;
 use App\Http\Controllers\PainelDoAdminController;
 use App\Http\Controllers\PerfilDoAdminController;
@@ -342,6 +344,10 @@ Route::middleware('instrutor.web')->group(function (): void {
  * Fatia 4: Cursos & Trilhas (prover, trocar responsável, tipo, vigência, capa, retirar do ar).
  */
 Route::middleware('admin.web')->group(function (): void {
+    Route::get('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'mostrar'])->name('admin.configuracoes');
+    Route::post('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'salvar']);
+    Route::get('/admin/templates', [ModelosDoAdminController::class, 'mostrar'])->name('admin.templates');
+    Route::post('/admin/templates/{tipo}', [ModelosDoAdminController::class, 'salvar']);
     Route::get('/admin/alunos', [AlunosDoAdminController::class, 'listar'])->name('admin.alunos');
     Route::get('/admin/alunos/{alunoId}', [AlunosDoAdminController::class, 'ficha'])->name('admin.aluno');
     Route::post('/admin/alunos', [AlunosDoAdminController::class, 'cadastrar']);

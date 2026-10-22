@@ -60,7 +60,7 @@ test.describe('Dashboard do administrador — tela em Blade', () => {
   test('de uma seção que ainda é React, "Dashboard & Relatórios" carrega a tela do servidor', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAdmin(page);
-    await page.goto('/admin/templates');
+    await page.goto('/admin/dados-gerenciais');
     await expect(page.locator('#root')).toHaveCount(1);
 
     await page.getByRole('button', { name: /Dashboard & Relatórios/ }).first().click();

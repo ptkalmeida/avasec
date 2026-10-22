@@ -98,7 +98,10 @@ describe('servidoPeloServidor', () => {
     expect(servidoPeloServidor('/admin/alunos')).toBe(true);
     expect(servidoPeloServidor('/admin/alunos/qualquer-id')).toBe(true);
     expect(servidoPeloServidor('/admin/alunos/qualquer-id/senha')).toBe(true);
-    expect(servidoPeloServidor('/admin/templates')).toBe(false);
+    expect(servidoPeloServidor('/admin/templates')).toBe(true);
+    expect(servidoPeloServidor('/admin/templates/certificado')).toBe(true);
+    expect(servidoPeloServidor('/admin/configuracoes')).toBe(true);
+    expect(servidoPeloServidor('/admin/dados-gerenciais')).toBe(false);
   });
 });
 
