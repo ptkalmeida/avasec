@@ -34,6 +34,8 @@ test.describe('Biblioteca e Ajuda do aluno — telas em Blade', () => {
 
     await expect(page).toHaveURL(/\/aluno\/duvidas$/);
     await expect(page.locator('#root')).toHaveCount(0);
+    // O Livewire só assume os botões depois de carregar; clicar antes é clicar em nada.
+    await page.waitForLoadState('networkidle');
 
     const primeira = page.getByRole('region', { name: 'Dúvidas frequentes' }).locator('button[aria-expanded]').first();
     await expect(primeira).toHaveAttribute('aria-expanded', 'false');

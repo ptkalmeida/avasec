@@ -19,10 +19,9 @@ import tailwindcss from '@tailwindcss/vite';
  * convivem na mesma sessão do mesmo usuário por meses. Duas cadeias de build
  * significam duas definições de paleta, e a que ninguém olha é a que diverge.
  *
- * Então: uma cadeia só, a da raiz, e o MESMO arquivo de tokens (`src/index.css`,
- * 314 linhas de paleta, escada tipográfica e a variante `ava:`). Quando a fase
- * M7 apagar o React, este arquivo de configuração continua válido — o que sai é
- * o `vite.config.ts`, não este.
+ * Então: uma cadeia só, a da raiz. Desde a fase M7 (ADR 020) é a ÚNICA: o React e
+ * o `vite.config.ts` saíram, e os tokens do portal moram em
+ * `backend-laravel/resources/css/tokens.css`.
  *
  * Saída em `backend-laravel/public/build`, que é onde o `@vite` do Blade procura
  * o manifesto.
@@ -52,8 +51,7 @@ export default defineConfig({
     manifest: 'manifest.json',
   },
   server: {
-    // Porta própria: a 5173 é do Vite do React, e as duas rodam juntas enquanto
-    // a migração durar.
+    // Só para `npm run dev` (recarga do CSS). Em uso normal basta `npm run build`.
     port: 5174,
     strictPort: true,
   },

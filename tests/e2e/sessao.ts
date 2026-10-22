@@ -74,7 +74,7 @@ export async function entrarComoAluno(page: Page, email = 'joao.silva@lms.edu'):
    * direto para o Laravel usa `127.0.0.1` — e aí o cookie não acompanha, a tela
    * redireciona para o login e o teste falha dizendo "não achei o painel".
    */
-  const base = process.env.AVASEC_URL ?? 'http://localhost:5173';
+  const base = process.env.AVASEC_URL ?? 'http://localhost:8000';
 
   await page.context().addCookies([
     { name: 'ava_session', value: token, url: base, httpOnly: true },
@@ -123,7 +123,7 @@ export async function abrirPrimeiraAula(page: Page): Promise<void> {
  */
 export async function entrarComoInstrutor(page: Page, email = 'professor@avasec.local'): Promise<void> {
   const token = emitirToken(email);
-  const base = process.env.AVASEC_URL ?? 'http://localhost:5173';
+  const base = process.env.AVASEC_URL ?? 'http://localhost:8000';
 
   await page.context().addCookies([
     { name: 'ava_session', value: token, url: base, httpOnly: true },
@@ -140,7 +140,7 @@ export async function entrarComoInstrutor(page: Page, email = 'professor@avasec.
  */
 export async function entrarComoAdmin(page: Page, email = 'admin@avasec.local'): Promise<void> {
   const token = emitirToken(email);
-  const base = process.env.AVASEC_URL ?? 'http://localhost:5173';
+  const base = process.env.AVASEC_URL ?? 'http://localhost:8000';
 
   await page.context().addCookies([
     { name: 'ava_session', value: token, url: base, httpOnly: true },
@@ -153,6 +153,9 @@ export async function entrarComoAdmin(page: Page, email = 'admin@avasec.local'):
 
 /** `true` quando a página inteira rola na horizontal — nunca deve acontecer. */
 export async function rolaNaHorizontal(page: Page): Promise<boolean> {
+  // Com o Laravel servindo direto, a página aparece enquanto ainda carrega, e a largura
+  // medida nesse intervalo não é a que o usuário fica vendo: espera o fim do carregamento.
+  await page.waitForLoadState('load');
   return page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );

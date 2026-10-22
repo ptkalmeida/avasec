@@ -20,15 +20,18 @@ const NAVEGADOR =
   `${process.env.LOCALAPPDATA}/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-win64/chrome-headless-shell.exe`;
 
 /*
- * Estes testes exigem os DOIS servidores de pé (`npm run dev` e o `artisan serve`).
+ * Estes testes exigem o Laravel de pé (`npm run api`, porta 8000) e os assets Blade
+ * compilados (`npm run build`). Desde a fase M7 (ADR 020) não há Vite de dev nem
+ * SPA: o navegador fala direto com o Laravel.
  * Não subimos nada por `webServer` porque o projeto tem a skill `rodar-avasec`, que
- * trata as armadilhas desta máquina — processo órfão preso na porta, Vite escorregando
- * para 5174, proxy do MySQL obsoleto depois de suspensão. Duplicar isso aqui daria
- * uma segunda verdade sobre como subir o sistema, e a que ninguém lê é a que apodrece.
+ * trata as armadilhas desta máquina — processo órfão preso na porta, proxy do MySQL
+ * obsoleto depois de suspensão. Duplicar isso aqui daria uma segunda verdade sobre
+ * como subir o sistema, e a que ninguém lê é a que apodrece.
  *
- * Por isso NÃO entram em `npm test`: os 722 do Vitest rodam em memória, em 22 s, sem
- * depender de nada. Estes rodam por `npm run e2e`, quando se quer olhar a tela montada.
+ * Rodam por `npm run e2e`, quando se quer olhar a tela montada; os testes de
+ * regra ficam no PHPUnit (`npm run test:api`).
  */
+
 export default defineConfig({
   testDir: './tests/e2e',
   /*
@@ -42,12 +45,12 @@ export default defineConfig({
    * navegando em dois navegadores ao mesmo tempo. Rode uma de cada vez.
    */
   workers: 1,
-  // Em tela, 5 s é pouco: a primeira montagem carrega blocos por `React.lazy`.
+  // Em tela, 5 s é pouco: a primeira carga do navegador e do banco é lenta.
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: process.env.CI ? 'list' : [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: process.env.AVASEC_URL ?? 'http://localhost:5173',
+    baseURL: process.env.AVASEC_URL ?? 'http://localhost:8000',
     launchOptions: { executablePath: NAVEGADOR },
     // Só guarda rastro do que falhou — o disco deste projeto já foi problema uma vez.
     screenshot: 'only-on-failure',
