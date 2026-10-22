@@ -86,21 +86,4 @@ final class SecoesDesligadasDoAlunoTest extends TestCase
             $this->como($aluno['token'])->get($caminho)->assertRedirect('/aluno');
         }
     }
-
-    /**
-     * O contrato de rotas cobre `/aluno` inteiro por prefixo. Se alguém voltar
-     * a listar telas de `/aluno` uma a uma em "exatos", o que ficar de fora
-     * cai no React de novo — que é como o defeito nasceu.
-     */
-    public function test_o_contrato_entrega_a_area_do_aluno_inteira_ao_servidor(): void
-    {
-        /** @var array{prefixos: list<string>, exatos?: list<string>} $contrato */
-        $contrato = json_decode((string) file_get_contents(base_path('../rotas-laravel.json')), true);
-
-        $this->assertContains('/aluno', $contrato['prefixos'], 'A área do aluno saiu dos prefixos do contrato.');
-
-        foreach ($contrato['exatos'] ?? [] as $uri) {
-            $this->assertStringStartsNotWith('/aluno', $uri, "`{$uri}` virou exato: o resto de /aluno voltaria ao React.");
-        }
-    }
 }

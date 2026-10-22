@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AlunosDoAdminController;
-use App\Http\Controllers\AppShellController;
 use App\Http\Controllers\AreaDoAlunoController;
 use App\Http\Controllers\AreaDoInstrutorController;
 use App\Http\Controllers\AutenticacaoWebController;
@@ -21,25 +20,15 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Rotas web — o roteador da migração para MPA (ADR 017)
+| Rotas web (ADR 017, 020)
 |--------------------------------------------------------------------------
 |
-| A partir daqui o Laravel é a porta de entrada da aplicação, e não mais o
-| Nginx servindo `dist/` com o Laravel pendurado em `/api` (ver DEPLOY_LARAVEL.md).
+| O Laravel é a única aplicação: todas as telas são Blade/Livewire e esta tabela
+| é o roteador inteiro. O que não estiver registrado aqui é 404 (`errors/404`).
+| Desde a fase M7 não há SPA, `dist/` nem `rotas-laravel.json`.
 |
-| A regra é uma só, e é esta tabela: **o que estiver registrado aqui é servido
-| pelo Laravel; todo o resto cai no `fallback` e é entregue ao SPA React.**
-| Migrar uma tela para Blade é acrescentar a rota dela acima do fallback — não
-| há segunda lista a atualizar, nem interruptor a virar.
-|
-| Dois pontos de atenção enquanto a migração durar:
-|
-| 1. Toda rota acrescentada aqui precisa ter o prefixo em `rotas-laravel.json`,
-|    senão ela funciona em produção e não em desenvolvimento (lá o Vite é quem
-|    atende o navegador e só encaminha ao Laravel o que estiver naquela lista).
-|    `RoteadorMpaTest` falha quando isso é esquecido.
-| 2. As URLs não mudam (invariante 2 do plano 16): quem tem link salvo continua
-|    chegando no mesmo lugar, migrado ou não.
+| As URLs não mudam (invariante 2 do plano 16): quem tem link salvo continua
+| chegando no mesmo lugar.
 */
 
 // Arquivos públicos de upload (materiais, imagens, vídeos de teste) — equivalente ao
@@ -391,9 +380,8 @@ Route::middleware('admin.web')->group(function (): void {
 });
 
 /*
- * Tudo que não foi migrado: o SPA React.
- *
- * `fallback` vale só para rotas web — um caminho inexistente sob `/api/*` continua
- * devolvendo o JSON de erro do contrato, e não o HTML do React.
+ * Sem fallback: o que não casa com rota nenhuma é 404 de verdade (view
+ * `errors/404`). Não há mais SPA para onde um endereço desconhecido cair
+ * (fase M7, ADR 020). Um caminho inexistente sob `/api/*` continua devolvendo o
+ * JSON de erro do contrato.
  */
-Route::fallback(AppShellController::class);

@@ -59,7 +59,7 @@
             </dl>
         </section>
 
-        <div class="space-y-6 lg:col-span-8">
+        <div class="min-w-0 space-y-6 lg:col-span-8">
             <section aria-labelledby="titulo-matriculas" class="space-y-3 rounded-[10px] border border-slate-200 bg-white p-5 shadow-card">
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <h2 id="titulo-matriculas" class="text-[0.875rem] font-bold text-slate-900">Matrículas e progresso</h2>
@@ -71,7 +71,7 @@
                 @if ($aluno['matriculas'] === [])
                     <p class="text-slate-500">Este aluno não está matriculado em nenhum curso.</p>
                 @else
-                    <div class="overflow-x-auto">
+                    <div class="relative overflow-x-auto">
                         <table class="w-full text-[0.85rem]">
                             <thead>
                                 <tr class="bg-[#FAFAFA] text-left">

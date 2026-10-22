@@ -2,7 +2,7 @@
  * CSS da área administrativa (back-office).
  *
  * Segue o Anexo D do Protocolo TI-SECEC, Seção 1 — VINCULANTE. Por isso este
- * arquivo NÃO importa `src/index.css`: aquele é o conjunto de tokens do portal
+ * arquivo NÃO importa `tokens.css`: aquele é o conjunto de tokens do portal
  * do aluno e do instrutor (roxo institucional, Inter, Playfair) e o Anexo D
  * manda, para o back-office, um azul só, neutros de slate e a fonte do sistema,
  * sem webfont. Misturar os dois conjuntos faria o admin parecer mais um

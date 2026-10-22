@@ -23,9 +23,10 @@
     painel em Blade é reimplementação, não cópia (risco 3 do plano 16), e fica
     para depois.
 
-    **Nada foi apagado.** O painel continua inteiro em `src/` e volta ao
-    rodapé assim que existir em Blade — ou assim que houver rota pública para
-    ele. A pendência está escrita no plano 18, §18.4.
+    **Nada foi perdido.** O React saiu do repositório na fase M7 (ADR 020), mas o
+    painel continua no histórico do git (`src/components/shared/`, no commit
+    anterior à M7) e volta ao rodapé assim que existir em Blade. A pendência
+    está escrita no plano 18, §18.4.
 
     O que é acessibilidade estrutural **continua aqui e não depende do painel**:
     o salto para o conteúdo, a marcação de página atual por `aria-current`, o

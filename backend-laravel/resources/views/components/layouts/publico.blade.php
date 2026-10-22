@@ -10,7 +10,7 @@
 
     {{--
         `tema-ava` no <html> liga a variante `ava:` do Tailwind, declarada em
-        src/index.css. Sem ela, as regras `ava:*` ficam inertes — foi assim que
+        resources/css/tokens.css. Sem ela, as regras `ava:*` ficam inertes — foi assim que
         o Perfil do admin passou a rolar na horizontal em 320px, porque as
         regras de quebra do cabeçalho só valiam sob essa classe.
     --}}
