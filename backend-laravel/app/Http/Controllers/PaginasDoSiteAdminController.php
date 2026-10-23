@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Services\AuditLogger;
 use App\Services\SitePageContentService;
+use App\Services\VersoesDeConteudo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -21,15 +22,15 @@ use Illuminate\View\View;
  * Acrescentar, remover e mover item mexem só no RASCUNHO da tela; nada vai ao
  * ar até "Salvar e publicar", como no painel React.
  *
- * Observação para decisão (ADR 12): salvar SUBSTITUI o conteúdo da página — não
- * há histórico de versões do texto publicado. É o comportamento de antes e fica
- * como está; só não é invisível.
+ * Salvar substitui o texto publicado, mas o que estava no ar vai para o histórico
+ * de versões (ADR 021) e dá para voltar a ele pela própria tela.
  */
 final class PaginasDoSiteAdminController extends Controller
 {
     public function __construct(
         private readonly SitePageContentService $paginas,
         private readonly AuditLogger $audit,
+        private readonly VersoesDeConteudo $versoes,
     ) {}
 
     public function mostrar(Request $request): View|RedirectResponse
@@ -74,7 +75,31 @@ final class PaginasDoSiteAdminController extends Controller
             'itens' => $itens,
             'quantosItens' => $resumo,
             'atualizadoEm' => is_string($conteudo['updatedAt'] ?? null) ? $conteudo['updatedAt'] : null,
+            'versoes' => $this->versoes->paraTela(VersoesDeConteudo::PAGINA_DO_SITE, $pedida, static function (array $v) use ($esquema, $pedida): string {
+                $chaves = array_column($esquema[$pedida]['header'], 'key');
+                $chave = in_array('title', $chaves, true) ? 'title' : ($chaves[0] ?? '');
+                $titulo = is_string($v[$chave] ?? null) ? trim($v[$chave]) : '';
+                $itens = is_array($v['items'] ?? null) ? count($v['items']) : 0;
+
+                return ($titulo !== '' ? mb_strimwidth($titulo, 0, 90, '…') : 'Sem título').' · '.$itens.($itens === 1 ? ' item' : ' itens');
+            }),
         ]);
+    }
+
+    /** Volta a uma versão anterior da página. O que estava no ar entra no histórico. */
+    public function restaurar(Request $request, string $pagina, string $versao): RedirectResponse
+    {
+        abort_unless(config('features.gestaoConteudoSite') === true, 404);
+        abort_unless(array_key_exists($pagina, $this->paginas->schema()), 404);
+
+        /** @var array{sub:string,name:string,role:string} $admin */
+        $admin = $request->attributes->get('auth_user');
+
+        $this->paginas->restaurarVersao($pagina, $versao, $admin);
+        $this->audit->log($request, 'Edição de Conteúdo do Site', 'Página "'.$pagina.'" voltou a uma versão anterior ('.$versao.').');
+
+        return redirect('/admin/paginas-do-site?pagina='.$pagina)
+            ->with('avisoDoSite', 'A versão anterior voltou ao ar. O que estava publicado ficou guardado no histórico.');
     }
 
     public function salvar(Request $request, string $pagina): RedirectResponse

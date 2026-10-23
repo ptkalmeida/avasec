@@ -137,4 +137,6 @@
             </button>
         </div>
     </form>
+
+    <x-admin.versoes :versoes="$versoes" :acao="'/admin/paginas-do-site/'.$pagina.'/versoes'" oque="conteúdo desta página" />
 </x-layouts.admin>

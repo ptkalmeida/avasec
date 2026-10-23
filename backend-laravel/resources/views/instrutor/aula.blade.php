@@ -320,6 +320,29 @@
                                                 </div>
                                             @endif
 
+                                            {{-- Prévia ao vivo: o servidor monta o trecho com o MESMO componente do aluno, sem gravar. --}}
+                                            <div class="space-y-2 rounded-xl border border-ava-borda bg-white p-4"
+                                                 x-data="{ html: '', ruim: false, espera: null, n: 0,
+                                                    agendar(f) { clearTimeout(this.espera); this.espera = setTimeout(() => this.buscar(f), 350); },
+                                                    async buscar(f) {
+                                                        const eu = ++this.n;
+                                                        const dados = new FormData(f);
+                                                        dados.delete('arquivo');
+                                                        try {
+                                                            const r = await fetch(@js($base.'/previa'), { method: 'POST', body: dados, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                                                            const t = await r.text();
+                                                            if (eu !== this.n) { return; }
+                                                            this.html = t; this.ruim = ! r.ok;
+                                                        } catch (e) {
+                                                            if (eu === this.n) { this.html = ''; this.ruim = true; }
+                                                        }
+                                                    } }"
+                                                 x-init="const f = $el.closest('form'); f.addEventListener('input', () => agendar(f)); f.addEventListener('change', () => agendar(f)); buscar(f)">
+                                                <p class="text-sobretitulo uppercase text-escult-ink-2">Prévia — como o aluno vai ver</p>
+                                                <div aria-live="polite" x-html="html"></div>
+                                                <p x-show="ruim && html === ''" x-cloak class="text-apoio text-escult-ink-2">Não foi possível montar a prévia agora. O “Aplicar” continua funcionando.</p>
+                                            </div>
+
                                             <div class="flex flex-wrap justify-end gap-2">
                                                 <a href="{{ request()->url() }}?editar=material#bloco-{{ $i }}" class="{{ $botaoNeutro }}">Cancelar</a>
                                                 <button type="submit" class="{{ $salvar }}">Aplicar</button>
@@ -516,5 +539,40 @@
                 </form>
             @endif
         </x-instrutor.zona-da-aula>
+
+        {{-- 5. Histórico de versões (ADR 021): o que estava no ar antes de cada alteração. --}}
+        <section id="historico" aria-labelledby="titulo-historico" class="scroll-mt-6 space-y-3 rounded-2xl border border-ava-borda bg-white p-5">
+            <div>
+                <h2 id="titulo-historico" class="font-titulo text-lg leading-tight text-ava-tinta">Histórico de versões</h2>
+                <p class="mt-1 text-apoio text-escult-ink-2">
+                    Toda vez que o título, a carga, o vídeo ou o texto desta aula mudam, a versão anterior fica guardada aqui.
+                    Voltar a uma versão não apaga nada: o que está no ar agora também entra no histórico.
+                </p>
+            </div>
+
+            @forelse ($versoes as $v)
+                <details class="rounded-xl border border-ava-borda bg-ava-faixa/30">
+                    <summary class="cursor-pointer px-4 py-3 text-apoio font-semibold text-ava-tinta">
+                        {{ $v['quando'] }} <span class="font-normal text-escult-ink-2">— {{ $v['resumo'] }}</span>
+                    </summary>
+                    <div class="space-y-3 border-t border-ava-borda px-4 py-3">
+                        <p class="text-apoio text-escult-ink-2">Substituída por {{ $v['porNome'] ?? 'alguém sem registro' }}. É assim que o texto estava:</p>
+                        @if ($v['blocos'] === [])
+                            <p class="text-apoio italic text-escult-ink-2">Esta versão não tinha texto.</p>
+                        @else
+                            <div class="max-h-96 overflow-y-auto rounded-xl border border-ava-borda bg-white p-4">
+                                <x-aluno.conteudo-da-aula :blocos="$v['blocos']" />
+                            </div>
+                        @endif
+                        <form method="POST" action="{{ $base }}/versoes/{{ $v['id'] }}/restaurar" class="flex justify-end">
+                            @csrf
+                            <button type="submit" class="{{ $salvar }}">Voltar a esta versão</button>
+                        </form>
+                    </div>
+                </details>
+            @empty
+                <p class="text-apoio italic text-escult-ink-2">Ainda não há versões anteriores: esta aula não mudou desde que o histórico passou a existir.</p>
+            @endforelse
+        </section>
     </div>
 </x-layouts.instrutor>

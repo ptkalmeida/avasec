@@ -112,4 +112,6 @@
             </button>
         </div>
     </form>
+
+    <x-admin.versoes :versoes="$versoes" :acao="'/admin/templates/'.$tipo.'/versoes'" oque="modelo" />
 </x-layouts.admin>

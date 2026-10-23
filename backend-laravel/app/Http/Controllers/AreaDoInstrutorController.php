@@ -13,6 +13,7 @@ use App\Services\LearningService;
 use App\Services\MessagingService;
 use App\Services\PainelDoInstrutor;
 use App\Services\UploadService;
+use App\Services\VersoesDeConteudo;
 use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;
 use App\Support\ConteudoDaAula;
@@ -26,6 +27,7 @@ use App\Support\VideoSource;
 use App\Support\VigenciaDoCurso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -48,6 +50,7 @@ final class AreaDoInstrutorController extends Controller
         private readonly CaixaDeMensagens $caixa,
         private readonly MessagingService $mensagens,
         private readonly UploadService $uploads,
+        private readonly VersoesDeConteudo $versoes,
     ) {}
 
     /**
@@ -560,7 +563,122 @@ final class AreaDoInstrutorController extends Controller
             'novo' => in_array($request->query('novo'), ['imagem', 'video'], true) ? $request->query('novo') : null,
             'apos' => self::inteiroDaQuery($request->query('apos'), -1) ?? -1,
             'uploadAtivo' => config('features.uploadArquivos') === true,
+            'versoes' => $this->versoesDaAula($aulaId),
         ]);
+    }
+
+    /**
+     * As versões anteriores da aula, prontas para a tela: quando, quem substituiu,
+     * um resumo e o texto como o aluno o veria (ADR 021).
+     *
+     * @return list<array{id:string,quando:string,porNome:?string,resumo:string,blocos:list<array<string, mixed>>}>
+     */
+    private function versoesDaAula(string $aulaId): array
+    {
+        $saida = [];
+        foreach ($this->versoes->listar(VersoesDeConteudo::AULA, $aulaId) as $v) {
+            $titulo = is_string($v['conteudo']['title'] ?? null) ? $v['conteudo']['title'] : '';
+            $texto = is_string($v['conteudo']['content'] ?? null) ? $v['conteudo']['content'] : '';
+
+            $saida[] = [
+                'id' => $v['id'],
+                'quando' => Fuso::de($v['criadoEm'])->format('d/m/Y H:i'),
+                'porNome' => $v['porNome'],
+                'resumo' => ($titulo !== '' ? mb_strimwidth($titulo, 0, 90, '…') : 'Sem título').' · '.mb_strlen($texto).' caracteres de texto',
+                'blocos' => ConteudoDaAula::analisar($texto)['blocos'],
+            ];
+        }
+
+        return $saida;
+    }
+
+    /**
+     * Volta a aula a uma versão anterior (título, carga, vídeo e texto). O que
+     * estava no ar vira uma nova versão, então dá para desfazer a restauração.
+     * Os anexos não entram: são registros próprios, com a retirada deles já
+     * preservada pela regra de nada ser apagado.
+     */
+    public function restaurarVersao(Request $request, string $cursoRef, string $aulaId, string $versao): RedirectResponse
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+        abort_if($this->aulaDoCurso($meu['curso'], $aulaId) === null, 404);
+
+        $anterior = $this->versoes->obter(VersoesDeConteudo::AULA, $aulaId, $versao);
+        abort_if($anterior === null, 404);
+
+        $pagina = '/inst/curso/'.$meu['ref'].'/aulas/'.rawurlencode($aulaId);
+
+        try {
+            $this->cursos->atualizarAula($meu['id'], $aulaId, [
+                'title' => is_string($anterior['title'] ?? null) ? $anterior['title'] : '',
+                'duration' => is_string($anterior['duration'] ?? null) ? $anterior['duration'] : '',
+                'videoUrl' => is_string($anterior['videoUrl'] ?? null) ? $anterior['videoUrl'] : null,
+                'content' => is_string($anterior['content'] ?? null) ? $anterior['content'] : null,
+            ], $instrutor);
+        } catch (ApiException $e) {
+            return redirect($pagina.'#historico')->withErrors(['aula' => $e->getMessage()]);
+        }
+
+        $this->audit->log($request, 'Alteração de Curso', 'Aula '.$aulaId.' do curso '.$meu['id'].' voltou a uma versão anterior ('.$versao.').');
+
+        return redirect($pagina)->with('avisoDoCurso', 'A versão anterior da aula voltou ao ar. O que estava publicado ficou guardado no histórico.');
+    }
+
+    /**
+     * A prévia ao vivo de UM trecho do material: o mesmo formulário de edição, o
+     * mesmo texto gravado e o mesmo componente que o aluno usa — só que sem
+     * gravar. Por isso a prévia não tem regra de formatação própria: se o aluno
+     * vai ver diferente, é o componente que mudou, e a prévia muda junto.
+     *
+     * Devolve um trecho de HTML (já escapado pelo Blade), ou 422 com a mensagem
+     * da regra que o trecho quebraria — a mesma que o "Aplicar" mostraria.
+     */
+    public function previa(Request $request, string $cursoRef, string $aulaId): Response
+    {
+        abort_unless(config('features.modulosAulas') === true, 404);
+
+        /** @var array{sub:string,name:string,role:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        abort_if($meu instanceof RedirectResponse, 404);
+        /** @var array{curso:array<string, mixed>,id:string,ref:string} $meu */
+        $achada = $this->aulaDoCurso($meu['curso'], $aulaId);
+        abort_if($achada === null, 404);
+
+        $indice = max(0, $request->integer('indice'));
+        $atual = is_string($achada['aula']['content'] ?? null) ? $achada['aula']['content'] : '';
+
+        $campos = [];
+        foreach (['tipo', 'texto', 'tamanho', 'alinhamento', 'linguagem', 'legenda', 'codigo', 'url', 'descricao'] as $chave) {
+            $valor = $request->input($chave);
+            if (is_string($valor)) {
+                $campos[$chave] = $valor;
+            }
+        }
+
+        try {
+            // A imagem fica com o endereço que o bloco já tem: ele vem do TEXTO gravado, nunca do formulário.
+            $bloco = MaterialDaAula::bloco($atual, $indice);
+            if (($bloco['tipo'] ?? null) === 'imagem') {
+                $campos['url'] = is_string($bloco['url'] ?? null) ? $bloco['url'] : '';
+            }
+
+            $novo = MaterialDaAula::atualizar($atual, $indice, $campos);
+            $blocos = ConteudoDaAula::analisarComTrechos($novo)['blocos'];
+        } catch (InvalidArgumentException $e) {
+            return response(view('instrutor.previa-do-trecho', ['erro' => $e->getMessage(), 'blocos' => []])->render(), 422);
+        }
+
+        return response(view('instrutor.previa-do-trecho', ['erro' => null, 'blocos' => isset($blocos[$indice]) ? [$blocos[$indice]] : []])->render());
     }
 
     /** Um número inteiro do endereço, a partir de `$minimo`; qualquer outra coisa é "não pedido". */

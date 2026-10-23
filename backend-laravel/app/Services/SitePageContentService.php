@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\SitePageContent;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Conteúdo editável das páginas públicas do portal. Só o Admin Superior
@@ -436,20 +437,79 @@ final class SitePageContentService
 
         $content = $this->normalize($pageKey, $input);
 
-        $row = SitePageContent::query()->find($pageKey);
-        $attributes = [
-            'content' => $content,
-            'updatedByUserId' => $requester['sub'],
-            'updatedAt' => CarbonImmutable::now(),
-        ];
+        // Versão anterior e gravação na mesma transação: sem versão órfã se a gravação falhar.
+        DB::transaction(function () use ($pageKey, $content, $requester): void {
+            $row = SitePageContent::query()->find($pageKey);
+            $this->guardarVersaoAnterior($pageKey, $content, $requester['sub']);
+            $attributes = [
+                'content' => $content,
+                'updatedByUserId' => $requester['sub'],
+                'updatedAt' => CarbonImmutable::now(),
+            ];
 
-        if ($row !== null) {
-            $row->fill($attributes)->save();
-        } else {
-            SitePageContent::query()->create(array_merge($attributes, ['pageKey' => $pageKey]));
-        }
+            if ($row !== null) {
+                $row->fill($attributes)->save();
+            } else {
+                SitePageContent::query()->create(array_merge($attributes, ['pageKey' => $pageKey]));
+            }
+        });
 
         return $this->get($pageKey);
+    }
+
+    /**
+     * O texto que está no ar (o salvo, ou o padrão de fábrica se ninguém salvou
+     * ainda) vai para o histórico antes de ser substituído — ADR 021. Se a nova
+     * gravação não muda nada, não vira versão.
+     *
+     * @param  array<string, mixed>  $novo
+     */
+    private function guardarVersaoAnterior(string $pageKey, array $novo, string $porUserId): void
+    {
+        $atual = $this->conteudoDaPagina($pageKey);
+        if ($atual == $novo) {
+            return;
+        }
+
+        app(VersoesDeConteudo::class)->guardar(VersoesDeConteudo::PAGINA_DO_SITE, $pageKey, $atual, $porUserId);
+    }
+
+    /**
+     * Só o conteúdo editável de uma página (cabeçalho e itens), sem os metadados
+     * que `get()` acrescenta.
+     *
+     * @return array<string, mixed>
+     */
+    public function conteudoDaPagina(string $pageKey): array
+    {
+        $tudo = $this->get($pageKey);
+        unset($tudo['pageKey'], $tudo['updatedAt'], $tudo['updatedByUserId']);
+
+        return $tudo;
+    }
+
+    /**
+     * Devolve ao ar uma versão anterior. É uma gravação como outra qualquer: passa
+     * pelo `upsert` (mesma normalização, mesma regra de quem pode) e, por isso,
+     * guarda o que estava no ar antes de trocar.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
+    public function restaurarVersao(string $pageKey, string $versaoId, array $requester): array
+    {
+        $this->assertValidPageKey($pageKey);
+
+        if ($requester['role'] !== 'admin') {
+            throw ApiException::forbidden('Apenas o Admin Superior pode editar o conteúdo do site.');
+        }
+
+        $versao = app(VersoesDeConteudo::class)->obter(VersoesDeConteudo::PAGINA_DO_SITE, $pageKey, $versaoId);
+        if ($versao === null) {
+            throw ApiException::notFound('Versão não encontrada.');
+        }
+
+        return $this->upsert($pageKey, $versao, $requester);
     }
 
     /**

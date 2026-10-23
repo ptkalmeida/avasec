@@ -137,15 +137,9 @@ final class PainelDoInstrutor
             'minimaDoCurso' => $minimaDoCurso,
             'vigenciaVencida' => VigenciaDoCurso::vencida($curso),
             'vigenciaAte' => VigenciaDoCurso::diaParaPessoa($curso),
-            /*
-             * `emiteCertificado` tem DUAS fontes no sistema: esta coluna e a
-             * categoria do curso conter "Sem Certificado"
-             * (`CertificateService::situacaoParaCertificado`). A tela mostra o
-             * que a emissão de fato usa — as duas juntas —, para não prometer
-             * certificado que não sai. A duplicação está sinalizada no plano 18.
-             */
-            'emiteCertificado' => ($curso['emiteCertificado'] ?? null) !== false
-                && ! str_contains(is_string($curso['category'] ?? null) ? $curso['category'] : '', 'Sem Certificado'),
+            // Fonte única: a coluna do curso, a mesma que a emissão usa
+            // (`CertificateService::situacaoParaCertificado`) — decisão de 23/10/2026.
+            'emiteCertificado' => ($curso['emiteCertificado'] ?? null) !== false,
             'encontros' => $this->encontros($curso),
         ];
     }

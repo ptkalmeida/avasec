@@ -270,6 +270,8 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/identificacao', [AreaDoInstrutorController::class, 'salvarIdentificacao']);
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/video', [AreaDoInstrutorController::class, 'salvarVideo']);
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/material', [AreaDoInstrutorController::class, 'material']);
+    Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/previa', [AreaDoInstrutorController::class, 'previa']);
+    Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/versoes/{versao}/restaurar', [AreaDoInstrutorController::class, 'restaurarVersao']);
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/anexos', [AreaDoInstrutorController::class, 'anexarDocumento']);
     Route::post('/inst/curso/{cursoRef}/aulas/{aulaId}/anexos/{documentoId}/remover', [AreaDoInstrutorController::class, 'desvincularDocumento']);
 
@@ -340,10 +342,12 @@ Route::middleware('admin.web')->group(function (): void {
     Route::get('/admin/dados-gerenciais/baixar/{base}', [DadosGerenciaisAdminController::class, 'baixar'])->middleware('throttle:export');
     Route::get('/admin/paginas-do-site', [PaginasDoSiteAdminController::class, 'mostrar'])->name('admin.paginas');
     Route::post('/admin/paginas-do-site/{pagina}', [PaginasDoSiteAdminController::class, 'salvar']);
+    Route::post('/admin/paginas-do-site/{pagina}/versoes/{versao}/restaurar', [PaginasDoSiteAdminController::class, 'restaurar']);
     Route::get('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'mostrar'])->name('admin.configuracoes');
     Route::post('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'salvar']);
     Route::get('/admin/templates', [ModelosDoAdminController::class, 'mostrar'])->name('admin.templates');
     Route::post('/admin/templates/{tipo}', [ModelosDoAdminController::class, 'salvar']);
+    Route::post('/admin/templates/{tipo}/versoes/{versao}/restaurar', [ModelosDoAdminController::class, 'restaurar']);
     Route::get('/admin/alunos', [AlunosDoAdminController::class, 'listar'])->name('admin.alunos');
     Route::get('/admin/alunos/{alunoId}', [AlunosDoAdminController::class, 'ficha'])->name('admin.aluno');
     Route::post('/admin/alunos', [AlunosDoAdminController::class, 'cadastrar']);

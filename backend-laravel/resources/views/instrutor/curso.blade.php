@@ -291,9 +291,6 @@
                                class="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ava-acao)]">
                         <span>
                             Este curso emite certificado
-                            <span class="mt-0.5 block text-escult-ink-3">
-                                Categoria com “Sem Certificado” no nome também impede a emissão, mesmo com esta opção marcada.
-                            </span>
                         </span>
                     </label>
 

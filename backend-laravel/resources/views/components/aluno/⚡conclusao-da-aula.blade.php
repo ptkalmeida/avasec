@@ -3,6 +3,7 @@
 use App\Http\Middleware\JwtAuthenticate;
 use App\Services\EnrollmentService;
 use App\Support\ProgressoDoAluno;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -30,8 +31,12 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    // Trancadas: o navegador pode reescrever propriedade pública de Livewire, e estes dois ids
+    // decidem em QUAL curso e aula o progresso é gravado.
+    #[Locked]
     public string $cursoId = '';
 
+    #[Locked]
     public string $aulaId = '';
 
     public bool $concluida = false;

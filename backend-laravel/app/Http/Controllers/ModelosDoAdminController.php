@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\ApiException;
 use App\Services\AuditLogger;
 use App\Services\DocumentTemplateService;
+use App\Services\VersoesDeConteudo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -30,6 +31,7 @@ final class ModelosDoAdminController extends Controller
     public function __construct(
         private readonly DocumentTemplateService $modelos,
         private readonly AuditLogger $audit,
+        private readonly VersoesDeConteudo $versoes,
     ) {}
 
     public function mostrar(Request $request): View|RedirectResponse
@@ -53,7 +55,29 @@ final class ModelosDoAdminController extends Controller
             'assinaturas' => $assinaturas,
             'atualizadoEm' => is_string($modelo['updatedAt'] ?? null) ? $modelo['updatedAt'] : null,
             'maxAssinaturas' => self::MAX_ASSINATURAS,
+            'versoes' => $this->versoes->paraTela(VersoesDeConteudo::MODELO_DE_DOCUMENTO, $tipo, static function (array $v): string {
+                $nome = is_string($v['institutionName'] ?? null) ? trim($v['institutionName']) : '';
+                $assinaturas = is_array($v['signatories'] ?? null) ? count($v['signatories']) : 0;
+
+                return ($nome !== '' ? mb_strimwidth($nome, 0, 90, '…') : 'Sem nome da instituição').' · '.$assinaturas.($assinaturas === 1 ? ' assinatura' : ' assinaturas');
+            }),
         ]);
+    }
+
+    /** Volta a uma versão anterior do modelo. O que estava no ar entra no histórico. */
+    public function restaurar(Request $request, string $tipo, string $versao): RedirectResponse
+    {
+        $tipoValido = $this->tipo($tipo);
+        abort_if($tipoValido === null, 404);
+
+        /** @var array{sub:string,name:string,role:string} $admin */
+        $admin = $request->attributes->get('auth_user');
+
+        $this->modelos->restaurarVersao($tipoValido, $versao, $admin);
+        $this->audit->log($request, 'Edição de Template de Documento', 'Template "'.$tipoValido.'" voltou a uma versão anterior ('.$versao.').');
+
+        return redirect('/admin/templates?tipo='.$tipoValido)
+            ->with('avisoDeModelo', 'A versão anterior voltou ao ar. O que estava publicado ficou guardado no histórico.');
     }
 
     public function salvar(Request $request, string $tipo): RedirectResponse
