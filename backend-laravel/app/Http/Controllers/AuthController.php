@@ -11,6 +11,7 @@ use App\Rules\CpfRule;
 use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
+use App\Support\IdentificadorParaLog;
 use App\Support\SessaoJwt;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\JsonResponse;
@@ -134,7 +135,7 @@ final class AuthController extends Controller
                 'role' => $this->optionalString($data, 'role'),
             ]);
         } catch (Throwable $err) {
-            $this->audit->log($request, 'Tentativa Fracassada', "Falha de login para o identificador: {$identifier}.", 'FAILED');
+            $this->audit->log($request, 'Tentativa Fracassada', 'Falha de login para o identificador: '.IdentificadorParaLog::de($identifier).'.', 'FAILED');
             throw $err;
         }
 

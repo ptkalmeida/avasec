@@ -16,10 +16,11 @@ final class LibraryController extends Controller
 
     public function __construct(private readonly CatalogService $catalog) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        // Contrato do Node: array JSON puro (sem envelope { data: ... }).
-        return response()->json($this->catalog->listLibraryItems());
+        // Contrato do Node: array JSON puro (sem envelope { data: ... }). O papel vem da sessão,
+        // se houver (`jwt.optional`): o visitante só recebe o que está publicado.
+        return response()->json($this->catalog->listLibraryItems($this->optionalRequester($request)['role'] ?? null));
     }
 
     public function store(Request $request): JsonResponse

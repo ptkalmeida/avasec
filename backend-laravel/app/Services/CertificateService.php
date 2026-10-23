@@ -12,6 +12,7 @@ use App\Models\QuizSubmission;
 use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
+use App\Support\CourseAccess;
 use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
@@ -64,11 +65,22 @@ final class CertificateService
     public function verifyCertificatePublic(string $query): ?array
     {
         $trimmed = trim($query);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        /*
+         * O NOME tem de ser o nome completo, igual (a comparação do MySQL ignora caixa e acento).
+         * Antes era `LIKE %termo%`: `q=Ma`, ou só `%`, devolvia nome, curso, frequência e hash do
+         * primeiro aluno que casasse, e variando o termo se varria a lista de alunos pela rota
+         * pública (achado da varredura de segurança de 23/10/2026). A tela continua prometendo
+         * "código ou nome completo do aluno": quem já sabe o nome inteiro continua achando.
+         */
         $cert = Certificate::withTrashed()
             ->where(function ($q) use ($trimmed): void {
                 $q->where('id', $trimmed)
                     ->orWhere('verificationHash', $trimmed)
-                    ->orWhere('studentName', 'like', '%'.$trimmed.'%');
+                    ->orWhere('studentName', $trimmed);
             })
             ->first();
         if ($cert === null) {
@@ -109,6 +121,15 @@ final class CertificateService
         $course = Course::query()->with(['lessons', 'liveSessions'])->find($input['courseId']);
         if ($course === null) {
             throw ApiException::notFound('Curso não encontrado.');
+        }
+
+        /*
+         * O aluno precisa PERTENCER ao curso: matrícula, conclusão registrada ou admissão aprovada.
+         * Sem isto, quem forjava progresso num curso alheio (ou tinha progresso solto no banco)
+         * recebia certificado de um curso que nunca cursou. Vale para quem emite, inclusive o admin.
+         */
+        if (! CourseAccess::canAccess(['sub' => $userId, 'name' => '', 'role' => 'student'], $course->id)) {
+            throw ApiException::forbidden('Este aluno não participa do curso.');
         }
 
         // Instrutor emite certificado apenas nos cursos que leciona — a mesma regra
@@ -242,23 +263,13 @@ final class CertificateService
             'minima' => BusinessRules::courseMinAttendance($course->minAttendance),
             'avaliacoesPendentes' => array_values($this->avaliacoesNaoAprovadas($courseId, $userId)),
             /*
-             * Duas fontes dizem a mesma coisa, e isso está sinalizado em vez de
-             * resolvido em silêncio:
-             *
-             *  - a COLUNA `emiteCertificado`, que o admin edita e o cartão do
-             *    catálogo já lê (`NULL` conta como "emite", como no painel do
-             *    admin — a coluna nasceu depois dos cursos que já existiam);
-             *  - a CONVENÇÃO de escrever "Sem Certificado" na categoria, que é o
-             *    que a aba de certificados do React olhava.
-             *
-             * Hoje nenhum curso usa a convenção de texto, então as duas
-             * concordam. As duas são respeitadas aqui para que a migração não
-             * mude a resposta de um curso que alguém tenha rotulado assim; qual
-             * delas fica é decisão para a M5, quando o painel do admin for
-             * reescrito — é lá que a promessa de editar aparece.
+             * Uma fonte só: a COLUNA `emiteCertificado` do curso, a que o admin e o
+             * instrutor editam (`NULL` conta como "emite": a coluna nasceu depois
+             * dos cursos que já existiam). Até 23/10/2026 também valia a convenção
+             * de escrever "Sem Certificado" na categoria; o responsável decidiu que
+             * vale o curso apenas, e nenhum curso usava a convenção.
              */
-            'emite' => $course->emiteCertificado !== false
-                && ! str_contains((string) $course->category, 'Sem Certificado'),
+            'emite' => $course->emiteCertificado !== false,
         ];
     }
 

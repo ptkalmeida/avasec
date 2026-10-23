@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
+use App\Models\StudentEnrollment;
 use App\Support\Fuso;
 use App\Support\Jwt;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +36,24 @@ trait SeedsIdentity
         $this->flushHeaders();
 
         return ['id' => $id, 'name' => $name, 'cpf' => $cpf, 'token' => Jwt::issue($id, $name, 'student')];
+    }
+
+    /**
+     * Matricula o aluno no curso. O progresso e o certificado só existem para quem PERTENCE ao
+     * curso (varredura de segurança de 23/10/2026): um teste que grava progresso sem matricular
+     * está modelando justamente o aluno que não cursa.
+     *
+     * @param  array{id: string, name: string}  $aluno
+     */
+    protected function matricular(array $aluno, string $courseId): void
+    {
+        StudentEnrollment::query()->updateOrCreate(
+            ['userId' => $aluno['id']],
+            [
+                'id' => $aluno['id'], 'studentName' => $aluno['name'], 'enrolledCourseId' => $courseId,
+                'completedCourseIds' => [], 'extraCourseIds' => [], 'canMultiEnroll' => false,
+            ],
+        );
     }
 
     protected function staffToken(string $role): string

@@ -93,6 +93,7 @@ final class SecurityRegressionTest extends TestCase
     public function test_progress_ignores_fake_lesson_ids(): void
     {
         $student = $this->makeStudent();
+        $this->matricular($student, 'course-1');
         $auth = $this->auth($student['token']);
 
         $this->postJson('/api/progress', [
@@ -117,6 +118,7 @@ final class SecurityRegressionTest extends TestCase
     public function test_certificate_forgery_is_blocked(): void
     {
         $student = $this->makeStudent();
+        $this->matricular($student, 'course-1');
         $auth = $this->auth($student['token']);
 
         $this->postJson('/api/progress', [

@@ -36,6 +36,7 @@ final class CertificatePdfTest extends TestCase
         DB::table('Lesson')->insert([
             'id' => $lessonId, 'courseId' => $courseId, 'title' => 'A1', 'duration' => '5min', 'lesson_order' => 0,
         ]);
+        $this->matricular($student, $courseId);
         DB::table('StudentProgress')->insert([
             'id' => 'prog-pdf-'.uniqid(), 'studentName' => $student['name'], 'userId' => $student['id'], 'courseId' => $courseId,
             'completedLessons' => json_encode([$lessonId]), 'attendedLiveSessions' => json_encode([]),

@@ -786,6 +786,16 @@ final class CourseService
             // aula retirada e depois readicionada com o mesmo id não seria
             // encontrada por find(), e o create() estouraria a chave primária.
             $existing = Lesson::query()->withTrashed()->find($lessonId);
+            /*
+             * Um id que já pertence a OUTRO curso não é desta edição. Os ids saem no catálogo
+             * público: sem esta guarda, o instrutor de um curso mandava o id de uma aula
+             * alheia, e ela era movida para o curso dele com o texto sobrescrito (achado da
+             * varredura de segurança de 23/10/2026). Vira aula nova, com id novo.
+             */
+            if ($existing !== null && $existing->courseId !== $courseId) {
+                $lessonId = 'lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+                $existing = null;
+            }
             if ($existing !== null) {
                 if ($existing->estaInativo()) {
                     $existing->reativar();
@@ -807,6 +817,11 @@ final class CourseService
                     : ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
                 $docData = $this->documentScalar($doc, $lessonId);
                 $existingDoc = LessonDocument::query()->withTrashed()->find($docId);
+                // Mesma guarda das aulas: documento de outra aula não é movido para esta.
+                if ($existingDoc !== null && $existingDoc->lessonId !== $lessonId) {
+                    $docId = 'doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+                    $existingDoc = null;
+                }
                 if ($existingDoc !== null) {
                     if ($existingDoc->estaInativo()) {
                         $existingDoc->reativar();
@@ -833,8 +848,13 @@ final class CourseService
                 ? $session['id']
                 : ('live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = $this->liveSessionData($session, $courseId);
-            $data['id'] = $sessionId;
             $existing = LiveSession::query()->withTrashed()->find($sessionId);
+            // Mesma guarda das aulas: encontro de outro curso não é sobrescrito nem movido.
+            if ($existing !== null && $existing->courseId !== $courseId) {
+                $sessionId = 'live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+                $existing = null;
+            }
+            $data['id'] = $sessionId;
             if ($existing !== null) {
                 unset($data['id']);
                 if ($existing->estaInativo()) {

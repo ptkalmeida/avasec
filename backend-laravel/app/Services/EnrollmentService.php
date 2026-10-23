@@ -12,10 +12,12 @@ use App\Models\LiveSession;
 use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
+use App\Support\CourseAccess;
 use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
 use App\Support\VigenciaDoCurso;
+use App\Support\Visibilidade;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -79,6 +81,16 @@ final class EnrollmentService
     {
         if ($requester['role'] === 'instructor') {
             throw ApiException::forbidden('Instrutores não registram progresso em nome do aluno.');
+        }
+
+        /*
+         * Aluno só registra progresso no curso a que PERTENCE. Os ids de aula saem no catálogo
+         * público, então quem não cursava bastava mandar `courseId` + todos os ids e, em seguida,
+         * pedir o certificado com 100% de frequência (achado da varredura de segurança de
+         * 23/10/2026). O Admin Superior segue podendo registrar por qualquer aluno.
+         */
+        if ($requester['role'] === 'student' && ! CourseAccess::canAccess($requester, $input['courseId'])) {
+            throw ApiException::forbidden('Você não participa deste curso.');
         }
 
         $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
@@ -196,6 +208,28 @@ final class EnrollmentService
 
         $targetUserId = Identity::resolveActorUserId($requester, $userId);
         $current = StudentEnrollment::query()->whereKey($targetUserId)->first();
+
+        /*
+         * O instrutor gerencia a matrícula no CURSO DELE, e só. Antes bastava ser dono
+         * de um curso (`enrolledCourseId`) para, na mesma chamada, marcar qualquer
+         * curso como concluído para qualquer aluno (`completedCourseIds`), mexer na
+         * penalidade de evasão, ou tirar o aluno do curso de OUTRO instrutor ao
+         * trocá-lo para o seu. Conclusão e penalidade são registro acadêmico do
+         * Admin Superior; e o aluno que está no curso alheio só sai por quem é dono
+         * dele (achado da varredura de segurança de 23/10/2026).
+         */
+        if ($requester['role'] !== 'admin') {
+            foreach (['completedCourseIds', 'dropOutPenaltyUntil'] as $campo) {
+                if (array_key_exists($campo, $updates)) {
+                    throw ApiException::forbidden('Apenas o Admin Superior altera conclusões de curso e penalidades de evasão.');
+                }
+            }
+            $cursoAtual = $current?->enrolledCourseId;
+            if (is_string($cursoAtual) && $cursoAtual !== '' && $cursoAtual !== ($updates['enrolledCourseId'] ?? null)) {
+                $this->assertInstructorCanManage($cursoAtual, $requester);
+            }
+        }
+
         $merged = array_merge(self::EMPTY_ENROLLMENT, $this->currentRest($current), $updates);
 
         $saved = $this->persistEnrollment($targetUserId, Identity::displayName($targetUserId, $requester), $merged);
@@ -211,6 +245,7 @@ final class EnrollmentService
      */
     public function selfEnroll(string $courseId, array $requester): array
     {
+        $this->exigirCursoVisivelAoAluno($courseId, $requester);
         $this->recusarCursoComVigenciaVencida($courseId);
 
         $current = $this->ownEnrollment($requester);
@@ -355,6 +390,8 @@ final class EnrollmentService
      */
     public function createAdmission(array $input, array $requester): array
     {
+        $this->exigirCursoVisivelAoAluno($input['courseId'], $requester);
+
         // Vigência vencida não aceita pedido de matrícula: com a aprovação
         // automática ligada este pedido MATRICULA na hora, e era uma porta que o
         // bloqueio de `selfEnroll` não cobria.
@@ -470,6 +507,29 @@ final class EnrollmentService
      *
      * @throws ApiException 409
      */
+    /**
+     * O ALUNO só se matricula em curso que o catálogo lhe mostra: existente, no ar e publicado.
+     *
+     * A tela web já conferia a visibilidade, mas a API não: com o id de um curso em rascunho ou
+     * restrito (ou de um que nem existe), a matrícula era criada, e `CourseAccess` passava a dar ao
+     * aluno acesso às provas dele — `submitQuiz` devolvia a nota de uma prova ainda não publicada
+     * (achado da varredura de segurança de 23/10/2026). Gestor e admin matriculam como sempre.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    private function exigirCursoVisivelAoAluno(string $courseId, array $requester): void
+    {
+        if ($requester['role'] !== 'student') {
+            return;
+        }
+
+        $consulta = Course::query()->whereKey($courseId);
+        Visibilidade::aplicar($consulta, 'student');
+        if (! $consulta->exists()) {
+            throw ApiException::notFound('Curso não encontrado.');
+        }
+    }
+
     private function recusarCursoComVigenciaVencida(string $courseId): void
     {
         $curso = Course::query()->find($courseId, ['vigenciaAte', 'contractExpirationDate']);

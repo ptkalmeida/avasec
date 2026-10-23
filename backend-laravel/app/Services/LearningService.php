@@ -36,11 +36,13 @@ final class LearningService
     /**
      * Quizzes dos cursos a que o requester pertence.
      *
-     * O gabarito (correctOptionIndex) continua vindo junto de propósito, para o
-     * feedback imediato do aluno — decisão registrada na rota, e a nota é sempre
-     * recalculada no servidor em submitQuiz. O que estava errado era o alcance:
-     * a listagem entregava as questões de TODAS as avaliações da escola a qualquer
-     * autenticado, inclusive de cursos que a pessoa nunca fez.
+     * O ALUNO recebe só enunciados e alternativas: `correctOptionIndex`,
+     * `explanation` e `reviewMessage` ficam no servidor (decisão de 23/10/2026).
+     * Antes eles iam junto "para o feedback imediato", mas a tela do aluno é
+     * Blade desde a M3 e corrige no servidor (`provaParaResponder` +
+     * `submitQuiz`); quem chamasse a API à mão lia o gabarito de toda prova do
+     * seu curso e tirava 100%. Aluno também não vê prova em rascunho ou restrita.
+     * Instrutor e admin continuam recebendo tudo, porque editam a prova.
      *
      * @param  array{sub:string,name:string,role:string}  $requester
      * @return array<int, array<string, mixed>>
@@ -52,7 +54,29 @@ final class LearningService
             $query->whereIn('courseId', CourseAccess::accessibleCourseIds($requester));
         }
 
-        return $query->get()->map->toArray()->all();
+        $ehAluno = $requester['role'] === 'student';
+        if ($ehAluno) {
+            Visibilidade::aplicar($query, 'student');
+        }
+
+        $quizzes = $query->get()->map->toArray()->all();
+
+        if (! $ehAluno) {
+            return $quizzes;
+        }
+
+        foreach ($quizzes as &$quiz) {
+            $questoes = is_array($quiz['questions'] ?? null) ? $quiz['questions'] : [];
+            $quiz['questions'] = array_values(array_map(
+                static fn (mixed $q): mixed => is_array($q)
+                    ? array_diff_key($q, array_flip(['correctOptionIndex', 'explanation', 'reviewMessage']))
+                    : $q,
+                $questoes,
+            ));
+        }
+        unset($quiz);
+
+        return $quizzes;
     }
 
     /**
@@ -239,6 +263,12 @@ final class LearningService
 
         $quiz = Quiz::query()->with('questions')->find($input['quizId']);
         if ($quiz === null) {
+            throw ApiException::notFound('Quiz não encontrado.');
+        }
+
+        // Prova em rascunho ou restrita não existe para o aluno: sem esta checagem, quem soubesse o id
+        // respondia (e recebia a nota de) uma prova que a escola ainda não publicou.
+        if (! Visibilidade::papelAlcanca('student', is_numeric($quiz->getAttribute('status')) ? (int) $quiz->getAttribute('status') : Visibilidade::PUBLICADO)) {
             throw ApiException::notFound('Quiz não encontrado.');
         }
 
@@ -452,7 +482,7 @@ final class LearningService
      * A prova para o aluno responder — enunciados e alternativas, SEM gabarito.
      *
      * Não sai daqui `correctOptionIndex`, `explanation`, `reviewMessage` nem
-     * `recommendedModule`. Na API eles vão junto (`listQuizzes`), e a tela do
+     * `recommendedModule`. Na API eles iam junto (`listQuizzes`, até 23/10), e a tela do
      * React mostrava a alternativa certa a cada questão e deixava refazer a
      * questão até acertar: a nota "recalculada no servidor" era sobre
      * respostas dadas depois de ver o gabarito. Decisão de 20/10: a prova é
@@ -587,6 +617,11 @@ final class LearningService
         if ($msg === null) {
             throw ApiException::notFound('Mensagem não encontrada.');
         }
+        // Curtir devolve a mensagem inteira: sem checar o curso, qualquer logado lia o fórum de qualquer
+        // curso só com o id (achado da varredura de segurança de 23/10/2026).
+        if (! is_string($msg->courseId) || ! CourseAccess::canAccess($requester, $msg->courseId)) {
+            throw ApiException::forbidden('Você não participa deste curso.');
+        }
         // likedBy é um array de userIds desde a ADR 10 (backfill converteu nomes).
         $likedBy = is_array($msg->likedBy) ? $msg->likedBy : [];
         $hasLiked = in_array($requester['sub'], $likedBy, true);
@@ -713,6 +748,16 @@ final class LearningService
         if ($requester['role'] !== 'student') {
             throw ApiException::forbidden('Somente alunos podem enviar entregas de exercícios.');
         }
+
+        // A entrega é de um exercício de um curso a que o aluno pertence, e não de qualquer id.
+        $exercicio = PracticalExercise::query()->whereKey($input['exerciseId'])->first(['id', 'courseId']);
+        if ($exercicio === null) {
+            throw ApiException::notFound('Exercício não encontrado.');
+        }
+        if (! is_string($exercicio->courseId) || ! CourseAccess::canAccess($requester, $exercicio->courseId)) {
+            throw ApiException::forbidden('Você não participa deste curso.');
+        }
+
         $data = [
             'exerciseId' => $input['exerciseId'],
             'studentName' => $requester['name'],

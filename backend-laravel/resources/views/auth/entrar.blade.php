@@ -34,7 +34,7 @@
         @enderror
 
         <form method="POST" action="/entrar" class="mt-7 space-y-5"
-              x-data="{ papel: '{{ old('papel', $papel) }}' }">
+              x-data="{ papel: @js(in_array(old('papel', $papel), ['student', 'instructor', 'admin'], true) ? old('papel', $papel) : 'student') }">
             @csrf
 
             <fieldset>

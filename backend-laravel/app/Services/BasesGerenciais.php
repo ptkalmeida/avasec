@@ -19,13 +19,13 @@ use DateTimeInterface;
  *
  * A fonte é a mesma de antes: o `ExportService`, restrito a admin e auditado.
  *
- * ## Dois comportamentos preservados que merecem decisão
+ * ## Duas decisões registradas
  *
- * - **A base de Matrículas só lê o curso principal e os concluídos.** Quem está
- *   matriculado apenas em curso concorrente (`extraCourseIds`) não aparece nela
- *   (hoje há um caso assim). O painel React já fazia assim; aqui fica igual, para
- *   não alterar uma planilha que alguém já consome, e fica registrado para o
- *   responsável decidir.
+ * - **A base de Matrículas lê o curso principal, os concorrentes e os concluídos.**
+ *   Até 22/10/2026 os cursos concorrentes (`extraCourseIds`) ficavam de fora, como
+ *   no painel React; em 23/10 o responsável decidiu incluí-los (a planilha ainda
+ *   não tinha consumidor). Cada concorrente vira uma linha `Ativa` com id
+ *   `<matrícula>-E<n>`, ao lado das `-C<n>` dos concluídos.
  * - **Base vazia não gera arquivo.** Sem registro nenhum, o painel antigo não
  *   baixava nada, em silêncio. Aqui o botão avisa que não há registros.
  */
@@ -186,6 +186,27 @@ final class BasesGerenciais
                 ];
             }
 
+            $extras = is_array($e['extraCourseIds'] ?? null) ? array_values($e['extraCourseIds']) : [];
+            foreach ($extras as $i => $cursoId) {
+                if (! is_string($cursoId) || $cursoId === '' || $cursoId === $principal) {
+                    continue;
+                }
+
+                $prog = $this->primeiro($progresso, static fn (array $p): bool => ($p['courseId'] ?? null) === $cursoId && ($p['userId'] ?? null) === ($e['userId'] ?? null));
+                $temCertificado = $this->primeiro($certificados, static fn (array $c): bool => ($c['courseId'] ?? null) === $cursoId && ($c['userId'] ?? null) === ($e['userId'] ?? null)) !== null;
+
+                $linhas[] = [
+                    'id_matricula' => $this->texto($idDaMatricula).'-E'.($i + 1),
+                    'id_aluno' => $e['userId'] ?? null,
+                    'id_curso' => $cursoId,
+                    // Só a matrícula principal guarda a data; o concorrente não tem a sua.
+                    'data_matricula' => '',
+                    'status_matricula' => 'Ativa',
+                    'modulos_concluidos' => is_array($prog['completedLessons'] ?? null) ? count($prog['completedLessons']) : 0,
+                    'certificado_liberado' => $temCertificado ? 'Sim' : 'Não',
+                ];
+            }
+
             $concluidos = is_array($e['completedCourseIds'] ?? null) ? array_values($e['completedCourseIds']) : [];
             foreach ($concluidos as $i => $cursoId) {
                 $cert = $this->primeiro($certificados, static fn (array $c): bool => ($c['courseId'] ?? null) === $cursoId && ($c['userId'] ?? null) === ($e['userId'] ?? null));
@@ -338,8 +359,19 @@ final class BasesGerenciais
             default => '',
         };
 
+        /*
+         * Texto que começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro é lido como FÓRMULA
+         * pelo Excel e pelo Calc. O nome do aluno é digitado pelo próprio aluno (cadastro e "alterar
+         * nome"), e quem abre esta planilha é o administrador: `=HYPERLINK(...)` como nome mandaria
+         * dados para fora (achado da varredura de segurança de 23/10/2026). Um apóstrofo na frente
+         * faz a célula ser texto. Número de verdade (int/float) não passa por aqui.
+         */
+        if (is_string($valor) && preg_match('/^[=+\-@\t\r]/', $texto) === 1) {
+            $texto = "'".$texto;
+        }
+
         $escapado = str_replace('"', '""', $texto);
-        if (str_contains($escapado, ';') || str_contains($escapado, "\n") || str_contains($escapado, '"')) {
+        if (str_contains($escapado, ';') || str_contains($escapado, "\n") || str_contains($escapado, "\r") || str_contains($escapado, '"')) {
             return '"'.$escapado.'"';
         }
 

@@ -4,6 +4,7 @@ use App\Exceptions\ApiException;
 use App\Http\Middleware\AreaDoAdmin;
 use App\Http\Middleware\AreaDoAluno;
 use App\Http\Middleware\AreaDoInstrutor;
+use App\Http\Middleware\CabecalhosDaPaginaWeb;
 use App\Http\Middleware\FeatureGate;
 use App\Http\Middleware\IdentidadeOpcional;
 use App\Http\Middleware\JwtAuthenticate;
@@ -68,6 +69,9 @@ return Application::configure(basePath: dirname(__DIR__))
          * logada veria "Entrar" na home e acharia que a sessão caiu.
          */
         $middleware->web(append: [IdentidadeOpcional::class]);
+
+        // Em TODA resposta, inclusive o 404 de endereço que nenhuma rota atende (que não passa pelo grupo web).
+        $middleware->append(CabecalhosDaPaginaWeb::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

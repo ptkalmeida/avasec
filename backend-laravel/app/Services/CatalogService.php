@@ -18,10 +18,19 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final class CatalogService
 {
-    /** @return Collection<int, LibraryItem> */
-    public function listLibraryItems(): Collection
+    /**
+     * Itens da biblioteca na escada de visibilidade do papel (nulo = visitante, só o publicado).
+     * Esta lista alimenta `GET /api/library`, que é público: antes ela devolvia tudo,
+     * inclusive item restrito ou em rascunho, a qualquer visitante anônimo.
+     *
+     * @return Collection<int, LibraryItem>
+     */
+    public function listLibraryItems(?string $role = null): Collection
     {
-        return LibraryItem::all();
+        $consulta = LibraryItem::query();
+        Visibilidade::aplicar($consulta, $role);
+
+        return $consulta->get();
     }
 
     /**
@@ -75,10 +84,18 @@ final class CatalogService
         ]);
     }
 
-    /** @return Collection<int, WebinarEvent> */
-    public function listWebinars(): Collection
+    /**
+     * Webinars na escada de visibilidade do papel (nulo = visitante, só o publicado).
+     * `GET /api/webinars` é público; webinar restrito ou em rascunho não pode sair dele.
+     *
+     * @return Collection<int, WebinarEvent>
+     */
+    public function listWebinars(?string $role = null): Collection
     {
-        return WebinarEvent::all();
+        $consulta = WebinarEvent::query();
+        Visibilidade::aplicar($consulta, $role);
+
+        return $consulta->get();
     }
 
     /** @param array<string, mixed> $data */

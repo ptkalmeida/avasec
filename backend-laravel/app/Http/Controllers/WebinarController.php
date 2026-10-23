@@ -20,9 +20,10 @@ final class WebinarController extends Controller
         private readonly AuditLogger $audit,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json($this->catalog->listWebinars());
+        // O papel vem da sessão, se houver (`jwt.optional`): o visitante só recebe o publicado.
+        return response()->json($this->catalog->listWebinars($this->optionalRequester($request)['role'] ?? null));
     }
 
     public function store(Request $request): JsonResponse
