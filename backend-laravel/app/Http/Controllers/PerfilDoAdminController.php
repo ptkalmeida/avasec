@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
+use App\Support\SessaoJwt;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -71,13 +72,16 @@ final class PerfilDoAdminController extends Controller
         ]);
 
         try {
-            $this->auth->changePassword($admin['sub'], (string) $dados['novaSenha'], (string) $dados['senhaAtual']);
+            $novoToken = $this->auth->changePassword($admin['sub'], (string) $dados['novaSenha'], (string) $dados['senhaAtual']);
         } catch (ApiException $erro) {
             return back()->withErrors(['senhaAtual' => $erro->getMessage()], 'senha');
         }
 
         $this->audit->log($request, 'Alteração de Senha', 'Senha alterada pelo próprio usuário.');
 
-        return redirect('/admin/perfil/senha')->with('senhaAviso', 'Senha alterada. Use a nova senha no próximo acesso.');
+        // As outras sessões da conta foram encerradas; esta segue, com token novo (ADR 022).
+        return redirect('/admin/perfil/senha')
+            ->with('senhaAviso', 'Senha alterada. Use a nova senha no próximo acesso.')
+            ->withCookie(SessaoJwt::cookie($novoToken));
     }
 }

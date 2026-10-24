@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
+use App\Support\SessaoJwt;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -111,14 +112,17 @@ final class PerfilDoAlunoController extends Controller
         try {
             // A senha atual é conferida DENTRO do service, como na API: sem
             // ela, uma sessão sequestrada trocaria a senha e tomaria a conta.
-            $this->auth->changePassword($aluno['sub'], (string) $dados['novaSenha'], (string) $dados['senhaAtual']);
+            $novoToken = $this->auth->changePassword($aluno['sub'], (string) $dados['novaSenha'], (string) $dados['senhaAtual']);
         } catch (ApiException $erro) {
             return back()->withErrors(['senhaAtual' => $erro->getMessage()], 'senha');
         }
 
         $this->audit->log($request, 'Alteração de Senha', 'Senha alterada pelo próprio usuário.');
 
-        return redirect('/aluno/perfil')->with('perfilAviso', 'Senha alterada. Use a nova senha no próximo acesso.');
+        // As outras sessões da conta foram encerradas; esta segue, com token novo (ADR 022).
+        return redirect('/aluno/perfil')
+            ->with('perfilAviso', 'Senha alterada. Use a nova senha no próximo acesso.')
+            ->withCookie(SessaoJwt::cookie($novoToken));
     }
 
     /**

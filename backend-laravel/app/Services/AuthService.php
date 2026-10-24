@@ -11,8 +11,10 @@ use App\Support\Cpf;
 use App\Support\Fuso;
 use App\Support\InstructorScope;
 use App\Support\Jwt;
+use App\Support\Sessoes;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 
 /**
  * Regras de negócio de autenticação — espelha src/server/services/authService.ts.
@@ -26,7 +28,11 @@ use Illuminate\Support\Facades\DB;
  */
 final class AuthService
 {
+    /** Erros de senha por (identificador, rede) até travar ESSE acesso — não a conta de quem se conhece o CPF. */
     private const MAX_FAILED_ATTEMPTS = 5;
+
+    /** Erros somados, vindos de qualquer rede, até travar a conta para todos (força bruta distribuída). */
+    private const MAX_FAILED_ATTEMPTS_CONTA = 30;
 
     private const LOCKOUT_MINUTES = 15;
 
@@ -35,7 +41,7 @@ final class AuthService
     /**
      * @param  array{name:string,email:string,password:string,role?:string|null,cpf?:string|null,municipio?:string|null,uf?:string|null,areaInteresse?:string|null,dataCadastro?:string|null,celular?:string|null,cep?:string|null,endereco?:string|null,nomeSocial?:string|null,identidade?:string|null}  $input
      * @param  array{sub:string,name:string,role:string}|null  $requester
-     * @return array{token: string|null, user: PublicUser}
+     * @return array{token: string|null, user: PublicUser, duplicado?: bool}
      */
     public function register(array $input, ?array $requester): array
     {
@@ -46,7 +52,8 @@ final class AuthService
             throw ApiException::forbidden('Apenas administradores podem criar contas de instrutor ou administrador.');
         }
 
-        if (User::query()->where('email', $input['email'])->exists()) {
+        $emailJaExiste = User::query()->withTrashed()->where('email', $input['email'])->exists();
+        if ($emailJaExiste && $isAdminProvisioning) {
             throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este e-mail.');
         }
 
@@ -55,8 +62,32 @@ final class AuthService
         $cpf = isset($input['cpf']) && $input['cpf'] !== ''
             ? Cpf::normalize($input['cpf'])
             : null;
-        if ($cpf !== null && User::query()->where('cpf', $cpf)->exists()) {
+        $cpfJaExiste = $cpf !== null && User::query()->withTrashed()->where('cpf', $cpf)->exists();
+        if ($cpfJaExiste && $isAdminProvisioning) {
             throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este CPF.');
+        }
+
+        /*
+         * Cadastro PÚBLICO com e-mail ou CPF que já existem: a resposta é a mesma de um
+         * cadastro novo, e nada é gravado (ADR 022). O 409 confirmava a qualquer visitante
+         * quem é aluno da escola. Quem já tem conta lê, na própria mensagem da tela, que
+         * deve entrar com CPF e senha; a tentativa fica na trilha de auditoria (`duplicado`).
+         * O hash roda mesmo assim para o tempo de resposta não denunciar o caso.
+         */
+        if ($emailJaExiste || $cpfJaExiste) {
+            $this->hash($input['password']);
+
+            return [
+                'token' => null,
+                'duplicado' => true,
+                'user' => [
+                    'id' => $this->generateId(),
+                    'name' => $input['name'],
+                    'email' => $input['email'],
+                    'role' => 'student',
+                    'status' => 'pending_confirmation',
+                ],
+            ];
         }
 
         $role = 'student';
@@ -99,12 +130,25 @@ final class AuthService
     }
 
     /**
-     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string,role?:string|null}  $input
+     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string,role?:string|null,ip?:string|null}  $input
      * @return array{token: string, user: PublicUser}
      */
     public function login(array $input): array
     {
         $papel = $input['role'] ?? null;
+
+        /*
+         * Bloqueio por (identificador, rede), e não só por conta (ADR 022). Antes, 5 senhas
+         * erradas de QUALQUER lugar trancavam a conta por 15 min: quem sabe o CPF de alguém
+         * a trancava à vontade. Agora cada rede tem o próprio contador, então quem erra de
+         * propósito tranca só o próprio acesso. O contador conta também identificador que não
+         * existe, para que o 429 não revele quais CPFs têm conta. A conta só trava para todos
+         * após MAX_FAILED_ATTEMPTS_CONTA erros somados (força bruta vinda de muitas redes).
+         */
+        $chaveDeFalha = self::chaveDeFalha($input);
+        if (RateLimiter::tooManyAttempts($chaveDeFalha, self::MAX_FAILED_ATTEMPTS)) {
+            throw self::contaTravada();
+        }
 
         // Três identificadores possíveis (ADR 11): CPF é o do aluno; e-mail é o
         // de admin/gestor; `name` permanece para as contas demo internas.
@@ -135,20 +179,18 @@ final class AuthService
 
         // Mensagem genérica sempre — nunca revela se o identificador existe.
         if ($user === null) {
+            RateLimiter::hit($chaveDeFalha, self::LOCKOUT_MINUTES * 60);
             throw ApiException::unauthorized('Usuário ou senha inválidos.');
         }
 
         if ($user->lockedUntil !== null && $user->lockedUntil->isFuture()) {
-            throw new ApiException(
-                429,
-                'ACCOUNT_LOCKED',
-                'Conta temporariamente bloqueada após várias tentativas de login. Tente novamente em alguns minutos.',
-            );
+            throw self::contaTravada();
         }
 
         if (! password_verify($input['password'], $user->passwordHash)) {
+            RateLimiter::hit($chaveDeFalha, self::LOCKOUT_MINUTES * 60);
             $nextAttempts = $user->failedLoginAttempts + 1;
-            $shouldLock = $nextAttempts >= self::MAX_FAILED_ATTEMPTS;
+            $shouldLock = $nextAttempts >= self::MAX_FAILED_ATTEMPTS_CONTA;
             $user->failedLoginAttempts = $shouldLock ? 0 : $nextAttempts;
             $user->lockedUntil = $shouldLock
                 ? CarbonImmutable::now()->addMinutes(self::LOCKOUT_MINUTES)
@@ -157,6 +199,7 @@ final class AuthService
             throw ApiException::unauthorized('Usuário ou senha inválidos.');
         }
 
+        RateLimiter::clear($chaveDeFalha);
         if ($user->failedLoginAttempts > 0 || $user->lockedUntil !== null) {
             $user->failedLoginAttempts = 0;
             $user->lockedUntil = null;
@@ -210,7 +253,11 @@ final class AuthService
             && password_verify($senha, $user->passwordHash);
     }
 
-    public function changePassword(string $userId, string $newPassword, string $currentPassword): void
+    /**
+     * Troca a própria senha e encerra TODAS as sessões da conta (ADR 022); devolve o token
+     * da sessão atual, que continua valendo, para o controller reemitir o cookie.
+     */
+    public function changePassword(string $userId, string $newPassword, string $currentPassword): string
     {
         $user = User::query()->find($userId);
         if ($user === null) {
@@ -225,6 +272,9 @@ final class AuthService
 
         $user->passwordHash = $this->hash($newPassword);
         $user->save();
+        Sessoes::encerrarTodas($user->id);
+
+        return Jwt::issue($user->id, $user->name, $user->role);
     }
 
     /**
@@ -245,6 +295,8 @@ final class AuthService
 
         $user->passwordHash = $this->hash($newPassword);
         $user->save();
+        // Redefinir é, quase sempre, retomar uma conta em risco: quem a tinha aberta sai (ADR 022).
+        Sessoes::encerrarTodas($user->id);
 
         return $this->toPublicUser($user);
     }
@@ -301,8 +353,15 @@ final class AuthService
         if (! in_array($status, ['active', 'blocked', 'pending_confirmation'], true)) {
             throw ApiException::validation('Status de conta inválido.');
         }
+        $estavaAtiva = $user->status === 'active';
         $user->status = $status;
         $user->save();
+        // Conta bloqueada já é recusada a cada requisição, com a mensagem certa (403, e não 401).
+        // O que o bloqueio não pode fazer é deixar o token de antes VOLTAR a valer quando a conta
+        // for reativada: reativar encerra as sessões antigas, e a pessoa entra com login novo (ADR 022).
+        if ($status === 'active' && ! $estavaAtiva) {
+            Sessoes::encerrarTodas($user->id);
+        }
 
         return $this->toPublicUser($user);
     }
@@ -396,6 +455,31 @@ final class AuthService
         }
 
         return $public;
+    }
+
+    /**
+     * Chave do contador de erros: identificador normalizado + papel + rede.
+     *
+     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string,role?:string|null,ip?:string|null}  $input
+     */
+    private static function chaveDeFalha(array $input): string
+    {
+        $cpf = $input['cpf'] ?? null;
+        $email = $input['email'] ?? null;
+        $identificador = ! empty($cpf)
+            ? 'cpf:'.Cpf::normalize((string) $cpf)
+            : (! empty($email) ? 'email:'.mb_strtolower((string) $email) : 'nome:'.mb_strtolower((string) ($input['name'] ?? '')));
+
+        return 'login-falha:'.sha1($identificador.'|'.($input['role'] ?? '').'|'.($input['ip'] ?? ''));
+    }
+
+    private static function contaTravada(): ApiException
+    {
+        return new ApiException(
+            429,
+            'ACCOUNT_LOCKED',
+            'Conta temporariamente bloqueada após várias tentativas de login. Tente novamente em alguns minutos.',
+        );
     }
 
     private function hash(string $password): string

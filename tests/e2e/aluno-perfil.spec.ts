@@ -36,7 +36,7 @@ test.describe('Perfil do aluno — tela em Blade', () => {
   });
 
   test('sair da conta encerra a sessão', async ({ page }) => {
-    await entrarComoAluno(page);
+    await entrarComoAluno(page, undefined, true);
     await page.goto('/aluno/perfil');
 
     await page.getByRole('button', { name: /^Sair da conta$/ }).click();

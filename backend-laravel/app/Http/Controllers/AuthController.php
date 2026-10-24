@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Http\Middleware\JwtAuthenticate;
 use App\Rules\CepRule;
 use App\Rules\CpfRule;
 use App\Rules\StrongPasswordRule;
@@ -13,6 +14,7 @@ use App\Services\AuditLogger;
 use App\Services\AuthService;
 use App\Support\IdentificadorParaLog;
 use App\Support\SessaoJwt;
+use App\Support\Sessoes;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -84,11 +86,17 @@ final class AuthController extends Controller
             'nomeSocial' => $this->optionalString($data, 'nomeSocial'),
             'identidade' => $this->optionalString($data, 'identidade'),
         ], $this->optionalRequester($request));
-        $this->audit->log(
-            $request,
-            'Cadastro de Usuário',
-            "Nova conta criada: {$result['user']['name']} ({$result['user']['role']}, status {$result['user']['status']}).",
-        );
+        if ($result['duplicado'] ?? false) {
+            // A resposta ao visitante é igual à de um cadastro novo (ADR 022); a coordenação vê aqui.
+            $this->audit->log($request, 'Cadastro de Usuário', 'Cadastro público recusado em silêncio: e-mail ou CPF já existem (nenhuma conta criada).', 'WARNING');
+            unset($result['duplicado']);
+        } else {
+            $this->audit->log(
+                $request,
+                'Cadastro de Usuário',
+                "Nova conta criada: {$result['user']['name']} ({$result['user']['role']}, status {$result['user']['status']}).",
+            );
+        }
 
         $response = response()->json($result, 201);
         if ($result['token'] !== null) {
@@ -133,6 +141,7 @@ final class AuthController extends Controller
                 'cpf' => $this->optionalString($data, 'cpf'),
                 'password' => $this->stringField($data, 'password'),
                 'role' => $this->optionalString($data, 'role'),
+                'ip' => $request->ip(),
             ]);
         } catch (Throwable $err) {
             $this->audit->log($request, 'Tentativa Fracassada', 'Falha de login para o identificador: '.IdentificadorParaLog::de($identifier).'.', 'FAILED');
@@ -147,8 +156,11 @@ final class AuthController extends Controller
         return response()->json($result)->withCookie($this->sessionCookie($result['token']));
     }
 
-    public function logout(): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
+        // Cancela o token no servidor, e não só o cookie (ADR 022): só este aparelho sai.
+        Sessoes::encerrarEsta(JwtAuthenticate::extractToken($request));
+
         return response()->json(['success' => true])->withCookie(SessaoJwt::esquecer());
     }
 
@@ -169,10 +181,11 @@ final class AuthController extends Controller
         ]);
 
         $sub = $this->requester($request)['sub'];
-        $this->auth->changePassword($sub, $this->stringField($data, 'newPassword'), $this->stringField($data, 'currentPassword'));
+        $novoToken = $this->auth->changePassword($sub, $this->stringField($data, 'newPassword'), $this->stringField($data, 'currentPassword'));
         $this->audit->log($request, 'Alteração de Senha', 'Senha alterada pelo próprio usuário.');
 
-        return response()->json(['success' => true]);
+        // As outras sessões da conta foram encerradas; esta continua, com token novo (ADR 022).
+        return response()->json(['success' => true])->withCookie($this->sessionCookie($novoToken));
     }
 
     /**

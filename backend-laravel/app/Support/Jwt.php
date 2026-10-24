@@ -27,6 +27,10 @@ final class Jwt
                 'role' => $role,
                 'iat' => $now,
                 'exp' => $now + self::TTL_SECONDS,
+                // Sessão revogável (ADR 022): `sv` é a versão da sessão da conta no
+                // momento da emissão; `jti` identifica este token para o "Sair".
+                'sv' => Sessoes::versaoDe($sub),
+                'jti' => bin2hex(random_bytes(16)),
             ],
             self::secret(),
             'HS256',

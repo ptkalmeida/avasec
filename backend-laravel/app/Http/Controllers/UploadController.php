@@ -25,8 +25,16 @@ final class UploadController extends Controller
             throw ApiException::validation('Nenhum arquivo enviado.');
         }
 
+        $requester = $this->requester($request);
         $visibility = $request->query('visibility') === 'private' ? 'private' : 'public';
-        $result = $this->uploads->store($file, $visibility, $this->requester($request)['sub']);
+
+        // A pasta pública é aberta a qualquer visitante, com o endereço da escola (ADR 022).
+        // Aluno só envia arquivo privado (a entrega dele); material público é de instrutor e admin.
+        if ($visibility === 'public' && $requester['role'] === 'student') {
+            throw ApiException::forbidden('Alunos enviam apenas arquivos privados. Use visibility=private.');
+        }
+
+        $result = $this->uploads->store($file, $visibility, $requester['sub']);
 
         return response()->json($result, 201);
     }

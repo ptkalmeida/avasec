@@ -28,8 +28,12 @@ const emitidos = new Map<string, string>();
  * no repositório — nem devem estar. Tentar adivinhar já bloqueou uma conta aqui
  * (5 erros = 15 min). O token vale 12 h e não altera nada no banco.
  */
-export function emitirToken(email: string): string {
-  const emCache = emitidos.get(email);
+export function emitirToken(email: string, sessaoPropria = false): string {
+  /*
+   * `sessaoPropria`: token novo, fora do cache. O "Sair" cancela o token no servidor (ADR 022),
+   * então um teste que sai da conta com o token compartilhado derrubaria todos os seguintes.
+   */
+  const emCache = sessaoPropria ? undefined : emitidos.get(email);
   if (emCache !== undefined) return emCache;
 
   const php = `
@@ -52,7 +56,7 @@ export function emitirToken(email: string): string {
     );
   }
 
-  emitidos.set(email, token);
+  if (!sessaoPropria) emitidos.set(email, token);
 
   return token;
 }
@@ -65,8 +69,12 @@ export function emitirToken(email: string): string {
  * "Estudos" em 375 px — e o harness anterior, que casava texto, falhava calado nas
  * larguras estreitas. Rota não muda de nome com a janela.
  */
-export async function entrarComoAluno(page: Page, email = 'joao.silva@lms.edu'): Promise<void> {
-  const token = emitirToken(email);
+export async function entrarComoAluno(
+  page: Page,
+  email = 'joao.silva@lms.edu',
+  sessaoPropria = false,
+): Promise<void> {
+  const token = emitirToken(email, sessaoPropria);
 
   /*
    * `localhost` e `127.0.0.1` são origens diferentes para o cookie. O padrão do
@@ -121,8 +129,12 @@ export async function abrirPrimeiraAula(page: Page): Promise<void> {
  * Mesma emissão de token do aluno: a conta de demonstração do gestor é
  * `professor@avasec.local`, e a senha dela não está no repositório.
  */
-export async function entrarComoInstrutor(page: Page, email = 'professor@avasec.local'): Promise<void> {
-  const token = emitirToken(email);
+export async function entrarComoInstrutor(
+  page: Page,
+  email = 'professor@avasec.local',
+  sessaoPropria = false,
+): Promise<void> {
+  const token = emitirToken(email, sessaoPropria);
   const base = process.env.AVASEC_URL ?? 'http://localhost:8000';
 
   await page.context().addCookies([

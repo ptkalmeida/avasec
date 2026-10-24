@@ -13,6 +13,7 @@ use App\Services\AuditLogger;
 use App\Services\AuthService;
 use App\Support\IdentificadorParaLog;
 use App\Support\SessaoJwt;
+use App\Support\Sessoes;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -94,6 +95,7 @@ final class AutenticacaoWebController extends Controller
                 'name' => null,
                 'password' => (string) $dados['senha'],
                 'role' => $papel,
+                'ip' => $request->ip(),
             ]);
         } catch (Throwable $erro) {
             $this->audit->log($request, 'Tentativa Fracassada', 'Falha de login para o identificador: '.IdentificadorParaLog::de($identificador).'.', 'FAILED');
@@ -132,6 +134,8 @@ final class AutenticacaoWebController extends Controller
      */
     public function sair(Request $request): RedirectResponse
     {
+        // Cancela o token no servidor, e não só o cookie (ADR 022): só este aparelho sai.
+        Sessoes::encerrarEsta(JwtAuthenticate::extractToken($request));
         $this->audit->log($request, 'Encerramento de Sessão', 'Logout efetuado.');
 
         return redirect('/')->withCookie(SessaoJwt::esquecer());
@@ -172,7 +176,7 @@ final class AutenticacaoWebController extends Controller
         ])->validate();
 
         try {
-            $this->auth->register([
+            $resultado = $this->auth->register([
                 'name' => (string) $dados['name'],
                 'email' => mb_strtolower(trim((string) $dados['email'])),
                 'password' => (string) $dados['password'],
@@ -192,12 +196,19 @@ final class AutenticacaoWebController extends Controller
                 ->withErrors(['entrada' => $erro instanceof ApiException ? $erro->getMessage() : 'Não foi possível concluir o cadastro.']);
         }
 
-        $this->audit->log($request, 'Cadastro de Usuário', 'Cadastro público recebido (aguardando confirmação).');
+        // Dado já existente: a tela responde igual, e a coordenação vê o caso aqui (ADR 022).
+        $duplicado = $resultado['duplicado'] ?? false;
+        $this->audit->log(
+            $request,
+            'Cadastro de Usuário',
+            $duplicado ? 'Cadastro público recusado em silêncio: e-mail ou CPF já existem (nenhuma conta criada).' : 'Cadastro público recebido (aguardando confirmação).',
+            $duplicado ? 'WARNING' : 'SUCCESS',
+        );
 
         return redirect('/entrar')->with(
             'aviso',
             'Cadastro recebido com sucesso. Seu acesso será liberado assim que a coordenação da '
-            .'Escola Estadual da Cultura RJ confirmar sua matrícula. Depois da confirmação, entre com seu CPF e senha.',
+            .'Escola Estadual da Cultura RJ confirmar sua matrícula. Depois da confirmação, entre com seu CPF e senha. Se você já tem cadastro, entre com seu CPF e sua senha.',
         );
     }
 

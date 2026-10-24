@@ -152,7 +152,7 @@ test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
   });
 
   test('sair da conta encerra a sessão', async ({ page }) => {
-    await entrarComoInstrutor(page);
+    await entrarComoInstrutor(page, undefined, true);
 
     await page.getByRole('button', { name: /^Sair$/ }).click();
 
