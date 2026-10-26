@@ -1,296 +1,197 @@
-# Deploy de produção — AVASEC (Laravel + Blade)
+# Entrega do AVASEC — Docker → Harbor → HML → PRD
 
-Documento de referência para o **corte final** da migração Node → Laravel: como
-colocar em produção a topologia decidida (Nginx na frente de PHP-FPM/Laravel; todas
-as telas são Blade/Livewire). Escrito para ser executado no VPS, fora deste
-ambiente de desenvolvimento.
+Guia de referência para colocar o AVASEC em homologação (HML) e produção (PRD), no fluxo que o
+Protocolo TI-SECEC pede (Documento B §3.7–3.8; Documento F, F.4 e F.12; Norma C.3 e C.11).
 
-> Contexto: este é o Passo 4 do plano de corte (ver `HARDENING.md`/histórico do
-> projeto). Os Passos 1-3 (baseline de migrations, validação da API 100% Laravel,
-> config de dev pós-corte) já foram concluídos e validados localmente. O Passo 5
-> (desligar o Node) é decisão sua, feita **depois** de validar este deploy.
+> **Reescrito em 26/10/2026** (plano 11, item F9). A versão anterior descrevia um VPS montado à
+> mão (Nginx e PHP-FPM instalados na máquina), que **conflita com a norma**: ela pede imagem
+> versionada no Harbor e **a mesma imagem** indo de HML para PRD. O guia de VPS segue no histórico
+> do git (`git log -- DEPLOY_LARAVEL.md`) para quem precisar.
+>
+> **Estado:** rascunho **validado só localmente**. Os nomes, as redes e a entrega das variáveis
+> podem mudar quando a TI definir o compose padrão (F.29 item 2). O desenho não muda.
 
-## Arquitetura alvo
+## Arquitetura
 
-> **Mudou em 08/10/2026 (ADR 017) e fechou na M7 (ADR 020).** O Laravel é a única
-> aplicação: a raiz do Nginx é `backend-laravel/public`, e não existe mais SPA React,
-> `dist/` nem fallback. Endereço que nenhuma rota atende é 404.
+O Laravel é a única aplicação (MPA — ADR 017 e 020): não há SPA, `dist/` nem fallback; endereço que
+nenhuma rota atende é 404 em Blade.
 
 ```
-[Navegador] ──HTTPS──> [Nginx]
-                          ├── /uploads/*     -> serve uploads/public/ (arquivos estáticos)
-                          ├── /build/*       -> arquivo estático de public/ (CSS/JS das telas)
-                          └── /*             -> PHP-FPM (Laravel) ─── tabela de rotas
-                                   │                                        │
-                                   │                       ┌────────────────┴────────────────┐
-                                   │                       ▼                                 ▼
-                                   │                 rota registrada                 nada bateu
-                                   │                 -> view Blade                   -> 404
-                                   └── MySQL 8
+[Navegador] ─HTTPS─> [ponto de entrada da TI: domínio, TLS, HSTS]
+                              │
+                              ▼
+                        ava-<amb>-web  (Nginx)
+                          ├── /uploads/*  -> arquivos públicos (volume; MinIO no futuro)
+                          ├── /build/*    -> estáticos de public/ (CSS e JS das telas)
+                          └── /*          -> FastCGI
+                              │
+                              ▼
+                        ava-<amb>-app   (PHP-FPM + Laravel) ──> MySQL 8 (base própria do ambiente)
+                        ava-<amb>-queue      (mesma imagem, `queue:work`)
+                        ava-<amb>-scheduler  (mesma imagem, `schedule:work`)
 ```
 
-Uma única origem (mesmo domínio) para tudo — front e API. Isso mantém o cookie de
-sessão `ava_session` (HttpOnly, SameSite=Lax) funcionando sem precisar de CORS
-cross-origin, exatamente como hoje.
+Uma origem só para tudo (tela e API): o cookie `ava_session` (HttpOnly, SameSite=Lax) funciona sem
+CORS.
 
-## 1. Preparar o servidor
+## O que existe no repositório
 
-Pacotes necessários (Ubuntu/Debian; adapte para sua distro):
+| Arquivo | Para quê |
+|---|---|
+| `docker/producao/Dockerfile` | Imagens `app` (PHP-FPM, queue e scheduler) e `web` (Nginx). Compila os assets (Vite + Tailwind), instala o Composer sem dev e **falha o build** se uma extensão PHP não carregar ou se o manifesto de assets não existir |
+| `docker/producao/entrypoint.sh` | Guarda a partida: recusa subir sem `APP_KEY`, `JWT_SECRET` e as variáveis do banco; faz o cache de config, rotas e telas. **Não roda migrations** |
+| `docker/producao/web.conf`, `upstream.conf` | O que é do ambiente no Nginx: raiz e destino do FastCGI |
+| `docker/nginx/avasec-locations.conf` | Os `location` — **o mesmo arquivo** do espelho local e da imagem |
+| `docker/nginx/avasec-cabecalhos.conf` | CSP e cabeçalhos de segurança — também compartilhado |
+| `docker-compose.hml.yml` | Os quatro containers, com nomes `ava-<ambiente>-<serviço>` (F.14) |
+| `docker/producao/hml.env.example` | Molde das variáveis. O real vem do Infisical (F.11) e nunca entra no repositório |
+| `docker-compose.espelho.yml` | Espelho **local** de produção (`npm run espelho:up`, porta 8080). Não é homologação |
+
+## 1. Construir e publicar a imagem
+
+A imagem é construída **uma vez**, a partir da versão aprovada, e é a mesma em HML e PRD.
 
 ```bash
-sudo apt update
-sudo apt install -y nginx php8.4-fpm php8.4-cli php8.4-mysql php8.4-mbstring \
-  php8.4-xml php8.4-curl php8.4-zip php8.4-bcmath php8.4-fileinfo php8.4-gd \
-  mysql-server composer nodejs npm certbot python3-certbot-nginx
+VERSAO=2026.10.26-1
+docker build -f docker/producao/Dockerfile --target app -t <harbor>/ava/app:$VERSAO .
+docker build -f docker/producao/Dockerfile --target web -t <harbor>/ava/web:$VERSAO .
+docker push <harbor>/ava/app:$VERSAO
+docker push <harbor>/ava/web:$VERSAO
 ```
 
-Ajuste a versão do PHP conforme disponível (8.2+ é o mínimo usado pelo projeto).
-O `php8.4-gd` é preventivo para o dompdf (PDF de certificados, ADR 09): o fluxo
-atual funciona sem ele (QR em SVG), mas qualquer logo raster futura no template
-exigiria a extensão.
+Requisitos do runtime: **PHP 8.4 ou superior** (o `composer.lock` exige 8.4.1; em 8.3 a aplicação
+não sobe) com `gd`, `pdo_mysql`, `bcmath`, `intl` e `zip`. A imagem usa PHP 8.5.
 
-## 2. Banco de dados
+## 2. Variáveis de ambiente
 
-- MySQL 8 já deve existir (ou suba um novo). Crie o banco e o usuário de produção:
+Tudo vem de variáveis, sem credencial em código. Molde em `docker/producao/hml.env.example`.
 
-```sql
-CREATE DATABASE avasec CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'avasec'@'localhost' IDENTIFIED BY '<senha-forte-gerada>';
-GRANT ALL PRIVILEGES ON avasec.* TO 'avasec'@'localhost';
-FLUSH PRIVILEGES;
-```
+Checklist de segurança do ambiente:
 
-- **Se for um banco novo** (sem os dados atuais): rode as migrations do Laravel
-  normalmente — elas criam o schema inteiro do zero, já que a baseline foi gerada
-  por introspection do schema real:
+- `JWT_SECRET` com **32 caracteres ou mais**, aleatório e **diferente em cada ambiente**. Trocá-lo
+  derruba todas as sessões.
+- `APP_DEBUG=false`. `APP_ENV=production` também em HML (é a mesma arquitetura, F.2): é com ele que
+  o cookie de sessão sai com `Secure`, o que **exige o domínio com TLS**.
+- `BCRYPT_ROUNDS=10`: mudar não invalida hashes antigos, mas mantém a compatibilidade.
+- Logs em container: `LOG_STACK=stderr_json`, `LOG_LEVEL=warning`, `LOG_APLICACAO=ava` — uma linha
+  JSON por registro, na saída de erro, para o Grafana Alloy coletar (C.7.2).
+- `UPLOADS_ROOT=/var/www/avasec/uploads` e `UPLOAD_MAX_SIZE_MB=15`. A cadeia de limites é
+  `app (15M) ≤ upload_max_filesize (20M) ≤ post_max_size (21M) ≤ client_max_body_size (20m)`; a
+  imagem e o Nginx já a respeitam.
+- `APP_URL` com o domínio público: sai impresso no QR dos certificados
+  (`CERT_VERIFICATION_BASE_URL` é opcional e, vazio, usa o `APP_URL`).
+- `SESSION_DRIVER=file`, `CACHE_STORE=file` e `QUEUE_CONNECTION=sync` — **não** `database`: as tabelas
+  `sessions`, `cache` e `jobs` não existem nas migrations, e com `database` toda tela responde 500
+  (defeito encontrado ao subir estas imagens, 26/10/2026). Em arquivo o estado é de cada container:
+  vale para **uma** instância `app`; com mais de uma, ou para os contadores de login (limitadores e
+  bloqueio por rede, ADR 022) sobreviverem a um reinício, use o Redis.
+- Redis (F1) e MinIO (F3), quando a TI entregar, entram só nestas variáveis. `REDIS_PREFIX` no padrão
+  `secec:ava:<ambiente>:` — HML e PRD nunca iguais.
 
+## 3. Banco de dados
+
+MySQL 8, **base própria do ambiente**, fora do container da aplicação (F.2, F.7). `utf8mb4` /
+`utf8mb4_unicode_ci`.
+
+- **Banco novo (o caso do HML):**
   ```bash
-  php artisan migrate --force
-  php artisan db:seed --force   # opcional: só se quiser os dados de demonstração
+  docker compose -f docker-compose.hml.yml run --rm app php artisan migrate --force
   ```
+  As migrations criam o schema inteiro. **Seeds de demonstração**
+  (`php artisan db:seed --force`) só em HML, e só com a decisão do responsável sobre os dados; nunca
+  em PRD. As contas de demonstração têm senhas rotacionadas (08/09/2026) e as atuais não estão no
+  repositório: forneça as credenciais de teste à escola por canal seguro.
+- **Migrar um banco existente (PRD com dados reais):** restaure o `mysqldump` e **não** rode
+  `migrate` do zero — as tabelas já existem. Rode `php artisan migrate:install` e marque a baseline
+  como aplicada; confirme com `php artisan migrate:status`. Antes de qualquer `migrate` em dados
+  reais: backup (F.7) e ensaio numa cópia.
+- As migrations só acrescentam (ADR 12): nada é apagado, e o `down()` não remove coluna de dado
+  histórico.
 
-- **Se for migrar o banco de dados atual** (com alunos/cursos reais já cadastrados):
-  faça um `mysqldump` do banco atual e restaure no MySQL de produção. **Não rode
-  `php artisan migrate`** nesse caso — as tabelas já existem; em vez disso, rode
-  `php artisan migrate:install` (cria só a tabela de controle `migrations`) e marque
-  a baseline como aplicada, do mesmo jeito que foi feito em dev (ver histórico do
-  projeto — Passo 1 do corte). Confirme com `php artisan migrate:status`.
+**Norma C.2.5:** depois de HML/PRD no ar, **não se altera o tipo de coluna**. As migrations deste
+ciclo são aditivas.
 
-## 3. Deploy do Laravel (`backend-laravel/`)
-
-```bash
-cd /var/www/avasec/backend-laravel
-composer install --no-dev --optimize-autoloader
-cp .env.example .env   # ajuste os valores abaixo
-php artisan key:generate
-
-# .env de produção — valores obrigatórios:
-#   APP_ENV=production
-#   APP_DEBUG=false
-#   APP_URL=https://seu-dominio.com
-#   JWT_SECRET=<mesmo formato do Node: >=32 caracteres, aleatório>
-#   BCRYPT_ROUNDS=10   (mantém compatibilidade com hashes já emitidos)
-#   DB_CONNECTION=mysql / DB_HOST / DB_DATABASE / DB_USERNAME / DB_PASSWORD
-#   SESSION_DRIVER=file (ou redis, se preferir)
-#   CACHE_STORE=file
-#   QUEUE_CONNECTION=sync
-#   UPLOADS_ROOT=/var/www/avasec/uploads   (pasta compartilhada, ver seção 5)
-#   UPLOAD_MAX_SIZE_MB=15
-#   LOG_CHANNEL=stack
-#   LOG_STACK=daily        (um arquivo por dia, nunca um laravel.log único crescendo)
-#   LOG_DAILY_DAYS=14      (retenção: arquivos mais antigos são descartados)
-#   LOG_LEVEL=warning      (em produção; debug só em desenvolvimento)
-#   Em container (Norma TI-SECEC C.7.2): LOG_STACK=stderr_json e LOG_APLICACAO=ava —
-#   uma linha JSON por registro, com app e env, coletada pelo Grafana Alloy.
-
-php artisan config:cache
-php artisan route:cache
-php artisan optimize
-```
-
-**Checklist de segurança do `.env` de produção** (mesmas exigências já aplicadas no
-backend Node — ver `HARDENING.md`):
-- `JWT_SECRET` com no mínimo 32 caracteres, gerado aleatoriamente — nunca o valor de
-  desenvolvimento.
-- `APP_DEBUG=false` (nunca expor stack trace).
-- `BCRYPT_ROUNDS=10` — mudar isso invalida a comparação com hashes antigos só se você
-  também mudar o algoritmo; manter em 10 preserva compatibilidade.
-- **Log com rotação** (`LOG_STACK=daily` + `LOG_DAILY_DAYS`). Com o canal `single`, o
-  `laravel.log` cresce sem limite: no ambiente de desenvolvimento chegou a 955 MB, a
-  ~100 MB por dia, com um único usuário testando. Disco cheio em produção derruba a
-  aplicação inteira. As negativas de acesso (401/403) já são gravadas como `warning`
-  sem stack trace (`bootstrap/app.php`), o que corta a maior parte do volume; a rotação
-  é a segunda barreira. Se preferir o `logrotate` do sistema, aponte-o para
-  `storage/logs/*.log` e mantenha `LOG_STACK=single`.
-
-## 4. Build dos assets (Vite)
+## 4. Subir
 
 ```bash
-cd /var/www/avasec
-npm ci
-npm run build   # gera backend-laravel/public/build
+export AMBIENTE=hml REGISTRY=<harbor>/ava VERSAO=2026.10.26-1 ENV_FILE=/caminho/do/hml.env
+docker compose -f docker-compose.hml.yml pull
+docker compose -f docker-compose.hml.yml run --rm app php artisan migrate --force   # só quando houver migration
+docker compose -f docker-compose.hml.yml up -d
 ```
 
-O build só compila o CSS e o JS das telas Blade (Tailwind, FontAwesome). O Nginx os
-serve de `public/build` como qualquer arquivo estático. Rode o build a cada deploy
-(CI/CD ou manual): sem ele as telas saem sem estilo.
+O `web` expõe HTTP puro na porta `WEB_PORT` (padrão `127.0.0.1:8090`). **TLS, domínio e HSTS são do
+ponto de entrada da TI**, na frente do `web`. O HSTS
+(`Strict-Transport-Security: max-age=31536000; includeSubDomains`) é adicionado lá, e não na imagem,
+porque só vale com HTTPS.
 
-## 5. Uploads compartilhados
+## 5. Cabeçalhos de segurança e a CSP
 
-A pasta `uploads/` (com `public/` e `private/`) deve existir num caminho estável e
-ser apontada:
-- No `.env` do Laravel: `UPLOADS_ROOT=/var/www/avasec/uploads`. Para o QR dos
-  PDFs de certificado, `CERT_VERIFICATION_BASE_URL` é opcional (default `APP_URL`
-  — em produção, garanta `APP_URL=https://seu-dominio.com`).
-- No Nginx: `location /uploads/` aponta para `uploads/public/` (ver config abaixo).
-  Arquivos **privados** nunca são servidos estaticamente — só via
-  `GET /api/files/:id` (autorizado, através do PHP-FPM).
+`docker/nginx/avasec-cabecalhos.conf` é a fonte única; o espelho local e a imagem o incluem.
 
-Garanta permissão de escrita para o usuário do PHP-FPM (`www-data` por padrão):
+- **`script-src 'self' 'unsafe-eval'`**: o Alpine.js (embutido no Livewire 4) compila as expressões
+  das telas com `new Function`. Sem `'unsafe-eval'`, o menu, as perguntas da Ajuda e a prévia do
+  editor **param de funcionar atrás do Nginx** (e funcionam no servidor de desenvolvimento, que não
+  tem Nginx — foi assim que o defeito apareceu). **Não há `'unsafe-inline'`**: script embutido segue
+  bloqueado. Retirar o `'unsafe-eval'` exige trocar o Alpine pelo build CSP e reescrever as
+  expressões das 21 telas; é melhoria registrada, e a troca é uma linha neste arquivo.
+- **`fonts.googleapis.com` e `fonts.gstatic.com`**: o layout usa Inter e Playfair Display do Google
+  Fonts. Hospedá-las no servidor tira essa dependência.
+- **`Referrer-Policy: strict-origin-when-cross-origin`**: `no-referrer` quebrava o player do YouTube.
 
-```bash
-sudo mkdir -p /var/www/avasec/uploads/{public,private}
-sudo chown -R www-data:www-data /var/www/avasec/uploads
-sudo chmod -R 750 /var/www/avasec/uploads/private
-sudo chmod -R 755 /var/www/avasec/uploads/public
-```
+O bloco `/uploads/` repete os cabeçalhos de propósito: um `add_header` dentro de `location` descarta
+os herdados, e o conteúdo é de terceiros, na mesma origem do cookie.
 
-## 6. Configuração do Nginx
+## 6. Uploads
 
-```nginx
-server {
-    listen 80;
-    server_name seu-dominio.com;
-    return 301 https://$host$request_uri;
-}
+Pasta `uploads/` (`public/` e `private/`) num **volume** compartilhado entre `app` (escreve) e `web`
+(serve `public/` em `/uploads/`). Arquivos **privados** nunca saem estaticamente: só por
+`GET /api/files/{id}`, autorizado, pelo PHP. Quando o MinIO (F3) chegar, o volume sai e a troca é de
+disco no Laravel Filesystem. Faça backup do volume (F.7).
 
-server {
-    listen 443 ssl http2;
-    server_name seu-dominio.com;
+## 7. Verificação pós-deploy
 
-    ssl_certificate     /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
+Rode **antes** de entregar à escola para aceite:
 
-    # A raiz é o Laravel (ADR 017, 020): a tabela de rotas dele decide tudo.
-    root /var/www/avasec/backend-laravel/public;
-    index index.php;
+- [ ] `curl -i https://<dominio>/` retorna a página inicial em HTML do Blade (sem `id="root"`) e traz
+      `Content-Security-Policy`, `X-Content-Type-Options` e `Strict-Transport-Security`.
+- [ ] `/health/live` e `/health/ready` respondem **JSON** 200 (HTML = o Nginx está sem o bloco de
+      saúde). `/sistema/status` abre a página.
+- [ ] `/api/health-laravel` retorna `{"status":"ok","database":"ok"}`.
+- [ ] No navegador, **os botões funcionam**: menu lateral, perguntas da Ajuda, prévia do editor de
+      aula. (Se não, a CSP está bloqueando; ver o console.)
+- [ ] Login por perfil (aluno por CPF; gestão e admin por e-mail) e o cookie `ava_session` como
+      HttpOnly e Secure (DevTools → Application → Cookies).
+- [ ] "Sair" encerra a sessão de verdade: reapresentar o token antigo dá 401 (ADR 022).
+- [ ] Upload público por instrutor funciona e carrega em `/uploads/...`; aluno recebe 403 no público;
+      upload privado: dono baixa (200), outro aluno não (403).
+- [ ] `php artisan migrate:status` com tudo `Ran`.
+- [ ] Logs dos quatro containers sem erro recorrente nas primeiras horas.
+- [ ] A suíte de testes (`php artisan test` e `npx playwright test`) rodou limpa **contra o espelho
+      local** (`npm run espelho:up`, `AVASEC_URL=http://localhost:8080`) antes de pedir o aceite. Nunca
+      contra um banco com dados reais.
 
-    client_max_body_size 20m; # >= UPLOAD_MAX_SIZE_MB, com folga
+## 8. Promoção de HML para PRD
 
-    # ---- Cabeçalhos de segurança (equivalente ao helmet do backend Node) ----
-    # CSP espelhando a política de produção anterior: bundle próprio, estilos inline
-    # (o app injeta <style> de acessibilidade), imagens/vídeos de catálogo em https
-    # (Unsplash/CDNs) e embeds do YouTube nas aulas.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' https:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-ancestors 'self'" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "no-referrer" always;
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-
-    # Arquivos públicos enviados pelos usuários (materiais, biblioteca).
-    # IMPORTANTE: um bloco `location` com `add_header` próprio DESCARTA todos os
-    # add_header herdados do server (inclusive os `always`). Como este conteúdo é
-    # controlado por terceiros e servido na MESMA origem do SPA (onde vive o cookie
-    # ava_session), os cabeçalhos de segurança precisam ser repetidos aqui — sem o
-    # `nosniff`, um arquivo malicioso viraria XSS same-origin. Servir como attachment
-    # (download) em vez de inline reduz ainda mais o risco de renderização no navegador.
-    location /uploads/ {
-        alias /var/www/avasec/uploads/public/;
-        add_header Content-Security-Policy "default-src 'none'" always;
-        add_header X-Content-Type-Options "nosniff" always;
-        add_header Referrer-Policy "no-referrer" always;
-        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-        add_header Content-Disposition "attachment" always;
-    }
-
-    # Os blocos `location` NÃO são escritos aqui. Eles vêm de
-    # docker/nginx/avasec-locations.conf, que é o mesmo arquivo executado pelo
-    # espelho local (`npm run espelho:up`). Duas cópias "parecidas" divergiriam,
-    # e a de produção é justamente a que ninguém executa antes do dia do deploy.
-    #
-    # Copie o arquivo para o servidor junto com o código, e crie o do upstream —
-    # a única linha do roteamento que difere entre produção e o espelho local:
-    #
-    #   cp /var/www/avasec/docker/nginx/avasec-locations.conf /etc/nginx/
-    #   echo 'fastcgi_pass unix:/run/php/php8.4-fpm.sock;' > /etc/nginx/avasec-upstream.conf
-    include /etc/nginx/avasec-locations.conf;
-}
-```
-
-Ative o site e emita o certificado:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/avasec /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo certbot --nginx -d seu-dominio.com
-```
-
-## 7. PHP-FPM
-
-Configuração padrão do pool (`/etc/php/8.3/fpm/pool.d/www.conf`) costuma servir bem
-para ~500 alunos. Ajuste `pm.max_children` conforme a memória disponível do VPS.
-
-**Limites de upload do PHP (obrigatório)**: o php.ini padrão limita uploads a
-**2 MB** (`upload_max_filesize`) e o corpo do POST a **8 MB** (`post_max_size`) —
-abaixo dos 15 MB da aplicação (`UPLOAD_MAX_SIZE_MB`) e dos 20 MB do Nginx
-(`client_max_body_size`). Sem este ajuste, uploads acima de 2 MB falham em produção
-mesmo com Nginx e aplicação corretos. Em `/etc/php/8.3/fpm/php.ini` (ou um drop-in
-`conf.d/99-avasec.ini`):
-
-```ini
-upload_max_filesize = 16M   ; >= UPLOAD_MAX_SIZE_MB da aplicação
-post_max_size = 20M         ; >= upload_max_filesize + folga do multipart
-```
-
-A cadeia deve manter `app (15M) <= upload_max_filesize <= post_max_size <=
-client_max_body_size (20m)`. Reinicie o serviço após alterar (`sudo systemctl
-restart php8.4-fpm`).
-
-Garanta que o serviço sobe no boot:
-
-```bash
-sudo systemctl enable php8.4-fpm --now
-```
-
-Sem PM2, sem processo Node em produção — o PHP-FPM é gerido pelo systemd como
-qualquer outro serviço padrão do Linux.
-
-## 8. Verificação pós-deploy (checklist)
-
-- [ ] `curl https://seu-dominio.com/` retorna a página inicial (HTML do Blade, sem `id="root"`).
-- [ ] `curl https://seu-dominio.com/api/health-laravel` retorna `{"status":"ok","database":"ok"}`.
-- [ ] `curl -i https://seu-dominio.com/health/ready` retorna **JSON** com status 200 (se vier
-      HTML, o Nginx está sem o bloco de saúde) e `/sistema/status` abre a página.
-- [ ] Login funciona no navegador e o cookie `ava_session` aparece como HttpOnly/Secure
-      (inspecionar em DevTools → Application → Cookies).
-- [ ] Upload de um arquivo público funciona e a URL retornada carrega via `/uploads/...`.
-- [ ] Upload privado: dono baixa (200), outro aluno não (403).
-- [ ] `php artisan migrate:status` mostra tudo `Ran` — nenhuma migration pendente.
-- [ ] Testes automatizados (`php artisan test` no `backend-laravel/`) rodam limpos
-      contra o banco de produção **antes** de liberar tráfego real (ou contra uma
-      cópia do banco, nunca direto em produção com dados reais).
-- [ ] Logs do Laravel (`storage/logs/laravel.log`) e do Nginx sem erros recorrentes
-      nas primeiras horas.
+A versão implantada em produção é a **homologada** (B §3.8): promova a **mesma tag** de imagem, sem
+reconstruir. O que muda é só o arquivo de variáveis (credenciais, domínio, capacidade). Registre a
+aceitação da escola (B §3.7) antes.
 
 ## 9. Rollback
 
-O Node foi descartado em 26/08/2026 (código removido do repositório — ver
-`MIGRACAO_LARAVEL.md`), então **não existe mais rollback para o backend Node**.
-O rollback hoje é: restaurar o backup do banco e reverter o deploy do
-Nginx/Laravel para a versão anterior.
+O backend Node foi descartado em 26/08/2026 e o React em 22/10/2026 (ADR 020): não há retorno para
+eles. O rollback é **a tag anterior da imagem** (`VERSAO=<anterior>` e `up -d`) mais, se a versão
+tiver migration, o backup do banco restaurado — as migrations só acrescentam, então a imagem
+anterior costuma rodar sobre o schema novo, mas confirme caso a caso.
 
-## 10. Pendências conhecidas (fora do escopo deste corte)
+## 10. Pendências conhecidas
 
-- **`POST /api/dev/reset`** (reset do banco para o seed, só em dev): ferramenta do
-  Node/Prisma, não migrada — não faz parte da API de produção. Se precisar do
-  equivalente em Laravel, criar um `php artisan db:seed --class=...` dedicado.
-- **Redis** (Norma TI-SECEC C.4): com mais de uma instância atrás do balanceador, o
-  limite de tentativas de login em cache `file` deixa de ser compartilhado. A troca é
-  só de configuração — `CACHE_STORE=redis`, `QUEUE_CONNECTION=redis`, `REDIS_PREFIX` no
-  padrão `secec:ava:<ambiente>:` (já é o padrão do código) e `CACHE_PREFIX=cache:`. Ver
-  `.env.example`. Sessão em Redis não se aplica: não há sessão no servidor (JWT).
-- **Plano de implantação vs. Protocolo TI-SECEC**: este guia descreve um VPS com
-  PHP-FPM. A norma pede Docker, imagem versionada no Harbor e a mesma imagem de HML
-  para PRD (C.11, F.4). A reescrita deste guia está no plano futuro
-  (`.ai/planejamento/11`, item F9) e depende da topologia definida pela TI.
-- **Serviço de vídeo dedicado**: continua fora do escopo do backend (Cloudflare
-  Stream/Bunny), como já documentado desde o início do projeto.
+- **Compose padrão da TI** (F.29 item 2) e entrega das variáveis pelo Infisical (F.11.2): este
+  rascunho ainda não foi validado com a TI.
+- **Redis, MinIO, Loki/Prometheus, ProxySQL** (F1, F3, F7, F11): dependem da TI; a aplicação está
+  pronta para cada um por configuração. Com mais de uma instância, o contador de erros de login em
+  cache de banco/arquivo deixa de ser compartilhado — Redis resolve.
+- **Queue e scheduler**: os containers existem pela norma (F.4.4), mas hoje nada usa fila nem agenda
+  tarefa.
+- **Fontes hospedadas no servidor** e **Alpine em build CSP**: melhorias de segurança da seção 5.
+- **Serviço de vídeo dedicado**: fora do escopo do backend (Cloudflare Stream/Bunny).

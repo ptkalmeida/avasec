@@ -29,3 +29,6 @@
 Dockerfile text eol=lf
 *.conf text eol=lf
 *.sh text eol=lf
+
+# Script de shell roda em Alpine: com CRLF o container nem parte ("not found").
+*.sh text eol=lf

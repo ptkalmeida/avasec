@@ -1,0 +1,70 @@
+# HML e PRD do AVASEC — os quatro containers da Norma TI-SECEC F.4.4: web, app, queue, scheduler.
+#
+# RASCUNHO, validado só localmente (plano 11, F4). O compose padrão da TI (F.29 item 2) pode
+# mudar nomes, redes e o modo de entrega das variáveis; o que não muda é o desenho: uma
+# imagem `app` (PHP-FPM, queue e scheduler) e uma `web` (Nginx), a mesma em HML e PRD.
+#
+# Nomes `ava-<ambiente>-<serviço>` (F.14). Variáveis do compose:
+#   AMBIENTE   hml | prd            (padrão hml)
+#   REGISTRY   endereço do Harbor   (padrão: imagem local, sem registry)
+#   VERSAO     tag da imagem        (padrão dev)
+#
+# Toda a configuração da aplicação vem do arquivo de variáveis (`docker/producao/hml.env.example`
+# é o molde; o real vem do Infisical, F.11, e NUNCA entra no repositório).
+#
+# Passos de uma entrega — ver DEPLOY_LARAVEL.md:
+#   docker compose -f docker-compose.hml.yml build
+#   docker compose -f docker-compose.hml.yml run --rm app php artisan migrate --force
+#   docker compose -f docker-compose.hml.yml up -d
+x-app: &app
+  image: ${REGISTRY:-ava}/app:${VERSAO:-dev}
+  build:
+    context: .
+    dockerfile: docker/producao/Dockerfile
+    target: app
+  env_file: ${ENV_FILE:-docker/producao/hml.env}
+  restart: unless-stopped
+  volumes:
+    # Uploads fora da imagem. Passa a ser o MinIO (F3) quando a TI o entregar; o volume é a
+    # ponte para o `web` servir /uploads/ e para os dois containers verem os mesmos arquivos.
+    - uploads:/var/www/avasec/uploads
+  networks: [ava]
+
+services:
+  app:
+    <<: *app
+    container_name: ava-${AMBIENTE:-hml}-app
+
+  queue:
+    <<: *app
+    container_name: ava-${AMBIENTE:-hml}-queue
+    # Hoje nada na aplicação usa fila (QUEUE_CONNECTION=sync); o container existe porque a
+    # norma o exige e porque ligar a fila, quando houver Redis (F1), é só configuração.
+    command: ["php", "artisan", "queue:work", "--tries=3", "--timeout=90", "--sleep=3"]
+
+  scheduler:
+    <<: *app
+    container_name: ava-${AMBIENTE:-hml}-scheduler
+    command: ["php", "artisan", "schedule:work"]
+
+  web:
+    image: ${REGISTRY:-ava}/web:${VERSAO:-dev}
+    build:
+      context: .
+      dockerfile: docker/producao/Dockerfile
+      target: web
+    container_name: ava-${AMBIENTE:-hml}-web
+    restart: unless-stopped
+    depends_on: [app]
+    ports:
+      # TLS, domínio e HSTS são do ponto de entrada da TI; aqui sai HTTP puro.
+      - "${WEB_PORT:-127.0.0.1:8090}:80"
+    volumes:
+      - uploads:/var/www/avasec/uploads:ro
+    networks: [ava]
+
+volumes:
+  uploads:
+
+networks:
+  ava:
