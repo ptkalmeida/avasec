@@ -12,6 +12,7 @@ use App\Models\QuizSubmission;
 use App\Models\StudentEnrollment;
 use App\Models\StudentProgress;
 use App\Support\BusinessRules;
+use App\Support\CourseAccess;
 use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
@@ -64,11 +65,22 @@ final class CertificateService
     public function verifyCertificatePublic(string $query): ?array
     {
         $trimmed = trim($query);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        /*
+         * O NOME tem de ser o nome completo, igual (a comparação do MySQL ignora caixa e acento).
+         * Antes era `LIKE %termo%`: `q=Ma`, ou só `%`, devolvia nome, curso, frequência e hash do
+         * primeiro aluno que casasse, e variando o termo se varria a lista de alunos pela rota
+         * pública (achado da varredura de segurança de 23/10/2026). A tela continua prometendo
+         * "código ou nome completo do aluno": quem já sabe o nome inteiro continua achando.
+         */
         $cert = Certificate::withTrashed()
             ->where(function ($q) use ($trimmed): void {
                 $q->where('id', $trimmed)
                     ->orWhere('verificationHash', $trimmed)
-                    ->orWhere('studentName', 'like', '%'.$trimmed.'%');
+                    ->orWhere('studentName', $trimmed);
             })
             ->first();
         if ($cert === null) {
@@ -109,6 +121,15 @@ final class CertificateService
         $course = Course::query()->with(['lessons', 'liveSessions'])->find($input['courseId']);
         if ($course === null) {
             throw ApiException::notFound('Curso não encontrado.');
+        }
+
+        /*
+         * O aluno precisa PERTENCER ao curso: matrícula, conclusão registrada ou admissão aprovada.
+         * Sem isto, quem forjava progresso num curso alheio (ou tinha progresso solto no banco)
+         * recebia certificado de um curso que nunca cursou. Vale para quem emite, inclusive o admin.
+         */
+        if (! CourseAccess::canAccess(['sub' => $userId, 'name' => '', 'role' => 'student'], $course->id)) {
+            throw ApiException::forbidden('Este aluno não participa do curso.');
         }
 
         // Instrutor emite certificado apenas nos cursos que leciona — a mesma regra
@@ -207,6 +228,49 @@ final class CertificateService
         ]);
 
         return $certificate->toArray();
+    }
+
+    /**
+     * O que ainda falta para o certificado de um curso sair — só leitura.
+     *
+     * Existe para a TELA não refazer a conta. A frequência é o número que
+     * decide a emissão, e tê-la calculada em dois lugares é como a tela passa a
+     * dizer 68% enquanto a emissão recusa por 64% — nenhum dos dois erra
+     * sozinho, e ninguém descobre qual está certo.
+     *
+     * As avaliações pendentes vêm junto porque desde a ADR 14 elas também
+     * seguram o certificado. O painel antigo só falava de frequência: com a
+     * frequência cumprida e uma prova em aberto, ele dizia "continue assistindo
+     * as aulas" para quem já tinha assistido todas.
+     *
+     * @return array{frequencia:int, minima:int, avaliacoesPendentes:list<string>, emite:bool}
+     */
+    public function situacaoParaCertificado(string $courseId, string $userId): array
+    {
+        $course = Course::query()->with(['lessons', 'liveSessions'])->find($courseId);
+
+        if ($course === null) {
+            return ['frequencia' => 0, 'minima' => BusinessRules::defaultMinAttendance(), 'avaliacoesPendentes' => [], 'emite' => false];
+        }
+
+        $progress = StudentProgress::query()
+            ->where('userId', $userId)
+            ->where('courseId', $courseId)
+            ->first();
+
+        return [
+            'frequencia' => $this->computeAttendancePercent($course, $progress),
+            'minima' => BusinessRules::courseMinAttendance($course->minAttendance),
+            'avaliacoesPendentes' => array_values($this->avaliacoesNaoAprovadas($courseId, $userId)),
+            /*
+             * Uma fonte só: a COLUNA `emiteCertificado` do curso, a que o admin e o
+             * instrutor editam (`NULL` conta como "emite": a coluna nasceu depois
+             * dos cursos que já existiam). Até 23/10/2026 também valia a convenção
+             * de escrever "Sem Certificado" na categoria; o responsável decidiu que
+             * vale o curso apenas, e nenhum curso usava a convenção.
+             */
+            'emite' => $course->emiteCertificado !== false,
+        ];
     }
 
     /**

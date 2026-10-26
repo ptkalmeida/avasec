@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ApiRequestHelpers;
+use App\Rules\SafeUrlRule;
 use App\Services\LearningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -145,7 +146,8 @@ final class LearningController extends Controller
         $data = $this->validateKeepingAll($request, [
             'exerciseId' => ['required', 'string', 'max:191'],
             'submissionText' => ['required', 'string', 'min:1', 'max:10000'],
-            'fileUrl' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            // Vira link na tela de correção: `javascript:` aqui executaria na sessão de quem corrige.
+            'fileUrl' => ['sometimes', 'nullable', 'string', 'max:2000', new SafeUrlRule],
             'fileName' => ['sometimes', 'nullable', 'string', 'max:300'],
         ]);
 

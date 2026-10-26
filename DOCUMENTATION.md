@@ -1,6 +1,6 @@
 # AVASEC — Documentação Técnica e Funcional (estado atual do código)
 
-> Documento gerado por inspeção direta do código-fonte em 2026-07-21. Nenhuma linha de código
+> Levantado por inspeção direta do código-fonte em 2026-07-21. Nenhuma linha de código
 > foi alterada para produzir este documento. Onde uma funcionalidade está desativada, simulada
 > ou apresenta alguma inconsistência entre frontend e backend, isso é dito explicitamente.
 

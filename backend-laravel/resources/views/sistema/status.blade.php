@@ -31,7 +31,7 @@
 <body>
 <main>
     <h1>Status do sistema</h1>
-    <p class="apoio">AVASEC — Escola Estadual da Cultura</p>
+    <p class="apoio">AVASEC — Escola Estadual da Cultura RJ</p>
 
     <ul>
         @foreach ($componentes as $nome => $ok)

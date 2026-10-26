@@ -6,7 +6,7 @@ Ambiente Virtual de Aprendizagem (AVA) institucional para Cultura e Economia Cri
 
 AVASEC ("Escola da Cultura") é uma plataforma completa de Ambiente Virtual de Aprendizagem, voltada à formação e qualificação profissional em Cultura e Economia Criativa por meio de **Cursos Livres**. O sistema oferece catálogo público de cursos, matrícula, consumo de aulas gravadas e ao vivo, acompanhamento de progresso, emissão de certificado digital com verificação pública e um painel administrativo completo para gestão da escola.
 
-O frontend é construído em **React + Vite + TypeScript**, consumindo uma API REST em **Laravel + MySQL**, com autenticação JWT em cookie HttpOnly e uma camada de segurança completa (rate limiting, RBAC, validação, auditoria e feature flags no servidor).
+A aplicação é **Laravel + MySQL** com telas em **Blade, Livewire e Tailwind** (MPA, ADR 017 e 020), e uma API REST sob `/api`, com autenticação JWT em cookie HttpOnly e uma camada de segurança completa (rate limiting, RBAC, validação, auditoria e feature flags no servidor).
 
 ## Stack e versões
 
@@ -20,17 +20,17 @@ tabela e o Documento de Arquitetura no mesmo ciclo da mudança.
 | | Laravel | 13.21.1 |
 | | firebase/php-jwt (sessão em JWT) | 7.1.0 |
 | Banco | MySQL (imagem `mysql:8.0`) | 8.0.46 |
-| Frontend | React / React DOM | 19.2.7 |
-| | React Router | 7.18.3 |
-| | TypeScript | 5.8.3 |
-| | Vite | 6.4.3 |
-| | Tailwind CSS | 4.3.0 |
+| Telas | Livewire (Alpine embutido) | 4.4.7 |
+| | Tailwind CSS | 4.3.3 |
+| | FontAwesome Free | 7.3.1 |
+| Build dos assets | Vite | 6.4.4 |
+| | TypeScript (testes e2e) | 5.8.3 |
 | Ferramentas | Node.js / npm | 22.22.3 / 10.9.8 |
 | | Docker (MySQL de desenvolvimento) | Docker Compose |
 | Qualidade | PHPUnit | 12.5.31 |
 | | PHPStan / Larastan (nível 9) | 2.2.5 / 3.10.0 |
 | | Laravel Pint | 1.29.3 |
-| | Vitest / Testing Library | 3.2.7 / 16.3.2 |
+| | Playwright (e2e) | 1.64.1 |
 
 Papel de cada tecnologia, e as bibliotecas de apoio: [TECNOLOGIAS.md](TECNOLOGIAS.md).
 
@@ -106,16 +106,18 @@ npm run api
 
 A API estará disponível em `http://127.0.0.1:8000`.
 
-### Subir o frontend (Vite)
+### Compilar os assets das telas
 
 ```bash
-npm run dev
+npm run build   # CSS/JS das telas Blade, em backend-laravel/public/build
 ```
 
 O sistema estará disponível em:
 
-- **Aplicação:** http://localhost:5173
-- **API:** http://127.0.0.1:8000/api (proxy automático via Vite em desenvolvimento)
+- **Aplicação:** http://127.0.0.1:8000
+- **API:** http://127.0.0.1:8000/api
+
+Para editar CSS com recarga automática, `npm run dev` sobe o Vite (porta 5174) ao lado do Laravel.
 
 ### Build de produção
 
@@ -199,15 +201,10 @@ O sistema possui três papéis (`role`), definidos no cadastro e verificados via
 
 ```
 avasec/
-├── server.ts                  # bootstrap do dev server (Vite)
-├── src/
-│   ├── App.tsx                 # shell da aplicação (landing pública + navegação por perfil)
-│   ├── context/LMSContext.tsx  # estado global do frontend + chamadas à API
-│   ├── components/             # AdminDashboard, InstructorDashboard, StudentDashboard...
-│   ├── config/features.ts      # feature flags
-│   └── types.ts                # tipos compartilhados frontend/backend
-├── backend-laravel/            # API REST (Laravel + Eloquent + MySQL)
-│   ├── routes/                 # roteadores por domínio
+├── backend-laravel/            # aplicação (Laravel + Blade/Livewire + Eloquent + MySQL)
+│   ├── resources/views/        # telas Blade (público, aluno, instrutor, admin)
+│   ├── resources/css/          # tokens e CSS das telas
+│   ├── routes/                 # web.php (telas) e api.php (API REST)
 │   ├── app/Http/Controllers/   # controllers
 │   ├── app/Services/           # regras de negócio
 │   ├── app/Http/Middleware/    # jwt, active, role, feature, SecurityHeaders
@@ -215,7 +212,7 @@ avasec/
 ├── legacy-node/                # backend Node/Express/Prisma anterior (arquivado)
 ├── db/init/                    # scripts de inicialização do MySQL
 ├── deploy/                     # configurações de Nginx / PM2
-├── tests/frontend/             # testes do frontend (Vitest)
+├── tests/e2e/                  # testes de tela em navegador real (Playwright)
 └── docker-compose.yml          # MySQL 8 local para desenvolvimento
 ```
 
@@ -225,19 +222,19 @@ avasec/
 | --- | --- |
 | `npm run db:up` / `db:down` | Sobe / derruba o MySQL via Docker |
 | `npm run api` | Sobe o backend Laravel em `http://127.0.0.1:8000` |
-| `npm run dev` | Sobe o Vite em `http://localhost:5173` (proxy `/api` → Laravel) |
-| `npm run build` | Build de produção do frontend (`dist/`) |
-| `npm test` / `npm run test:frontend` | Testes do frontend (Vitest) |
+| `npm run dev` | Vite de desenvolvimento dos assets Blade (porta 5174) |
+| `npm run build` | Compila os assets das telas (`backend-laravel/public/build`) |
+| `npm run e2e` | Testes de tela (Playwright); exigem `npm run api` de pé |
 | `npm run test:api` | Testes do backend (PHPUnit) |
 | `npm run test:api:coverage` | Cobertura do backend (PHPUnit + Xdebug) |
 | `npm run db:migrate` | Migrations do Laravel |
-| `npm run lint` | Type-check do frontend (`tsc --noEmit`) |
+| `npm run lint` | Type-check do TypeScript restante (`tsc --noEmit`) |
 
 ## Tecnologias Utilizadas
 
-**Frontend:** React 19, TypeScript, Vite 6, Tailwind CSS 4, lucide-react, Framer Motion, Recharts
+**Telas:** Blade, Livewire 4 (Alpine), Tailwind CSS 4, FontAwesome, Vite 6 (só build dos assets)
 **Backend:** PHP 8.4, Laravel 13, Eloquent ORM, MySQL 8, firebase/php-jwt
-**Qualidade:** PHPUnit, Laravel Pint, PHPStan/Larastan (nível 9), Vitest + Testing Library
+**Qualidade:** PHPUnit, Laravel Pint, PHPStan/Larastan (nível 9), Playwright
 **Infraestrutura:** Docker/Docker Compose, Nginx, PM2
 
 ## Solução de Problemas
@@ -246,13 +243,15 @@ avasec/
 Verifique se o container do MySQL está rodando com `npm run db:up` e se as credenciais em `.env` conferem com o `docker-compose.yml`.
 
 **Porta já em uso**
-Altere a porta do Vite em `vite.config.ts` ou a porta do Laravel ao subir com `npm run api`.
+Altere a porta do Laravel em `npm run api` (e `AVASEC_URL` para o Playwright) ou a do Vite em `vite.blade.config.ts`.
 
 **Upload rejeitado**
 Confirme se o tipo de arquivo está na allowlist configurada no backend e se o tamanho não excede `UPLOAD_MAX_SIZE_MB`.
 
 **`npm` abre o seletor de aplicativo no Windows**
-Rode o `npm` pelo Git Bash. O passo a passo, com as armadilhas já encontradas neste ambiente, está em `.claude/skills/rodar-avasec/SKILL.md`.
+Rode o `npm` pelo Git Bash. Nesta máquina há um arquivo espúrio em
+`C:\Windows\system32` com o nome do npm, e o PowerShell abre o seletor de
+aplicativo do Windows em vez de executar o gerenciador de pacotes.
 
 ## Documentação Adicional
 
@@ -261,6 +260,5 @@ Rode o `npm` pelo Git Bash. O passo a passo, com as armadilhas já encontradas n
 - `HARDENING.md` — medidas de reforço de segurança
 - `MIGRACAO_LARAVEL.md` — histórico da migração do backend Node para Laravel
 - `DEPLOY_LARAVEL.md` — guia de deploy em produção
-- `AGENTS.md` — regras obrigatórias para qualquer agente de IA neste repositório
 - `docs/adr/` — decisões de arquitetura (ex.: ADR 12, nada é apagado)
 - `docs/security-audit/` — auditoria de segurança

@@ -1,23 +1,19 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "experimentalDecorators": true,
-    "useDefineForClassFields": false,
     "module": "ESNext",
-    "lib": [
-      "ES2022",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "skipLibCheck": true,
     "moduleResolution": "bundler",
     "isolatedModules": true,
     "moduleDetection": "force",
-    "allowJs": true,
-    "jsx": "react-jsx",
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "strict": true,
+    "types": ["node"]
   },
-  // backend-laravel: projeto PHP (tem seus próprios assets JS que não são deste tsconfig).
-  "exclude": ["node_modules", "dist", "backend-laravel"]
+  // Só o que ainda é TypeScript: os testes e2e, a config do Playwright e a do
+  // build dos assets Blade. O React saiu na fase M7 (ADR 020).
+  "include": ["tests/e2e", "playwright.config.ts", "vite.blade.config.ts", "backend-laravel/resources/js"],
+  "exclude": ["node_modules", "backend-laravel/vendor"]
 }

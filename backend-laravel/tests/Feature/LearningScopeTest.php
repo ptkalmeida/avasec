@@ -103,12 +103,20 @@ final class LearningScopeTest extends TestCase
 
         $quizzes = $this->getJson('/api/quizzes', $auth)->assertOk()->json();
 
-        // O gabarito continua vindo de propósito no curso do aluno (feedback imediato,
-        // com a nota recalculada no servidor). O que não pode é vir de curso alheio.
+        // De curso alheio não pode vir nada, e o gabarito NUNCA vem para o aluno (23/10/2026):
+        // com ele, quem chamasse a API à mão tiraria 100% em qualquer prova do seu curso.
         foreach ($quizzes as $quiz) {
             $this->assertSame('course-1', $quiz['courseId'] ?? null);
+            foreach ($quiz['questions'] as $questao) {
+                $this->assertArrayHasKey('questionText', $questao);
+                $this->assertArrayHasKey('options', $questao);
+                foreach (['correctOptionIndex', 'explanation', 'reviewMessage'] as $segredo) {
+                    $this->assertArrayNotHasKey($segredo, $questao, "{$segredo} vazou para o aluno");
+                }
+            }
         }
         $this->assertNotEmpty($quizzes[0]['questions'] ?? []);
+        $this->assertStringNotContainsString('correctOptionIndex', (string) json_encode($quizzes));
     }
 
     public function test_student_cannot_post_in_forum_of_course_they_do_not_attend(): void

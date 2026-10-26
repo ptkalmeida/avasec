@@ -14,7 +14,9 @@ use App\Models\User;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;
 use App\Support\CursoSlug;
+use App\Support\DataTexto;
 use App\Support\Payload;
+use App\Support\SafeUrl;
 use App\Support\VideoSource;
 use App\Support\Visibilidade;
 use Carbon\CarbonImmutable;
@@ -366,6 +368,340 @@ final class CourseService
         Course::query()->find($courseId)?->inativar($requester['sub'] ?? null, $motivo);
     }
 
+    /**
+     * Troca a aula de lugar com a vizinha, e renumera a grade de 1 a N.
+     *
+     * Existe porque a tela de grade em Blade não pode reenviar o curso inteiro
+     * para mudar uma posição. O React fazia isso (`PUT /api/courses/{id}` com o
+     * array `lessons` completo), e dois instrutores — ou duas abas — editando o
+     * mesmo curso se sobrescreviam sem aviso: quem salvasse por último levava o
+     * trabalho do outro. Aqui só a ordem muda, e só o que mudou é gravado.
+     *
+     * A ordem de partida é a mesma que a tela mostra (`lesson_order`, depois
+     * `id`), então "subir" move a aula que a pessoa está VENDO, mesmo quando o
+     * banco tem posições repetidas ou com buraco.
+     *
+     * @param  'up'|'down'  $direcao
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function moverAula(string $courseId, string $lessonId, string $direcao, array $requester): void
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        DB::transaction(function () use ($courseId, $lessonId, $direcao): void {
+            /** @var list<string> $ids */
+            $ids = $this->somenteStrings(
+                Lesson::query()->where('courseId', $courseId)
+                    ->orderBy('lesson_order')->orderBy('id')
+                    ->lockForUpdate()
+                    ->pluck('id')->all()
+            );
+
+            $posicao = array_search($lessonId, $ids, true);
+            if ($posicao === false) {
+                throw ApiException::notFound('Aula não encontrada neste curso.');
+            }
+
+            $destino = $direcao === 'up' ? $posicao - 1 : $posicao + 1;
+            // Primeira não sobe e última não desce: nada a fazer, e não é erro.
+            if ($destino >= 0 && $destino < count($ids)) {
+                [$ids[$posicao], $ids[$destino]] = [$ids[$destino], $ids[$posicao]];
+            }
+
+            foreach ($ids as $i => $id) {
+                Lesson::query()->whereKey($id)->update(['lesson_order' => $i + 1]);
+            }
+        });
+    }
+
+    /**
+     * Tira a aula do ar. Não apaga (ADR 12).
+     *
+     * O progresso dos alunos que apontava para ela é limpo, porque id órfão em
+     * `completedLessons` contava como aula concluída: um curso com 1 aula e 2
+     * ids órfãos dava 200% — e a frequência inflada é o gatilho da emissão
+     * automática de certificado (ver `limparProgressoOrfao`).
+     *
+     * Existe também porque `updateCourse` NÃO consegue tirar a ÚLTIMA aula de
+     * um curso: o `syncLessons` só inativa as que "saíram" quando a lista que
+     * sobrou não está vazia (`when(count($keptIds) > 0, ...)`), então mandar o
+     * curso sem aula nenhuma não inativa nenhuma.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function inativarAula(string $courseId, string $lessonId, array $requester, ?string $motivo = null): void
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        $aula = Lesson::query()->where('courseId', $courseId)->whereKey($lessonId)->first();
+        if ($aula === null) {
+            throw ApiException::notFound('Aula não encontrada neste curso.');
+        }
+
+        DB::transaction(function () use ($aula, $requester, $motivo, $courseId): void {
+            $aula->inativar($requester['sub'], $motivo);
+            $this->limparProgressoOrfao($courseId);
+        });
+    }
+
+    /**
+     * Cria UMA aula no fim da grade.
+     *
+     * O React gravava o curso inteiro (`PUT /api/courses/{id}` com todas as
+     * aulas) para acrescentar uma. Aqui só a aula nova é escrita, e a posição é
+     * calculada no servidor, dentro da transação: a lista que a tela tinha pode
+     * estar velha, e dois instrutores criando ao mesmo tempo não disputam o mesmo
+     * número.
+     *
+     * @param  array{title:string,duration:string,videoUrl?:?string,content?:?string}  $dados
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return string o id da aula criada
+     */
+    public function criarAula(string $courseId, array $dados, array $requester): string
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        $campos = $this->camposDaAula($dados, exigeTitulo: true);
+        if (($campos['content'] ?? null) === null) {
+            throw ApiException::validation('Informe o texto de estudo da aula.');
+        }
+
+        return DB::transaction(function () use ($courseId, $campos): string {
+            // Trava o curso para serializar as criações: sem isso, duas aulas
+            // nascidas juntas leem o mesmo "maior número" e empatam na grade.
+            Course::query()->whereKey($courseId)->lockForUpdate()->first();
+
+            $maior = Lesson::query()->where('courseId', $courseId)->max('lesson_order');
+            $id = 'lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+
+            Lesson::query()->create([
+                'id' => $id,
+                'courseId' => $courseId,
+                'lesson_order' => (is_numeric($maior) ? (int) $maior : 0) + 1,
+            ] + $campos);
+
+            return $id;
+        });
+    }
+
+    /**
+     * Atualiza título, carga, vídeo e/ou texto de UMA aula. Só as chaves enviadas
+     * mudam; as outras ficam como estão.
+     *
+     * Existe no lugar do `PUT /api/courses/{id}` que reenviava todas as aulas do
+     * curso: com ele, quem salvava a identificação de uma aula também regravava o
+     * texto de todas as outras com o que a tela dela guardava, e uma aba velha
+     * desfazia em silêncio o trabalho de outra pessoa.
+     *
+     * @param  array{title?:string,duration?:string,videoUrl?:?string,content?:?string}  $campos
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function atualizarAula(string $courseId, string $lessonId, array $campos, array $requester): void
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        $novos = $this->camposDaAula($campos, exigeTitulo: false);
+
+        DB::transaction(function () use ($courseId, $lessonId, $novos): void {
+            $this->aulaTravada($courseId, $lessonId)->fill($novos)->save();
+        });
+    }
+
+    /**
+     * Edita o TEXTO da aula com trava otimista.
+     *
+     * A edição de um bloco parte de uma posição lida numa tela que pode estar
+     * velha; se o texto mudou desde então, aplicar a edição na mesma posição
+     * trocaria o trecho errado. `$versao` é o hash do texto que a pessoa viu
+     * (`versaoDoConteudo`): se não bate com o que está gravado, nada é escrito e
+     * ela recebe o aviso para recarregar.
+     *
+     * @param  callable(string): string  $edicao  recebe o texto ATUAL e devolve o novo
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return string o texto novo
+     */
+    public function editarConteudoDaAula(string $courseId, string $lessonId, string $versao, callable $edicao, array $requester): string
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        return DB::transaction(function () use ($courseId, $lessonId, $versao, $edicao): string {
+            $aula = $this->aulaTravada($courseId, $lessonId);
+            $atual = is_string($aula->content) ? $aula->content : '';
+
+            if (! hash_equals(self::versaoDoConteudo($atual), $versao)) {
+                throw ApiException::validation('O texto desta aula mudou desde que você abriu a página. Recarregue para ver a versão atual e refaça a alteração.');
+            }
+
+            $novo = $edicao($atual);
+            $campos = $this->camposDaAula(['content' => $novo], exigeTitulo: false);
+            if (($campos['content'] ?? null) === null) {
+                throw ApiException::validation('O material didático não pode ficar vazio.');
+            }
+            $aula->fill($campos)->save();
+
+            return is_string($campos['content'] ?? null) ? $campos['content'] : '';
+        });
+    }
+
+    /**
+     * Anexa UM documento (arquivo já enviado ou link) à aula.
+     *
+     * Só o anexo novo é escrito. O React regravava a lista inteira de anexos da
+     * aula — e, pelo `PUT` do curso, a de todas as aulas — a cada vínculo.
+     *
+     * @param  array{title:string,type:string,url:string,size?:?string}  $dados
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return string o id do documento criado
+     */
+    public function anexarDocumento(string $courseId, string $lessonId, array $dados, array $requester): string
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        $titulo = trim($dados['title']);
+        if ($titulo === '') {
+            throw ApiException::validation('Dê um título ao recurso.');
+        }
+        if (mb_strlen($titulo) > 191) {
+            throw ApiException::validation('O título do recurso pode ter no máximo 191 caracteres.');
+        }
+
+        if (! in_array($dados['type'], ['pdf', 'doc', 'url', 'drive', 'outro'], true)) {
+            throw ApiException::validation('Escolha o tipo do recurso.');
+        }
+
+        $url = trim($dados['url']);
+        if ($url === '') {
+            throw ApiException::validation('Informe o endereço do conteúdo ou selecione um arquivo.');
+        }
+        // A mesma regra de href da API: só http(s) ou caminho interno. Um anexo
+        // com `javascript:` viraria um link que roda código no navegador do aluno.
+        if (mb_strlen($url) > 2000 || ! SafeUrl::isValid($url)) {
+            throw ApiException::validation('O endereço deve ser uma URL http(s) válida ou um caminho interno começando com "/".');
+        }
+
+        $tamanho = isset($dados['size']) && is_string($dados['size']) ? trim($dados['size']) : '';
+        if (mb_strlen($tamanho) > 30) {
+            throw ApiException::validation('O tamanho pode ter no máximo 30 caracteres.');
+        }
+
+        return DB::transaction(function () use ($courseId, $lessonId, $titulo, $dados, $url, $tamanho): string {
+            $this->aulaTravada($courseId, $lessonId);
+
+            $id = 'doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+            LessonDocument::query()->create([
+                'id' => $id,
+                'lessonId' => $lessonId,
+                'title' => $titulo,
+                'type' => $dados['type'],
+                'url' => $url,
+                'size' => $tamanho === '' ? null : $tamanho,
+            ]);
+
+            return $id;
+        });
+    }
+
+    /**
+     * Desvincula um documento da aula. Não apaga (ADR 12): o registro fica, com
+     * quem desvinculou e quando.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function desvincularDocumento(string $courseId, string $lessonId, string $documentId, array $requester, ?string $motivo = null): void
+    {
+        $this->assertCourseOwnership($courseId, $requester);
+
+        DB::transaction(function () use ($courseId, $lessonId, $documentId, $requester, $motivo): void {
+            $this->aulaTravada($courseId, $lessonId);
+
+            $doc = LessonDocument::query()->where('lessonId', $lessonId)->whereKey($documentId)->first();
+            if ($doc === null) {
+                throw ApiException::notFound('Documento não encontrado nesta aula.');
+            }
+
+            $doc->inativar($requester['sub'], $motivo);
+        });
+    }
+
+    /** Hash do texto da aula, para a trava otimista de `editarConteudoDaAula`. */
+    public static function versaoDoConteudo(?string $conteudo): string
+    {
+        return hash('sha256', $conteudo ?? '');
+    }
+
+    /**
+     * A aula, com a linha travada para a transação. 404 quando não é deste curso
+     * ou já foi retirada: o id de outro curso nunca alcança a aula alheia.
+     */
+    private function aulaTravada(string $courseId, string $lessonId): Lesson
+    {
+        $aula = Lesson::query()->where('courseId', $courseId)->whereKey($lessonId)->lockForUpdate()->first();
+        if ($aula === null) {
+            throw ApiException::notFound('Aula não encontrada neste curso.');
+        }
+
+        return $aula;
+    }
+
+    /**
+     * Valida e normaliza os campos de uma aula. Os limites são os da coluna, não
+     * os do contrato da API: `title` é varchar(191), e aceitar 200 caracteres
+     * viraria um erro de banco em vez de uma mensagem.
+     *
+     * @param  array<string, mixed>  $dados
+     * @return array<string, mixed>
+     */
+    private function camposDaAula(array $dados, bool $exigeTitulo): array
+    {
+        $campos = [];
+
+        if (array_key_exists('title', $dados) || $exigeTitulo) {
+            $titulo = is_string($dados['title'] ?? null) ? trim($dados['title']) : '';
+            if ($titulo === '') {
+                throw ApiException::validation('O título da aula não pode ficar vazio.');
+            }
+            if (mb_strlen($titulo) > 191) {
+                throw ApiException::validation('O título da aula pode ter no máximo 191 caracteres.');
+            }
+            $campos['title'] = $titulo;
+        }
+
+        if (array_key_exists('duration', $dados) || $exigeTitulo) {
+            $carga = is_string($dados['duration'] ?? null) ? trim($dados['duration']) : '';
+            if ($carga === '') {
+                throw ApiException::validation('Informe a carga da aula, por exemplo "20 min".');
+            }
+            if (mb_strlen($carga) > 30) {
+                throw ApiException::validation('A carga da aula pode ter no máximo 30 caracteres.');
+            }
+            $campos['duration'] = $carga;
+        }
+
+        if (array_key_exists('videoUrl', $dados)) {
+            $video = is_string($dados['videoUrl']) ? trim($dados['videoUrl']) : '';
+            if ($video === '') {
+                $campos['videoUrl'] = null;
+            } else {
+                // A forma canônica (ADR 08): youtu.be, embed e shorts viram watch?v=.
+                $fonte = VideoSource::tryParse($video);
+                if ($fonte === null) {
+                    throw ApiException::validation('Informe um link de vídeo do YouTube ou um arquivo de vídeo (mp4, webm, ogg, m4v, mov).');
+                }
+                $campos['videoUrl'] = $fonte->canonicalUrl;
+            }
+        }
+
+        if (array_key_exists('content', $dados)) {
+            $texto = is_string($dados['content']) ? trim($dados['content']) : '';
+            if (mb_strlen($texto) > 20000) {
+                throw ApiException::validation('O material didático pode ter no máximo 20.000 caracteres.');
+            }
+            $campos['content'] = $texto === '' ? null : $texto;
+        }
+
+        return $campos;
+    }
+
     /** @param array{sub:string,name:string,role:string} $requester */
     private function assertCourseOwnership(string $courseId, array $requester): void
     {
@@ -450,6 +786,16 @@ final class CourseService
             // aula retirada e depois readicionada com o mesmo id não seria
             // encontrada por find(), e o create() estouraria a chave primária.
             $existing = Lesson::query()->withTrashed()->find($lessonId);
+            /*
+             * Um id que já pertence a OUTRO curso não é desta edição. Os ids saem no catálogo
+             * público: sem esta guarda, o instrutor de um curso mandava o id de uma aula
+             * alheia, e ela era movida para o curso dele com o texto sobrescrito (achado da
+             * varredura de segurança de 23/10/2026). Vira aula nova, com id novo.
+             */
+            if ($existing !== null && $existing->courseId !== $courseId) {
+                $lessonId = 'lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+                $existing = null;
+            }
             if ($existing !== null) {
                 if ($existing->estaInativo()) {
                     $existing->reativar();
@@ -471,6 +817,11 @@ final class CourseService
                     : ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
                 $docData = $this->documentScalar($doc, $lessonId);
                 $existingDoc = LessonDocument::query()->withTrashed()->find($docId);
+                // Mesma guarda das aulas: documento de outra aula não é movido para esta.
+                if ($existingDoc !== null && $existingDoc->lessonId !== $lessonId) {
+                    $docId = 'doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+                    $existingDoc = null;
+                }
                 if ($existingDoc !== null) {
                     if ($existingDoc->estaInativo()) {
                         $existingDoc->reativar();
@@ -497,8 +848,13 @@ final class CourseService
                 ? $session['id']
                 : ('live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
             $data = $this->liveSessionData($session, $courseId);
-            $data['id'] = $sessionId;
             $existing = LiveSession::query()->withTrashed()->find($sessionId);
+            // Mesma guarda das aulas: encontro de outro curso não é sobrescrito nem movido.
+            if ($existing !== null && $existing->courseId !== $courseId) {
+                $sessionId = 'live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+                $existing = null;
+            }
+            $data['id'] = $sessionId;
             if ($existing !== null) {
                 unset($data['id']);
                 if ($existing->estaInativo()) {
@@ -602,7 +958,24 @@ final class CourseService
             'cargaHoraria', 'modalidade', 'nivel', 'emiteCertificado', 'statusCurso',
         ];
 
-        return array_intersect_key($input, array_flip($allowed));
+        $campos = array_intersect_key($input, array_flip($allowed));
+
+        /*
+         * `vigenciaAte` acompanha `contractExpirationDate` (Norma C.2.4). O texto
+         * continua sendo o campo do contrato de API; a coluna DATE ao lado é a data
+         * comparável. Só é tocada quando o texto vem no pedido, para que uma edição
+         * parcial do curso não apague uma vigência que ninguém mandou mudar.
+         *
+         * A validação da rota aceita qualquer string de até 60 caracteres aqui, então
+         * o valor realmente pode não ser data: nesse caso a coluna fica NULL, sem
+         * inventar vencimento para um contrato.
+         */
+        if (array_key_exists('contractExpirationDate', $campos)) {
+            $texto = $campos['contractExpirationDate'];
+            $campos['vigenciaAte'] = DataTexto::dia(is_string($texto) ? $texto : null);
+        }
+
+        return $campos;
     }
 
     /** @return array<int|string, string|(\Closure(\Illuminate\Database\Eloquent\Relations\Relation<*, *, *>): mixed)> */

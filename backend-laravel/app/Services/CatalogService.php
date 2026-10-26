@@ -6,6 +6,9 @@ namespace App\Services;
 
 use App\Models\LibraryItem;
 use App\Models\WebinarEvent;
+use App\Support\DataTexto;
+use App\Support\SafeUrl;
+use App\Support\Visibilidade;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -15,10 +18,55 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final class CatalogService
 {
-    /** @return Collection<int, LibraryItem> */
-    public function listLibraryItems(): Collection
+    /**
+     * Itens da biblioteca na escada de visibilidade do papel (nulo = visitante, só o publicado).
+     * Esta lista alimenta `GET /api/library`, que é público: antes ela devolvia tudo,
+     * inclusive item restrito ou em rascunho, a qualquer visitante anônimo.
+     *
+     * @return Collection<int, LibraryItem>
+     */
+    public function listLibraryItems(?string $role = null): Collection
     {
-        return LibraryItem::all();
+        $consulta = LibraryItem::query();
+        Visibilidade::aplicar($consulta, $role);
+
+        return $consulta->get();
+    }
+
+    /**
+     * A biblioteca como um papel a enxerga: só o que está no ar para ele, na
+     * escada de `Visibilidade`, em ordem de categoria e título.
+     *
+     * `listLibraryItems` (a da API) devolve tudo o que não está inativado,
+     * inclusive item restrito ou em rascunho — está sinalizado no plano 18
+     * §21 e fica como está até o React sair, porque o painel do admin o usa.
+     *
+     * `href` é a URL quando ela é segura e aponta para algum lugar. Item
+     * cadastrado com `#` (os seis de demonstração) sai com `href` nulo, e a
+     * tela diz que o arquivo ainda não está disponível em vez de oferecer um
+     * "Baixar" que não baixa nada.
+     *
+     * @return list<array{id:string,title:string,type:string,category:string,description:string|null,href:string|null}>
+     */
+    public function listLibraryItemsFor(?string $role): array
+    {
+        $consulta = LibraryItem::query();
+        Visibilidade::aplicar($consulta, $role);
+
+        $itens = [];
+        foreach ($consulta->orderBy('category')->orderBy('title')->get() as $item) {
+            $url = SafeUrl::sanitize(is_string($item->url) ? $item->url : null);
+            $itens[] = [
+                'id' => (string) $item->id,
+                'title' => (string) $item->title,
+                'type' => (string) $item->type,
+                'category' => (string) $item->category,
+                'description' => is_string($item->description) && $item->description !== '' ? $item->description : null,
+                'href' => $url,
+            ];
+        }
+
+        return $itens;
     }
 
     /** @param array<string, mixed> $data */
@@ -36,10 +84,18 @@ final class CatalogService
         ]);
     }
 
-    /** @return Collection<int, WebinarEvent> */
-    public function listWebinars(): Collection
+    /**
+     * Webinars na escada de visibilidade do papel (nulo = visitante, só o publicado).
+     * `GET /api/webinars` é público; webinar restrito ou em rascunho não pode sair dele.
+     *
+     * @return Collection<int, WebinarEvent>
+     */
+    public function listWebinars(?string $role = null): Collection
     {
-        return WebinarEvent::all();
+        $consulta = WebinarEvent::query();
+        Visibilidade::aplicar($consulta, $role);
+
+        return $consulta->get();
     }
 
     /** @param array<string, mixed> $data */
@@ -52,6 +108,16 @@ final class CatalogService
             'title' => $data['title'],
             'date' => $data['date'],
             'time' => $data['time'],
+            /*
+             * `dataEvento` combina as duas colunas de texto num instante (Norma
+             * C.2.4). `date` e `time` continuam como estão — são o que a agenda
+             * pública exibe. Data ou hora irreconhecível deixa a coluna NULL em vez
+             * de agendar o webinar num instante inventado.
+             */
+            'dataEvento' => DataTexto::instante(
+                is_string($data['date']) ? $data['date'] : null,
+                is_string($data['time']) ? $data['time'] : null,
+            ),
             'description' => $data['description'],
             'link' => $data['link'],
             'image' => $data['image'] ?? null,

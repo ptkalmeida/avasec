@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Exceptions\ApiException;
 use App\Models\DocumentTemplate;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Área de gerenciamento de templates de documentos (certificado, histórico
@@ -88,21 +89,67 @@ final class DocumentTemplateService
             throw ApiException::forbidden('Apenas o Admin Superior pode editar templates de documentos.');
         }
 
-        $row = DocumentTemplate::query()->find($type);
-        $merged = array_merge(
-            $row?->only(['institutionName', 'institutionLogoPath', 'signatories', 'footerText', 'customHtml']) ?? [],
-            $input,
-        );
-        $merged['updatedByUserId'] = $requester['sub'];
-        $merged['updatedAt'] = CarbonImmutable::now();
+        DB::transaction(function () use ($type, $input, $requester): void {
+            $antes = $this->conteudoDoModelo($type);
 
-        if ($row !== null) {
-            $row->fill($merged)->save();
-        } else {
-            $row = DocumentTemplate::query()->create(array_merge($merged, ['type' => $type]));
-        }
+            $row = DocumentTemplate::query()->find($type);
+            $merged = array_merge(
+                $row?->only(['institutionName', 'institutionLogoPath', 'signatories', 'footerText', 'customHtml']) ?? [],
+                $input,
+            );
+            $merged['updatedByUserId'] = $requester['sub'];
+            $merged['updatedAt'] = CarbonImmutable::now();
+
+            if ($row !== null) {
+                $row->fill($merged)->save();
+            } else {
+                DocumentTemplate::query()->create(array_merge($merged, ['type' => $type]));
+            }
+
+            // O que estava no ar vai para o histórico (ADR 021) — só se a gravação mudou algo.
+            if ($antes != $this->conteudoDoModelo($type)) {
+                app(VersoesDeConteudo::class)->guardar(VersoesDeConteudo::MODELO_DE_DOCUMENTO, $type, $antes, $requester['sub']);
+            }
+        });
 
         return $this->get($type);
+    }
+
+    /**
+     * Só o conteúdo editável do modelo, sem os metadados de quem salvou e quando.
+     *
+     * @return array<string, mixed>
+     */
+    public function conteudoDoModelo(string $type): array
+    {
+        $tudo = $this->get($type);
+        unset($tudo['type'], $tudo['updatedAt'], $tudo['updatedByUserId']);
+
+        return $tudo;
+    }
+
+    /**
+     * Devolve ao ar uma versão anterior. Passa pelo `upsert`: mesma regra de quem
+     * pode, e o que estava no ar vira uma nova versão.
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     * @return array<string, mixed>
+     */
+    public function restaurarVersao(string $type, string $versaoId, array $requester): array
+    {
+        $this->assertValidType($type);
+
+        if ($requester['role'] !== 'admin') {
+            throw ApiException::forbidden('Apenas o Admin Superior pode editar templates de documentos.');
+        }
+
+        $versao = app(VersoesDeConteudo::class)->obter(VersoesDeConteudo::MODELO_DE_DOCUMENTO, $type, $versaoId);
+        if ($versao === null) {
+            throw ApiException::notFound('Versão não encontrada.');
+        }
+
+        /** @var array{institutionName?:string|null,institutionLogoPath?:string|null,signatories?:list<array{name:string,role:string}>,footerText?:string|null,customHtml?:string|null} $versao */
+        return $this->upsert($type, $versao, $requester);
     }
 
     private function assertValidType(string $type): void

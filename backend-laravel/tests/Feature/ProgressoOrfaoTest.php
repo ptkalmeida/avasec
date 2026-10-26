@@ -137,6 +137,7 @@ final class ProgressoOrfaoTest extends TestCase
     {
         $curso = $this->cursoComAulas();
         $aluno = $this->makeStudent('Aluno Sem Merito');
+        $this->matricular($aluno, $curso->id);
 
         // Nenhuma aula real concluída, só ids que não existem: com a contagem
         // antiga isto batia o mínimo de frequência e EMITIA certificado.
@@ -167,6 +168,7 @@ final class ProgressoOrfaoTest extends TestCase
     {
         $curso = $this->cursoComAulas();
         $aluno = $this->makeStudent('Aluno Envio');
+        $this->matricular($aluno, $curso->id);
         $valida = $curso->lessons->first()->id;
 
         $this->postJson('/api/progress', [

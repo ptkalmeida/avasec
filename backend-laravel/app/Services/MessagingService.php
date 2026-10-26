@@ -36,8 +36,11 @@ final class MessagingService
                 return [];
             }
 
+            // Ordena pelo instante nativo, não pelo texto ISO. O `id` desempata
+            // mensagens do mesmo segundo e mantém a ordem estável; linha sem
+            // `enviadaEm` (texto não reconhecível) é tratada como a mais antiga.
             return ChatMessage::query()->where('sessionId', $sessionId)
-                ->orderBy('timestamp')->get()->map->toArray()->all();
+                ->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
         }
 
         // Sem sessionId: admin vê tudo; demais recebem só o chat das sessões de cursos
@@ -48,7 +51,7 @@ final class MessagingService
             $query->whereIn('sessionId', $accessibleSessionIds);
         }
 
-        return $query->orderBy('timestamp')->get()->map->toArray()->all();
+        return $query->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
     }
 
     /**
@@ -71,6 +74,10 @@ final class MessagingService
             'senderRole' => $requester['role'],
             'text' => $input['text'],
             'timestamp' => CarbonImmutable::now()->toIso8601String(),
+            // Mesmo instante em coluna nativa (Norma C.2.4). `timestamp` segue sendo
+            // o texto ISO que a API já entrega; `enviadaEm` é o eixo de ordenação,
+            // que texto não dá de graça.
+            'enviadaEm' => CarbonImmutable::now()->utc(),
         ])->toArray();
     }
 
@@ -82,7 +89,7 @@ final class MessagingService
     {
         if ($requester['role'] === 'student') {
             return Identity::applyOwnRows(DirectMessage::query(), $requester, 'studentUserId')
-                ->orderBy('timestamp')->get()->map->toArray()->all();
+                ->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
         }
 
         // Instrutor só lê DMs dos próprios alunos; admin, todas. Antes qualquer instrutor
@@ -98,7 +105,7 @@ final class MessagingService
             $query->where('studentUserId', $studentUserId);
         }
 
-        return $query->orderBy('timestamp')->get()->map->toArray()->all();
+        return $query->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
     }
 
     /**
@@ -111,6 +118,24 @@ final class MessagingService
         // Aluno só escreve no próprio canal; staff endereça o aluno por userId (ADR 10).
         $studentUserId = Identity::resolveActorUserId($requester, $input['studentUserId'] ?? null);
 
+        /*
+         * O instrutor escreve para os alunos DELE — o mesmo escopo que a
+         * leitura aplica logo acima (`InstructorScope::studentIds`).
+         *
+         * A assimetria era antiga: ler era escopado, escrever não. Qualquer
+         * instrutor autenticado podia mandar mensagem a qualquer aluno da
+         * escola, inclusive de turma que não é dele, e a mensagem aparecia na
+         * caixa daquele aluno com o nome dele. Nada no produto pedia isso: o
+         * gestor responde quem o procurou.
+         *
+         * É mudança de regra de autorização, e foi decidida com o responsável
+         * em 21/10, junto com a tela de resposta (plano 18 §23).
+         */
+        if ($requester['role'] === 'instructor'
+            && ! in_array($studentUserId, InstructorScope::studentIds($requester), true)) {
+            throw ApiException::forbidden('Você só pode escrever para alunos dos seus cursos.');
+        }
+
         return DirectMessage::query()->create([
             'id' => 'dm-'.$this->nowMs(),
             'studentName' => Identity::displayName($studentUserId, $requester),
@@ -120,6 +145,8 @@ final class MessagingService
             'senderRole' => $requester['role'],
             'text' => $input['text'],
             'timestamp' => CarbonImmutable::now()->toIso8601String(),
+            // Ver a nota em createChatMessage: coluna nativa ao lado do texto.
+            'enviadaEm' => CarbonImmutable::now()->utc(),
         ])->toArray();
     }
 

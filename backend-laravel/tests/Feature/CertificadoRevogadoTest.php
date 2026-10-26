@@ -46,6 +46,7 @@ final class CertificadoRevogadoTest extends TestCase
         $this->assertNotNull($curso, 'Seed sem curso do instrutor.');
 
         $aluno = $this->makeStudent('Aluno Revogacao');
+        $this->matricular($aluno, $curso->id);
         $cert = Certificate::query()->create([
             'id' => 'cert-revog-'.uniqid(),
             'studentName' => $aluno['name'],

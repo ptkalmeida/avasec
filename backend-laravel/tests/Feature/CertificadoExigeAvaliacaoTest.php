@@ -48,6 +48,7 @@ final class CertificadoExigeAvaliacaoTest extends TestCase
             'id' => $lessonId, 'courseId' => $courseId, 'title' => 'A1',
             'duration' => '5min', 'lesson_order' => 0,
         ]);
+        $this->matricular($student, $courseId);
         DB::table('StudentProgress')->insert([
             'id' => 'prog-aval-'.uniqid(), 'studentName' => $student['name'], 'userId' => $student['id'],
             'courseId' => $courseId, 'completedLessons' => json_encode([$lessonId]),

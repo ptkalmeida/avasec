@@ -56,6 +56,40 @@ final class UploadTest extends TestCase
         return Jwt::issue($u->id, $u->name, 'student');
     }
 
+    private function instructorToken(): string
+    {
+        $u = DB::table('User')->where('role', 'instructor')->where('status', 'active')->first(['id', 'name']);
+        $this->assertNotNull($u);
+
+        return Jwt::issue($u->id, $u->name, 'instructor');
+    }
+
+    public function test_aluno_nao_publica_na_pasta_publica_mas_envia_privado(): void
+    {
+        // ADR 022: a pasta pública é aberta a qualquer visitante; aluno só envia a própria entrega, privada.
+        Storage::fake('publico');
+        Storage::fake('privado');
+        $auth = ['Authorization' => 'Bearer '.$this->studentToken(), 'Accept' => 'application/json'];
+
+        $this->post('/api/upload', ['file' => $this->realPng('golpe.png')], $auth)->assertStatus(403);
+        $this->post('/api/upload?visibility=public', ['file' => $this->realPng('golpe.png')], $auth)->assertStatus(403);
+        $this->assertSame([], Storage::disk('publico')->allFiles());
+
+        $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth)->assertStatus(201);
+    }
+
+    public function test_instrutor_e_admin_continuam_publicando(): void
+    {
+        Storage::fake('publico');
+        $admin = DB::table('User')->where('role', 'admin')->where('status', 'active')->first(['id', 'name']);
+        $this->assertNotNull($admin);
+
+        foreach ([$this->instructorToken(), Jwt::issue($admin->id, $admin->name, 'admin')] as $token) {
+            $this->post('/api/upload', ['file' => $this->realPng('capa.png')], ['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'])
+                ->assertStatus(201)->assertJsonPath('visibility', 'public');
+        }
+    }
+
     private function realPng(string $name): UploadedFile
     {
         $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+P+/HgAFhAJ/wlseKgAAAABJRU5ErkJggg==');
@@ -71,7 +105,7 @@ final class UploadTest extends TestCase
 
     public function test_disallowed_extension_is_rejected(): void
     {
-        $token = $this->studentToken();
+        $token = $this->instructorToken();
         $file = UploadedFile::fake()->createWithContent('evil.exe', 'MZ binary');
 
         $this->withHeader('Authorization', "Bearer $token")
@@ -81,7 +115,7 @@ final class UploadTest extends TestCase
 
     public function test_content_not_matching_extension_is_rejected(): void
     {
-        $token = $this->studentToken();
+        $token = $this->instructorToken();
         // Conteúdo PNG com extensão .pdf -> magic bytes não batem -> 400.
         $bytes = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+P+/HgAFhAJ/wlseKgAAAABJRU5ErkJggg==');
         $file = UploadedFile::fake()->createWithContent('fake.pdf', $bytes);
@@ -93,7 +127,7 @@ final class UploadTest extends TestCase
 
     public function test_public_upload_returns_static_url_and_persists(): void
     {
-        $token = $this->studentToken();
+        $token = $this->instructorToken();
 
         $response = $this->withHeader('Authorization', "Bearer $token")
             ->post('/api/upload', ['file' => $this->realPng('material.png')], ['Accept' => 'application/json']);
@@ -112,7 +146,7 @@ final class UploadTest extends TestCase
         // deixa a troca para MinIO ser só de configuração do disco.
         Storage::fake('publico');
         Storage::fake('privado');
-        $auth = ['Authorization' => 'Bearer '.$this->studentToken(), 'Accept' => 'application/json'];
+        $auth = ['Authorization' => 'Bearer '.$this->instructorToken(), 'Accept' => 'application/json'];
 
         $publico = $this->post('/api/upload', ['file' => $this->realPng('capa.png')], $auth)->assertStatus(201);
         $privado = $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth)->assertStatus(201);
@@ -128,7 +162,7 @@ final class UploadTest extends TestCase
 
     public function test_public_file_is_served_statically_without_auth(): void
     {
-        $token = $this->studentToken();
+        $token = $this->instructorToken();
 
         $upload = $this->withHeader('Authorization', "Bearer $token")
             ->post('/api/upload', ['file' => $this->realPng('material.png')], ['Accept' => 'application/json']);
@@ -141,7 +175,7 @@ final class UploadTest extends TestCase
     {
         // O nome gravado nunca é reaproveitado, então a URL pode ser imutável. Sem
         // max-age o navegador revalidava a cada carga e cada revalidação subia o PHP.
-        $token = $this->studentToken();
+        $token = $this->instructorToken();
 
         $upload = $this->withHeader('Authorization', "Bearer $token")
             ->post('/api/upload', ['file' => $this->realPng('cacheavel.png')], ['Accept' => 'application/json']);
@@ -155,7 +189,7 @@ final class UploadTest extends TestCase
 
     public function test_public_file_revalidation_answers_304_without_resending_the_body(): void
     {
-        $token = $this->studentToken();
+        $token = $this->instructorToken();
         $upload = $this->withHeader('Authorization', "Bearer $token")
             ->post('/api/upload', ['file' => $this->realPng('revalida.png')], ['Accept' => 'application/json']);
         $url = $upload->json('url');

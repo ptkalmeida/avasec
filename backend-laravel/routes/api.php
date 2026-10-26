@@ -18,6 +18,7 @@ use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SitePageContentController;
 use App\Http\Controllers\UploadController;
 use App\Http\Controllers\WebinarController;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 
 // Etapa 0 da migração: rota de saúde (valida boot + conexão MySQL + proxy do Node).
@@ -34,8 +35,9 @@ Route::prefix('auth')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me'])
         ->middleware('jwt');
     Route::post('/logout', [AuthController::class, 'logout']);
+    // `active`: conta bloqueada, inativada ou pendente não troca a própria senha com um token ainda válido.
     Route::put('/password', [AuthController::class, 'changePassword'])
-        ->middleware(['throttle:auth-password', 'jwt']);
+        ->middleware(['throttle:auth-password', 'jwt', 'active']);
 
     // Aluno nunca lista usuários (vazava e-mails de todos, inclusive admins). Instrutor
     // fica restrito aos próprios alunos no controller; admin é irrestrito.
@@ -60,13 +62,13 @@ Route::prefix('auth')->group(function (): void {
 // Contrato idêntico ao Node (src/server/routes/catalogRoutes.ts): GET público,
 // POST restrito a instrutor/admin, cada rota atrás da sua feature flag.
 Route::middleware('feature:materiaisComplementares')->group(function (): void {
-    Route::get('/library', [LibraryController::class, 'index']);
+    Route::get('/library', [LibraryController::class, 'index'])->middleware('jwt.optional');
     Route::post('/library', [LibraryController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
 });
 
 Route::middleware('feature:eventosWebinars')->group(function (): void {
-    Route::get('/webinars', [WebinarController::class, 'index']);
+    Route::get('/webinars', [WebinarController::class, 'index'])->middleware('jwt.optional');
     Route::post('/webinars', [WebinarController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
     // Exclusao existe para a area de gestao de webinars poder desmarcar um evento;
@@ -154,9 +156,9 @@ Route::middleware(['feature:uploadArquivos', 'jwt', 'active'])->group(function (
 
 // Quizzes e submissões (flag quizSimples).
 Route::middleware('feature:quizSimples')->group(function (): void {
-    // Exige autenticação: o gabarito (correctOptionIndex) não pode ser raspado
-    // anonimamente. Alunos matriculados ainda recebem o gabarito para o fluxo de
-    // feedback imediato do quiz — a nota é validada no servidor (submitQuiz).
+    // Exige autenticação, e o ALUNO não recebe o gabarito (correctOptionIndex,
+    // explanation, reviewMessage) — só instrutor e admin. A nota é sempre
+    // recalculada no servidor (submitQuiz).
     Route::get('/quizzes', [LearningController::class, 'listQuizzes'])->middleware(['jwt', 'active']);
     Route::post('/quizzes', [LearningController::class, 'createQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
     Route::delete('/quizzes/{id}', [LearningController::class, 'deleteQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
@@ -244,4 +246,24 @@ Route::get('/telemetry', [AuditController::class, 'listClientEvents'])->middlewa
 Route::middleware('feature:dadosGerenciais')->group(function (): void {
     Route::get('/export/{dataset}', [ExportController::class, 'show'])
         ->middleware(['throttle:export', 'jwt', 'active', 'role:admin']);
+});
+
+/*
+ * Caminho inexistente sob /api/* devolve o erro do contrato, não o HTML do React.
+ *
+ * Desde que o Laravel virou a porta de entrada (ADR 017), o `fallback` de
+ * routes/web.php captura tudo que nenhuma rota atendeu — e isso incluía
+ * `/api/qualquer-coisa`, que passou a responder 200 com a página do React.
+ * Todo cliente da API receberia uma página HTML no lugar de um erro, e um 404
+ * de digitação viraria "deu certo". Este fallback, registrado DENTRO do grupo
+ * da API, intercepta antes e mantém o formato de erro de sempre.
+ *
+ * Pego por EnderecoDesconhecidoTest::test_caminho_inexistente_na_api_devolve_json.
+ */
+Route::fallback(function (): JsonResponse {
+    return response()->json([
+        'error' => true,
+        'code' => 'NOT_FOUND',
+        'message' => 'Recurso não encontrado.',
+    ], 404);
 });

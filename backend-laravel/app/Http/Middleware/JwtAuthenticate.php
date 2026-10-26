@@ -6,6 +6,7 @@ namespace App\Http\Middleware;
 
 use App\Exceptions\ApiException;
 use App\Support\Jwt;
+use App\Support\Sessoes;
 use Closure;
 use Firebase\JWT\JWT as FirebaseJwt;
 use Firebase\JWT\Key;
@@ -55,6 +56,14 @@ final class JwtAuthenticate
         if (! is_string($sub) || $sub === '') {
             throw ApiException::unauthorized('Token inválido ou expirado.');
         }
+
+        // Sessão cancelada no servidor (troca de senha, bloqueio, "Sair"): ADR 022.
+        // Token sem `sv`/`jti` (emitido antes dela) vale como versão 0 e não tem `jti`.
+        Sessoes::conferir(
+            $sub,
+            is_numeric($decoded->sv ?? null) ? (int) $decoded->sv : 0,
+            is_string($decoded->jti ?? null) && $decoded->jti !== '' ? $decoded->jti : null,
+        );
 
         return ['sub' => $sub, 'name' => $decoded->name ?? null, 'role' => $decoded->role ?? null];
     }

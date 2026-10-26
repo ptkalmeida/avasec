@@ -92,7 +92,10 @@ final class CourseController extends Controller
         // os campos de topo tornam-se opcionais (sometimes).
         $req = $partial ? 'sometimes' : 'required';
         $rules = [
-            'id' => ['sometimes', 'string', 'max:191'],
+            // Só letras, números, `_` e `-`: o id entra em consultas `LIKE '%"id"%'` sobre os cursos extras
+            // dos alunos, e um id como `%` ampliava o escopo de alunos do instrutor (achado da varredura
+            // de segurança de 23/10/2026).
+            'id' => ['sometimes', 'string', 'max:191', 'regex:/^[A-Za-z0-9_-]+$/'],
             'title' => [$req, 'string', 'min:3', 'max:200'],
             'description' => [$req, 'string', 'min:10', 'max:5000'],
             'category' => [$req, 'string', 'min:1', 'max:120'],

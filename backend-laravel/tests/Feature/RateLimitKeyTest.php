@@ -39,11 +39,16 @@ final class RateLimitKeyTest extends TestCase
         $vitima = $this->makeStudent('Aluno Laboratorio');
         $cpfEsgotado = $this->makeCpf();
 
-        // Esgota o balde de UM identificador (CPF válido porém não cadastrado, para
-        // não disparar o bloqueio por conta, que age na 5ª tentativa): 10 por 15 min.
-        for ($i = 0; $i < 10; $i++) {
+        // Esgota o balde de UM identificador (CPF válido porém não cadastrado): 10 por 15 min.
+        // Desde a ADR 022 o bloqueio por rede age na 5ª tentativa, inclusive para CPF que não
+        // existe; as cinco seguintes ainda contam no balde, mas respondem 429 ACCOUNT_LOCKED.
+        for ($i = 0; $i < 5; $i++) {
             $this->postJson('/api/auth/login', ['cpf' => $cpfEsgotado, 'password' => 'errada'])
                 ->assertStatus(401);
+        }
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/auth/login', ['cpf' => $cpfEsgotado, 'password' => 'errada'])
+                ->assertStatus(429)->assertJsonPath('code', 'ACCOUNT_LOCKED');
         }
 
         // 11ª tentativa daquele identificador: barrada.

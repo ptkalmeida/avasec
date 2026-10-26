@@ -1,0 +1,26 @@
+/*
+ * CSS das telas em Blade.
+ *
+ * Importa os tokens do portal (`tokens.css`) — paleta institucional, escada
+ * tipográfica e a variante `ava:`. Até a M7 esse arquivo era `src/index.css`, e
+ * o React o compartilhava; agora mora aqui.
+ *
+ * O `@source` diz ao Tailwind onde procurar classes. Sem ele, as classes usadas
+ * só em `.blade.php` não entram no CSS gerado, e a tela sai sem estilo.
+ */
+@import './tokens.css';
+
+@source '../views/**/*.blade.php';
+@source '../js/**/*.ts';
+
+/*
+ * `x-cloak` esconde o que o Alpine ainda não processou.
+ *
+ * Sem esta regra, o menu suspenso e o painel do menu em telas estreitas
+ * aparecem abertos por uma fração de segundo no carregamento, antes de o
+ * Alpine assumir — e some sozinho, que é o tipo de defeito que ninguém
+ * consegue reproduzir quando vai relatar.
+ */
+[x-cloak] {
+  display: none !important;
+}

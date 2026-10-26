@@ -34,6 +34,11 @@ final class AuditLogger
             DB::table('SecurityLog')->insert([
                 'id' => 'log-'.$now->getTimestampMs().'-'.Str::lower(Str::random(6)),
                 'timestamp' => $now->format('H:i:s').' '.$now->format('d/m/Y'),
+                // Mesmo instante, em coluna nativa e em UTC (Norma C.2.4). O texto
+                // acima continua sendo o que a tela de seguranca exibe; esta coluna
+                // e o que permite ordenar. Ordenar pelo texto ordena pela HORA antes
+                // da data, e o "mais recente" saia errado.
+                'ocorridoEm' => $now->utc()->format('Y-m-d H:i:s'),
                 'user' => is_string($actor['name'] ?? null) ? $actor['name'] : 'Visitante Anônimo',
                 'role' => is_string($actor['role'] ?? null) ? $actor['role'] : 'anonymous',
                 'ipAddress' => $this->clientIp($request),

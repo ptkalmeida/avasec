@@ -1,8 +1,8 @@
-# Deploy de produção — AVASEC (Laravel + React)
+# Deploy de produção — AVASEC (Laravel + Blade)
 
 Documento de referência para o **corte final** da migração Node → Laravel: como
-colocar em produção a topologia decidida (Nginx serve o build estático do React +
-proxy `/api` para PHP-FPM/Laravel). Escrito para ser executado no VPS, fora deste
+colocar em produção a topologia decidida (Nginx na frente de PHP-FPM/Laravel; todas
+as telas são Blade/Livewire). Escrito para ser executado no VPS, fora deste
 ambiente de desenvolvimento.
 
 > Contexto: este é o Passo 4 do plano de corte (ver `HARDENING.md`/histórico do
@@ -12,12 +12,21 @@ ambiente de desenvolvimento.
 
 ## Arquitetura alvo
 
+> **Mudou em 08/10/2026 (ADR 017) e fechou na M7 (ADR 020).** O Laravel é a única
+> aplicação: a raiz do Nginx é `backend-laravel/public`, e não existe mais SPA React,
+> `dist/` nem fallback. Endereço que nenhuma rota atende é 404.
+
 ```
 [Navegador] ──HTTPS──> [Nginx]
-                          ├── /              -> serve dist/ (build estático do Vite/React)
                           ├── /uploads/*     -> serve uploads/public/ (arquivos estáticos)
-                          └── /api/*         -> proxy_pass -> PHP-FPM (Laravel, unix socket ou 127.0.0.1:9000)
-                                                                  └── MySQL 8
+                          ├── /build/*       -> arquivo estático de public/ (CSS/JS das telas)
+                          └── /*             -> PHP-FPM (Laravel) ─── tabela de rotas
+                                   │                                        │
+                                   │                       ┌────────────────┴────────────────┐
+                                   │                       ▼                                 ▼
+                                   │                 rota registrada                 nada bateu
+                                   │                 -> view Blade                   -> 404
+                                   └── MySQL 8
 ```
 
 Uma única origem (mesmo domínio) para tudo — front e API. Isso mantém o cookie de
@@ -30,13 +39,13 @@ Pacotes necessários (Ubuntu/Debian; adapte para sua distro):
 
 ```bash
 sudo apt update
-sudo apt install -y nginx php8.3-fpm php8.3-cli php8.3-mysql php8.3-mbstring \
-  php8.3-xml php8.3-curl php8.3-zip php8.3-bcmath php8.3-fileinfo php8.3-gd \
+sudo apt install -y nginx php8.4-fpm php8.4-cli php8.4-mysql php8.4-mbstring \
+  php8.4-xml php8.4-curl php8.4-zip php8.4-bcmath php8.4-fileinfo php8.4-gd \
   mysql-server composer nodejs npm certbot python3-certbot-nginx
 ```
 
 Ajuste a versão do PHP conforme disponível (8.2+ é o mínimo usado pelo projeto).
-O `php8.3-gd` é preventivo para o dompdf (PDF de certificados, ADR 09): o fluxo
+O `php8.4-gd` é preventivo para o dompdf (PDF de certificados, ADR 09): o fluxo
 atual funciona sem ele (QR em SVG), mas qualquer logo raster futura no template
 exigiria a extensão.
 
@@ -114,16 +123,17 @@ backend Node — ver `HARDENING.md`):
   é a segunda barreira. Se preferir o `logrotate` do sistema, aponte-o para
   `storage/logs/*.log` e mantenha `LOG_STACK=single`.
 
-## 4. Build do frontend (React/Vite)
+## 4. Build dos assets (Vite)
 
 ```bash
 cd /var/www/avasec
 npm ci
-npm run build   # gera dist/
+npm run build   # gera backend-laravel/public/build
 ```
 
-O `dist/` é o que o Nginx serve como estático. Rode o build a cada deploy (CI/CD ou
-manual).
+O build só compila o CSS e o JS das telas Blade (Tailwind, FontAwesome). O Nginx os
+serve de `public/build` como qualquer arquivo estático. Rode o build a cada deploy
+(CI/CD ou manual): sem ele as telas saem sem estilo.
 
 ## 5. Uploads compartilhados
 
@@ -161,8 +171,9 @@ server {
     ssl_certificate     /etc/letsencrypt/live/seu-dominio.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/seu-dominio.com/privkey.pem;
 
-    root /var/www/avasec/dist;
-    index index.html;
+    # A raiz é o Laravel (ADR 017, 020): a tabela de rotas dele decide tudo.
+    root /var/www/avasec/backend-laravel/public;
+    index index.php;
 
     client_max_body_size 20m; # >= UPLOAD_MAX_SIZE_MB, com folga
 
@@ -191,38 +202,17 @@ server {
         add_header Content-Disposition "attachment" always;
     }
 
-    # API — encaminha para o PHP-FPM (Laravel).
-    location /api/ {
-        root /var/www/avasec/backend-laravel/public;
-        try_files $uri /index.php?$query_string;
-
-        location ~ \.php$ {
-            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-            fastcgi_index index.php;
-            include fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME $document_root/index.php;
-        }
-    }
-
-    # Saúde e página de status (Norma TI-SECEC C.8) moram no Laravel, fora de /api.
-    # Sem estes blocos, o fallback do SPA abaixo devolveria o index.html do React
-    # com status 200 — e o monitor acharia que está tudo bem com o banco fora.
-    location ~ ^/(health/(live|ready)|sistema/status)$ {
-        root /var/www/avasec/backend-laravel/public;
-        try_files $uri /index.php?$query_string;
-
-        location ~ \.php$ {
-            fastcgi_pass unix:/run/php/php8.3-fpm.sock;
-            fastcgi_index index.php;
-            include fastcgi_params;
-            fastcgi_param SCRIPT_FILENAME $document_root/index.php;
-        }
-    }
-
-    # SPA fallback: qualquer rota que não seja arquivo real cai no index.html do React.
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
+    # Os blocos `location` NÃO são escritos aqui. Eles vêm de
+    # docker/nginx/avasec-locations.conf, que é o mesmo arquivo executado pelo
+    # espelho local (`npm run espelho:up`). Duas cópias "parecidas" divergiriam,
+    # e a de produção é justamente a que ninguém executa antes do dia do deploy.
+    #
+    # Copie o arquivo para o servidor junto com o código, e crie o do upstream —
+    # a única linha do roteamento que difere entre produção e o espelho local:
+    #
+    #   cp /var/www/avasec/docker/nginx/avasec-locations.conf /etc/nginx/
+    #   echo 'fastcgi_pass unix:/run/php/php8.4-fpm.sock;' > /etc/nginx/avasec-upstream.conf
+    include /etc/nginx/avasec-locations.conf;
 }
 ```
 
@@ -253,12 +243,12 @@ post_max_size = 20M         ; >= upload_max_filesize + folga do multipart
 
 A cadeia deve manter `app (15M) <= upload_max_filesize <= post_max_size <=
 client_max_body_size (20m)`. Reinicie o serviço após alterar (`sudo systemctl
-restart php8.3-fpm`).
+restart php8.4-fpm`).
 
 Garanta que o serviço sobe no boot:
 
 ```bash
-sudo systemctl enable php8.3-fpm --now
+sudo systemctl enable php8.4-fpm --now
 ```
 
 Sem PM2, sem processo Node em produção — o PHP-FPM é gerido pelo systemd como
@@ -266,10 +256,10 @@ qualquer outro serviço padrão do Linux.
 
 ## 8. Verificação pós-deploy (checklist)
 
-- [ ] `curl https://seu-dominio.com/` retorna o HTML do React.
+- [ ] `curl https://seu-dominio.com/` retorna a página inicial (HTML do Blade, sem `id="root"`).
 - [ ] `curl https://seu-dominio.com/api/health-laravel` retorna `{"status":"ok","database":"ok"}`.
 - [ ] `curl -i https://seu-dominio.com/health/ready` retorna **JSON** com status 200 (se vier
-      HTML do React, o Nginx está sem o bloco de saúde) e `/sistema/status` abre a página.
+      HTML, o Nginx está sem o bloco de saúde) e `/sistema/status` abre a página.
 - [ ] Login funciona no navegador e o cookie `ava_session` aparece como HttpOnly/Secure
       (inspecionar em DevTools → Application → Cookies).
 - [ ] Upload de um arquivo público funciona e a URL retornada carrega via `/uploads/...`.

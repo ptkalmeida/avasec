@@ -1,0 +1,53 @@
+/*
+ * CSS da área administrativa (back-office).
+ *
+ * Segue o Anexo D do Protocolo TI-SECEC, Seção 1 — VINCULANTE. Por isso este
+ * arquivo NÃO importa `tokens.css`: aquele é o conjunto de tokens do portal
+ * do aluno e do instrutor (roxo institucional, Inter, Playfair) e o Anexo D
+ * manda, para o back-office, um azul só, neutros de slate e a fonte do sistema,
+ * sem webfont. Misturar os dois conjuntos faria o admin parecer mais um
+ * painel do portal, que é o contrário do que a norma pede.
+ *
+ * Ícones: FontAwesome, o set único do projeto (D §1.9). Os arquivos de fonte
+ * saem do pacote `@fortawesome/fontawesome-free`, empacotados pelo Vite — nada
+ * é pedido a CDN de terceiros.
+ */
+@import 'tailwindcss';
+@import '@fortawesome/fontawesome-free/css/fontawesome.css';
+@import '@fortawesome/fontawesome-free/css/solid.css';
+@import '@fortawesome/fontawesome-free/css/regular.css';
+
+@source '../views/**/*.blade.php';
+@source '../js/**/*.ts';
+
+@theme {
+  /* D §1.6: fonte do sistema para tudo. */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* D §1.4.3: a sidebar é fixa a partir de 992px e off-canvas até 991px. O `lg`
+     padrão do Tailwind é 1024px. */
+  --breakpoint-lg: 62rem;
+
+  /* D §1.5 — marca e ação. */
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --color-secondary: #6366f1;
+  --color-sidebar: #0f172a;
+
+  /* D §1.5 — base e neutros. O slate do Tailwind já traz #0F172A (900),
+     #475569 (600), #94A3B8 (400), #E2E8F0 (200) e #F1F5F9 (100). */
+  --color-pagina: #f1f5f9;
+
+  /* D §1.7 */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-elevada: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+html {
+  font-size: 14px;
+}
+
+[x-cloak] {
+  display: none !important;
+}

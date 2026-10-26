@@ -1,7 +1,12 @@
 <?php
 
 use App\Exceptions\ApiException;
+use App\Http\Middleware\AreaDoAdmin;
+use App\Http\Middleware\AreaDoAluno;
+use App\Http\Middleware\AreaDoInstrutor;
+use App\Http\Middleware\CabecalhosDaPaginaWeb;
 use App\Http\Middleware\FeatureGate;
+use App\Http\Middleware\IdentidadeOpcional;
 use App\Http\Middleware\JwtAuthenticate;
 use App\Http\Middleware\OptionalJwt;
 use App\Http\Middleware\RequireActiveAccount;
@@ -39,6 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'feature' => FeatureGate::class,
+            // Versão web do `jwt`: mesma leitura do mesmo cookie, mas quem não
+            // passa é levado ao login em vez de receber JSON de erro.
+            'admin.web' => AreaDoAdmin::class,
+            'aluno.web' => AreaDoAluno::class,
+            'instrutor.web' => AreaDoInstrutor::class,
             'jwt' => JwtAuthenticate::class,
             'jwt.optional' => OptionalJwt::class,
             'active' => RequireActiveAccount::class,
@@ -51,6 +61,17 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Cabeçalhos de segurança em toda resposta da API (equivalente ao helmet do Node).
         $middleware->api(append: [SecurityHeaders::class]);
+
+        /*
+         * Toda tela pública passa a saber se há alguém logado — sem barrar
+         * ninguém. É o que permite ao cabeçalho do portal oferecer "Meu painel"
+         * a quem já entrou, como o cabeçalho do React fazia. Sem isto, a pessoa
+         * logada veria "Entrar" na home e acharia que a sessão caiu.
+         */
+        $middleware->web(append: [IdentidadeOpcional::class]);
+
+        // Em TODA resposta, inclusive o 404 de endereço que nenhuma rota atende (que não passa pelo grupo web).
+        $middleware->append(CabecalhosDaPaginaWeb::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -94,6 +115,26 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return null;
+        });
+
+        /*
+         * A MESMA exceção, numa tela: vira a página de erro do status que ela
+         * já carrega, e não 500.
+         *
+         * Os services são compartilhados entre a API e as telas em Blade (fase
+         * M3), e eles sinalizam "não encontrado" lançando `ApiException`. Sem
+         * esta linha, `/aluno/curso/nao-existe` respondia **500** — o servidor
+         * dizendo "eu quebrei" onde o certo é "isso não existe". Além de mentir
+         * para quem vê, enchia o log de erro com o que é navegação normal.
+         *
+         * Só para fora de `/api/*`: lá o contrato JSON acima continua mandando.
+         */
+        $exceptions->render(function (ApiException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return null;
+            }
+
+            abort($e->status, $e->getMessage());
         });
 
         // Erros de validação nativos do Laravel também no formato do Node (400 VALIDATION_ERROR).
