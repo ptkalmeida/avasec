@@ -33,7 +33,8 @@ RUN mkdir -p backend-laravel/public \
 # 2. PHP com as extensões. Mesmas do espelho local (docker/php/Dockerfile); o comentário
 #    sobre `opcache` e sobre as bibliotecas de execução está lá.
 # ---------------------------------------------------------------------------------------
-FROM php:8.5-fpm-alpine AS base
+# Versão fixa, não flutuante: >= 8.5.12 corrige CVE-2026-109618 e CVE-2026-109619 (PHP2Shell, RCE).
+FROM php:8.5.12-fpm-alpine AS base
 RUN apk add --no-cache freetype libjpeg-turbo libpng libzip icu-libs \
     && apk add --no-cache --virtual .build-deps \
         freetype-dev libjpeg-turbo-dev libpng-dev libzip-dev icu-dev oniguruma-dev \
@@ -52,6 +53,7 @@ RUN { \
       echo 'memory_limit = 256M'; \
       echo 'expose_php = Off'; \
       echo 'display_errors = Off'; \
+      echo 'session.upload_progress.enabled = 0'; \
       echo 'opcache.validate_timestamps = 0'; \
     } > /usr/local/etc/php/conf.d/avasec.ini
 

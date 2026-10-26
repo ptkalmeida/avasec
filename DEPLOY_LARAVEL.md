@@ -53,14 +53,22 @@ A imagem é construída **uma vez**, a partir da versão aprovada, e é a mesma 
 
 ```bash
 VERSAO=2026.10.26-1
-docker build -f docker/producao/Dockerfile --target app -t <harbor>/ava/app:$VERSAO .
-docker build -f docker/producao/Dockerfile --target web -t <harbor>/ava/web:$VERSAO .
+docker build --pull -f docker/producao/Dockerfile --target app -t <harbor>/ava/app:$VERSAO .
+docker build --pull -f docker/producao/Dockerfile --target web -t <harbor>/ava/web:$VERSAO .
 docker push <harbor>/ava/app:$VERSAO
 docker push <harbor>/ava/web:$VERSAO
 ```
 
 Requisitos do runtime: **PHP 8.4 ou superior** (o `composer.lock` exige 8.4.1; em 8.3 a aplicação
 não sobe) com `gd`, `pdo_mysql`, `bcmath`, `intl` e `zip`. A imagem usa PHP 8.5.
+
+**Versão mínima do PHP: 8.5.12** (8.4.27 se o runtime ficar na 8.4). Abaixo disso o servidor é
+vulnerável a CVE-2026-109618 e CVE-2026-109619 (PHP2Shell, execução remota de código sem
+autenticação, corrigidas em 21/10/2026). A versão está fixa no `FROM` de
+`docker/producao/Dockerfile`; ao subi-la, use `--pull` e nunca promova uma imagem construída antes
+dessa data. Nenhuma configuração do PHP ou WAF mitiga as duas falhas — só a atualização. A imagem
+também desliga `session.upload_progress` (o app não o usa), o que cobre a CVE-2026-115560, ainda sem
+correção publicada.
 
 ## 2. Variáveis de ambiente
 
