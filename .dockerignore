@@ -24,9 +24,6 @@ playwright-report
 tests
 docs
 db
-ava-frontend-redesign
-ava-meus-cursos-redesign
-lmsredesign
 *.docx
 backend-laravel/bootstrap/cache/*.php
 !backend-laravel/bootstrap/cache/.gitignore
