@@ -101,7 +101,8 @@
                 @if ($item['chave'] === 'painel')
                     {{-- Sem repetir: dentro da própria aula-alvo o atalho levaria à página em que a pessoa
                          já está, e com um curso só não existe grupo "Meus cursos" envolvendo um item. --}}
-                    @if ($m['continuar'] !== null && ! ($aulaAtual !== null && str_ends_with($m['continuar']['rota'], '/aula/'.$aulaAtual)))
+                    @php($mostraContinuar = $m['continuar'] !== null && ! ($aulaAtual !== null && str_ends_with($m['continuar']['rota'], '/aula/'.$aulaAtual)))
+                    @if ($mostraContinuar)
                         <x-aluno.item-do-menu :rota="$m['continuar']['rota']" rotulo="Continuar estudando"
                                               :detalhe="$m['continuar']['aula']" icone="continuar" />
                     @endif
@@ -128,6 +129,9 @@
                         <ul id="lista-de-cursos" @if ($unico) class="space-y-0.5" @else x-show="cursosAbertos" x-cloak class="mt-1 space-y-0.5 pl-2" @endif>
                             @forelse ($m['cursos'] as $c)
                                 <li>
+                                    {{-- Com um curso só e "Continuar estudando" à vista, o item do curso seria o segundo
+                                         botão para o mesmo fim: sai, e ficam os filhos dele (aulas e avaliações). --}}
+                                    @unless ($unico && $mostraContinuar)
                                     {{-- `page` só na tela do curso. Dentro de uma aula ou das avaliações o
                                          curso é o ATUAL, mas a página é outra: `true` diz isso sem mentir. --}}
                                     <a href="{{ $c['rota'] }}"
@@ -139,6 +143,7 @@
                                             <span class="block text-nota font-normal text-escult-ink-3">{{ $c['progresso'] }}</span>
                                         @endif
                                     </a>
+                                    @endunless
 
                                     {{-- Sob o curso em tela: "Aulas do curso" (só a tela da aula entrega as aulas;
                                          na tela do curso a lista é a coluna da direita, e desenhá-la aqui também

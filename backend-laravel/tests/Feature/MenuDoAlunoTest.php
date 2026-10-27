@@ -136,8 +136,22 @@ final class MenuDoAlunoTest extends TestCase
 
         $this->assertStringNotContainsString('Meus cursos', $menu);
         $this->assertStringNotContainsString('Cursos concluídos', $menu);
+        // O item do curso seria o segundo botão para o mesmo fim do "Continuar estudando": sai.
+        $this->assertStringContainsString('Continuar estudando', $menu);
+        $this->assertStringNotContainsString('href="/aluno/curso/menu-'.$a->id.'"', $menu);
+        $this->assertStringContainsString('href="/aluno/curso/menu-'.$a->id.'/avaliacoes"', $menu);
+    }
+
+    public function test_com_um_curso_so_e_sem_aula_pendente_o_item_do_curso_continua_no_menu(): void
+    {
+        $a = $this->curso('Curso Menu Alfa', ['Aula 1']);
+        $aluno = $this->aluno($a);
+        $this->concluir($aluno, $a, 1);
+
+        $menu = $this->menuLargo((string) $this->como($aluno['token'])->get('/aluno')->assertOk()->getContent());
+
+        $this->assertStringNotContainsString('Continuar estudando', $menu);
         $this->assertSame(1, substr_count($menu, 'href="/aluno/curso/menu-'.$a->id.'"'));
-        $this->assertStringContainsString('0 de 2 aulas concluídas', $menu);
     }
 
     public function test_dentro_da_aula_alvo_o_continuar_estudando_nao_repete_a_pagina_atual(): void
@@ -172,8 +186,10 @@ final class MenuDoAlunoTest extends TestCase
 
         $menu = $this->menuLargo((string) $this->como($aluno['token'])->get('/aluno')->assertOk()->getContent());
 
-        $this->assertStringContainsString('Curso Menu Alfa', $menu);
+        // Com um curso só o título não aparece (o "Continuar estudando" já leva a ele): vale o link.
+        $this->assertStringContainsString('/aluno/curso/menu-'.$a->id.'/', $menu);
         $this->assertStringNotContainsString('Curso Menu Retirado', $menu);
+        $this->assertStringNotContainsString('menu-'.$b->id, $menu);
     }
 
     public function test_sem_curso_em_andamento_o_menu_diz_isso_e_nao_oferece_continuar(): void

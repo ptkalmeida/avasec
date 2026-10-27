@@ -67,7 +67,8 @@
                     <a href="{{ $item['rota'] }}" class="{{ $linkClasse }}">{{ $item['rotulo'] }}</a>
 
                     @if ($item['chave'] === 'painel')
-                        @if ($m['continuar'] !== null && ! ($aulaAtual !== null && str_ends_with($m['continuar']['rota'], '/aula/'.$aulaAtual)))
+                        @php($mostraContinuar = $m['continuar'] !== null && ! ($aulaAtual !== null && str_ends_with($m['continuar']['rota'], '/aula/'.$aulaAtual)))
+                        @if ($mostraContinuar)
                             <a href="{{ $m['continuar']['rota'] }}" class="{{ $linkClasse }}">
                                 Continuar estudando
                                 <span class="block truncate text-nota font-normal text-escult-ink-3">{{ $m['continuar']['aula'] }}</span>
@@ -75,12 +76,14 @@
                         @endif
 
                         @foreach ($m['cursos'] as $c)
+                            @unless (count($m['cursos']) === 1 && $mostraContinuar)
                             <a href="{{ $c['rota'] }}" class="{{ $linkClasse }}" @if ($c['atual']) aria-current="true" @endif>
                                 {{ $c['titulo'] }}
                                 @if ($c['progresso'] !== '')
                                     <span class="block text-nota font-normal text-escult-ink-3">{{ $c['progresso'] }}</span>
                                 @endif
                             </a>
+                            @endunless
                             @if ($c['avaliacoes'] !== null)
                                 <a href="{{ $c['avaliacoes'] }}" class="{{ $linkClasse }}">Avaliações</a>
                             @endif
