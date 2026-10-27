@@ -56,11 +56,19 @@ test.describe('Cursos em destaque — tela em Blade', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/cursos');
 
+    // O curso vem da própria tela, e não de um nome fixo: os cursos são os da plataforma e
+    // podem ser retirados do ar a qualquer momento (o banco de dev é compartilhado).
+    const vitrine = page.getByRole('list', { name: 'Cursos em destaque' });
+    const titulos = await vitrine.getByRole('heading', { level: 2 }).allTextContents();
+    test.skip(titulos.length === 0, 'Não há curso ativo na plataforma para a busca encontrar.');
+    const titulo = titulos[0].trim();
+    const termo = titulo.slice(0, 12);
+
     // Livewire: a consulta sai 300ms depois da última tecla.
-    await page.getByLabel('Buscar cursos e notícias').fill('kanban');
+    await page.getByLabel('Buscar cursos e notícias').fill(termo);
 
     await expect(page.getByRole('listbox')).toBeVisible();
-    await expect(page.getByRole('listbox').getByText(/Metodologias Ágeis e Kanban/)).toBeVisible();
+    await expect(page.getByRole('listbox').getByText(titulo, { exact: true })).toBeVisible();
   });
 
   test('o atalho de teclado leva direto ao conteúdo', async ({ page }) => {
