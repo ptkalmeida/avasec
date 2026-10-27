@@ -193,7 +193,16 @@ final class CursosDoAdminTest extends TestCase
         $resposta->assertSee('Curso Vencido Admin Kjh');
         $resposta->assertSee('Expirado (arquivado)');
         $resposta->assertSee('Reativar curso');
-        $resposta->assertDontSee('Curso Inativo Admin Kjh');
+
+        // O retirado não é um curso ativo: fora do catálogo, mas — desde 26/10/2026 — presente
+        // na seção "Cursos retirados do ar", em vez de sumir da tela (o "limbo").
+        // `RetiradosDoAdminTest` cobre a reativação.
+        $html = $resposta->getContent();
+        $this->assertIsString($html);
+        $secao = strpos($html, 'Cursos retirados do ar (');
+        $this->assertNotFalse($secao, 'A seção de retirados precisa existir.');
+        $this->assertStringNotContainsString('Curso Inativo Admin Kjh', substr($html, 0, $secao), 'O retirado não pode estar entre os ativos.');
+        $this->assertStringContainsString('Curso Inativo Admin Kjh', substr($html, $secao), 'O retirado precisa estar na seção de retirados.');
     }
 
     // ---- prover ---------------------------------------------------------------

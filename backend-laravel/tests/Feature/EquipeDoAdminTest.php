@@ -123,7 +123,16 @@ final class EquipeDoAdminTest extends TestCase
 
         $resposta->assertSee('Gestor Bloqueado Zzq');
         $resposta->assertSee('Bloqueado');
-        $resposta->assertDontSee('Gestor Inativado Zzq');
+
+        // O retirado não é um gestor ativo: fora da lista da equipe, mas — desde 26/10/2026 —
+        // presente na seção "Gestores retirados da equipe", em vez de sumir da tela (o "limbo").
+        // `RetiradosDoAdminTest` cobre a reativação.
+        $html = $resposta->getContent();
+        $this->assertIsString($html);
+        $secao = strpos($html, 'Gestores retirados da equipe (');
+        $this->assertNotFalse($secao, 'A seção de retirados precisa existir.');
+        $this->assertStringNotContainsString('Gestor Inativado Zzq', substr($html, 0, $secao), 'O retirado não pode estar entre os ativos.');
+        $this->assertStringContainsString('Gestor Inativado Zzq', substr($html, $secao), 'O retirado precisa estar na seção de retirados.');
     }
 
     public function test_nada_do_que_era_escrito_no_codigo_volta(): void

@@ -369,6 +369,41 @@ final class CourseService
     }
 
     /**
+     * Devolve ao ar uma disciplina retirada (ADR 12).
+     *
+     * A retirada só inativa a linha do curso — aulas, encontros, avaliações e
+     * matrículas continuam ativos por baixo (ver `deleteCourse`) —, então reativar é
+     * `restore()` e nada mais: o conteúdo inteiro volta junto, para todos os gestores
+     * do curso e para os alunos, sem recompor nada.
+     *
+     * O curso volta **como estava**: o mesmo status de visibilidade e a mesma vigência.
+     * Não se publica nem se estende vigência por baixo dos panos — quem chama é que
+     * avisa a pessoa quando algo disso a impediria de ver o curso aberto a matrículas.
+     *
+     * Reativar não pode colidir com um curso novo: o `slug` é único em todas as linhas,
+     * inclusive as retiradas (`course_slug_unique`).
+     *
+     * @param  array{sub:string,name:string,role:string}  $requester
+     */
+    public function reactivateCourse(string $courseId, array $requester): Course
+    {
+        // Só o administrador devolve um curso ao ar; gestor não vê nem os retirados.
+        if (($requester['role'] ?? null) !== 'admin') {
+            throw ApiException::forbidden('Somente o administrador reativa uma disciplina retirada.');
+        }
+
+        $curso = Course::onlyTrashed()->find($courseId);
+        if ($curso === null) {
+            // Já estava no ar (duplo clique) ou nunca existiu: o resultado pedido ou existe, ou não há o que reativar.
+            throw ApiException::notFound('Disciplina retirada não encontrada.');
+        }
+
+        $curso->reativar();
+
+        return $curso->refresh();
+    }
+
+    /**
      * Troca a aula de lugar com a vizinha, e renumera a grade de 1 a N.
      *
      * Existe porque a tela de grade em Blade não pode reenviar o curso inteiro

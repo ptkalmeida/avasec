@@ -143,6 +143,25 @@
                     </div>
                 @endif
 
+                {{--
+                    Confirmar o cadastro: só aparece enquanto a conta aguarda a coordenação.
+                    O botão é só o gatilho — o servidor recusa qualquer outra origem
+                    (ver AlunosDoAdminController::confirmarCadastro).
+                --}}
+                @if ($aluno['conta'] === 'pending_confirmation')
+                    <form method="POST" action="/admin/alunos/{{ $aluno['id'] }}/confirmar" class="space-y-2 rounded-[10px] border border-emerald-100 bg-emerald-50 p-3.5">
+                        @csrf
+                        <p class="text-[0.8rem] font-bold text-slate-800">Cadastro aguardando confirmação</p>
+                        <p class="text-xs text-slate-600">
+                            {{ $aluno['nome'] }} se cadastrou pelo site e ainda não consegue entrar. Ao confirmar, a conta fica ativa
+                            e o acesso à plataforma é liberado.
+                        </p>
+                        <button type="submit" class="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
+                            <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Confirmar cadastro
+                        </button>
+                    </form>
+                @endif
+
                 {{-- Redefinir a senha --}}
                 <form method="POST" action="/admin/alunos/{{ $aluno['id'] }}/senha" class="space-y-2">
                     @csrf

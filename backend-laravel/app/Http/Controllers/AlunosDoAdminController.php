@@ -13,6 +13,7 @@ use App\Services\AlunosDoAdmin;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
 use App\Services\EnrollmentService;
+use App\Services\RetiradosDoAdmin;
 use App\Support\SenhaInicial;
 use App\Support\VigenciaDoCurso;
 use Illuminate\Http\RedirectResponse;
@@ -43,6 +44,7 @@ final class AlunosDoAdminController extends Controller
         private readonly AlunosDoAdmin $alunos,
         private readonly AuthService $auth,
         private readonly EnrollmentService $matriculas,
+        private readonly RetiradosDoAdmin $retirados,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -67,6 +69,7 @@ final class AlunosDoAdminController extends Controller
         return view('admin.alunos', [
             'filtros' => $filtros,
             'resultado' => $resultado,
+            'retirados' => $this->retirados->alunos(),
             'pagina' => $pagina,
             'resumo' => $this->alunos->resumo(),
             'cursosDoFiltro' => $this->alunos->cursosParaFiltro(),
@@ -225,6 +228,43 @@ final class AlunosDoAdminController extends Controller
             ->with('senhaDefinida', ['nome' => (string) $aluno->name, 'senha' => (string) $dados['novaSenha']]);
     }
 
+    /**
+     * Confirmar o cadastro: a conta nascida do formulário público fica
+     * `pending_confirmation` até a coordenação homologar, e só então a pessoa
+     * entra (AuthService::login recusa a conta pendente).
+     *
+     * Esta ação não tinha tela — nem no painel React anterior: só existia a rota
+     * da API (`PUT /api/users/{id}/status`). Ela reaproveita o mesmo service e a
+     * mesma ação de auditoria, sem regra nova.
+     *
+     * Quem decide a transição é o servidor, não o botão: só sai de
+     * `pending_confirmation`. Conta bloqueada NÃO é desbloqueada por aqui
+     * (bloquear e desbloquear é outra decisão da coordenação, com outro motivo).
+     */
+    public function confirmarCadastro(Request $request, string $alunoId): RedirectResponse
+    {
+        $aluno = $this->aluno($alunoId);
+        $volta = redirect('/admin/alunos/'.$alunoId);
+
+        if ($aluno->status === 'active') {
+            // Duplo clique ou duas pessoas na coordenação: o resultado desejado já existe.
+            return $volta->with('avisoDoAluno', 'O cadastro de '.$aluno->name.' já estava confirmado.');
+        }
+
+        if ($aluno->status !== 'pending_confirmation') {
+            return $volta->withErrors(['cadastro' => 'Só se confirma um cadastro que está aguardando confirmação. Esta conta está bloqueada e não é liberada por este botão.']);
+        }
+
+        $this->auth->updateAccountStatus($alunoId, 'active');
+        $this->audit->log(
+            $request,
+            'Alteração de Status de Conta',
+            'Cadastro de "'.$aluno->name.'" ('.$alunoId.') confirmado pela coordenação: aguardando confirmação → ativa.',
+        );
+
+        return $volta->with('avisoDoAluno', $aluno->name.' teve o cadastro confirmado e já pode entrar na plataforma.');
+    }
+
     public function matriculaMultipla(Request $request, string $alunoId): RedirectResponse
     {
         abort_unless(config('features.matriculasMultiplas') === true, 404);
@@ -265,6 +305,25 @@ final class AlunosDoAdminController extends Controller
         return redirect('/admin/alunos')->with(
             'avisoDosAlunos',
             $aluno->name.' foi retirado(a) da plataforma. O registro, as matrículas e o histórico ficam preservados.',
+        );
+    }
+
+    /**
+     * Devolver à plataforma um aluno retirado. A retirada só inativou a conta (e a
+     * bloqueou): matrículas, notas, entregas e certificados nunca saíram do banco
+     * (ADR 12), então voltam como estavam. Quem decide é a coordenação, e fica na auditoria.
+     */
+    public function reativar(Request $request, string $alunoId): RedirectResponse
+    {
+        $aluno = User::onlyTrashed()->where('role', 'student')->find($alunoId);
+        abort_if($aluno === null, 404);
+
+        $this->auth->reactivateUser($alunoId);
+        $this->audit->log($request, 'Reativação de Usuário', 'Usuário '.$alunoId.' reativado pela coordenação (conta ativa; sessões anteriores encerradas).', 'WARNING');
+
+        return redirect('/admin/alunos')->with(
+            'avisoDosAlunos',
+            $aluno->name.' voltou à plataforma. As matrículas, as notas e os certificados estão como estavam; a pessoa entra com um login novo.',
         );
     }
 

@@ -395,6 +395,41 @@ final class AuthService
     }
 
     /**
+     * Devolve ao ar uma conta retirada (ADR 12) — aluno ou gestor.
+     *
+     * `deleteUser` bloqueia a conta junto com a inativação, então reativar tem de
+     * desfazer as duas: tirar do estado inativo **e** voltar o `status` para `active`.
+     * Só `reativar()` deixaria a pessoa listada de novo, porém ainda barrada no login.
+     *
+     * O `status` anterior à retirada não é guardado (o bloqueio o sobrescreve), então
+     * quem aperta "Reativar" decide: a conta volta ativa, sem passar de novo pela
+     * confirmação de cadastro. É a decisão da coordenação, e fica na auditoria.
+     *
+     * As sessões de antes são encerradas (ADR 22): um token emitido antes da retirada
+     * não pode voltar a valer só porque a conta voltou. A pessoa entra com login novo.
+     * O admin não se reativa por aqui: a conta administrativa nem é retirável pela tela.
+     *
+     * @return PublicUser
+     */
+    public function reactivateUser(string $userId): array
+    {
+        $user = User::onlyTrashed()->whereIn('role', ['student', 'instructor'])->find($userId);
+        if ($user === null) {
+            throw ApiException::notFound('Conta retirada não encontrada.');
+        }
+
+        $user->reativar();
+
+        $publico = $this->updateAccountStatus($userId, 'active');
+        // Explícito, e não só pelo que `updateAccountStatus` faz: ele só encerra as sessões
+        // quando a conta NÃO estava ativa, e uma conta retirada por um caminho antigo
+        // (anterior ao bloqueio junto da retirada) pode ter ficado com `status = active`.
+        Sessoes::encerrarTodas($userId);
+
+        return $publico;
+    }
+
+    /**
      * Rename seguro (ADR 10): identidade é o id, então mudar o nome é atualizar
      * o User e os SNAPSHOTS de exibição das satélites na mesma transação.
      * EXCEÇÃO: Certificate.studentName fica intocado — é o nome impresso no PDF

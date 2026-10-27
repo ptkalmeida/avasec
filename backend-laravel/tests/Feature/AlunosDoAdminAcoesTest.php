@@ -368,4 +368,112 @@ final class AlunosDoAdminAcoesTest extends TestCase
         $lista->assertSee('name="cpf"', false);
         $lista->assertSee('name="curso"', false);
     }
+
+    // ---- confirmar cadastro ---------------------------------------------------
+
+    /** Aluno com o cadastro público ainda aguardando a coordenação. */
+    private function alunoPendente(): array
+    {
+        $aluno = $this->makeStudent('Aluno Pendente Confirma');
+        User::query()->whereKey($aluno['id'])->update(['status' => 'pending_confirmation']);
+
+        return $aluno;
+    }
+
+    public function test_confirma_o_cadastro_pendente_e_registra_na_auditoria(): void
+    {
+        $aluno = $this->alunoPendente();
+
+        $this->como($this->admin())
+            ->post('/admin/alunos/'.$aluno['id'].'/confirmar')
+            ->assertRedirect('/admin/alunos/'.$aluno['id'])
+            ->assertSessionHas('avisoDoAluno');
+
+        $this->assertSame('active', User::query()->find($aluno['id'])?->status);
+        $this->assertTrue(DB::table('SecurityLog')
+            ->where('action', 'Alteração de Status de Conta')
+            ->where('details', 'like', '%'.$aluno['name'].'%')
+            ->exists());
+    }
+
+    /**
+     * O ponto de tudo isto: antes de confirmar, o aluno é barrado no login; depois,
+     * entra. Sem esse par, o teste só provaria que uma coluna mudou de valor.
+     */
+    public function test_o_aluno_so_entra_depois_de_confirmado(): void
+    {
+        $aluno = $this->alunoPendente();
+        $credenciais = ['cpf' => $aluno['cpf'], 'password' => 'senha123456'];
+
+        $this->postJson('/api/auth/login', $credenciais)
+            ->assertStatus(403)
+            ->assertJsonPath('code', 'ACCOUNT_PENDING_CONFIRMATION');
+
+        $this->como($this->admin())->post('/admin/alunos/'.$aluno['id'].'/confirmar');
+
+        $this->postJson('/api/auth/login', $credenciais)->assertOk();
+    }
+
+    /**
+     * O servidor decide a transição, não o botão. Conta BLOQUEADA tem outro
+     * motivo e outra decisão: confirmar cadastro não a desbloqueia.
+     */
+    public function test_conta_bloqueada_nao_e_liberada_por_este_botao(): void
+    {
+        $aluno = $this->makeStudent('Aluno Bloqueado Confirma');
+        User::query()->whereKey($aluno['id'])->update(['status' => 'blocked']);
+
+        $this->como($this->admin())
+            ->post('/admin/alunos/'.$aluno['id'].'/confirmar')
+            ->assertRedirect('/admin/alunos/'.$aluno['id'])
+            ->assertSessionHasErrors('cadastro');
+
+        $this->assertSame('blocked', User::query()->find($aluno['id'])?->status);
+    }
+
+    public function test_confirmar_de_novo_uma_conta_ja_ativa_nao_muda_nada(): void
+    {
+        $aluno = $this->makeStudent('Aluno Ja Ativo Confirma');
+        $antes = DB::table('SecurityLog')->where('action', 'Alteração de Status de Conta')->count();
+
+        $this->como($this->admin())
+            ->post('/admin/alunos/'.$aluno['id'].'/confirmar')
+            ->assertRedirect('/admin/alunos/'.$aluno['id'])
+            ->assertSessionHas('avisoDoAluno')
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('active', User::query()->find($aluno['id'])?->status);
+        // Duplo clique não gera uma segunda linha de auditoria para uma mudança que não houve.
+        $this->assertSame($antes, DB::table('SecurityLog')->where('action', 'Alteração de Status de Conta')->count());
+    }
+
+    public function test_so_o_admin_confirma_cadastro(): void
+    {
+        $aluno = $this->alunoPendente();
+        $gestor = User::query()->where('role', 'instructor')->firstOrFail();
+        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->name, 'instructor');
+
+        $this->post('/admin/alunos/'.$aluno['id'].'/confirmar')->assertRedirect('/entrar');
+        $this->como($tokenDoGestor)->post('/admin/alunos/'.$aluno['id'].'/confirmar')->assertRedirect('/inst');
+        // O próprio aluno pendente (com um token emitido à mão) também não se confirma.
+        $this->como($aluno['token'])->post('/admin/alunos/'.$aluno['id'].'/confirmar')->assertRedirect();
+
+        $this->assertSame('pending_confirmation', User::query()->find($aluno['id'])?->status);
+    }
+
+    public function test_o_botao_so_aparece_para_cadastro_pendente(): void
+    {
+        $token = $this->admin();
+        $pendente = $this->alunoPendente();
+        $ativo = $this->makeStudent('Aluno Ativo Sem Botao');
+
+        $this->como($token)->get('/admin/alunos/'.$pendente['id'])
+            ->assertOk()
+            ->assertSee('Confirmar cadastro')
+            ->assertSee('action="/admin/alunos/'.$pendente['id'].'/confirmar"', false);
+
+        $this->como($token)->get('/admin/alunos/'.$ativo['id'])
+            ->assertOk()
+            ->assertDontSee('Confirmar cadastro');
+    }
 }

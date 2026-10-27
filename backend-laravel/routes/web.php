@@ -353,8 +353,10 @@ Route::middleware('admin.web')->group(function (): void {
     Route::post('/admin/alunos', [AlunosDoAdminController::class, 'cadastrar']);
     // Mesmo limitador da rota de API de redefinição administrativa (`auth-password`).
     Route::post('/admin/alunos/{alunoId}/senha', [AlunosDoAdminController::class, 'redefinirSenha'])->middleware('throttle:auth-password');
+    Route::post('/admin/alunos/{alunoId}/confirmar', [AlunosDoAdminController::class, 'confirmarCadastro']);
     Route::post('/admin/alunos/{alunoId}/matricula-multipla', [AlunosDoAdminController::class, 'matriculaMultipla']);
     Route::post('/admin/alunos/{alunoId}/inativar', [AlunosDoAdminController::class, 'inativar']);
+    Route::post('/admin/alunos/{alunoId}/reativar', [AlunosDoAdminController::class, 'reativar']);
     Route::get('/admin/cursos', [CursosDoAdminController::class, 'listar'])->name('admin.cursos');
     Route::post('/admin/cursos', [CursosDoAdminController::class, 'criar']);
     Route::post('/admin/cursos/{cursoId}/instrutor', [CursosDoAdminController::class, 'trocarInstrutor']);
@@ -362,7 +364,9 @@ Route::middleware('admin.web')->group(function (): void {
     Route::post('/admin/cursos/{cursoId}/vigencia', [CursosDoAdminController::class, 'salvarVigencia']);
     Route::post('/admin/cursos/{cursoId}/capa', [CursosDoAdminController::class, 'salvarCapa']);
     Route::post('/admin/cursos/{cursoId}/retirar', [CursosDoAdminController::class, 'retirar']);
+    Route::post('/admin/cursos/{cursoId}/reativar', [CursosDoAdminController::class, 'reativar']);
     Route::get('/admin/equipe', [EquipeDoAdminController::class, 'listar'])->name('admin.equipe');
+    Route::post('/admin/equipe/{gestorId}/reativar', [EquipeDoAdminController::class, 'reativar']);
     Route::get('/admin', [PainelDoAdminController::class, 'dashboard'])->name('admin.painel');
     Route::get('/admin/relatorio/{sub}', [PainelDoAdminController::class, 'dashboard'])->name('admin.relatorio');
 

@@ -299,5 +299,10 @@
                 </p>
             @endforelse
         </section>
+
+        {{-- O que saiu do ar continua guardado — e agora aparece, separado dos ativos. --}}
+        <x-admin.retirados id="titulo-retirados" titulo="Cursos retirados do ar" :itens="$retirados" acao="/admin/cursos"
+                           explicacao="Nada foi apagado: as aulas, as avaliações, as matrículas e o histórico estão guardados. Ao reativar, o curso volta ao ar de uma vez, para todos os gestores dele e para os alunos."
+                           vazio="Nenhum curso foi retirado do ar." />
     </div>
 </x-layouts.admin>

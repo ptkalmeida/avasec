@@ -4,6 +4,12 @@
 --}}
 <x-layouts.admin titulo="Equipe Pedagógica" ativo="professors"
                  contexto="Cadastro, vínculo e permissões de professores e gestores.">
+    @if (session('avisoDaEquipe'))
+        <div role="status" class="mb-4 flex items-center gap-2 rounded-[10px] border border-emerald-100 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ session('avisoDaEquipe') }}
+        </div>
+    @endif
+
     <section aria-labelledby="titulo-equipe" class="space-y-4 rounded-[10px] border border-slate-200 bg-white p-4 shadow-card lg:p-5">
         <div class="flex flex-col gap-3 border-b border-slate-200 pb-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 id="titulo-equipe" class="text-[0.875rem] font-bold text-slate-900">
@@ -58,4 +64,11 @@
             </ul>
         @endif
     </section>
+
+    {{-- Quem foi retirado da equipe continua guardado — e agora aparece, separado dos ativos. --}}
+    <div class="mt-6">
+        <x-admin.retirados id="titulo-retirados" titulo="Gestores retirados da equipe" :itens="$retirados" acao="/admin/equipe"
+                           explicacao="Nada foi apagado: o cadastro e o vínculo com as disciplinas estão guardados. Ao reativar, a conta volta ativa e a pessoa entra com um login novo."
+                           vazio="Nenhum gestor foi retirado da equipe." />
+    </div>
 </x-layouts.admin>

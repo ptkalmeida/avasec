@@ -233,5 +233,10 @@
                 </nav>
             @endif
         </section>
+
+        {{-- Quem foi retirado da plataforma continua guardado — e agora aparece, separado dos ativos. --}}
+        <x-admin.retirados id="titulo-retirados" titulo="Alunos retirados da plataforma" :itens="$retirados" acao="/admin/alunos"
+                           explicacao="Nada foi apagado: as matrículas, as notas, as entregas e os certificados estão guardados. Ao reativar, a conta volta ativa e a pessoa entra com um login novo."
+                           vazio="Nenhum aluno foi retirado da plataforma." />
     </div>
 </x-layouts.admin>

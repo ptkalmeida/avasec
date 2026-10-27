@@ -190,12 +190,28 @@ final class AlunosDoAdminTest extends TestCase
         $this->assertSame($resumo['total'], $resumo['comMatricula'] + $resumo['semMatricula']);
     }
 
+    /**
+     * O retirado sai da lista dos ATIVOS e a ficha dele responde 404.
+     *
+     * Até 26/10/2026 esta asserção era `assertDontSee` na página inteira — porque o que
+     * saía do ar não aparecia em tela nenhuma (o "limbo"). Agora ele aparece, de propósito,
+     * na seção "Alunos retirados da plataforma", separada dos ativos. A regra que o teste
+     * protege não mudou — o retirado não é um aluno ativo —; ela passou a ser dita onde
+     * vale: ausente da parte dos ativos e presente na dos retirados (`RetiradosDoAdminTest`
+     * cobre a reativação).
+     */
     public function test_aluno_inativado_some_da_lista_e_a_ficha_responde_404(): void
     {
         $aluno = $this->makeStudent('Inativado Da Lista Qzp');
         User::query()->findOrFail($aluno['id'])->inativar($aluno['id'], 'teste');
 
-        $this->como($this->admin())->get('/admin/alunos?busca=Qzp')->assertDontSee('Inativado Da Lista Qzp');
+        $html = $this->como($this->admin())->get('/admin/alunos?busca=Qzp')->getContent();
+        $this->assertIsString($html);
+        $secao = strpos($html, 'Alunos retirados da plataforma (');
+        $this->assertNotFalse($secao, 'A seção de retirados precisa existir.');
+
+        $this->assertStringNotContainsString('Inativado Da Lista Qzp', substr($html, 0, $secao), 'O retirado não pode estar entre os ativos.');
+        $this->assertStringContainsString('Inativado Da Lista Qzp', substr($html, $secao), 'O retirado precisa estar na seção de retirados.');
         $this->como($this->admin())->get('/admin/alunos/'.$aluno['id'])->assertNotFound();
     }
 

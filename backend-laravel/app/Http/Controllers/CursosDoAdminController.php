@@ -6,12 +6,15 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
 use App\Models\Course;
+use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\CourseService;
 use App\Services\CursosDoAdmin;
+use App\Services\RetiradosDoAdmin;
 use App\Services\UploadService;
 use App\Support\Fuso;
 use App\Support\VigenciaDoCurso;
+use App\Support\Visibilidade;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -45,6 +48,7 @@ final class CursosDoAdminController extends Controller
     public function __construct(
         private readonly CourseService $cursos,
         private readonly CursosDoAdmin $leitura,
+        private readonly RetiradosDoAdmin $retirados,
         private readonly UploadService $uploads,
         private readonly AuditLogger $audit,
     ) {}
@@ -59,6 +63,7 @@ final class CursosDoAdminController extends Controller
         return view('admin.cursos', [
             'busca' => $busca,
             'cursos' => $lista,
+            'retirados' => $this->retirados->cursos(),
             'totalNoCatalogo' => Course::query()->count(),
             'categorias' => $this->leitura->categorias(),
             'instrutores' => $this->leitura->instrutores(),
@@ -278,6 +283,60 @@ final class CursosDoAdminController extends Controller
             'avisoDosCursos',
             'Curso "'.$atual->title.'" retirado do ar. O registro e o histórico ficam preservados.',
         );
+    }
+
+    /**
+     * Devolver ao ar um curso retirado. Volta tudo de uma vez — aulas, avaliações,
+     * matrículas, histórico — e para todos os gestores do curso e para os alunos,
+     * porque a retirada só inativou a linha do curso (ver `CourseService::reactivateCourse`).
+     */
+    public function reativar(Request $request, string $cursoId): RedirectResponse
+    {
+        abort_unless(config('features.catalogoCursos') === true, 404);
+
+        $curso = $this->cursos->reactivateCourse($cursoId, $this->admin($request));
+        $this->audit->log($request, 'Reativação de Curso', 'Curso '.$cursoId.' reativado (aulas, matrículas e histórico preservados).', 'WARNING');
+
+        return redirect('/admin/cursos')->with('avisoDosCursos', $this->avisoDaReativacao($curso));
+    }
+
+    /**
+     * O que a pessoa precisa saber depois de reativar. O curso volta COMO ESTAVA, então
+     * o que o deixaria fechado aos alunos é dito, em vez de a tela afirmar um "no ar" que
+     * o aluno não veria: não se publica nem se estende vigência por baixo dos panos.
+     */
+    private function avisoDaReativacao(Course $curso): string
+    {
+        $ressalvas = [];
+
+        // Sem valor gravado, o curso sempre foi tratado como publicado (mesma leitura de `CursosDoAdmin::listar`).
+        $status = $curso->getAttribute('status');
+        $visibilidade = is_numeric($status) ? (int) $status : Visibilidade::PUBLICADO;
+        if ($visibilidade === Visibilidade::RESTRITO || $visibilidade === Visibilidade::RASCUNHO) {
+            $ressalvas[] = 'Ele voltou como '.($visibilidade === Visibilidade::RESTRITO ? 'Restrito' : 'Rascunho')
+                .', então os alunos só o veem depois de publicado.';
+        }
+
+        $vigencia = [
+            'vigenciaAte' => $curso->getAttribute('vigenciaAte'),
+            'contractExpirationDate' => $curso->contractExpirationDate,
+        ];
+        if (VigenciaDoCurso::vencida($vigencia)) {
+            $ressalvas[] = 'A vigência venceu em '.(VigenciaDoCurso::diaParaPessoa($vigencia) ?? 'data anterior')
+                .'; enquanto não for ampliada, não entram matrículas novas.';
+        }
+
+        $gestorId = is_string($curso->instructorId) ? $curso->instructorId : '';
+        $gestor = $gestorId !== '' ? User::withTrashed()->find($gestorId, ['id', 'name', 'inativadoEm']) : null;
+        if ($gestor !== null && $gestor->trashed()) {
+            $ressalvas[] = 'O gestor do curso ('.$gestor->name.') está retirado; atribua outro em "Gerenciar este curso".';
+        }
+
+        $base = 'Curso "'.$curso->title.'" voltou ao ar, com as aulas, as matrículas e o histórico de antes.';
+
+        return $ressalvas === []
+            ? $base.' Já está aberto a matrículas.'
+            : $base.' Atenção: '.implode(' ', $ressalvas);
     }
 
     /** @return array{sub:string,name:string,role:string} */
