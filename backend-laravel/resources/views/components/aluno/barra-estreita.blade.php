@@ -67,7 +67,7 @@
                     <a href="{{ $item['rota'] }}" class="{{ $linkClasse }}">{{ $item['rotulo'] }}</a>
 
                     @if ($item['chave'] === 'painel')
-                        @if ($m['continuar'] !== null)
+                        @if ($m['continuar'] !== null && ! ($aulaAtual !== null && str_ends_with($m['continuar']['rota'], '/aula/'.$aulaAtual)))
                             <a href="{{ $m['continuar']['rota'] }}" class="{{ $linkClasse }}">
                                 Continuar estudando
                                 <span class="block truncate text-nota font-normal text-escult-ink-3">{{ $m['continuar']['aula'] }}</span>

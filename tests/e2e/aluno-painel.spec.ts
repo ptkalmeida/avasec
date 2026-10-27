@@ -56,10 +56,11 @@ test.describe('Painel do aluno em Blade', () => {
       await expect(page.getByText(texto, { exact: false })).toHaveCount(0);
     }
 
-    // As abas de situação saíram da PÁGINA; "Cursos concluídos" continua
-    // alcançável, como submenu do menu lateral.
+    // As abas de situação saíram da PÁGINA; "Cursos concluídos" vive no menu lateral, como
+    // submenu, e só aparece quando há algum concluído (ADR 026: sem submenu vazio).
     await expect(page.getByRole('tab')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Cursos concluídos' })).toBeVisible();
+    const concluidos = page.getByRole('button', { name: 'Cursos concluídos' });
+    expect(await concluidos.count()).toBeLessThanOrEqual(1);
   });
 
   test('o menu lateral recolhe, expande e lembra a escolha', async ({ page }) => {

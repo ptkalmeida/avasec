@@ -127,6 +127,30 @@ final class MenuDoAlunoTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/>\s*\d{1,3}%\s*</u', $menu);
     }
 
+    public function test_com_um_curso_so_nao_ha_grupo_meus_cursos_nem_submenu_de_concluidos_vazio(): void
+    {
+        $a = $this->curso('Curso Menu Alfa', ['Aula 1', 'Aula 2']);
+        $aluno = $this->aluno($a);
+
+        $menu = $this->menuLargo((string) $this->como($aluno['token'])->get('/aluno')->assertOk()->getContent());
+
+        $this->assertStringNotContainsString('Meus cursos', $menu);
+        $this->assertStringNotContainsString('Cursos concluídos', $menu);
+        $this->assertSame(1, substr_count($menu, 'href="/aluno/curso/menu-'.$a->id.'"'));
+        $this->assertStringContainsString('0 de 2 aulas concluídas', $menu);
+    }
+
+    public function test_dentro_da_aula_alvo_o_continuar_estudando_nao_repete_a_pagina_atual(): void
+    {
+        $a = $this->curso('Curso Menu Alfa', ['Aula 1', 'Aula 2']);
+        $aluno = $this->aluno($a);
+
+        $naAula = (string) $this->como($aluno['token'])->get('/aluno/curso/menu-'.$a->id.'/aula/'.$a->id.'-a1')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('Continuar estudando', $this->menuLargo($naAula));
+        $this->assertStringNotContainsString('Continuar estudando', $this->menuEstreito($naAula));
+    }
+
     public function test_o_curso_em_tela_fica_marcado_e_os_outros_nao(): void
     {
         $a = $this->curso('Curso Menu Alfa', ['Aula 1']);

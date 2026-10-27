@@ -99,12 +99,17 @@
 
                 {{-- Logo depois do "Início": o atalho para a próxima aula e, abaixo, os cursos. --}}
                 @if ($item['chave'] === 'painel')
-                    @if ($m['continuar'] !== null)
+                    {{-- Sem repetir: dentro da própria aula-alvo o atalho levaria à página em que a pessoa
+                         já está, e com um curso só não existe grupo "Meus cursos" envolvendo um item. --}}
+                    @if ($m['continuar'] !== null && ! ($aulaAtual !== null && str_ends_with($m['continuar']['rota'], '/aula/'.$aulaAtual)))
                         <x-aluno.item-do-menu :rota="$m['continuar']['rota']" rotulo="Continuar estudando"
                                               :detalhe="$m['continuar']['aula']" icone="continuar" />
                     @endif
 
+                    @php($unico = count($m['cursos']) === 1)
+
                     <div x-show="!recolhido">
+                        @unless ($unico)
                         <button type="button" @click="cursosAbertos = !cursosAbertos"
                                 :aria-expanded="cursosAbertos ? 'true' : 'false'"
                                 aria-controls="lista-de-cursos"
@@ -118,8 +123,9 @@
                                 </svg>
                             </span>
                         </button>
+                        @endunless
 
-                        <ul id="lista-de-cursos" x-show="cursosAbertos" x-cloak class="mt-1 space-y-0.5 pl-2">
+                        <ul id="lista-de-cursos" @if ($unico) class="space-y-0.5" @else x-show="cursosAbertos" x-cloak class="mt-1 space-y-0.5 pl-2" @endif>
                             @forelse ($m['cursos'] as $c)
                                 <li>
                                     {{-- `page` só na tela do curso. Dentro de uma aula ou das avaliações o
@@ -194,6 +200,7 @@
                             @endforelse
 
                             {{-- Submenu, e não seção da página: decisão da skill. Fica dentro de "Meus cursos". --}}
+                            @if ($m['concluidos'] !== [])
                             <li>
                                 <button type="button" @click="concluidosAbertos = !concluidosAbertos"
                                         :aria-expanded="concluidosAbertos ? 'true' : 'false'"
@@ -222,6 +229,7 @@
                                     @endforelse
                                 </ul>
                             </li>
+                            @endif
                         </ul>
                     </div>
                 @endif

@@ -157,8 +157,8 @@ final class AreaDoAlunoBladeTest extends TestCase
 
         // Matrícula em outro curso, que vivia em "Disciplinas disponíveis".
         $resposta->assertSee('href="/aluno/catalogo"', escape: false);
-        // Cursos concluídos, que eram seção da página.
-        $resposta->assertSee('Cursos concluídos', escape: false);
+        // Cursos concluídos (que eram seção da página) viraram submenu, que só aparece quando há
+        // algum concluído — MenuDoAlunoTest e PerfilDoAlunoTest cobrem esse caminho com um aluno que concluiu.
     }
 
     public function test_painel_mostra_aulas_concluidas_sem_repetir_o_percentual(): void

@@ -33,6 +33,7 @@ Detalhes que valem como regra:
 - **"Ajuda e suporte" abre nas dúvidas**; dentro de uma aula abre direto na conversa, com a aula junto (`/aluno/suporte?aula=`), e o gestor recebe o título dela no assunto. Cada aba segue sendo a sua página, no seu endereço (`/aluno/duvidas`, `/aluno/suporte`). Com `mensagensDiretas` desligada não há abas, só as dúvidas.
 - **"Aulas do curso" continua aparecendo uma vez por tela**: expansor do menu na página da aula, coluna da direita na página do curso.
 - **Um curso concluído em tela** entra na lista de "Meus cursos" como o atual, porque é nele que moram "Aulas do curso" e "Avaliações".
+- **Sem item repetido** (ajuste do mesmo dia): com **um** curso em andamento não há grupo "Meus cursos", e o curso aparece direto como item; o grupo só surge com dois ou mais. "Cursos concluídos" só aparece quando há algum concluído. "Continuar estudando" some na própria aula para a qual levaria.
 - O menu recolhido empilha o símbolo da escola e o botão de recolher: lado a lado eles não cabem nos 48 px úteis e se sobrepunham.
 - `MenuDoAluno` é `scoped` (um por requisição): o menu é desenhado duas vezes na mesma tela, e a matrícula, os cursos e o progresso são buscados uma vez só.
 
