@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\CatalogoPublico;
 use App\Services\SitePageContentService;
 use Livewire\Component;
 
@@ -13,16 +14,12 @@ use Livewire\Component;
  * catálogo, então a necessidade mudou de lugar: a busca do cabeçalho é a que
  * sobrou, e ela é a mais interativa das duas — consulta a cada tecla.
  *
- * ## Onde ela procura, e por que NÃO é no banco
+ * ## Onde ela procura
  *
- * Nos mesmos dois lugares do React: a vitrine de `config/catalogo_publico.php`
- * e as notícias do `SitePageContentService`. A vitrine do portal nunca leu a
- * tabela `Course` — o arquivo de configuração explica o levantamento.
- *
- * Trocá-la pelo banco aqui pareceria um avanço e seria uma regressão: o
- * autocompletar público passaria a oferecer os registros de teste que existem
- * na tabela, e a busca do Blade devolveria resultados diferentes da busca do
- * React na mesma sessão da mesma pessoa.
+ * Nos cursos ativos agora para serem cursados (`CatalogoPublico`, os mesmos da
+ * tela `/cursos`) e nas notícias do `SitePageContentService`. Curso inativado,
+ * rascunho ou com vigência vencida não aparece: a busca nunca oferece ao
+ * público o que ele não consegue cursar.
  *
  * ## O que ela NÃO faz, e por quê
  *
@@ -54,7 +51,7 @@ new class extends Component
     /** @var list<array{title:string,tag:string|null}> */
     public array $noticias = [];
 
-    public function updatedTermo(SitePageContentService $conteudo): void
+    public function updatedTermo(SitePageContentService $conteudo, CatalogoPublico $catalogo): void
     {
         $termo = trim($this->termo);
 
@@ -65,7 +62,7 @@ new class extends Component
             return;
         }
 
-        $this->cursos = $this->buscarCursos($termo);
+        $this->cursos = $this->buscarCursos($catalogo, $termo);
         $this->noticias = $this->buscarNoticias($conteudo, $termo);
     }
 
@@ -76,14 +73,11 @@ new class extends Component
      *
      * @return list<array{title:string,category:string}>
      */
-    private function buscarCursos(string $termo): array
+    private function buscarCursos(CatalogoPublico $catalogo, string $termo): array
     {
         $achados = [];
 
-        /** @var list<array<string, string>> $vitrine */
-        $vitrine = config('catalogo_publico');
-
-        foreach ($vitrine as $curso) {
+        foreach ($catalogo->cursaveis() as $curso) {
             $alvo = $curso['title'].' '.$curso['description'];
 
             if (mb_stripos($alvo, $termo) === false) {

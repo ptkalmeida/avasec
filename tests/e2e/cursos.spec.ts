@@ -17,13 +17,15 @@ test.describe('Cursos em destaque — tela em Blade', () => {
     await expect(page.locator('#root')).toHaveCount(0);
   });
 
-  test('mostra quatro cursos e o caminho para ver os demais', async ({ page }) => {
+  test('mostra os cursos ativos da plataforma (até quatro) e o caminho para ver os demais', async ({ page }) => {
     await page.goto('/cursos');
 
     // Pela lista NOMEADA, e não por `listitem` solto: o rodapé é feito de
     // listas também, e o seletor largo contava os links dele junto.
     const vitrine = page.getByRole('list', { name: 'Cursos em destaque' });
-    await expect(vitrine.getByRole('listitem')).toHaveCount(4);
+    const quantos = await vitrine.getByRole('listitem').count();
+    expect(quantos).toBeGreaterThan(0);
+    expect(quantos).toBeLessThanOrEqual(4);
     await expect(page.getByRole('link', { name: /Veja mais cursos/ })).toBeVisible();
   });
 
@@ -55,10 +57,10 @@ test.describe('Cursos em destaque — tela em Blade', () => {
     await page.goto('/cursos');
 
     // Livewire: a consulta sai 300ms depois da última tecla.
-    await page.getByLabel('Buscar cursos e notícias').fill('audiovisual');
+    await page.getByLabel('Buscar cursos e notícias').fill('kanban');
 
     await expect(page.getByRole('listbox')).toBeVisible();
-    await expect(page.getByRole('listbox').getByText(/Produção Audiovisual/)).toBeVisible();
+    await expect(page.getByRole('listbox').getByText(/Metodologias Ágeis e Kanban/)).toBeVisible();
   });
 
   test('o atalho de teclado leva direto ao conteúdo', async ({ page }) => {

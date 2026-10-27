@@ -9,17 +9,19 @@
     - título "Cursos Disponíveis" → **"Cursos em destaque"**;
     - a busca própria do catálogo e os filtros por categoria **saem**; a busca
       geral do cabeçalho permanece e é a única;
-    - aparecem **quatro** cursos, não os nove;
+    - aparecem **até quatro** cursos;
     - entra o botão "Veja mais cursos", que leva ao login do aluno.
+
+    Os cursos vêm da plataforma (`CatalogoPublico`): os que estão ativos agora
+    para serem cursados. A vitrine fixa do React saiu em 26/10/2026.
 
     O texto de abertura perdeu a frase "Use os filtros para encontrar por área ou
     por nome": ela descrevia dois controles que deixaram de existir. Manter o
     rótulo fiel não vale quando o rótulo passa a mentir.
 
-    Os quatro são os quatro PRIMEIROS da vitrine, e não "os mais recentes": não
-    existe data de publicação para ordenar (ver config/catalogo_publico.php). A
-    skill prevê este caso e manda não afirmar a ordem — por isso nada na tela diz
-    "recentes".
+    São os quatro cursos mais novos, do mais novo ao mais antigo. A ordem vem
+    do id do curso (ver `CatalogoPublico`), não de uma data de publicação, que o
+    schema não tem — por isso a tela não escreve "recentes" nem mostra data.
 --}}
 <x-layouts.publico
     ativo="Cursos"
@@ -45,6 +47,12 @@
 
     <div class="mx-auto max-w-7xl space-y-8 px-4 py-8 md:py-10">
 
+        @if ($cursos === [])
+            <p class="rounded-2xl border border-ava-borda bg-white p-8 text-left text-corpo text-escult-ink-2">
+                No momento não há cursos abertos para inscrição. Volte em breve.
+            </p>
+        @endif
+
         <ul role="list" aria-label="Cursos em destaque" class="grid grid-cols-1 gap-6 text-left sm:grid-cols-2 xl:grid-cols-4">
             @foreach ($cursos as $curso)
                 <li class="flex flex-col justify-between overflow-hidden rounded-2xl border border-ava-borda bg-white shadow-3xs transition-all duration-300 hover:border-ava-acao/40 hover:shadow-md">
@@ -53,9 +61,20 @@
                              título vem logo abaixo em texto. Repetir o título no
                              `alt` faria o leitor de tela anunciar o curso duas
                              vezes seguidas. --}}
-                        <img src="{{ $curso['image'] }}" alt="" aria-hidden="true"
-                             loading="lazy" referrerpolicy="no-referrer"
-                             class="h-full w-full object-cover">
+                        @if ($curso['image'] !== '')
+                            <img src="{{ $curso['image'] }}" alt="" aria-hidden="true"
+                                 loading="lazy" referrerpolicy="no-referrer"
+                                 class="h-full w-full object-cover">
+                        @else
+                            {{-- Curso sem capa cadastrada: bloco com as formas e cores da
+                                 identidade, em vez de foto de banco de imagens. Some sozinho
+                                 quando a capa for cadastrada no painel. --}}
+                            <div aria-hidden="true" class="relative h-full w-full bg-gradient-to-br from-ava-marinho to-ava-acao">
+                                <div class="absolute -left-4 bottom-0 h-24 w-12 rounded-r-full bg-ava-dourado"></div>
+                                <div class="absolute right-6 top-6 h-12 w-12 bg-ava-rosa"></div>
+                                <div class="absolute bottom-4 right-14 h-14 w-14 bg-ava-lilas"></div>
+                            </div>
+                        @endif
                         <span class="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full bg-white px-2.5 py-1 text-nota font-semibold uppercase tracking-wide text-ava-acao shadow-sm">
                             {{ $curso['category'] }}
                         </span>
@@ -64,7 +83,9 @@
                     <div class="flex flex-1 flex-col justify-between space-y-3 p-5">
                         <div class="space-y-2">
                             <h2 class="line-clamp-2 font-titulo text-cartao leading-snug text-ava-tinta">{{ $curso['title'] }}</h2>
-                            <p class="text-apoio font-semibold text-escult-ink-2">Tutorado por: Prof. {{ $curso['instructor'] }}</p>
+                            @if ($curso['instructor'] !== '')
+                                <p class="text-apoio font-semibold text-escult-ink-2">Tutorado por: Prof. {{ $curso['instructor'] }}</p>
+                            @endif
                             <p class="line-clamp-3 text-apoio leading-relaxed text-escult-ink-2">{{ $curso['description'] }}</p>
                         </div>
 
