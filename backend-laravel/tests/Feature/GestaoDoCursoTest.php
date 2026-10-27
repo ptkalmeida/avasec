@@ -93,6 +93,23 @@ final class GestaoDoCursoTest extends TestCase
         $resposta->assertSee('padrão da escola', escape: false);
     }
 
+    public function test_o_texto_do_curso_se_edita_no_proprio_panorama_sem_secao_repetida(): void
+    {
+        $eu = $this->instrutor('Gestor Edita Panorama');
+        $curso = $this->curso('Curso Edita No Panorama', $eu['id']);
+
+        $html = (string) $this->como($eu['token'])->get('/inst/curso/'.$curso->slug)->assertOk()->getContent();
+
+        $this->assertSame(1, preg_match('#<section id="panorama".*?</section>#s', $html, $panorama));
+        $this->assertStringContainsString('Editar informações do curso', $panorama[0]);
+        $this->assertStringContainsString('action="/inst/curso/'.$curso->slug.'/propriedades"', $panorama[0], 'O formulário mora no Panorama.');
+        $this->assertStringContainsString('name="descricao"', $panorama[0]);
+
+        // Um lugar só: a leitura e a edição eram duas seções, com o mesmo texto duas vezes na tela.
+        $this->assertSame(1, substr_count($html, 'name="descricao"'));
+        $this->assertStringNotContainsString('Propriedades do curso', $html);
+    }
+
     public function test_curso_de_outro_instrutor_responde_404(): void
     {
         $eu = $this->instrutor('Gestor Um Gestao');

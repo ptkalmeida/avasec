@@ -77,7 +77,7 @@
         @if ($curso !== null)
             @php($ref = $curso['slug'] ?? $curso['id'])
 
-            <p x-show="!recolhido" class="mt-3 truncate px-3 text-sobretitulo uppercase text-escult-ink-3" title="{{ $curso['titulo'] }}">
+            <p x-show="!recolhido" class="mt-3 break-words px-3 text-sobretitulo uppercase leading-snug text-escult-ink-3">
                 {{ $curso['titulo'] }}
             </p>
 

@@ -131,7 +131,7 @@ export async function abrirPrimeiraAula(page: Page): Promise<void> {
  */
 export async function entrarComoInstrutor(
   page: Page,
-  email = 'professor@avasec.local',
+  email = process.env.AVASEC_INSTRUTOR_EMAIL ?? 'professor@avasec.local',
   sessaoPropria = false,
 ): Promise<void> {
   const token = emitirToken(email, sessaoPropria);
