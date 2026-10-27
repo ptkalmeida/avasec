@@ -375,6 +375,7 @@ Route::middleware('admin.web')->group(function (): void {
     Route::get('/admin/equipe', [EquipeDoAdminController::class, 'listar'])->name('admin.equipe');
     Route::post('/admin/equipe/{gestorId}/reativar', [EquipeDoAdminController::class, 'reativar']);
     Route::post('/admin/equipe', [EquipeDoAdminController::class, 'criar']);
+    Route::post('/admin/equipe/{gestorId}/acesso', [EquipeDoAdminController::class, 'acesso'])->middleware('throttle:auth-password');
     Route::post('/admin/equipe/{gestorId}/cursos', [EquipeDoAdminController::class, 'cursos']);
     Route::post('/admin/equipe/{gestorId}/retirar', [EquipeDoAdminController::class, 'retirar']);
     Route::get('/admin', [PainelDoAdminController::class, 'dashboard'])->name('admin.painel');

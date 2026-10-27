@@ -302,6 +302,33 @@ final class AuthService
     }
 
     /**
+     * A coordenação troca o e-mail (o login) de um gestor. O e-mail é único entre TODAS as
+     * contas, inclusive as inativadas: nada é apagado, e reusar o endereço de uma conta
+     * retirada faria dois cadastros disputarem o mesmo login se ela voltasse. Quem tinha a
+     * conta aberta sai (ADR 022): o login mudou, a sessão antiga não vale mais.
+     *
+     * @return array<string, mixed> usuário público (nunca o hash)
+     */
+    public function adminChangeEmail(string $usuario_id, string $email): array
+    {
+        $user = Usuario::query()->find($usuario_id);
+        if ($user === null) {
+            throw ApiException::notFound('Usuário não encontrado.');
+        }
+
+        $emUso = Usuario::query()->withTrashed()->where('email', $email)->where('id', '!=', $usuario_id)->exists();
+        if ($emUso) {
+            throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este e-mail.');
+        }
+
+        $user->email = $email;
+        $user->save();
+        Sessoes::encerrarTodas($user->id);
+
+        return $this->toPublicUser($user);
+    }
+
+    /**
      * @return array{items: array<int, array<string, mixed>>, total: int}
      */
     public function listUsersByRole(?string $role, int $skip, int $take): array

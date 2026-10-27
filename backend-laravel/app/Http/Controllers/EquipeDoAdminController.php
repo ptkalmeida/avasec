@@ -116,6 +116,61 @@ final class EquipeDoAdminController extends Controller
         return $informada === '' ? $resposta->with('senhaDefinida', ['nome' => $nome, 'senha' => $senha]) : $resposta;
     }
 
+    /**
+     * Trocar o login (e-mail) e/ou a senha de um gestor ativo. A senha digitada vale; sem ela,
+     * "gerar uma nova" cria uma que aparece UMA vez para a coordenação repassar; sem nenhuma
+     * das duas, a senha não muda (trocar só o e-mail não pode zerar a senha de ninguém).
+     * Quem tinha a conta aberta sai: cai a sessão (ADR 022).
+     */
+    public function acesso(Request $request, string $gestorId): RedirectResponse
+    {
+        $gestor = $this->gestor($gestorId);
+        $sacola = 'acessoGestor'.$gestorId;
+
+        $dados = Validator::make(
+            $request->all(),
+            [
+                'email' => ['required', 'string', 'max:254', 'regex:/^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$/'],
+                'senha' => ['nullable', 'string', 'max:128', new StrongPasswordRule],
+            ],
+            ['email.regex' => 'Informe um e-mail válido, no formato nome@dominio.com.'],
+            ['email' => 'e-mail', 'senha' => 'senha'],
+        )->validateWithBag($sacola);
+
+        $email = mb_strtolower(trim((string) $dados['email']));
+        $digitada = trim((string) ($dados['senha'] ?? ''));
+        $gerar = $digitada === '' && $request->boolean('gerar_senha');
+        $senha = $digitada !== '' ? $digitada : ($gerar ? SenhaInicial::gerar() : null);
+        $mudouEmail = $email !== mb_strtolower((string) $gestor->email);
+
+        if (! $mudouEmail && $senha === null) {
+            return back()->withInput()->withErrors(['email' => 'Nada a alterar: informe outro e-mail, uma nova senha ou marque "Gerar uma senha nova".'], $sacola);
+        }
+
+        try {
+            if ($mudouEmail) {
+                $this->auth->adminChangeEmail($gestorId, $email);
+            }
+            if ($senha !== null) {
+                $this->auth->adminResetPassword($gestorId, $senha);
+            }
+        } catch (ApiException $e) {
+            return back()->withInput()->withErrors(['email' => $e->getMessage()], $sacola);
+        }
+
+        $feito = implode(' e ', array_filter([$mudouEmail ? 'e-mail' : null, $senha !== null ? 'senha' : null]));
+        $this->audit->log(
+            $request,
+            $senha !== null ? 'Redefinição de Senha' : 'Alteração de E-mail',
+            'Acesso do gestor '.$gestorId.' alterado pela coordenação ('.$feito.'); sessões abertas encerradas.',
+            'WARNING',
+        );
+
+        $resposta = redirect('/admin/equipe')->with('avisoDaEquipe', 'O acesso de '.$gestor->nome.' foi atualizado ('.$feito.'). Quem estava com a conta aberta precisa entrar de novo.');
+
+        return $gerar ? $resposta->with('senhaDefinida', ['nome' => (string) $gestor->nome, 'senha' => (string) $senha]) : $resposta;
+    }
+
     /** Trocar os cursos que o gestor gerencia: o que ficou marcado vale, o resto é desvinculado. */
     public function cursos(Request $request, string $gestorId): RedirectResponse
     {

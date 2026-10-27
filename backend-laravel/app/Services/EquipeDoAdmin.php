@@ -19,7 +19,7 @@ use App\Models\Usuario;
 final class EquipeDoAdmin
 {
     /**
-     * @return list<array{id:string,nome:string,situacao:string,cursos:list<array{id:string,titulo:string}>}>
+     * @return list<array{id:string,nome:string,email:string,situacao:string,cursos:list<array{id:string,titulo:string}>}>
      */
     public function listar(?string $busca): array
     {
@@ -32,7 +32,7 @@ final class EquipeDoAdmin
             $consulta->where('nome', 'like', '%'.$literal.'%');
         }
 
-        $pessoas = $consulta->get(['id', 'nome', 'status']);
+        $pessoas = $consulta->get(['id', 'nome', 'email', 'status']);
         if ($pessoas->isEmpty()) {
             return [];
         }
@@ -49,6 +49,7 @@ final class EquipeDoAdmin
             $lista[] = [
                 'id' => (string) $pessoa->id,
                 'nome' => (string) $pessoa->nome,
+                'email' => (string) $pessoa->email,
                 'situacao' => (string) $pessoa->status,
                 'cursos' => $cursosDe[(string) $pessoa->id] ?? [],
             ];

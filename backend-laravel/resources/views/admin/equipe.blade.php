@@ -151,6 +151,35 @@
                             </form>
                         </details>
 
+                        {{-- Alterar o login (e-mail) e a senha: a senha nova aparece UMA vez, no topo, para repassar. --}}
+                        @php($errosAcesso = $errors->getBag('acessoGestor'.$gestor['id']))
+                        <details class="mt-2 rounded-md border border-slate-200 bg-white p-3" @if ($errosAcesso->any()) open @endif>
+                            <summary class="flex cursor-pointer list-none items-center gap-2 text-[0.8rem] font-semibold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                <i class="fa-solid fa-key" aria-hidden="true"></i> Alterar login e senha
+                            </summary>
+                            <form method="POST" action="/admin/equipe/{{ $gestor['id'] }}/acesso" class="mt-2 space-y-2">
+                                @csrf
+                                @if ($errosAcesso->any())
+                                    <div role="alert" class="rounded-md border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">
+                                        <ul class="list-inside list-disc">
+                                            @foreach ($errosAcesso->all() as $erro)
+                                                <li>{{ $erro }}</li>
+                                            @endforeach
+                                        </ul>
+                                    </div>
+                                @endif
+                                <p class="text-xs text-slate-600">O login de {{ $gestor['nome'] }} é o e-mail. Ao salvar, quem estava com a conta aberta precisa entrar de novo.</p>
+                                <label for="acesso-email-{{ $gestor['id'] }}" class="{{ $rotulo }}">E-mail (login)</label>
+                                <input id="acesso-email-{{ $gestor['id'] }}" name="email" type="email" required maxlength="254" value="{{ old('email', $gestor['email'] ?? '') }}" class="{{ $campo }}">
+                                <label for="acesso-senha-{{ $gestor['id'] }}" class="{{ $rotulo }}">Nova senha (opcional)</label>
+                                <input id="acesso-senha-{{ $gestor['id'] }}" name="senha" type="text" maxlength="128" autocomplete="off" placeholder="Em branco: a senha atual continua" class="{{ $campo }}">
+                                <label class="flex items-center gap-2 text-sm text-slate-700">
+                                    <input type="checkbox" name="gerar_senha" value="1"> Gerar uma senha nova (mostrada uma única vez)
+                                </label>
+                                <button type="submit" class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">Salvar acesso</button>
+                            </form>
+                        </details>
+
                         {{-- Retirar da equipe: duas etapas, sem JavaScript --}}
                         <details class="mt-2 rounded-md border border-red-100 bg-red-50/50 p-3">
                             <summary class="flex cursor-pointer list-none items-center gap-2 text-[0.8rem] font-semibold text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300">
