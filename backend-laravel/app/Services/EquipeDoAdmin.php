@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Curso;
 use App\Models\Usuario;
 
 /**
  * A lista da "Equipe Pedagógica" do painel administrativo: os gestores de
  * curso e as trilhas que cada um conduz.
  *
- * Somente leitura, como a tela React que ela substitui. Aquela tela tinha um
+ * Os cursos de cada gestor vêm de `GestoresDoCurso` (responsável ou gestor
+ * adicional). A tela React que esta substitui era só leitura e tinha um
  * cartão "Configurações do Gestor" com uma "Especialidade Principal" escrita no
  * código — a mesma para qualquer gestor — e o nome genérico "Gestor de
  * Conteúdos"; nenhum dado vinha do banco, então o cartão não veio.
@@ -42,10 +42,7 @@ final class EquipeDoAdmin
             $ids[] = (string) $pessoa->id;
         }
 
-        $cursosDe = [];
-        foreach (Curso::query()->whereIn('instrutor_id', $ids)->orderBy('titulo')->get(['id', 'titulo', 'instrutor_id']) as $curso) {
-            $cursosDe[(string) $curso->instrutor_id][] = ['id' => (string) $curso->id, 'titulo' => (string) $curso->titulo];
-        }
+        $cursosDe = (new GestoresDoCurso)->cursosPorGestor($ids);
 
         $lista = [];
         foreach ($pessoas as $pessoa) {

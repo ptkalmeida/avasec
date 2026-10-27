@@ -556,9 +556,8 @@ final class EnrollmentService
             return;
         }
         if ($requester['papel'] === 'instructor' && $curso_id) {
-            $course = Curso::query()->find($curso_id, ['instrutor_id']);
-            // Posse por FK apenas (ADR 10).
-            if ($course !== null && $course->instrutor_id !== null && $course->instrutor_id === $requester['sub']) {
+            // Posse por FK apenas (ADR 10): responsável ou gestor adicional do curso.
+            if ((new GestoresDoCurso)->gerencia($curso_id, $requester['sub'])) {
                 return;
             }
         }

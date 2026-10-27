@@ -9,6 +9,7 @@ use App\Services\AuditLogger;
 use App\Services\CaixaDeMensagens;
 use App\Services\CourseService;
 use App\Services\EnrollmentService;
+use App\Services\GestoresDoCurso;
 use App\Services\LearningService;
 use App\Services\MessagingService;
 use App\Services\PainelDoInstrutor;
@@ -183,7 +184,7 @@ final class AreaDoInstrutorController extends Controller
         $resolvido = $this->cursos->resolverCurso($cursoRef, $instrutor['papel']);
 
         $curso = $this->cursos->getCourseById($resolvido['id']);
-        $souDono = ($curso['instrutor_id'] ?? null) === $instrutor['sub'];
+        $souDono = (new GestoresDoCurso)->gerencia($resolvido['id'], $instrutor['sub']);
         abort_unless($instrutor['papel'] === 'admin' || $souDono, 404);
 
         if (! $resolvido['canonico'] && $resolvido['slug'] !== '') {

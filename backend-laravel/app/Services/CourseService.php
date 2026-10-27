@@ -747,8 +747,9 @@ final class CourseService
         if (($requester['papel'] ?? null) === 'admin') {
             return;
         }
-        // Posse por FK apenas (ADR 10) — nome nunca é identidade.
-        $owns = $course->instrutor_id !== null && $course->instrutor_id === $requester['sub'];
+        // Posse por FK apenas (ADR 10) — nome nunca é identidade. Gerencia o responsável
+        // do curso ou qualquer gestor adicional vinculado a ele (curso_gestor).
+        $owns = (new GestoresDoCurso)->gerencia($curso_id, $requester['sub']);
         if (($requester['papel'] ?? null) === 'instructor' && $owns) {
             return;
         }

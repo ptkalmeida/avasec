@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use App\Models\Curso;
+use App\Services\GestoresDoCurso;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -18,17 +18,14 @@ use Illuminate\Support\Facades\DB;
 final class InstructorScope
 {
     /**
-     * IDs dos cursos lecionados pelo instrutor (posse por instrutor_id).
+     * IDs dos cursos lecionados pelo instrutor (responsável em `curso.instrutor_id` ou gestor adicional em `curso_gestor`).
      *
      * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return list<string>
      */
     public static function courseIds(array $requester): array
     {
-        return array_values(array_filter(
-            Curso::query()->where('instrutor_id', $requester['sub'])->pluck('id')->all(),
-            static fn ($id): bool => is_string($id),
-        ));
+        return (new GestoresDoCurso)->cursoIdsDe($requester['sub']);
     }
 
     /**
