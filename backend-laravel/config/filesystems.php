@@ -57,6 +57,33 @@ return [
             'report' => false,
         ],
 
+        /*
+        | `midia`: original e derivados de vídeo (ADR 023). Local por padrão, na pasta
+        | `midia` ao lado de public/ e private/ — que só passa a existir se o recurso
+        | for ligado. `MEDIA_DISK_DRIVER=s3` aponta o mesmo disco para o MinIO, sem
+        | mudar uma linha de código (as chaves guardadas são relativas ao disco).
+        */
+        'midia' => env('MEDIA_DISK_DRIVER', 'local') === 's3'
+            ? [
+                'driver' => 's3',
+                'key' => env('AWS_ACCESS_KEY_ID'),
+                'secret' => env('AWS_SECRET_ACCESS_KEY'),
+                'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+                'bucket' => env('MEDIA_BUCKET'),
+                'endpoint' => env('AWS_ENDPOINT'),
+                'use_path_style_endpoint' => (bool) env('AWS_USE_PATH_STYLE_ENDPOINT', true),
+                'visibility' => 'private',
+                'throw' => true,
+                'report' => false,
+            ]
+            : [
+                'driver' => 'local',
+                'root' => rtrim((string) env('UPLOADS_ROOT', base_path('..'.DIRECTORY_SEPARATOR.'uploads')), '/\\').DIRECTORY_SEPARATOR.'midia',
+                'visibility' => 'private',
+                'throw' => true,
+                'report' => false,
+            ],
+
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),

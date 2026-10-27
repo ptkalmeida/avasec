@@ -87,6 +87,15 @@ COPY docker/producao/entrypoint.sh /usr/local/bin/avasec-entrypoint
 RUN chmod +x /usr/local/bin/avasec-entrypoint \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache /var/www/avasec/uploads/public /var/www/avasec/uploads/private \
     && chown -R www-data:www-data storage bootstrap/cache /var/www/avasec/uploads
+# FFmpeg da mídia própria (ADR 023). Camada à parte e DEPOIS de tudo o que já existia, para não
+# invalidar o cache das anteriores. Custa ~127 MB na imagem (app, queue e scheduler) e só é
+# usado se MEDIA_DRIVER=minio; para uma imagem sem ele: --build-arg INSTALAR_FFMPEG=0.
+ARG INSTALAR_FFMPEG=1
+RUN if [ "$INSTALAR_FFMPEG" = "1" ]; then \
+        apk add --no-cache ffmpeg \
+        && ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libx264 \
+        && ffmpeg -hide_banner -encoders 2>/dev/null | grep -q ' aac '; \
+    fi
 USER www-data
 ENTRYPOINT ["avasec-entrypoint"]
 CMD ["php-fpm"]
