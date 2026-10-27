@@ -171,8 +171,8 @@ Route::middleware('aluno.web')->group(function (): void {
      * e o gabarito não vai para a página (decisão de 20/10).
      */
     Route::get('/aluno/curso/{cursoRef}/avaliacoes', [AreaDoAlunoController::class, 'avaliacoes'])->name('aluno.avaliacoes');
-    Route::get('/aluno/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoAlunoController::class, 'prova'])->name('aluno.prova');
-    Route::post('/aluno/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoAlunoController::class, 'responderProva']);
+    Route::get('/aluno/curso/{cursoRef}/avaliacoes/{avaliacao_id}', [AreaDoAlunoController::class, 'prova'])->name('aluno.prova');
+    Route::post('/aluno/curso/{cursoRef}/avaliacoes/{avaliacao_id}', [AreaDoAlunoController::class, 'responderProva']);
 
     /*
      * As seções que existem no sistema mas estão desligadas por flag. O
@@ -289,9 +289,9 @@ Route::middleware('instrutor.web')->group(function (): void {
         'Exercícios práticos',
         'Os exercícios práticos ainda não estão abertos nesta plataforma.',
     ))->name('instrutor.exercicios');
-    Route::get('/inst/curso/{cursoRef}/avaliacoes/{quizId}/editar', [AreaDoInstrutorController::class, 'formularioDeAvaliacao'])->name('instrutor.avaliacao.editar');
-    Route::post('/inst/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoInstrutorController::class, 'salvarAvaliacao']);
-    Route::post('/inst/curso/{cursoRef}/avaliacoes/{quizId}/remover', [AreaDoInstrutorController::class, 'removerAvaliacao']);
+    Route::get('/inst/curso/{cursoRef}/avaliacoes/{avaliacao_id}/editar', [AreaDoInstrutorController::class, 'formularioDeAvaliacao'])->name('instrutor.avaliacao.editar');
+    Route::post('/inst/curso/{cursoRef}/avaliacoes/{avaliacao_id}', [AreaDoInstrutorController::class, 'salvarAvaliacao']);
+    Route::post('/inst/curso/{cursoRef}/avaliacoes/{avaliacao_id}/remover', [AreaDoInstrutorController::class, 'removerAvaliacao']);
 
     // Alunos do curso: a turma e a fila de matrículas. Com a aprovação automática
     // ligada (hoje) a fila não existe, e a tela mostra só a turma.

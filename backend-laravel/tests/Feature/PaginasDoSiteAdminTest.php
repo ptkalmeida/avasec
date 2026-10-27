@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\SitePageContent;
-use App\Models\User;
+use App\Models\ConteudoPaginaSite;
+use App\Models\Usuario;
 use App\Services\SitePageContentService;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -35,25 +35,25 @@ final class PaginasDoSiteAdminTest extends TestCase
         return $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $token);
     }
 
-    private function gravado(string $pagina): ?SitePageContent
+    private function gravado(string $pagina): ?ConteudoPaginaSite
     {
-        return SitePageContent::query()->find($pagina);
+        return ConteudoPaginaSite::query()->find($pagina);
     }
 
     public function test_so_o_admin_chega_e_escreve(): void
     {
         $aluno = $this->makeStudent('Aluno Paginas Acesso');
-        $gestor = User::query()->where('role', 'instructor')->firstOrFail();
-        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->name, 'instructor');
+        $gestor = Usuario::query()->where('papel', 'instructor')->firstOrFail();
+        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->nome, 'instructor');
 
         // O visitante vem primeiro: o cookie de `como()` persiste no cliente de teste.
         $this->get('/admin/paginas-do-site')->assertRedirect('/entrar');
-        $this->post('/admin/paginas-do-site/o-ava', ['topo' => ['title' => 'Invasão']])->assertRedirect('/entrar');
+        $this->post('/admin/paginas-do-site/o-ava', ['topo' => ['titulo' => 'Invasão']])->assertRedirect('/entrar');
         $this->como($aluno['token'])->get('/admin/paginas-do-site')->assertRedirect('/aluno');
         $this->como($tokenDoGestor)->get('/admin/paginas-do-site')->assertRedirect('/inst');
-        $this->como($tokenDoGestor)->post('/admin/paginas-do-site/o-ava', ['topo' => ['title' => 'Invasão']])->assertRedirect('/inst');
+        $this->como($tokenDoGestor)->post('/admin/paginas-do-site/o-ava', ['topo' => ['titulo' => 'Invasão']])->assertRedirect('/inst');
 
-        $this->assertNotSame('Invasão', $this->gravado('o-ava')?->content['title'] ?? null);
+        $this->assertNotSame('Invasão', $this->gravado('o-ava')?->conteudo['titulo'] ?? null);
     }
 
     public function test_a_flag_desligada_responde_404(): void
@@ -74,7 +74,7 @@ final class PaginasDoSiteAdminTest extends TestCase
             $tela->assertSee(str_replace('&', '&amp;', $nome), false);
         }
         $tela->assertSee('Título da página');
-        $tela->assertSee('name="topo[title]"', false);
+        $tela->assertSee('name="topo[titulo]"', false);
         $tela->assertSee('Salvar e publicar');
         $tela->assertSee('Ver esta página no site');
         $tela->assertSee('href="/o-ava"', false);
@@ -102,7 +102,7 @@ final class PaginasDoSiteAdminTest extends TestCase
     {
         $this->como($this->admin())->post('/admin/paginas-do-site/duvidas', [
             'acao' => 'salvar',
-            'topo' => ['eyebrow' => '  Apoio  ', 'title' => 'Título novo', 'description' => 'Abertura nova'],
+            'topo' => ['eyebrow' => '  Apoio  ', 'titulo' => 'Título novo', 'descricao' => 'Abertura nova'],
             'itens' => [
                 ['id' => 'q-1', 'question' => 'Primeira pergunta?', 'answer' => 'Primeira resposta.'],
                 ['id' => 'q-2', 'question' => '', 'answer' => ''],
@@ -110,18 +110,18 @@ final class PaginasDoSiteAdminTest extends TestCase
             ],
         ])->assertRedirect('/admin/paginas-do-site?pagina=duvidas')->assertSessionHas('avisoDoSite');
 
-        $conteudo = $this->gravado('duvidas')?->content;
+        $conteudo = $this->gravado('duvidas')?->conteudo;
         $this->assertIsArray($conteudo);
         $this->assertSame('Apoio', $conteudo['eyebrow']);
-        $this->assertSame('Título novo', $conteudo['title']);
+        $this->assertSame('Título novo', $conteudo['titulo']);
         $this->assertCount(2, $conteudo['items']);
         $this->assertSame('q-1', $conteudo['items'][0]['id']);
         $this->assertSame('Terceira?', $conteudo['items'][1]['question']);
 
-        $this->assertTrue(DB::table('SecurityLog')->where('action', 'Edição de Conteúdo do Site')->where('details', 'like', '%duvidas%')->exists());
+        $this->assertTrue(DB::table('log_seguranca')->where('acao', 'Edição de Conteúdo do Site')->where('detalhes', 'like', '%duvidas%')->exists());
 
         // É o que o serviço público entrega ao visitante, sem login.
-        $this->assertSame('Título novo', app(SitePageContentService::class)->get('duvidas')['title']);
+        $this->assertSame('Título novo', app(SitePageContentService::class)->get('duvidas')['titulo']);
     }
 
     /** Conteúdo de página pública NUNCA vira HTML: o texto chega como texto e sai escapado. */
@@ -131,8 +131,8 @@ final class PaginasDoSiteAdminTest extends TestCase
 
         $this->como($token)->post('/admin/paginas-do-site/o-ava', [
             'acao' => 'salvar',
-            'topo' => ['title' => '<script>alert(1)</script> Título'],
-            'itens' => [['id' => 'a-1', 'title' => '<img src=x onerror=alert(1)>', 'description' => 'ok']],
+            'topo' => ['titulo' => '<script>alert(1)</script> Título'],
+            'itens' => [['id' => 'a-1', 'titulo' => '<img src=x onerror=alert(1)>', 'descricao' => 'ok']],
         ]);
 
         $tela = $this->como($token)->get('/admin/paginas-do-site?pagina=o-ava');
@@ -144,9 +144,9 @@ final class PaginasDoSiteAdminTest extends TestCase
     public function test_adicionar_remover_e_mover_nao_gravam_nada(): void
     {
         $token = $this->admin();
-        $antes = $this->gravado('duvidas')?->content;
+        $antes = $this->gravado('duvidas')?->conteudo;
         $rascunho = [
-            'topo' => ['title' => 'Rascunho'],
+            'topo' => ['titulo' => 'Rascunho'],
             'itens' => [
                 ['id' => 'a', 'question' => 'Primeira', 'answer' => 'um'],
                 ['id' => 'b', 'question' => 'Segunda', 'answer' => 'dois'],
@@ -172,25 +172,25 @@ final class PaginasDoSiteAdminTest extends TestCase
         $depois->assertSee('Segunda');
 
         // Nada foi ao ar.
-        $this->assertEquals($antes, $this->gravado('duvidas')?->content);
+        $this->assertEquals($antes, $this->gravado('duvidas')?->conteudo);
     }
 
     public function test_o_limite_de_itens_da_pagina_e_respeitado(): void
     {
         $itens = [];
         for ($i = 0; $i < 9; $i++) {
-            $itens[] = ['id' => 'x-'.$i, 'title' => 'Destaque '.$i, 'description' => 'd'];
+            $itens[] = ['id' => 'x-'.$i, 'titulo' => 'Destaque '.$i, 'descricao' => 'd'];
         }
 
         // `o-ava` aceita no máximo 9.
-        $this->como($this->admin())->post('/admin/paginas-do-site/o-ava', ['acao' => 'adicionar', 'topo' => ['title' => 'T'], 'itens' => $itens])
+        $this->como($this->admin())->post('/admin/paginas-do-site/o-ava', ['acao' => 'adicionar', 'topo' => ['titulo' => 'T'], 'itens' => $itens])
             ->assertSessionHasErrors('itens');
     }
 
     public function test_remover_ou_mover_indice_inexistente_nao_quebra(): void
     {
         $token = $this->admin();
-        $rascunho = ['topo' => ['title' => 'T'], 'itens' => [['id' => 'a', 'question' => 'Só', 'answer' => 'uma']]];
+        $rascunho = ['topo' => ['titulo' => 'T'], 'itens' => [['id' => 'a', 'question' => 'Só', 'answer' => 'uma']]];
 
         $this->como($token)->post('/admin/paginas-do-site/duvidas', $rascunho + ['acao' => 'remover:99'])->assertRedirect();
         $this->como($token)->post('/admin/paginas-do-site/duvidas', $rascunho + ['acao' => 'subir:0'])->assertRedirect();
@@ -211,11 +211,11 @@ final class PaginasDoSiteAdminTest extends TestCase
     {
         $this->como($this->admin())->post('/admin/paginas-do-site/orientacoes', [
             'acao' => 'salvar',
-            'topo' => ['title' => 'Orientações', 'campoInventado' => 'x'],
-            'itens' => [['id' => 'o-1', 'title' => 'Diretriz', 'description' => 'd', 'campoInventado' => 'y']],
+            'topo' => ['titulo' => 'Orientações', 'campoInventado' => 'x'],
+            'itens' => [['id' => 'o-1', 'titulo' => 'Diretriz', 'descricao' => 'd', 'campoInventado' => 'y']],
         ]);
 
-        $conteudo = $this->gravado('orientacoes')?->content;
+        $conteudo = $this->gravado('orientacoes')?->conteudo;
         $this->assertIsArray($conteudo);
         $this->assertArrayNotHasKey('campoInventado', $conteudo);
         $this->assertArrayNotHasKey('campoInventado', $conteudo['items'][0]);

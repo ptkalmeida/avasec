@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\User;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\Support\SeedsIdentity;
@@ -82,7 +82,7 @@ final class AutenticacaoWebTest extends TestCase
         $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $cookie->getValue())
             ->get('/aluno')
             ->assertOk()
-            ->assertSee('Olá, '.$aluno['name'], escape: false);
+            ->assertSee('Olá, '.$aluno['nome'], escape: false);
     }
 
     public function test_senha_errada_nao_entra_e_nao_diz_qual_campo_errou(): void
@@ -147,7 +147,7 @@ final class AutenticacaoWebTest extends TestCase
     {
         $aluno = $this->makeStudent('Aluno Ja Logado');
 
-        $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, Jwt::issue($aluno['id'], $aluno['name'], 'student'))
+        $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, Jwt::issue($aluno['id'], $aluno['nome'], 'student'))
             ->get('/entrar')
             ->assertRedirect('/aluno');
     }
@@ -155,7 +155,7 @@ final class AutenticacaoWebTest extends TestCase
     public function test_sair_e_post_com_csrf_e_apaga_a_sessao(): void
     {
         $aluno = $this->makeStudent('Aluno Saindo');
-        $token = Jwt::issue($aluno['id'], $aluno['name'], 'student');
+        $token = Jwt::issue($aluno['id'], $aluno['nome'], 'student');
 
         $resposta = $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $token)->post('/sair');
 
@@ -177,7 +177,7 @@ final class AutenticacaoWebTest extends TestCase
     public function test_sair_por_get_nao_encerra_a_sessao(): void
     {
         $aluno = $this->makeStudent('Aluno Sair Por Get');
-        $token = Jwt::issue($aluno['id'], $aluno['name'], 'student');
+        $token = Jwt::issue($aluno['id'], $aluno['nome'], 'student');
 
         $resposta = $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $token)->get('/sair');
 
@@ -197,7 +197,7 @@ final class AutenticacaoWebTest extends TestCase
         $email = 'cadastro-blade-'.uniqid().'@example.com';
 
         $resposta = $this->post('/cadastro', [
-            'name' => 'Pessoa Cadastro Blade',
+            'nome' => 'Pessoa Cadastro Blade',
             'email' => $email,
             'cpf' => $cpf,
             'password' => 'SenhaForte123',
@@ -209,10 +209,10 @@ final class AutenticacaoWebTest extends TestCase
         // Cadastro público não concede acesso: quem libera é a coordenação.
         $this->assertNull($resposta->getCookie(JwtAuthenticate::SESSION_COOKIE, false));
 
-        $criado = User::query()->where('email', $email)->first();
+        $criado = Usuario::query()->where('email', $email)->first();
         $this->assertNotNull($criado);
         $this->assertSame('pending_confirmation', $criado->status);
-        $this->assertSame('student', $criado->role);
+        $this->assertSame('student', $criado->papel);
     }
 
     /**
@@ -224,16 +224,16 @@ final class AutenticacaoWebTest extends TestCase
         $email = 'escalada-'.uniqid().'@example.com';
 
         $this->post('/cadastro', [
-            'name' => 'Tentativa De Escalada',
+            'nome' => 'Tentativa De Escalada',
             'email' => $email,
             'cpf' => $this->makeCpf(),
             'password' => 'SenhaForte123',
-            'role' => 'admin',
+            'papel' => 'admin',
         ]);
 
-        $criado = User::query()->where('email', $email)->first();
+        $criado = Usuario::query()->where('email', $email)->first();
         $this->assertNotNull($criado);
-        $this->assertSame('student', $criado->role);
+        $this->assertSame('student', $criado->papel);
     }
 
     /**
@@ -250,8 +250,8 @@ final class AutenticacaoWebTest extends TestCase
         $email = 'completo-'.uniqid().'@example.com';
 
         $this->post('/cadastro', [
-            'name' => 'Pessoa Dados Completos',
-            'nomeSocial' => 'Alex',
+            'nome' => 'Pessoa Dados Completos',
+            'nome_social' => 'Alex',
             'cpf' => $this->makeCpf(),
             'identidade' => '12.345.678-9',
             'email' => $email,
@@ -261,9 +261,9 @@ final class AutenticacaoWebTest extends TestCase
             'password' => 'SenhaForte123',
         ])->assertRedirect('/entrar');
 
-        $criado = User::query()->where('email', $email)->first();
+        $criado = Usuario::query()->where('email', $email)->first();
         $this->assertNotNull($criado);
-        $this->assertSame('Alex', $criado->nomeSocial);
+        $this->assertSame('Alex', $criado->nome_social);
         $this->assertSame('12.345.678-9', $criado->identidade);
         $this->assertSame('(21) 99999-0000', $criado->celular);
         $this->assertNotNull($criado->cep);
@@ -279,16 +279,16 @@ final class AutenticacaoWebTest extends TestCase
         $email = 'brancos-'.uniqid().'@example.com';
 
         $this->post('/cadastro', [
-            'name' => 'Pessoa Sem Opcionais',
-            'nomeSocial' => '   ',
+            'nome' => 'Pessoa Sem Opcionais',
+            'nome_social' => '   ',
             'cpf' => $this->makeCpf(),
             'email' => $email,
             'password' => 'SenhaForte123',
         ])->assertRedirect('/entrar');
 
-        $criado = User::query()->where('email', $email)->first();
+        $criado = Usuario::query()->where('email', $email)->first();
         $this->assertNotNull($criado);
-        $this->assertNull($criado->nomeSocial);
+        $this->assertNull($criado->nome_social);
     }
 
     public function test_cep_com_formato_invalido_e_recusado_com_a_mensagem_da_regra(): void
@@ -296,14 +296,14 @@ final class AutenticacaoWebTest extends TestCase
         $email = 'cep-ruim-'.uniqid().'@example.com';
 
         $this->from('/cadastro')->post('/cadastro', [
-            'name' => 'Pessoa Cep Ruim',
+            'nome' => 'Pessoa Cep Ruim',
             'cpf' => $this->makeCpf(),
             'email' => $email,
             'cep' => '123',
             'password' => 'SenhaForte123',
         ])->assertRedirect('/cadastro')->assertSessionHasErrors('cep');
 
-        $this->assertFalse(User::query()->where('email', $email)->exists());
+        $this->assertFalse(Usuario::query()->where('email', $email)->exists());
     }
 
     /** O formulário pede o mesmo conjunto do cadastro que estava no ar. */
@@ -311,7 +311,7 @@ final class AutenticacaoWebTest extends TestCase
     {
         $resposta = $this->get('/cadastro');
 
-        foreach (['name', 'nomeSocial', 'cpf', 'identidade', 'email', 'celular', 'cep', 'endereco', 'password'] as $campo) {
+        foreach (['nome', 'nome_social', 'cpf', 'identidade', 'email', 'celular', 'cep', 'endereco', 'password'] as $campo) {
             $resposta->assertSee('name="'.$campo.'"', escape: false);
         }
     }
@@ -331,11 +331,11 @@ final class AutenticacaoWebTest extends TestCase
         // E a regra é mesmo essa: só minúsculas e números passa.
         $email = 'regra-'.uniqid().'@example.com';
         $this->post('/cadastro', [
-            'name' => 'Pessoa Regra Senha',
+            'nome' => 'Pessoa Regra Senha',
             'cpf' => $this->makeCpf(),
             'email' => $email,
             'password' => 'senhasimples1',
         ])->assertRedirect('/entrar');
-        $this->assertTrue(User::query()->where('email', $email)->exists());
+        $this->assertTrue(Usuario::query()->where('email', $email)->exists());
     }
 }

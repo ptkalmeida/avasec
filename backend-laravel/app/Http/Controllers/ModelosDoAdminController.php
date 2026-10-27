@@ -17,7 +17,7 @@ use Illuminate\View\View;
  * (M5, fatia 6): o cabeçalho, as assinaturas e o rodapé dos documentos emitidos.
  *
  * Quem grava é o `DocumentTemplateService` da API, que só aceita o admin. O
- * campo de HTML livre (`customHtml`) continua de fora: o painel React já o
+ * campo de HTML livre (`html_personalizado`) continua de fora: o painel React já o
  * tinha removido — campo que aceita marcação arbitrária num documento oficial é
  * superfície de injeção, e o modelo estruturado cobre o uso real.
  *
@@ -45,19 +45,19 @@ final class ModelosDoAdminController extends Controller
 
         // Com rascunho em andamento (acrescentar/remover assinatura, ou erro de
         // validação), o que vale é o que a pessoa estava editando.
-        $assinaturas = $this->assinaturasDoRascunho($request->old('assinaturas'), $modelo['signatories'] ?? []);
+        $assinaturas = $this->assinaturasDoRascunho($request->old('assinaturas'), $modelo['signatarios'] ?? []);
 
         return view('admin.templates', [
             'tipo' => $tipo,
             'tipos' => ['certificado' => 'Certificado de Conclusão', 'historico' => 'Histórico Escolar'],
-            'instituicao' => $request->old('institutionName', is_string($modelo['institutionName'] ?? null) ? $modelo['institutionName'] : ''),
-            'rodape' => $request->old('footerText', is_string($modelo['footerText'] ?? null) ? $modelo['footerText'] : ''),
+            'instituicao' => $request->old('nome_instituicao', is_string($modelo['nome_instituicao'] ?? null) ? $modelo['nome_instituicao'] : ''),
+            'rodape' => $request->old('texto_rodape', is_string($modelo['texto_rodape'] ?? null) ? $modelo['texto_rodape'] : ''),
             'assinaturas' => $assinaturas,
-            'atualizadoEm' => is_string($modelo['updatedAt'] ?? null) ? $modelo['updatedAt'] : null,
+            'atualizadoEm' => is_string($modelo['atualizado_em'] ?? null) ? $modelo['atualizado_em'] : null,
             'maxAssinaturas' => self::MAX_ASSINATURAS,
             'versoes' => $this->versoes->paraTela(VersoesDeConteudo::MODELO_DE_DOCUMENTO, $tipo, static function (array $v): string {
-                $nome = is_string($v['institutionName'] ?? null) ? trim($v['institutionName']) : '';
-                $assinaturas = is_array($v['signatories'] ?? null) ? count($v['signatories']) : 0;
+                $nome = is_string($v['nome_instituicao'] ?? null) ? trim($v['nome_instituicao']) : '';
+                $assinaturas = is_array($v['signatarios'] ?? null) ? count($v['signatarios']) : 0;
 
                 return ($nome !== '' ? mb_strimwidth($nome, 0, 90, '…') : 'Sem nome da instituição').' · '.$assinaturas.($assinaturas === 1 ? ' assinatura' : ' assinaturas');
             }),
@@ -70,7 +70,7 @@ final class ModelosDoAdminController extends Controller
         $tipoValido = $this->tipo($tipo);
         abort_if($tipoValido === null, 404);
 
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
         $this->modelos->restaurarVersao($tipoValido, $versao, $admin);
@@ -85,7 +85,7 @@ final class ModelosDoAdminController extends Controller
         $tipoValido = $this->tipo($tipo);
         abort_if($tipoValido === null, 404);
 
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
         $linhas = $this->assinaturasDoRascunho($request->input('assinaturas'), []);
@@ -108,9 +108,9 @@ final class ModelosDoAdminController extends Controller
         }
 
         $dados = $request->validate([
-            'institutionName' => ['nullable', 'string', 'max:191'],
-            'footerText' => ['nullable', 'string', 'max:2000'],
-        ], [], ['institutionName' => 'nome da instituição', 'footerText' => 'texto de rodapé']);
+            'nome_instituicao' => ['nullable', 'string', 'max:191'],
+            'texto_rodape' => ['nullable', 'string', 'max:2000'],
+        ], [], ['nome_instituicao' => 'nome da instituição', 'texto_rodape' => 'texto de rodapé']);
 
         // Linha totalmente em branco é só espaço de preenchimento; linha pela
         // metade é erro que a pessoa precisa ver, e não um silêncio.
@@ -138,9 +138,9 @@ final class ModelosDoAdminController extends Controller
 
         try {
             $this->modelos->upsert($tipoValido, [
-                'institutionName' => $this->opcional($dados['institutionName'] ?? null),
-                'footerText' => $this->opcional($dados['footerText'] ?? null),
-                'signatories' => $assinaturas,
+                'nome_instituicao' => $this->opcional($dados['nome_instituicao'] ?? null),
+                'texto_rodape' => $this->opcional($dados['texto_rodape'] ?? null),
+                'signatarios' => $assinaturas,
             ], $admin);
         } catch (ApiException $e) {
             return $this->devolver($request, $tipoValido, $linhas)->withErrors(['assinaturas' => $e->getMessage()]);
@@ -163,7 +163,7 @@ final class ModelosDoAdminController extends Controller
     /**
      * As assinaturas do rascunho (o que a pessoa estava editando) ou, sem rascunho, as gravadas.
      *
-     * @return list<array{name:string,role:string}>
+     * @return list<array{name: string, role: string}>
      */
     private function assinaturasDoRascunho(mixed $rascunho, mixed $gravadas): array
     {
@@ -183,12 +183,12 @@ final class ModelosDoAdminController extends Controller
         return $lista;
     }
 
-    /** @param list<array{name:string,role:string}> $linhas */
+    /** @param list<array{name: string, role: string}> $linhas */
     private function devolver(Request $request, string $tipo, array $linhas): RedirectResponse
     {
         return redirect('/admin/templates?tipo='.$tipo)->withInput([
-            'institutionName' => $request->string('institutionName')->toString(),
-            'footerText' => $request->string('footerText')->toString(),
+            'nome_instituicao' => $request->string('nome_instituicao')->toString(),
+            'texto_rodape' => $request->string('texto_rodape')->toString(),
             'assinaturas' => $linhas,
         ]);
     }

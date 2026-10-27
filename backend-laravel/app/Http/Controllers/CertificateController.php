@@ -52,17 +52,17 @@ final class CertificateController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'userId' => ['sometimes', 'nullable', 'string', 'max:191'],
-            'courseId' => ['required', 'string', 'max:191'],
+            'usuario_id' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'curso_id' => ['required', 'string', 'max:191'],
         ]);
 
-        $courseId = $this->stringField($data, 'courseId');
+        $curso_id = $this->stringField($data, 'curso_id');
         $cert = $this->certificates->issueCertificate([
-            'userId' => $this->optionalString($data, 'userId'),
-            'courseId' => $courseId,
+            'usuario_id' => $this->optionalString($data, 'usuario_id'),
+            'curso_id' => $curso_id,
         ], $this->requester($request));
-        $studentName = $this->optionalString($cert, 'studentName') ?? '';
-        $this->audit->log($request, 'Emissão de Certificado', "Certificado emitido para \"{$studentName}\" no curso {$courseId}.");
+        $nome_aluno = $this->optionalString($cert, 'nome_aluno') ?? '';
+        $this->audit->log($request, 'Emissão de Certificado', "Certificado emitido para \"{$nome_aluno}\" no curso {$curso_id}.");
 
         return response()->json($cert, 201);
     }
@@ -72,7 +72,7 @@ final class CertificateController extends Controller
         $result = $this->pdf->renderPdf($id, $this->requester($request));
         $this->audit->log($request, 'Download de Certificado', "PDF do certificado {$id} baixado.");
 
-        return response($result['content'], 200, [
+        return response($result['conteudo'], 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => "attachment; filename=\"{$result['filename']}\"",
         ]);
@@ -81,7 +81,7 @@ final class CertificateController extends Controller
     public function destroy(Request $request, string $id): JsonResponse
     {
         // Quem e por quê. A chamada antiga passava só o id, então a linha ficava
-        // com `inativadoPor` e `motivoInativacao` nulos e a auditoria só sabia
+        // com `inativado_por` e `motivo_inativacao` nulos e a auditoria só sabia
         // dizer que ALGUÉM revogou — que é metade do que ela existe para
         // responder. O motivo é opcional no corpo por compatibilidade com quem
         // já chama a rota.

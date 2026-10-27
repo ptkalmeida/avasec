@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Course;
+use App\Models\Curso;
 use App\Support\Visibilidade;
 use App\Support\VigenciaDoCurso;
 
@@ -17,11 +17,11 @@ use App\Support\VigenciaDoCurso;
  *
  * - **publicado** (`status` 1 na escada da ADR 12) — rascunho e restrito não
  *   aparecem ao público;
- * - **não inativado** — o `SoftDeletes` de `Course` já o exclui da consulta;
+ * - **não inativado** — o `SoftDeletes` de `curso` já o exclui da consulta;
  * - **vigência não vencida** — o mesmo critério de `VigenciaDoCurso` que barra a
  *   matrícula. Curso sem prazo é de vigência permanente e entra.
  *
- * A ordem é do curso mais novo para o mais antigo. `Course` não tem coluna de
+ * A ordem é do curso mais novo para o mais antigo. `curso` não tem coluna de
  * data de criação, e o único registro de quando o curso nasceu é o próprio id:
  * o painel o gera como `course-<milissegundos>` (`CourseService::createCourse`),
  * e os cursos de seed (`course-1`, `course-2`...) têm número pequeno e ficam por
@@ -31,26 +31,26 @@ use App\Support\VigenciaDoCurso;
 final class CatalogoPublico
 {
     /**
-     * @return list<array{title:string,category:string,instructor:string,image:string,description:string}>
+     * @return list<array{titulo:string,categoria:string,instructor:string,imagem:string,descricao:string}>
      */
     public function cursaveis(): array
     {
-        $consulta = Course::query()->select([
-            'id', 'title', 'category', 'instructorName', 'thumbnail', 'coverImage',
-            'description', 'vigenciaAte', 'contractExpirationDate',
+        $consulta = Curso::query()->select([
+            'id', 'titulo', 'categoria', 'nome_instrutor', 'miniatura', 'imagem_capa',
+            'descricao', 'vigencia_ate', 'vencimento_contrato_texto',
         ]);
         Visibilidade::aplicar($consulta, null);
 
         $vitrine = [];
 
         $cursos = $consulta->get()->sortByDesc(
-            static fn (Course $c): int => preg_match('/(\d+)$/', (string) $c->id, $m) === 1 ? (int) $m[1] : 0,
+            static fn (Curso $c): int => preg_match('/(\d+)$/', (string) $c->id, $m) === 1 ? (int) $m[1] : 0,
         );
 
         foreach ($cursos as $curso) {
             $vigencia = [
-                'vigenciaAte' => $curso->getAttribute('vigenciaAte'),
-                'contractExpirationDate' => $curso->contractExpirationDate,
+                'vigencia_ate' => $curso->getAttribute('vigencia_ate'),
+                'vencimento_contrato_texto' => $curso->vencimento_contrato_texto,
             ];
 
             if (VigenciaDoCurso::vencida($vigencia)) {
@@ -58,11 +58,11 @@ final class CatalogoPublico
             }
 
             $vitrine[] = [
-                'title' => (string) $curso->title,
-                'category' => (string) $curso->category,
-                'instructor' => trim((string) $curso->instructorName),
-                'image' => (string) ($curso->thumbnail ?: $curso->coverImage),
-                'description' => trim((string) $curso->description),
+                'titulo' => (string) $curso->titulo,
+                'categoria' => (string) $curso->categoria,
+                'instructor' => trim((string) $curso->nome_instrutor),
+                'imagem' => (string) ($curso->miniatura ?: $curso->imagem_capa),
+                'descricao' => trim((string) $curso->descricao),
             ];
         }
 

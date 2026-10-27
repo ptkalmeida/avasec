@@ -92,9 +92,9 @@ final class AutenticacaoWebController extends Controller
                 // Aluno entra por CPF; gestão e admin por e-mail (ADR 11).
                 'cpf' => $papel === 'student' ? $identificador : null,
                 'email' => $papel === 'student' ? null : mb_strtolower($identificador),
-                'name' => null,
+                'nome' => null,
                 'password' => (string) $dados['senha'],
-                'role' => $papel,
+                'papel' => $papel,
                 'ip' => $request->ip(),
             ]);
         } catch (Throwable $erro) {
@@ -115,11 +115,11 @@ final class AutenticacaoWebController extends Controller
         }
 
         $this->audit->log($request, 'Autenticação no Sistema', 'Login efetuado com sucesso.', 'SUCCESS', [
-            'name' => $resultado['user']['name'],
-            'role' => $resultado['user']['role'],
+            'nome' => $resultado['usuario']['nome'],
+            'papel' => $resultado['usuario']['papel'],
         ]);
 
-        $papelReal = (string) $resultado['user']['role'];
+        $papelReal = (string) $resultado['usuario']['papel'];
 
         return redirect(self::RAIZ_DO_PAPEL[$papelReal] ?? '/')
             ->withCookie(SessaoJwt::cookie($resultado['token']));
@@ -157,7 +157,7 @@ final class AutenticacaoWebController extends Controller
     public function cadastrar(Request $request): RedirectResponse
     {
         $dados = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'min:2', 'max:150'],
+            'nome' => ['required', 'string', 'min:2', 'max:150'],
             'email' => ['required', 'email', 'max:254'],
             'cpf' => ['required', 'string', 'max:20', new CpfRule],
             'password' => ['required', 'string', 'max:128', new StrongPasswordRule],
@@ -165,30 +165,30 @@ final class AutenticacaoWebController extends Controller
             // os dados cadastrais completos da ADR 11 que o formulário do
             // React enviava, e os três antigos que esta tela pedia na primeira
             // versão — aceitos para nada quebrar, embora não sejam mais pedidos.
-            'nomeSocial' => ['nullable', 'string', 'max:150'],
+            'nome_social' => ['nullable', 'string', 'max:150'],
             'identidade' => ['nullable', 'string', 'max:40'],
             'celular' => ['nullable', 'string', 'max:20'],
             'cep' => ['nullable', 'string', 'max:20', new CepRule],
             'endereco' => ['nullable', 'string', 'max:191'],
             'municipio' => ['nullable', 'string', 'max:120'],
             'uf' => ['nullable', 'string', 'max:2'],
-            'areaInteresse' => ['nullable', 'string', 'max:120'],
+            'area_interesse' => ['nullable', 'string', 'max:120'],
         ])->validate();
 
         try {
             $resultado = $this->auth->register([
-                'name' => (string) $dados['name'],
+                'nome' => (string) $dados['nome'],
                 'email' => mb_strtolower(trim((string) $dados['email'])),
                 'password' => (string) $dados['password'],
                 'cpf' => (string) $dados['cpf'],
-                'nomeSocial' => self::opcional($dados, 'nomeSocial'),
+                'nome_social' => self::opcional($dados, 'nome_social'),
                 'identidade' => self::opcional($dados, 'identidade'),
                 'celular' => self::opcional($dados, 'celular'),
                 'cep' => self::opcional($dados, 'cep'),
                 'endereco' => self::opcional($dados, 'endereco'),
                 'municipio' => self::opcional($dados, 'municipio'),
                 'uf' => self::opcional($dados, 'uf'),
-                'areaInteresse' => self::opcional($dados, 'areaInteresse'),
+                'area_interesse' => self::opcional($dados, 'area_interesse'),
             ], null);
         } catch (Throwable $erro) {
             return back()
@@ -230,7 +230,7 @@ final class AutenticacaoWebController extends Controller
             return null;
         }
 
-        $papel = is_string($identidade['role']) ? $identidade['role'] : '';
+        $papel = is_string($identidade['papel']) ? $identidade['papel'] : '';
 
         return redirect(self::RAIZ_DO_PAPEL[$papel] ?? '/');
     }

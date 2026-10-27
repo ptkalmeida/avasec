@@ -23,8 +23,8 @@ final class Jwt
         return FirebaseJwt::encode(
             [
                 'sub' => $sub,
-                'name' => $name,
-                'role' => $role,
+                'nome' => $name,
+                'papel' => $role,
                 'iat' => $now,
                 'exp' => $now + self::TTL_SECONDS,
                 // Sessão revogável (ADR 022): `sv` é a versão da sessão da conta no

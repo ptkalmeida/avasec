@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Quiz;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Avaliacao;
+use App\Models\Usuario;
 use App\Support\Fuso;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
@@ -40,33 +40,33 @@ final class GestaoDoCursoTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    private function curso(string $titulo, string $instructorId): Course
+    private function curso(string $titulo, string $instrutor_id): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-gestao-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
-            'vigenciaAte' => now()->addYear()->format('Y-m-d'),
-            'contractExpirationDate' => now()->addYear()->format('Y-m-d'),
+            'vigencia_ate' => now()->addYear()->format('Y-m-d'),
+            'vencimento_contrato_texto' => now()->addYear()->format('Y-m-d'),
         ]);
 
         return $curso->refresh();
@@ -81,7 +81,7 @@ final class GestaoDoCursoTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Panorama');
         $curso = $this->curso('Curso Do Panorama Teste', $eu['id']);
-        Quiz::query()->create(['id' => 'quiz-gestao-'.uniqid(), 'courseId' => $curso->id, 'title' => 'Prova do panorama']);
+        Avaliacao::query()->create(['id' => 'quiz-gestao-'.uniqid(), 'curso_id' => $curso->id, 'titulo' => 'Prova do panorama']);
 
         $resposta = $this->como($eu['token'])->get('/inst/curso/'.$curso->slug);
 
@@ -102,13 +102,13 @@ final class GestaoDoCursoTest extends TestCase
         $this->como($eu['token'])->get('/inst/curso/'.$alheio->slug)->assertNotFound();
         $this->como($eu['token'])
             ->post('/inst/curso/'.$alheio->slug.'/propriedades', [
-                'title' => 'Nome Novo Indevido',
-                'description' => 'Descrição longa o bastante para passar.',
-                'category' => 'Teste',
+                'titulo' => 'Nome Novo Indevido',
+                'descricao' => 'Descrição longa o bastante para passar.',
+                'categoria' => 'Teste',
             ])
             ->assertNotFound();
 
-        $this->assertSame('Curso Alheio Gestao', Course::query()->whereKey($alheio->id)->value('title'));
+        $this->assertSame('Curso Alheio Gestao', Curso::query()->whereKey($alheio->id)->value('titulo'));
     }
 
     public function test_pelo_id_vai_para_o_endereco_de_hoje(): void
@@ -124,29 +124,29 @@ final class GestaoDoCursoTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Propriedades');
         $curso = $this->curso('Curso Propriedades Teste', $eu['id']);
-        $antes = (int) DB::table('SecurityLog')->count();
+        $antes = (int) DB::table('log_seguranca')->count();
 
         $this->como($eu['token'])->post('/inst/curso/'.$curso->slug.'/propriedades', [
-            'title' => 'Curso Propriedades Teste',
-            'description' => 'Uma descrição nova, longa o bastante para o validador.',
-            'category' => 'Categoria Nova',
-            'cargaHoraria' => 40,
+            'titulo' => 'Curso Propriedades Teste',
+            'descricao' => 'Uma descrição nova, longa o bastante para o validador.',
+            'categoria' => 'Categoria Nova',
+            'carga_horaria' => 40,
             'modalidade' => 'A distância',
             'nivel' => 'Introdutório',
-            'minAttendance' => 80,
-            'emiteCertificado' => '1',
+            'frequencia_minima' => 80,
+            'emite_certificado' => '1',
         ])->assertRedirect('/inst/curso/'.$curso->slug);
 
-        $salvo = Course::query()->whereKey($curso->id)->first();
+        $salvo = Curso::query()->whereKey($curso->id)->first();
         $this->assertNotNull($salvo);
-        $this->assertSame('Categoria Nova', $salvo->category);
-        $this->assertSame(40, (int) $salvo->cargaHoraria);
-        $this->assertSame(80, (int) $salvo->minAttendance);
+        $this->assertSame('Categoria Nova', $salvo->categoria);
+        $this->assertSame(40, (int) $salvo->carga_horaria);
+        $this->assertSame(80, (int) $salvo->frequencia_minima);
         $this->assertSame('A distância', $salvo->modalidade);
 
-        $this->assertGreaterThan($antes, (int) DB::table('SecurityLog')->count());
+        $this->assertGreaterThan($antes, (int) DB::table('log_seguranca')->count());
         $this->assertTrue(
-            DB::table('SecurityLog')->where('action', 'Alteração de Curso')->exists(),
+            DB::table('log_seguranca')->where('acao', 'Alteração de Curso')->exists(),
             'A alteração pela tela não deixou registro na auditoria.',
         );
     }
@@ -158,12 +158,12 @@ final class GestaoDoCursoTest extends TestCase
         $curso = $this->curso('Curso Titulo Antigo Teste', $eu['id']);
 
         $resposta = $this->como($eu['token'])->post('/inst/curso/'.$curso->slug.'/propriedades', [
-            'title' => 'Curso Titulo Novinho Teste',
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
+            'titulo' => 'Curso Titulo Novinho Teste',
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
         ]);
 
-        $novo = (string) Course::query()->whereKey($curso->id)->value('slug');
+        $novo = (string) Curso::query()->whereKey($curso->id)->value('slug');
         $this->assertNotSame($curso->slug, $novo);
         $resposta->assertRedirect('/inst/curso/'.$novo);
 
@@ -180,13 +180,13 @@ final class GestaoDoCursoTest extends TestCase
         $this->como($eu['token'])
             ->from('/inst/curso/'.$curso->slug)
             ->post('/inst/curso/'.$curso->slug.'/propriedades', [
-                'title' => 'ab',
-                'description' => 'Descrição longa o bastante para o validador aceitar.',
-                'category' => 'Teste',
+                'titulo' => 'ab',
+                'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+                'categoria' => 'Teste',
             ])
-            ->assertSessionHasErrors('title');
+            ->assertSessionHasErrors('titulo');
 
-        $this->assertSame('Curso Titulo Valido Teste', Course::query()->whereKey($curso->id)->value('title'));
+        $this->assertSame('Curso Titulo Valido Teste', Curso::query()->whereKey($curso->id)->value('titulo'));
     }
 
     /** Campo em branco é "não mexer", e não "zerar". */
@@ -194,16 +194,16 @@ final class GestaoDoCursoTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Carga');
         $curso = $this->curso('Curso Carga Teste', $eu['id']);
-        Course::query()->whereKey($curso->id)->update(['cargaHoraria' => 30]);
+        Curso::query()->whereKey($curso->id)->update(['carga_horaria' => 30]);
 
         $this->como($eu['token'])->post('/inst/curso/'.$curso->slug.'/propriedades', [
-            'title' => 'Curso Carga Teste',
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'cargaHoraria' => '',
+            'titulo' => 'Curso Carga Teste',
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'carga_horaria' => '',
         ]);
 
-        $this->assertSame(30, (int) Course::query()->whereKey($curso->id)->value('cargaHoraria'));
+        $this->assertSame(30, (int) Curso::query()->whereKey($curso->id)->value('carga_horaria'));
     }
 
     public function test_renovar_por_um_ano_usa_o_relogio_do_servidor(): void
@@ -216,10 +216,10 @@ final class GestaoDoCursoTest extends TestCase
             ->assertRedirect('/inst/curso/'.$curso->slug);
 
         $esperado = Fuso::agora()->addYear()->format('Y-m-d');
-        $salvo = Course::query()->whereKey($curso->id)->first(['vigenciaAte', 'contractExpirationDate']);
+        $salvo = Curso::query()->whereKey($curso->id)->first(['vigencia_ate', 'vencimento_contrato_texto']);
         $this->assertNotNull($salvo);
-        $this->assertSame($esperado, $salvo->getAttribute('vigenciaAte')?->format('Y-m-d'));
-        $this->assertSame($esperado, $salvo->contractExpirationDate);
+        $this->assertSame($esperado, $salvo->getAttribute('vigencia_ate')?->format('Y-m-d'));
+        $this->assertSame($esperado, $salvo->vencimento_contrato_texto);
     }
 
     public function test_tornar_permanente_tira_o_prazo(): void
@@ -229,9 +229,9 @@ final class GestaoDoCursoTest extends TestCase
 
         $this->como($eu['token'])->post('/inst/curso/'.$curso->slug.'/vigencia', ['prazo' => 'permanente']);
 
-        $salvo = Course::query()->whereKey($curso->id)->first(['vigenciaAte', 'contractExpirationDate']);
+        $salvo = Curso::query()->whereKey($curso->id)->first(['vigencia_ate', 'vencimento_contrato_texto']);
         $this->assertNotNull($salvo);
-        $this->assertNull($salvo->getAttribute('vigenciaAte'));
+        $this->assertNull($salvo->getAttribute('vigencia_ate'));
     }
 
     /**
@@ -242,9 +242,9 @@ final class GestaoDoCursoTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Renova');
         $curso = $this->curso('Curso Renovado Teste', $eu['id']);
-        Course::query()->whereKey($curso->id)->update([
-            'vigenciaAte' => now()->subDay()->format('Y-m-d'),
-            'contractExpirationDate' => now()->subDay()->format('Y-m-d'),
+        Curso::query()->whereKey($curso->id)->update([
+            'vigencia_ate' => now()->subDay()->format('Y-m-d'),
+            'vencimento_contrato_texto' => now()->subDay()->format('Y-m-d'),
         ]);
 
         $aluno = $this->makeStudent('Aluno Do Curso Renovado');
@@ -259,7 +259,7 @@ final class GestaoDoCursoTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Data Passada');
         $curso = $this->curso('Curso Data Passada Teste', $eu['id']);
-        $antes = (string) Course::query()->whereKey($curso->id)->value('contractExpirationDate');
+        $antes = (string) Curso::query()->whereKey($curso->id)->value('vencimento_contrato_texto');
 
         $this->como($eu['token'])
             ->from('/inst/curso/'.$curso->slug)
@@ -269,7 +269,7 @@ final class GestaoDoCursoTest extends TestCase
             ])
             ->assertSessionHasErrors('ate');
 
-        $this->assertSame($antes, (string) Course::query()->whereKey($curso->id)->value('contractExpirationDate'));
+        $this->assertSame($antes, (string) Curso::query()->whereKey($curso->id)->value('vencimento_contrato_texto'));
     }
 
     public function test_escolher_data_sem_informar_a_data_e_recusado(): void
@@ -299,10 +299,10 @@ final class GestaoDoCursoTest extends TestCase
     {
         $outro = $this->instrutor('Gestor Do Admin Gestao');
         $curso = $this->curso('Curso Do Admin Gestao', $outro['id']);
-        $admin = User::query()->where('role', 'admin')->first();
+        $admin = Usuario::query()->where('papel', 'admin')->first();
         $this->assertNotNull($admin);
 
-        $this->como(Jwt::issue((string) $admin->id, (string) $admin->name, 'admin'))
+        $this->como(Jwt::issue((string) $admin->id, (string) $admin->nome, 'admin'))
             ->get('/inst/curso/'.$curso->slug)
             ->assertOk();
     }

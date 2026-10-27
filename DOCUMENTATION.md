@@ -18,7 +18,7 @@ acompanhamento de progresso, emissão de certificado digital e gestão administr
 
 Três papéis (`Role` no banco): **`student`** (aluno), **`instructor`** (instrutor/"Gestor de
 Conteúdos") e **`admin`** (administrador/coordenação). O papel é definido no cadastro do usuário
-(`User.role` no Prisma) e verificado em toda rota interna via JWT.
+(`usuario.papel` no Prisma) e verificado em toda rota interna via JWT.
 
 ## 3. O que cada perfil pode acessar e fazer
 
@@ -31,7 +31,7 @@ Conteúdos") e **`admin`** (administrador/coordenação). O papel é definido no
 - Envia solicitações acadêmicas (certificado, histórico, matrícula, outro) e mensagens diretas.
 
 ### Instrutor
-- Cria/edita/exclui **apenas os cursos onde é o `instructorName`** (ownership verificado no
+- Cria/edita/exclui **apenas os cursos onde é o `nome_instrutor`** (ownership verificado no
   backend, não só escondido no frontend).
 - Lista **apenas os alunos matriculados/admitidos em seus próprios cursos** — não a base
   inteira de alunos da escola (`authService.listStudentsForInstructor`).
@@ -43,29 +43,29 @@ Conteúdos") e **`admin`** (administrador/coordenação). O papel é definido no
 - Acesso irrestrito: qualquer curso, qualquer aluno/instrutor, configurações do sistema.
 - Único perfil que pode: alterar `status` de conta de um usuário (`active`/`blocked`), excluir
   usuários, criar contas de instrutor/admin, exportar Dados Gerenciais, ver a trilha de
-  auditoria completa (`/api/security-logs`), resetar o banco em ambiente de desenvolvimento.
+  auditoria completa (`/api/logs-seguranca`), resetar o banco em ambiente de desenvolvimento.
 
 ## 4. Fluxo completo do aluno
 
-1. **Catálogo** — página institucional pública (`GET /api/courses`, sem login) lista os cursos.
-2. **Matrícula** — aluno logado envia uma solicitação de admissão (`POST /api/admissions`);
+1. **Catálogo** — página institucional pública (`GET /api/cursos`, sem login) lista os cursos.
+2. **Matrícula** — aluno logado envia uma solicitação de admissão (`POST /api/ingressos`);
    matrícula duplicada pendente para o mesmo curso é bloqueada (`409 CONFLICT`). Ao ser aprovada
-   por instrutor/admin, o backend já efetiva a matrícula (`StudentEnrollment`) na mesma
+   por instrutor/admin, o backend já efetiva a matrícula (`Matricula`) na mesma
    transação da aprovação.
-3. **Aulas** — dentro do curso, assiste aulas gravadas (`videoUrl`) ou entra em sessões ao vivo
-   (`LiveSession`/`LiveClassroom`), acessa documentos complementares e responde quizzes.
-4. **Progresso** — cada aula concluída/presença em live é registrada em `StudentProgress`,
-   escopada por `studentName`+`courseId` (não há mais o bug de progresso global cruzando entre
+3. **Aulas** — dentro do curso, assiste aulas gravadas (`url_video`) ou entra em sessões ao vivo
+   (`SessaoAoVivo`/`LiveClassroom`), acessa documentos complementares e responde quizzes.
+4. **Progresso** — cada aula concluída/presença em live é registrada em `ProgressoAluno`,
+   escopada por `nome_aluno`+`curso_id` (não há mais o bug de progresso global cruzando entre
    alunos que existia antes da migração para banco real).
 5. **Certificado** — emitido quando a frequência calculada (aulas concluídas + lives assistidas
-   ÷ total de atividades) atinge o `minAttendance` do curso (ou 70% padrão). **O cálculo e a
+   ÷ total de atividades) atinge o `frequencia_minima` do curso (ou 70% padrão). **O cálculo e a
    decisão de emitir são feitos no servidor**, não no cliente — mesmo que o frontend calcule e
    exiba um valor, o backend recalcula do zero e rejeita (`403`) se o critério real não for
    atingido. Certificado é idempotente (não duplica por curso+aluno).
 6. **Cancelamento/histórico** — aluno pode se desmatricular; se ficar mais de 5 dias
    matriculado antes de cancelar, recebe uma penalidade de 30 dias sem poder se rematricular
-   (`dropOutPenaltyUntil`), visível no dashboard do aluno. Solicitações de histórico/documentos
-   ficam registradas em `AcademicRequest` até aprovação.
+   (`penalidade_desistencia_ate`), visível no dashboard do aluno. Solicitações de histórico/documentos
+   ficam registradas em `SolicitacaoAcademica` até aprovação.
 
 ## 5. Fluxo do instrutor
 
@@ -102,7 +102,7 @@ flag `false` esconde 100% do recurso correspondente:
   em `StudentDashboard.tsx`/`InstructorDashboard.tsx`, sem checagem de
   `features.liveClassroom`/`features.forum` nesses pontos específicos de renderização —
   embora a aba de navegação "Mensagens" (fórum) só apareça se `features.forum` for `true`.
-- A lógica de penalidade de cancelamento (`dropOutPenaltyUntil`, regra dos 5 dias) **roda
+- A lógica de penalidade de cancelamento (`penalidade_desistencia_ate`, regra dos 5 dias) **roda
   incondicionalmente** no `LMSContext.tsx`/`StudentDashboard.tsx`; a flag
   `penalidadesCancelamento` não é referenciada em nenhum componente.
 - `bibliotecaDigital`, `eventosWebinars`, `dossieAcademico`, `gamificacao`,
@@ -112,7 +112,7 @@ flag `false` esconde 100% do recurso correspondente:
 
 ## 9. Regras de acesso por status da conta
 
-`User.status` (enum): **`active`** (acesso liberado), **`blocked`** (suspenso pela
+`usuario.status` (enum): **`active`** (acesso liberado), **`blocked`** (suspenso pela
 coordenação), **`pending_confirmation`** (cadastro público aguardando homologação).
 
 - Middleware `requireActiveAccount` reconsulta o status no banco a cada requisição (não confia
@@ -132,23 +132,23 @@ coordenação), **`pending_confirmation`** (cadastro público aguardando homolog
 - Aprovação de admissão matricula o aluno na mesma transação (evita solicitação "aprovada" sem
   matrícula efetiva).
 - Cancelamento após >5 dias matriculado gera penalidade de **30 dias** sem poder se
-  rematricular (`dropOutPenaltyUntil` = data atual + 1 mês), verificado no
+  rematricular (`penalidade_desistencia_ate` = data atual + 1 mês), verificado no
   `StudentDashboard` antes de permitir nova matrícula.
 - **Enrollment "matricula" aberta/fechada** é controlado por `systemSettings.openEnrollment`
   (config administrativa), consultado pelo AdminDashboard.
 
 ## 11. Regras de certificado
 
-- Percentual mínimo configurável por curso: `Course.minAttendance` (campo opcional editável
+- Percentual mínimo configurável por curso: `curso.frequencia_minima` (campo opcional editável
   pelo instrutor/admin no cadastro do curso).
 - **Padrão quando não configurado: 70%** — aplicado literalmente em
-  `certificateService.issueCertificate` (`course.minAttendance ?? 70`).
+  `certificateService.issueCertificate` (`course.frequencia_minima ?? 70`).
   > Nota de precisão: a tela de exportação de Dados Gerenciais no AdminDashboard usa um
-  > fallback cosmético diferente (`c.minAttendance || 75`) só para exibição/CSV — **não afeta**
+  > fallback cosmético diferente (`c.frequencia_minima || 75`) só para exibição/CSV — **não afeta**
   > a regra real de emissão, que está no backend com 70%.
 - Frequência = (aulas concluídas + presenças em live) ÷ (total de aulas + total de lives) do
   curso, recalculada **inteiramente no servidor** a partir do progresso real salvo no banco.
-- Emissão é **idempotente**: existe uma constraint única (`studentName`+`courseId`) — tentar
+- Emissão é **idempotente**: existe uma constraint única (`nome_aluno`+`curso_id`) — tentar
   emitir de novo para o mesmo aluno/curso apenas retorna o certificado já existente.
 - Aluno só emite certificado em nome de si mesmo (403 caso contrário).
 
@@ -157,7 +157,7 @@ coordenação), **`pending_confirmation`** (cadastro público aguardando homolog
 Existem **dois mecanismos de exportação independentes** no código atual, e eles **não estão
 conectados um ao outro**:
 
-1. **Backend real** (`GET /api/export/:dataset`, criado na revisão de segurança): restrito a
+1. **Backend real** (`GET /api/exportar/:dataset`, criado na revisão de segurança): restrito a
    `admin`, com rate limit (10/hora) e auditoria (quem exportou, quando, qual base). Bases
    aceitas: `students`, `courses`, `enrollments`, `progress`, `certificates` — nunca retorna
    hash de senha. Hoje **não é chamado por nenhuma tela do frontend**.
@@ -188,12 +188,12 @@ mas roda de forma client-side e não passa pelo endpoint seguro/auditado que foi
   datas, percentuais, textos de justificativa, dados de curso/matrícula/quiz/exercício/chat).
 - **CORS**: restrito às origens definidas em `CORS_ORIGIN` (env) — nunca `*` com credenciais.
 - **Headers de segurança**: `helmet()` aplicado globalmente.
-- **Logs de auditoria server-side** (`SecurityLog`, tabela própria): login, falha de login,
+- **Logs de auditoria server-side** (`LogSeguranca`, tabela própria): login, falha de login,
   alteração de status de conta, matrícula/cancelamento, emissão de certificado, aprovação de
   solicitação, alteração de curso, exclusão de curso/certificado, exportação de Dados
   Gerenciais (endpoint novo), correção de exercício, alteração de configurações — sempre
   gravados no servidor a partir da identidade do token, nunca confiando em dado enviado pelo
-  cliente. Existe também um endpoint `POST /api/security-logs` que aceita eventos de UI de
+  cliente. Existe também um endpoint `POST /api/logs-seguranca` que aceita eventos de UI de
   baixo risco vindos do cliente (navegação, narração por voz) — aceita anônimo, mas grava
   autor/IP reais do lado do servidor, não o que o cliente alega ser.
 - **Erros padronizados**: toda resposta de erro segue `{ error: true, code, message }`; stack
@@ -215,7 +215,7 @@ mas roda de forma client-side e não passa pelo endpoint seguro/auditado que foi
 - **Sem N+1**: cursos usam `include` (uma única consulta com join) em vez de buscar aulas uma a
   uma.
 - **`select` explícito** nas consultas de listagem/exportação de usuários — nunca retorna
-  `passwordHash`.
+  `senha_hash`.
 - **Transactions** em: criação/atualização de curso (aulas+documentos+sessões sincronizados
   atomicamente), aprovação de admissão (+matrícula), reset de banco (dev).
 
@@ -263,7 +263,7 @@ avasec-main/
 - **Vídeo das aulas** — URLs externas validadas no backend (ADR 08): YouTube (canonicalizado
   para `watch?v=`) ou arquivo de vídeo direto (mp4/webm/ogg/m4v/mov). Player único em
   `src/components/shared/VideoPlayer.tsx`; sem integração com serviço de streaming dedicado.
-- **Certificado (PDF)** — resolvido (ADR 09): `GET /api/certificates/{id}/pdf` gera o PDF
+- **Certificado (PDF)** — resolvido (ADR 09): `GET /api/certificados/{id}/pdf` gera o PDF
   oficial no servidor (dompdf) com QR apontando para a verificação pública (`/?verify=HASH`
   na landing). Dono ou staff baixam; a verificação pública retorna resposta sanitizada (sem
   IDs internos). Sem envio por e-mail nem assinatura digital ICP (fora de escopo).
@@ -281,12 +281,12 @@ avasec-main/
    documento de aula e de item de biblioteca) para usarem o wrapper autenticado — hoje eles
    quebram silenciosamente contra o backend protegido.
 2. **Decidir se a exportação de Dados Gerenciais do AdminDashboard deve passar a chamar
-   `GET /api/export/:dataset`** em vez de montar os CSVs no navegador — unificaria a exportação
+   `GET /api/exportar/:dataset`** em vez de montar os CSVs no navegador — unificaria a exportação
    sob rate limit + auditoria reais.
 3. **Wiring do upload real de entrega de exercício** do aluno, substituindo o simulador por uma
    chamada real ao endpoint de upload.
 4. **Identidade por nome, não por ID de usuário**: progresso, matrícula, certificados e
-   mensagens ainda são chaveados por `studentName` (string) em vez de `userId` — funcional e
+   mensagens ainda são chaveados por `nome_aluno` (string) em vez de `usuario_id` — funcional e
    protegido por checagens de posse, mas uma migração para chave estrangeira real é mais robusta
    a médio prazo (evita colisão de nomes).
 5. **Storage de upload em pasta pública estática** (`/uploads`) — adequado para materiais de

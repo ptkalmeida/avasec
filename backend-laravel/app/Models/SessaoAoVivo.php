@@ -8,11 +8,11 @@ use App\Models\Concerns\Inativavel;
 use App\Support\BusinessRules;
 use Illuminate\Database\Eloquent\Model;
 
-final class LiveSession extends Model
+final class SessaoAoVivo extends Model
 {
     use Inativavel;
 
-    protected $table = 'LiveSession';
+    protected $table = 'sessao_ao_vivo';
 
     protected $keyType = 'string';
 
@@ -20,17 +20,17 @@ final class LiveSession extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'courseId', 'title', 'scheduledAt', 'durationMinutes', 'meetingLink', 'isLive'];
+    protected $fillable = ['id', 'curso_id', 'titulo', 'agendado_para_texto', 'duracao_minutos', 'link_reuniao', 'ao_vivo'];
 
     protected $casts = [
-        'durationMinutes' => 'integer',
-        'isLive' => 'boolean',
+        'duracao_minutos' => 'integer',
+        'ao_vivo' => 'boolean',
     ];
 
     /**
      * A transmissão passou da janela de encerramento automático.
      *
-     * `isLive` é um interruptor MANUAL: quem dá aula clica "Iniciar" e precisa
+     * `ao_vivo` é um interruptor MANUAL: quem dá aula clica "Iniciar" e precisa
      * clicar "Finalizar". Quando esquece, a sessão fica ao vivo para sempre —
      * aconteceu com dois encontros de 01/09, ainda marcados ao vivo dois dias
      * depois, com sala aberta e ninguém dentro.
@@ -41,7 +41,7 @@ final class LiveSession extends Model
     public function encerradaPorTempo(): bool
     {
         return BusinessRules::liveSessionExpired(
-            is_string($this->scheduledAt) ? $this->scheduledAt : null
+            is_string($this->agendado_para_texto) ? $this->agendado_para_texto : null
         );
     }
 
@@ -51,7 +51,7 @@ final class LiveSession extends Model
      * Sobrescrito em vez de accessor de propósito: com colunas em camelCase, o
      * `$snakeAttributes` do Eloquent procuraria `is_live` e o accessor NUNCA
      * seria aplicado em `toArray()` — a API continuaria respondendo
-     * `isLive: true` para uma sessão de três dias atrás. Aqui é explícito.
+     * `ao_vivo: true` para uma sessão de três dias atrás. Aqui é explícito.
      *
      * O valor gravado não é reescrito: ele registra o que a pessoa clicou, e a
      * verdade exibida é derivada dele + o tempo.
@@ -62,7 +62,7 @@ final class LiveSession extends Model
     {
         $dados = parent::toArray();
         if ($this->encerradaPorTempo()) {
-            $dados['isLive'] = false;
+            $dados['ao_vivo'] = false;
         }
 
         return $dados;

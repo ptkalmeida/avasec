@@ -47,43 +47,43 @@ final class AuthController extends Controller
         // CPF é o identificador de login do ALUNO (ADR 11), então é obrigatório
         // para conta de aluno. Conta de staff (instrutor/admin) entra por e-mail
         // e pode nascer sem CPF — só o admin consegue provisionar essas.
-        $isStaffAccount = $this->optionalRequester($request)['role'] ?? null;
+        $isStaffAccount = $this->optionalRequester($request)['papel'] ?? null;
         $isStaffAccount = $isStaffAccount === 'admin'
-            && in_array($request->input('role'), ['instructor', 'admin'], true);
+            && in_array($request->input('papel'), ['instructor', 'admin'], true);
 
         $data = $this->validateInput($request, [
-            'name' => ['required', 'string', 'min:2', 'max:150'],
+            'nome' => ['required', 'string', 'min:2', 'max:150'],
             'email' => ['required', 'email', 'max:254'],
             'password' => $this->passwordRules(),
-            'role' => ['sometimes', 'in:student,instructor,admin'],
+            'papel' => ['sometimes', 'in:student,instructor,admin'],
             'cpf' => $isStaffAccount
                 ? ['sometimes', 'nullable', 'string', 'max:20', new CpfRule]
                 : ['required', 'string', 'max:20', new CpfRule],
             'municipio' => ['nullable', 'string', 'max:120'],
             'uf' => ['nullable', 'string', 'max:2'],
-            'areaInteresse' => ['nullable', 'string', 'max:120'],
-            'dataCadastro' => ['nullable', 'string', 'max:30'],
+            'area_interesse' => ['nullable', 'string', 'max:120'],
+            'data_cadastro_texto' => ['nullable', 'string', 'max:30'],
             // Dados cadastrais adicionais: validados quando enviados, não exigidos.
             'celular' => ['sometimes', 'nullable', 'string', 'max:20'],
             'cep' => ['sometimes', 'nullable', 'string', 'max:20', new CepRule],
             'endereco' => ['sometimes', 'nullable', 'string', 'max:191'],
-            'nomeSocial' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'nome_social' => ['sometimes', 'nullable', 'string', 'max:150'],
             'identidade' => ['sometimes', 'nullable', 'string', 'max:40'],
         ]);
         $result = $this->auth->register([
-            'name' => $this->stringField($data, 'name'),
+            'nome' => $this->stringField($data, 'nome'),
             'email' => mb_strtolower(trim($this->stringField($data, 'email'))),
             'password' => $this->stringField($data, 'password'),
-            'role' => $this->optionalString($data, 'role'),
+            'papel' => $this->optionalString($data, 'papel'),
             'cpf' => $this->optionalString($data, 'cpf'),
             'municipio' => $this->optionalString($data, 'municipio'),
             'uf' => $this->optionalString($data, 'uf'),
-            'areaInteresse' => $this->optionalString($data, 'areaInteresse'),
-            'dataCadastro' => $this->optionalString($data, 'dataCadastro'),
+            'area_interesse' => $this->optionalString($data, 'area_interesse'),
+            'data_cadastro_texto' => $this->optionalString($data, 'data_cadastro_texto'),
             'celular' => $this->optionalString($data, 'celular'),
             'cep' => $this->optionalString($data, 'cep'),
             'endereco' => $this->optionalString($data, 'endereco'),
-            'nomeSocial' => $this->optionalString($data, 'nomeSocial'),
+            'nome_social' => $this->optionalString($data, 'nome_social'),
             'identidade' => $this->optionalString($data, 'identidade'),
         ], $this->optionalRequester($request));
         if ($result['duplicado'] ?? false) {
@@ -94,7 +94,7 @@ final class AuthController extends Controller
             $this->audit->log(
                 $request,
                 'Cadastro de Usuário',
-                "Nova conta criada: {$result['user']['name']} ({$result['user']['role']}, status {$result['user']['status']}).",
+                "Nova conta criada: {$result['usuario']['nome']} ({$result['usuario']['papel']}, status {$result['usuario']['status']}).",
             );
         }
 
@@ -113,16 +113,16 @@ final class AuthController extends Controller
         // mínima aqui de propósito: aplicar a política no login trancaria fora
         // quem tem senha antiga — ela vale onde a senha é DEFINIDA.
         $data = $this->validateInput($request, [
-            'name' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'nome' => ['sometimes', 'nullable', 'string', 'max:150'],
             'email' => ['sometimes', 'nullable', 'email', 'max:254'],
             'cpf' => ['sometimes', 'nullable', 'string', 'max:20'],
             'password' => ['required', 'string', 'min:1', 'max:128'],
             // Papel do cartão clicado na tela de login ("Aluno", "Gestão",
             // "Admin"). Quando vem, só uma conta DESSE papel entra: o cartão de
             // Gestão chegou a autenticar um aluno homônimo.
-            'role' => ['sometimes', 'nullable', 'in:student,instructor,admin'],
+            'papel' => ['sometimes', 'nullable', 'in:student,instructor,admin'],
         ]);
-        if (empty($data['name']) && empty($data['email']) && empty($data['cpf'])) {
+        if (empty($data['nome']) && empty($data['email']) && empty($data['cpf'])) {
             throw ApiException::validation('Informe CPF, e-mail ou nome para login.');
         }
         if (! empty($data['email'])) {
@@ -131,16 +131,16 @@ final class AuthController extends Controller
 
         $identifier = $this->optionalString($data, 'cpf')
             ?? $this->optionalString($data, 'email')
-            ?? $this->optionalString($data, 'name')
+            ?? $this->optionalString($data, 'nome')
             ?? '';
 
         try {
             $result = $this->auth->login([
-                'name' => $this->optionalString($data, 'name'),
+                'nome' => $this->optionalString($data, 'nome'),
                 'email' => $this->optionalString($data, 'email'),
                 'cpf' => $this->optionalString($data, 'cpf'),
                 'password' => $this->stringField($data, 'password'),
-                'role' => $this->optionalString($data, 'role'),
+                'papel' => $this->optionalString($data, 'papel'),
                 'ip' => $request->ip(),
             ]);
         } catch (Throwable $err) {
@@ -149,8 +149,8 @@ final class AuthController extends Controller
         }
 
         $this->audit->log($request, 'Autenticação no Sistema', 'Login efetuado com sucesso.', 'SUCCESS', [
-            'name' => $result['user']['name'],
-            'role' => $result['user']['role'],
+            'nome' => $result['usuario']['nome'],
+            'papel' => $result['usuario']['papel'],
         ]);
 
         return response()->json($result)->withCookie($this->sessionCookie($result['token']));
@@ -200,7 +200,7 @@ final class AuthController extends Controller
         ]);
 
         $updated = $this->auth->adminResetPassword($id, $this->stringField($data, 'newPassword'));
-        $nome = $this->optionalString($updated, 'name') ?? '(sem nome)';
+        $nome = $this->optionalString($updated, 'nome') ?? '(sem nome)';
         $this->audit->log(
             $request,
             'Redefinição de Senha',
@@ -213,7 +213,7 @@ final class AuthController extends Controller
 
     public function listUsers(Request $request): JsonResponse
     {
-        $role = $request->query('role');
+        $role = $request->query('papel');
         if ($role !== null && ! in_array($role, ['student', 'instructor', 'admin'], true)) {
             throw ApiException::validation('Perfil inválido.');
         }
@@ -224,8 +224,8 @@ final class AuthController extends Controller
         // Escopo por perfil (a rota já barra aluno): instrutor SÓ enxerga os próprios
         // alunos, qualquer que seja o `role` pedido — nunca a lista de outros instrutores
         // ou admins. Somente admin consulta usuários por perfil livremente.
-        if ($authUser['role'] === 'instructor') {
-            $result = $this->auth->listStudentsForInstructor($authUser['sub'], $authUser['name'], $skip, $take);
+        if ($authUser['papel'] === 'instructor') {
+            $result = $this->auth->listStudentsForInstructor($authUser['sub'], $authUser['nome'], $skip, $take);
 
             return response()->json($this->paginated($result['items'], $result['total'], $page, $pageSize));
         }
@@ -243,7 +243,7 @@ final class AuthController extends Controller
 
         $status = $this->stringField($data, 'status');
         $updated = $this->auth->updateAccountStatus($id, $status);
-        $this->audit->log($request, 'Alteração de Status de Conta', "Status de \"{$updated['name']}\" alterado para \"{$status}\".");
+        $this->audit->log($request, 'Alteração de Status de Conta', "Status de \"{$updated['nome']}\" alterado para \"{$status}\".");
 
         return response()->json($updated);
     }
@@ -251,10 +251,10 @@ final class AuthController extends Controller
     public function renameUser(Request $request, string $id): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'name' => ['required', 'string', 'min:2', 'max:150'],
+            'nome' => ['required', 'string', 'min:2', 'max:150'],
         ]);
 
-        $newName = $this->stringField($data, 'name');
+        $newName = $this->stringField($data, 'nome');
         $updated = $this->auth->renameUser($id, $newName, $this->requester($request));
         $this->audit->log($request, 'Alteração de Nome', "Usuário {$id} renomeado para \"{$newName}\".");
 

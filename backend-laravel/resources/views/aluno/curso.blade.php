@@ -14,13 +14,13 @@
     espera de um curso começado. "Trocar de Curso" foi preservado.
 --}}
 <x-layouts.aluno
-    :titulo="$curso['title']"
+    :titulo="$curso['titulo']"
     ativo="curso"
     :cursoDoMenu="$curso"
     :concluidosDoMenu="$concluidos">
 
     @php
-        $capa = $curso['coverImage'] ?: ($curso['thumbnail'] ?? '');
+        $capa = $curso['imagem_capa'] ?: ($curso['miniatura'] ?? '');
         $proxima = collect($aulas)->firstWhere('concluida', false) ?? ($aulas[0] ?? null);
         $ref = $curso['slug'] ?? $curso['id'];
     @endphp
@@ -30,7 +30,7 @@
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/aluno" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Painel</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <span class="text-ava-tinta">{{ $curso['title'] }}</span>
+            <span class="text-ava-tinta">{{ $curso['titulo'] }}</span>
         </nav>
 
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
@@ -39,11 +39,11 @@
                 <div class="space-y-2">
                     <p class="text-sobretitulo uppercase text-escult-ink-3">Trilha de estudos</p>
                     <h1 class="font-titulo text-2xl leading-tight tracking-tight text-ava-tinta md:text-3xl">
-                        {{ $curso['title'] }}
+                        {{ $curso['titulo'] }}
                     </h1>
-                    @if (! empty($curso['category']))
+                    @if (! empty($curso['categoria']))
                         <span class="inline-block rounded-full bg-ava-lilas-fundo px-2.5 py-1 text-nota font-semibold uppercase tracking-wide text-ava-lilas">
-                            {{ $curso['category'] }}
+                            {{ $curso['categoria'] }}
                         </span>
                     @endif
                 </div>
@@ -108,7 +108,7 @@
                                     {{ $aula['concluida'] ? '✓' : $i + 1 }}
                                 </span>
                                 <span class="min-w-0 text-apoio leading-snug text-ava-tinta">
-                                    {{ $aula['title'] }}
+                                    {{ $aula['titulo'] }}
                                     @if ($aula['concluida'])
                                         <span class="sr-only">(aula concluída)</span>
                                     @endif

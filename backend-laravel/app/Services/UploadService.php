@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\StoredFile;
+use App\Models\ArquivoArmazenado;
 use App\Support\CourseAccess;
 use App\Support\InstructorScope;
 use Carbon\CarbonImmutable;
@@ -18,14 +18,14 @@ use Illuminate\Support\Facades\Storage;
  * Upload de arquivos — espelha src/server/upload.ts. Valida a extensão e confere os
  * magic bytes reais (finfo) contra o tipo esperado; grava com nome gerado no servidor
  * (nunca reaproveita o nome do cliente); separa público (servido estaticamente) de
- * privado (só via download autorizado). Registra tudo em StoredFile.
+ * privado (só via download autorizado). Registra tudo em ArquivoArmazenado.
  */
 final class UploadService
 {
     /**
-     * @return array{url:string, fileName:string, size:string, visibility:string}
+     * @return array{url:string, nome_arquivo:string, tamanho:string, visibilidade:string}
      */
-    public function store(UploadedFile $file, string $visibility, string $ownerUserId): array
+    public function store(UploadedFile $file, string $visibility, string $dono_usuario_id): array
     {
         $visibility = $visibility === 'private' ? 'private' : 'public';
 
@@ -60,19 +60,19 @@ final class UploadService
         // falha de escrita vira exceção, e nada é registrado sem o arquivo existir.
         $this->disco($visibility)->put($safeName, $contents);
 
-        StoredFile::query()->create([
+        ArquivoArmazenado::query()->create([
             'id' => $safeName,
-            'originalName' => mb_substr($file->getClientOriginalName(), 0, 190),
-            'visibility' => $visibility,
-            'ownerUserId' => $ownerUserId,
-            'createdAt' => CarbonImmutable::now(),
+            'nome_original' => mb_substr($file->getClientOriginalName(), 0, 190),
+            'visibilidade' => $visibility,
+            'dono_usuario_id' => $dono_usuario_id,
+            'criado_em' => CarbonImmutable::now(),
         ]);
 
         return [
-            'url' => $visibility === 'private' ? "/api/files/{$safeName}" : "/uploads/{$safeName}",
-            'fileName' => $file->getClientOriginalName(),
-            'size' => number_format($size / (1024 * 1024), 2, '.', '').' MB',
-            'visibility' => $visibility,
+            'url' => $visibility === 'private' ? "/api/arquivos/{$safeName}" : "/uploads/{$safeName}",
+            'nome_arquivo' => $file->getClientOriginalName(),
+            'tamanho' => number_format($size / (1024 * 1024), 2, '.', '').' MB',
+            'visibilidade' => $visibility,
         ];
     }
 
@@ -84,8 +84,8 @@ final class UploadService
      * disco, o que funciona igual com o disco local de hoje e com o S3/MinIO de
      * amanhã (Norma TI-SECEC C.5.2).
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
-     * @return array{disco:FilesystemAdapter, chave:string, mime:string, originalName:string}
+     * @param  array{sub:string,nome:string,papel:string}  $requester
+     * @return array{disco:FilesystemAdapter, chave:string, mime:string, nome_original:string}
      */
     public function resolveForDownload(string $id, array $requester): array
     {
@@ -93,16 +93,16 @@ final class UploadService
             throw ApiException::validation('Identificador de arquivo inválido.');
         }
 
-        $record = StoredFile::query()->find($id);
+        $record = ArquivoArmazenado::query()->find($id);
         if ($record === null) {
             throw ApiException::notFound('Arquivo não encontrado.');
         }
 
-        if ($record->visibility === 'private' && ! $this->podeBaixar($record, $requester)) {
+        if ($record->visibilidade === 'private' && ! $this->podeBaixar($record, $requester)) {
             throw ApiException::forbidden('Você não tem permissão para acessar este arquivo.');
         }
 
-        $disco = $this->disco($record->visibility);
+        $disco = $this->disco($record->visibilidade);
         if (! $disco->fileExists($record->id)) {
             throw ApiException::notFound('Arquivo não encontrado no armazenamento.');
         }
@@ -114,7 +114,7 @@ final class UploadService
             'disco' => $disco,
             'chave' => $record->id,
             'mime' => is_string($mime) ? $mime : 'application/octet-stream',
-            'originalName' => $record->originalName,
+            'nome_original' => $record->nome_original,
         ];
     }
 
@@ -127,28 +127,28 @@ final class UploadService
      * sensível. O escopo agora é o mesmo do resto do sistema: instrutor alcança quem
      * é aluno de um curso que ele leciona.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      */
-    private function podeBaixar(StoredFile $record, array $requester): bool
+    private function podeBaixar(ArquivoArmazenado $record, array $requester): bool
     {
-        if ($record->ownerUserId === $requester['sub']) {
+        if ($record->dono_usuario_id === $requester['sub']) {
             return true;
         }
 
-        $role = $requester['role'] ?? null;
+        $role = $requester['papel'] ?? null;
         if ($role === 'admin') {
             return true;
         }
-        if ($role !== 'instructor' || ! is_string($record->ownerUserId) || $record->ownerUserId === '') {
+        if ($role !== 'instructor' || ! is_string($record->dono_usuario_id) || $record->dono_usuario_id === '') {
             return false;
         }
 
         // Cursos do dono do arquivo, vistos como aluno — reaproveita CourseAccess em vez
         // de reescrever a consulta de vínculo (matrícula + concluídos + admissão aprovada).
         $cursosDoDono = CourseAccess::accessibleCourseIds([
-            'sub' => $record->ownerUserId,
-            'name' => '',
-            'role' => 'student',
+            'sub' => $record->dono_usuario_id,
+            'nome' => '',
+            'papel' => 'student',
         ]);
 
         return array_intersect($cursosDoDono, InstructorScope::courseIds($requester)) !== [];
@@ -157,7 +157,7 @@ final class UploadService
     /**
      * Resolve caminho físico de um arquivo PÚBLICO para servir estaticamente em
      * /uploads/<nome> (equivalente ao express.static do Node legado). Sem checagem de
-     * dono/StoredFile — arquivos públicos, incluindo os colocados manualmente na pasta
+     * dono/ArquivoArmazenado — arquivos públicos, incluindo os colocados manualmente na pasta
      * (ex.: vídeo de teste), são acessíveis por qualquer um, como no comportamento antigo.
      *
      * @return array{path:string, mime:string}

@@ -8,26 +8,26 @@
     O que mudou: o termo passou a ser validado **no servidor**. No React ele só
     desabilitava o botão, e botão desabilitado não é regra — é sugestão.
 --}}
-<x-layouts.aluno :titulo="$curso['title']" ativo="catalogo" :concluidosDoMenu="$concluidos">
+<x-layouts.aluno :titulo="$curso['titulo']" ativo="catalogo" :concluidosDoMenu="$concluidos">
 
-    @php($capa = $curso['coverImage'] ?: ($curso['thumbnail'] ?? ''))
+    @php($capa = $curso['imagem_capa'] ?: ($curso['miniatura'] ?? ''))
 
     <div class="mx-auto max-w-4xl space-y-6">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/aluno/catalogo" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Catálogo</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <span class="text-ava-tinta">{{ $curso['title'] }}</span>
+            <span class="text-ava-tinta">{{ $curso['titulo'] }}</span>
         </nav>
 
         <article class="space-y-5 rounded-2xl border border-ava-borda bg-white p-5 md:p-6">
             <div class="space-y-2">
-                @if (! empty($curso['category']))
+                @if (! empty($curso['categoria']))
                     <span class="inline-block rounded-full bg-ava-lilas-fundo px-2.5 py-1 text-nota font-semibold uppercase tracking-wide text-ava-lilas">
-                        {{ $curso['category'] }}
+                        {{ $curso['categoria'] }}
                     </span>
                 @endif
-                <h1 class="font-titulo text-2xl leading-tight tracking-tight text-ava-tinta md:text-3xl">{{ $curso['title'] }}</h1>
+                <h1 class="font-titulo text-2xl leading-tight tracking-tight text-ava-tinta md:text-3xl">{{ $curso['titulo'] }}</h1>
             </div>
 
             @if ($capa !== '')
@@ -35,7 +35,7 @@
                      class="max-h-64 w-full rounded-xl border border-ava-borda object-cover">
             @endif
 
-            <p class="text-corpo leading-relaxed text-escult-ink-2">{{ $curso['description'] }}</p>
+            <p class="text-corpo leading-relaxed text-escult-ink-2">{{ $curso['descricao'] }}</p>
 
             @if ($aulas !== [])
                 <section x-data="{ todas: false }" class="space-y-2">
@@ -48,7 +48,7 @@
                                 <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-ava-borda text-[11px] font-bold text-escult-ink-3" aria-hidden="true">
                                     {{ $i + 1 }}
                                 </span>
-                                <span class="text-apoio leading-snug text-ava-tinta">{{ $aula['title'] }}</span>
+                                <span class="text-apoio leading-snug text-ava-tinta">{{ $aula['titulo'] }}</span>
                             </li>
                         @endforeach
                     </ol>

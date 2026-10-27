@@ -3,7 +3,9 @@
 - **Status:** aceita
 - **Data:** 03/09/2026
 - **Decidida por:** coordenação do AVASEC (requisito de auditoria)
-- **Substitui:** nada. Complementa a [ADR 10](010-identidade-por-userid.md) (identidade por `userId`).
+- **Substitui:** nada. Complementa a [ADR 10](010-identidade-por-userid.md) (identidade por `usuario_id`).
+
+> **Nota (27/10/2026):** os nomes de tabela, coluna e rota citados aqui foram atualizados para os de depois da [ADR 024](024-nomes-em-portugues.md); o texto histórico segue como foi decidido.
 
 ## Contexto
 
@@ -18,13 +20,13 @@ apagar **um** usuário destruía em cascata
 
 | Tabela | Regra | O que se perdia |
 |---|---|---|
-| `QuizSubmission` | CASCADE | todas as notas de avaliação |
-| `ExerciseSubmission` | CASCADE | todos os trabalhos entregues e corrigidos |
-| `StudentProgress` | CASCADE | progresso e presenças |
-| `StudentEnrollment` | CASCADE | a matrícula |
-| `AcademicRequest`, `AdmissionRequest` | CASCADE | requerimentos e a inscrição |
-| `DirectMessage` | CASCADE | o histórico de atendimento |
-| `Certificate.userId` | SET NULL | o certificado **sobrevivia apontando para ninguém** |
+| `TentativaAvaliacao` | CASCADE | todas as notas de avaliação |
+| `EntregaExercicio` | CASCADE | todos os trabalhos entregues e corrigidos |
+| `ProgressoAluno` | CASCADE | progresso e presenças |
+| `Matricula` | CASCADE | a matrícula |
+| `SolicitacaoAcademica`, `SolicitacaoIngresso` | CASCADE | requerimentos e a inscrição |
+| `MensagemDireta` | CASCADE | o histórico de atendimento |
+| `certificado.usuario_id` | SET NULL | o certificado **sobrevivia apontando para ninguém** |
 
 Ou seja: um clique em "excluir aluno" apagava o histórico escolar da pessoa e
 deixava um certificado válido, verificável e sem titular. Havia ainda
@@ -40,7 +42,7 @@ Dois eixos, deliberadamente separados — *existir* e *quem pode ver* são
 perguntas diferentes, e um curso pode estar no ar visível só para a gestão:
 
 ```
-inativadoEm   NULL = no ar  |  data/hora = fora do ar (registro intacto)
+inativado_em   NULL = no ar  |  data/hora = fora do ar (registro intacto)
 status        1 = aluno vê (e gestor e admin)
               2 = gestor e admin
               3 = só admin
@@ -50,7 +52,7 @@ status        1 = aluno vê (e gestor e admin)
 1 vê tudo acima. O valor `0` para "excluído" foi descartado de propósito: com ele
 o número passaria a significar duas coisas (audiência **e** existência), e
 haveria duas fontes para o mesmo fato — questão de tempo até existir linha com
-`inativadoEm` nulo e `status = 0`, sem nenhuma consulta sabendo qual obedecer.
+`inativado_em` nulo e `status = 0`, sem nenhuma consulta sabendo qual obedecer.
 
 O mecanismo é o `SoftDeletes` do Eloquent com a coluna renomeada:
 
@@ -59,7 +61,7 @@ final class Course extends Model
 {
     use SoftDeletes;
 
-    const DELETED_AT = 'inativadoEm';
+    const DELETED_AT = 'inativado_em';
 }
 ```
 
@@ -82,18 +84,18 @@ framework; o código de domínio usa `inativar()`, `reativar()` e `estaInativo()
    apagava o que o cliente não reenviou) **inativa** o que saiu.
 4. Nova tentativa de avaliação **não substitui** a anterior: toda tentativa fica
    registrada, e a vigente é a mais recente. Isto exigiu a coluna
-   `QuizSubmission.enviadoEm` — `submittedAt` é texto de exibição
+   `tentativa_avaliacao.enviado_em` — `enviado_em_texto` é texto de exibição
    ('03/09/2026 às 16:23') e ordena alfabeticamente, então '01/12' vinha antes
    de '03/09' e não havia como afirmar qual tentativa vale. Sem esse eixo, guardar
    o histórico significaria não saber a nota do aluno.
-5. `SecurityLog` não tem expurgo. A trilha de auditoria não se apaga a si mesma.
+5. `LogSeguranca` não tem expurgo. A trilha de auditoria não se apaga a si mesma.
 6. Certificado não é apagado: perder validade é **revogação registrada**, com
    quem revogou e por quê. E a consulta pública de verificação **inclui o
    revogado**, respondendo "foi revogado" com data e motivo. Omiti-lo faria a
    rota dizer "não existe" sobre um papel que está impresso e pode estar anexado
    a um processo — o oposto do que a revogação serve para comunicar. Baixar o PDF,
    esse sim, deixa de ser possível.
-7. Toda listagem pública ou de aluno respeita `status` e `inativadoEm`.
+7. Toda listagem pública ou de aluno respeita `status` e `inativado_em`.
 
 **Aceitas como custo:**
 

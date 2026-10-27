@@ -7,6 +7,8 @@
   o id do curso no endereço. Complementa a [ADR 12](012-nada-e-apagado.md) — o
   histórico de slugs é append-only pelo mesmo motivo que o resto.
 
+> **Nota (27/10/2026):** os nomes de tabela, coluna e rota citados aqui foram atualizados para os de depois da [ADR 024](024-nomes-em-portugues.md); o texto histórico segue como foi decidido.
+
 ## Contexto
 
 Os endereços de curso eram `/aluno/curso/course-1` e `/inst/curso/course-2`. O
@@ -27,7 +29,7 @@ pago para eliminá-lo.
 
 ## Decisão
 
-O endereço de curso passa a ser o **slug**, uma coluna `Course.slug` com índice
+O endereço de curso passa a ser o **slug**, uma coluna `curso.slug` com índice
 **único**, derivada do título no cadastro e **nunca aceita do cliente**.
 
 `/aluno/curso/ux-ui-design-interfaces-de-alta-performance`
@@ -35,8 +37,8 @@ O endereço de curso passa a ser o **slug**, uma coluna `Course.slug` com índic
 Três garantias, cada uma com teste que cai se ela for perdida:
 
 1. **Link salvo não morre.** Renomear um curso gera slug novo e **aposenta** o
-   antigo em `CourseSlugHistory`, que continua resolvendo para o mesmo curso.
-   `GET /api/courses/resolve/<valor>` responde a partir de slug atual, slug
+   antigo em `HistoricoSlugCurso`, que continua resolvendo para o mesmo curso.
+   `GET /api/cursos/resolver/<valor>` responde a partir de slug atual, slug
    aposentado ou id, e informa qual é o canônico. O cliente então troca a URL da
    barra — senão a forma antiga se propaga para sempre, copiada de tela em tela.
 2. **Id continua funcionando.** Todo link que circula hoje tem a forma
@@ -51,7 +53,7 @@ Três garantias, cada uma com teste que cai se ela for perdida:
 ## Consequências
 
 **O que custou.** Uma mudança de schema (coluna + tabela de histórico +
-migration com backfill), um endpoint novo e a renomeação de `courseId` para
+migration com backfill), um endpoint novo e a renomeação de `curso_id` para
 `cursoRef` nos roteadores do frontend — o campo passou a carregar slug, e manter
 o nome antigo seria uma mentira no tipo.
 
@@ -62,11 +64,11 @@ slug aposentado, e aí o link salvo de um curso passaria a abrir **outro** — p
 que o link morto que esta ADR veio evitar.
 
 **Unicidade atravessa as duas tabelas.** Slug novo é conferido contra os slugs
-em uso *e* os aposentados. E a leitura de `Course` para essa conferência é SQL
+em uso *e* os aposentados. E a leitura de `Curso` para essa conferência é SQL
 cru de propósito: o SoftDeletes esconderia curso inativado, cujo slug continua
 ocupado — a mesma armadilha de upsert registrada na ADR 12.
 
-**Rascunho não vaza.** `/api/courses/resolve` é público como o catálogo e passa
+**Rascunho não vaza.** `/api/cursos/resolver` é público como o catálogo e passa
 pela mesma escada de audiência (`Visibilidade`). Sem isso, ela seria o único
 jeito de um visitante confirmar que um curso não publicado existe.
 
@@ -82,7 +84,7 @@ jeito de um visitante confirmar que um curso não publicado existe.
 ## Pendência conhecida — RESOLVIDA em 09/09/2026
 
 O parâmetro `?modulo=` carregava o **nome do módulo**, e módulo não existia no
-banco: `Lesson` não tinha coluna de módulo, não havia tabela `Module`, e os
+banco: `Aula` não tinha coluna de módulo, não havia tabela `Module`, e os
 módulos eram construídos em `getCourseModules` a partir de
 `course.id === 'course-1'`, dividindo as aulas **por posição**. Esse trecho do
 endereço estava ancorado em texto que ninguém cadastrou.

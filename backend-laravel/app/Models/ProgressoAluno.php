@@ -7,11 +7,11 @@ namespace App\Models;
 use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
-final class StudentProgress extends Model
+final class ProgressoAluno extends Model
 {
     use Inativavel;
 
-    protected $table = 'StudentProgress';
+    protected $table = 'progresso_aluno';
 
     protected $keyType = 'string';
 
@@ -20,12 +20,12 @@ final class StudentProgress extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'id', 'studentName', 'userId', 'enrollmentId', 'courseId',
-        'completedLessons', 'attendedLiveSessions',
+        'id', 'nome_aluno', 'usuario_id', 'matricula_id', 'curso_id',
+        'aulas_concluidas', 'sessoes_ao_vivo_assistidas',
     ];
 
     protected $casts = [
-        'completedLessons' => 'array',
-        'attendedLiveSessions' => 'array',
+        'aulas_concluidas' => 'array',
+        'sessoes_ao_vivo_assistidas' => 'array',
     ];
 }

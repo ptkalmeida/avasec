@@ -27,34 +27,34 @@ Route::get('/health-laravel', [HealthController::class, 'show']);
 // Etapa 2 (autenticação): espelha src/server/routes/authRoutes.ts. O Laravel passa a
 // EMITIR o JWT (mesmo formato/segredo do Node) e a gerir o cookie ava_session.
 // Rate limiters por rota reproduzem os limites do Node (ver RouteServiceProvider).
-Route::prefix('auth')->group(function (): void {
-    Route::post('/register', [AuthController::class, 'register'])
+Route::prefix('autenticacao')->group(function (): void {
+    Route::post('/cadastro', [AuthController::class, 'register'])
         ->middleware(['throttle:auth-register', 'jwt.optional']);
-    Route::post('/login', [AuthController::class, 'login'])
+    Route::post('/entrar', [AuthController::class, 'login'])
         ->middleware('throttle:auth-login');
-    Route::get('/me', [AuthController::class, 'me'])
+    Route::get('/eu', [AuthController::class, 'me'])
         ->middleware('jwt');
-    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/sair', [AuthController::class, 'logout']);
     // `active`: conta bloqueada, inativada ou pendente não troca a própria senha com um token ainda válido.
-    Route::put('/password', [AuthController::class, 'changePassword'])
+    Route::put('/senha', [AuthController::class, 'changePassword'])
         ->middleware(['throttle:auth-password', 'jwt', 'active']);
 
     // Aluno nunca lista usuários (vazava e-mails de todos, inclusive admins). Instrutor
     // fica restrito aos próprios alunos no controller; admin é irrestrito.
-    Route::get('/users', [AuthController::class, 'listUsers'])
+    Route::get('/usuarios', [AuthController::class, 'listUsers'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
-    Route::put('/users/{id}/status', [AuthController::class, 'updateStatus'])
+    Route::put('/usuarios/{id}/status', [AuthController::class, 'updateStatus'])
         ->middleware(['jwt', 'active', 'role:admin']);
     // Rename seguro (ADR 10): self ou admin — identidade é o id, o nome é display.
-    Route::put('/users/{id}/name', [AuthController::class, 'renameUser'])
+    Route::put('/usuarios/{id}/nome', [AuthController::class, 'renameUser'])
         ->middleware(['jwt', 'active']);
     // Redefinição administrativa: sem a senha atual (o admin não a conhece), por isso
     // restrita a admin e auditada. A tela de gestão oferecia esta ação desde sempre,
     // mas sem endpoint: só alterava estado local, dando à coordenação a impressão
     // falsa de ter revogado um acesso.
-    Route::put('/users/{id}/password', [AuthController::class, 'adminResetPassword'])
+    Route::put('/usuarios/{id}/senha', [AuthController::class, 'adminResetPassword'])
         ->middleware(['throttle:auth-password', 'jwt', 'active', 'role:admin']);
-    Route::delete('/users/{id}', [AuthController::class, 'removeUser'])
+    Route::delete('/usuarios/{id}', [AuthController::class, 'removeUser'])
         ->middleware(['jwt', 'active', 'role:admin']);
 });
 
@@ -62,8 +62,8 @@ Route::prefix('auth')->group(function (): void {
 // Contrato idêntico ao Node (src/server/routes/catalogRoutes.ts): GET público,
 // POST restrito a instrutor/admin, cada rota atrás da sua feature flag.
 Route::middleware('feature:materiaisComplementares')->group(function (): void {
-    Route::get('/library', [LibraryController::class, 'index'])->middleware('jwt.optional');
-    Route::post('/library', [LibraryController::class, 'store'])
+    Route::get('/biblioteca', [LibraryController::class, 'index'])->middleware('jwt.optional');
+    Route::post('/biblioteca', [LibraryController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
 });
 
@@ -83,64 +83,64 @@ Route::middleware('feature:eventosWebinars')->group(function (): void {
 Route::middleware('feature:catalogoCursos')->group(function (): void {
     // Catálogo público (escopo declarado), mas com `jwt.optional`: se houver sessão,
     // o material de estudo das aulas do próprio aluno/instrutor vem junto; sem sessão,
-    // só a vitrine. Antes desta linha o curso inteiro — texto das aulas, videoUrl,
+    // só a vitrine. Antes desta linha o curso inteiro — texto das aulas, url_video,
     // documentos e link do Meet — saía para qualquer visitante.
-    Route::get('/courses', [CourseController::class, 'index'])
+    Route::get('/cursos', [CourseController::class, 'index'])
         ->middleware('jwt.optional');
     // ANTES de qualquer rota com parâmetro: 'resolve' é segmento literal e não
     // pode ser confundido com um slug de curso.
-    Route::get('/courses/resolve/{valor}', [CourseController::class, 'resolve'])
+    Route::get('/cursos/resolver/{valor}', [CourseController::class, 'resolve'])
         ->middleware('jwt.optional')
         ->where('valor', '[A-Za-z0-9_-]+');
-    Route::post('/courses', [CourseController::class, 'store'])
+    Route::post('/cursos', [CourseController::class, 'store'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
-    Route::put('/courses/{id}', [CourseController::class, 'update'])
+    Route::put('/cursos/{id}', [CourseController::class, 'update'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
-    Route::delete('/courses/{id}', [CourseController::class, 'destroy'])
+    Route::delete('/cursos/{id}', [CourseController::class, 'destroy'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
 });
 
 // Etapa 3 — Progresso (flag progresso).
 Route::middleware(['feature:progresso', 'jwt', 'active'])->group(function (): void {
-    Route::get('/progress', [EnrollmentController::class, 'getProgress']);
-    Route::post('/progress', [EnrollmentController::class, 'upsertProgress'])
+    Route::get('/progresso', [EnrollmentController::class, 'getProgress']);
+    Route::post('/progresso', [EnrollmentController::class, 'upsertProgress'])
         ->middleware('role:student,admin');
 });
 
 // Etapa 3 — Matrículas e Admissões (flag matricula).
 Route::middleware('feature:matricula')->group(function (): void {
-    Route::get('/enrollments', [EnrollmentController::class, 'getEnrollments'])
+    Route::get('/matriculas', [EnrollmentController::class, 'getEnrollments'])
         ->middleware(['jwt', 'active']);
-    Route::post('/enrollments/self/enroll', [EnrollmentController::class, 'selfEnroll'])
+    Route::post('/matriculas/proprio/matricular', [EnrollmentController::class, 'selfEnroll'])
         ->middleware(['throttle:enrollment', 'jwt', 'active', 'role:student']);
-    Route::post('/enrollments/self/drop', [EnrollmentController::class, 'selfDrop'])
+    Route::post('/matriculas/proprio/desistir', [EnrollmentController::class, 'selfDrop'])
         ->middleware(['jwt', 'active', 'role:student']);
-    Route::post('/enrollments/self/complete', [EnrollmentController::class, 'selfComplete'])
+    Route::post('/matriculas/proprio/concluir', [EnrollmentController::class, 'selfComplete'])
         ->middleware(['jwt', 'active', 'role:student']);
-    // Identidade por FK (ADR 10): o recurso é endereçado pelo userId do aluno.
-    Route::put('/enrollments/{userId}', [EnrollmentController::class, 'upsertEnrollment'])
+    // Identidade por FK (ADR 10): o recurso é endereçado pelo usuario_id do aluno.
+    Route::put('/matriculas/{usuario_id}', [EnrollmentController::class, 'upsertEnrollment'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
 
-    Route::get('/admissions', [EnrollmentController::class, 'listAdmissions'])
+    Route::get('/ingressos', [EnrollmentController::class, 'listAdmissions'])
         ->middleware(['jwt', 'active']);
-    Route::post('/admissions', [EnrollmentController::class, 'createAdmission'])
+    Route::post('/ingressos', [EnrollmentController::class, 'createAdmission'])
         ->middleware(['throttle:enrollment', 'jwt', 'active', 'role:student,admin']);
-    Route::put('/admissions/{id}', [EnrollmentController::class, 'updateAdmissionStatus'])
+    Route::put('/ingressos/{id}', [EnrollmentController::class, 'updateAdmissionStatus'])
         ->middleware(['jwt', 'active', 'role:instructor,admin']);
 });
 
 // Etapa 3 — Certificados (flag certificados). Verificação pública; emissão/listagem
 // autenticadas; exclusão só admin. Espelha src/server/routes/certificateRoutes.ts.
 Route::middleware('feature:certificados')->group(function (): void {
-    Route::get('/certificates/verify', [CertificateController::class, 'verify'])
+    Route::get('/certificados/verificar', [CertificateController::class, 'verify'])
         ->middleware('throttle:cert-lookup');
-    Route::get('/certificates', [CertificateController::class, 'index'])
+    Route::get('/certificados', [CertificateController::class, 'index'])
         ->middleware(['jwt', 'active']);
-    Route::get('/certificates/{id}/pdf', [CertificateController::class, 'pdf'])
+    Route::get('/certificados/{id}/pdf', [CertificateController::class, 'pdf'])
         ->middleware(['jwt', 'active']);
-    Route::post('/certificates', [CertificateController::class, 'store'])
+    Route::post('/certificados', [CertificateController::class, 'store'])
         ->middleware(['jwt', 'active']);
-    Route::delete('/certificates/{id}', [CertificateController::class, 'destroy'])
+    Route::delete('/certificados/{id}', [CertificateController::class, 'destroy'])
         ->middleware(['jwt', 'active', 'role:admin']);
 });
 
@@ -149,42 +149,42 @@ Route::middleware('feature:certificados')->group(function (): void {
 // Arquivos PÚBLICOS continuam servidos pela rota estática /uploads do Node (origem única).
 Route::middleware(['feature:uploadArquivos', 'jwt', 'active'])->group(function (): void {
     Route::post('/upload', [UploadController::class, 'store'])->middleware('throttle:upload');
-    Route::get('/files/{id}', [UploadController::class, 'download']);
+    Route::get('/arquivos/{id}', [UploadController::class, 'download']);
 });
 
 // ---------------- Etapa 5 — módulos restantes ----------------
 
 // Quizzes e submissões (flag quizSimples).
 Route::middleware('feature:quizSimples')->group(function (): void {
-    // Exige autenticação, e o ALUNO não recebe o gabarito (correctOptionIndex,
-    // explanation, reviewMessage) — só instrutor e admin. A nota é sempre
+    // Exige autenticação, e o ALUNO não recebe o gabarito (indice_opcao_correta,
+    // explanation, mensagem_revisao) — só instrutor e admin. A nota é sempre
     // recalculada no servidor (submitQuiz).
-    Route::get('/quizzes', [LearningController::class, 'listQuizzes'])->middleware(['jwt', 'active']);
-    Route::post('/quizzes', [LearningController::class, 'createQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
-    Route::delete('/quizzes/{id}', [LearningController::class, 'deleteQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
+    Route::get('/avaliacoes', [LearningController::class, 'listQuizzes'])->middleware(['jwt', 'active']);
+    Route::post('/avaliacoes', [LearningController::class, 'createQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
+    Route::delete('/avaliacoes/{id}', [LearningController::class, 'deleteQuiz'])->middleware(['jwt', 'active', 'role:instructor,admin']);
 
-    Route::get('/quiz-submissions', [LearningController::class, 'listQuizSubmissions'])->middleware(['jwt', 'active']);
-    Route::post('/quiz-submissions', [LearningController::class, 'submitQuiz'])->middleware(['jwt', 'active', 'role:student']);
+    Route::get('/tentativas-avaliacao', [LearningController::class, 'listQuizSubmissions'])->middleware(['jwt', 'active']);
+    Route::post('/tentativas-avaliacao', [LearningController::class, 'submitQuiz'])->middleware(['jwt', 'active', 'role:student']);
 });
 
 // Fórum (flag forum).
 Route::middleware(['feature:forum', 'jwt', 'active'])->group(function (): void {
     Route::get('/forum', [LearningController::class, 'listForumMessages']);
     Route::post('/forum', [LearningController::class, 'createForumMessage']);
-    Route::put('/forum/{id}/like', [LearningController::class, 'toggleForumLike']);
+    Route::put('/forum/{id}/curtir', [LearningController::class, 'toggleForumLike']);
     Route::delete('/forum/{id}', [LearningController::class, 'deleteForumMessage']);
 });
 
 // Exercícios práticos e entregas (flag atividadesPraticasAvancadas).
 Route::middleware('feature:atividadesPraticasAvancadas')->group(function (): void {
-    Route::get('/exercises', [LearningController::class, 'listExercises'])->middleware(['jwt', 'active']);
-    Route::post('/exercises', [LearningController::class, 'createExercise'])->middleware(['jwt', 'active', 'role:instructor,admin']);
-    Route::put('/exercises/{id}', [LearningController::class, 'updateExercise'])->middleware(['jwt', 'active', 'role:instructor,admin']);
-    Route::delete('/exercises/{id}', [LearningController::class, 'deleteExercise'])->middleware(['jwt', 'active', 'role:instructor,admin']);
+    Route::get('/exercicios', [LearningController::class, 'listExercises'])->middleware(['jwt', 'active']);
+    Route::post('/exercicios', [LearningController::class, 'createExercise'])->middleware(['jwt', 'active', 'role:instructor,admin']);
+    Route::put('/exercicios/{id}', [LearningController::class, 'updateExercise'])->middleware(['jwt', 'active', 'role:instructor,admin']);
+    Route::delete('/exercicios/{id}', [LearningController::class, 'deleteExercise'])->middleware(['jwt', 'active', 'role:instructor,admin']);
 
-    Route::get('/exercise-submissions', [LearningController::class, 'listExerciseSubmissions'])->middleware(['jwt', 'active']);
-    Route::post('/exercise-submissions', [LearningController::class, 'submitExercise'])->middleware(['jwt', 'active', 'role:student']);
-    Route::put('/exercise-submissions/{id}/grade', [LearningController::class, 'gradeSubmission'])->middleware(['jwt', 'active', 'role:instructor,admin']);
+    Route::get('/entregas-exercicio', [LearningController::class, 'listExerciseSubmissions'])->middleware(['jwt', 'active']);
+    Route::post('/entregas-exercicio', [LearningController::class, 'submitExercise'])->middleware(['jwt', 'active', 'role:student']);
+    Route::put('/entregas-exercicio/{id}/corrigir', [LearningController::class, 'gradeSubmission'])->middleware(['jwt', 'active', 'role:instructor,admin']);
 });
 
 // Chat de aula ao vivo (flag liveClassroom).
@@ -195,56 +195,56 @@ Route::middleware(['feature:liveClassroom', 'jwt', 'active'])->group(function ()
 
 // Mensagens diretas (flag mensagensDiretas).
 Route::middleware(['feature:mensagensDiretas', 'jwt', 'active'])->group(function (): void {
-    Route::get('/dms', [MessagingController::class, 'listDirectMessages']);
-    Route::post('/dms', [MessagingController::class, 'createDirectMessage']);
+    Route::get('/mensagens-diretas', [MessagingController::class, 'listDirectMessages']);
+    Route::post('/mensagens-diretas', [MessagingController::class, 'createDirectMessage']);
 });
 
 // Solicitações acadêmicas (flag solicitacoesAcademicas).
 Route::middleware('feature:solicitacoesAcademicas')->group(function (): void {
-    Route::get('/academic-requests', [RequestController::class, 'index'])->middleware(['jwt', 'active']);
-    Route::post('/academic-requests', [RequestController::class, 'store'])->middleware(['throttle:justification', 'jwt', 'active', 'role:student,admin']);
-    Route::put('/academic-requests/{id}', [RequestController::class, 'updateStatus'])->middleware(['jwt', 'active', 'role:instructor,admin']);
+    Route::get('/solicitacoes-academicas', [RequestController::class, 'index'])->middleware(['jwt', 'active']);
+    Route::post('/solicitacoes-academicas', [RequestController::class, 'store'])->middleware(['throttle:justification', 'jwt', 'active', 'role:student,admin']);
+    Route::put('/solicitacoes-academicas/{id}', [RequestController::class, 'updateStatus'])->middleware(['jwt', 'active', 'role:instructor,admin']);
 });
 
 // Configurações do sistema (sem feature flag). GET público; PUT só admin.
-Route::get('/system-settings', [SettingsController::class, 'show']);
-Route::put('/system-settings', [SettingsController::class, 'update'])->middleware(['jwt', 'active', 'role:admin']);
+Route::get('/configuracoes-sistema', [SettingsController::class, 'show']);
+Route::put('/configuracoes-sistema', [SettingsController::class, 'update'])->middleware(['jwt', 'active', 'role:admin']);
 
 // Templates de documentos (certificado, histórico) — leitura autenticada (o aluno
 // precisa ver os mesmos dados institucionais/assinaturas na prévia do próprio
 // certificado); edição só Admin Superior (sem feature flag: ferramenta administrativa).
-Route::prefix('document-templates')->middleware(['jwt', 'active'])->group(function (): void {
-    Route::get('/{type}', [DocumentTemplateController::class, 'show']);
-    Route::put('/{type}', [DocumentTemplateController::class, 'update'])->middleware('role:admin');
-    Route::get('/{type}/preview', [DocumentTemplateController::class, 'preview'])->middleware('role:admin');
+Route::prefix('modelos-documento')->middleware(['jwt', 'active'])->group(function (): void {
+    Route::get('/{tipo}', [DocumentTemplateController::class, 'show']);
+    Route::put('/{tipo}', [DocumentTemplateController::class, 'update'])->middleware('role:admin');
+    Route::get('/{tipo}/previa', [DocumentTemplateController::class, 'preview'])->middleware('role:admin');
 });
 
 // Conteúdo das páginas públicas do portal. GET é público sem autenticação: o
 // visitante anônimo monta o site com isso (mesma forma de /system-settings).
 // PUT é só Admin Superior — o service repete a checagem de papel.
-Route::prefix('site-content')->middleware('feature:gestaoConteudoSite')->group(function (): void {
+Route::prefix('conteudo-site')->middleware('feature:gestaoConteudoSite')->group(function (): void {
     Route::get('/', [SitePageContentController::class, 'index']);
-    Route::get('/{pageKey}', [SitePageContentController::class, 'show']);
-    Route::put('/{pageKey}', [SitePageContentController::class, 'update'])
+    Route::get('/{chave_pagina}', [SitePageContentController::class, 'show']);
+    Route::put('/{chave_pagina}', [SitePageContentController::class, 'update'])
         ->middleware(['jwt', 'active', 'role:admin']);
 });
 
-// Auditoria (SecurityLog) — só leitura/limpeza por admin; nunca há POST (gravação é server-side).
-Route::prefix('security-logs')->middleware(['jwt', 'active', 'role:admin'])->group(function (): void {
+// Auditoria (LogSeguranca) — só leitura/limpeza por admin; nunca há POST (gravação é server-side).
+Route::prefix('logs-seguranca')->middleware(['jwt', 'active', 'role:admin'])->group(function (): void {
     Route::get('/', [AuditController::class, 'listSecurityLogs']);
     Route::delete('/', [AuditController::class, 'clearSecurityLogs']);
 });
 
-// Telemetria (ClientEvent) — POST aceita anônimo (identidade vem do token se houver); GET só admin.
-// Rota pública que ESCREVE no banco (ClientEvent): precisa de limite, senão qualquer
+// Telemetria (EventoCliente) — POST aceita anônimo (identidade vem do token se houver); GET só admin.
+// Rota pública que ESCREVE no banco (EventoCliente): precisa de limite, senão qualquer
 // anônimo enfileira linhas com texto próprio até encher a tabela.
-Route::post('/telemetry', [AuditController::class, 'recordClientEvent'])
+Route::post('/telemetria', [AuditController::class, 'recordClientEvent'])
     ->middleware(['throttle:telemetry', 'jwt.optional']);
-Route::get('/telemetry', [AuditController::class, 'listClientEvents'])->middleware(['jwt', 'active', 'role:admin']);
+Route::get('/telemetria', [AuditController::class, 'listClientEvents'])->middleware(['jwt', 'active', 'role:admin']);
 
 // Exportação de Dados Gerenciais (flag dadosGerenciais) — só admin, com rate limit e auditoria.
 Route::middleware('feature:dadosGerenciais')->group(function (): void {
-    Route::get('/export/{dataset}', [ExportController::class, 'show'])
+    Route::get('/exportar/{dataset}', [ExportController::class, 'show'])
         ->middleware(['throttle:export', 'jwt', 'active', 'role:admin']);
 });
 

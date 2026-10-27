@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Certificate;
-use App\Models\Course;
-use App\Models\User;
+use App\Models\Certificado;
+use App\Models\Curso;
+use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
@@ -52,13 +52,13 @@ final class PerfilDoAlunoTest extends TestCase
     public function test_mostra_os_dados_reais_da_conta_com_o_cpf_mascarado(): void
     {
         $aluno = $this->makeStudent('Aluno Perfil Dados');
-        $cpf = (string) User::query()->whereKey($aluno['id'])->value('cpf');
+        $cpf = (string) Usuario::query()->whereKey($aluno['id'])->value('cpf');
 
         $resposta = $this->como($aluno['token'])->get('/aluno/perfil');
 
         $resposta->assertOk();
         $resposta->assertDontSee('<div id="root">', false);
-        $resposta->assertSee(e($aluno['name']), false);
+        $resposta->assertSee(e($aluno['nome']), false);
         $resposta->assertSee(substr($cpf, 0, 3).'.***.***-'.substr($cpf, 9, 2), escape: false);
         // O CPF inteiro não sai na tela.
         $resposta->assertDontSee($cpf, escape: false);
@@ -84,7 +84,7 @@ final class PerfilDoAlunoTest extends TestCase
     public function test_nome_social_aparece_quando_existe(): void
     {
         $aluno = $this->makeStudent('Aluno Perfil Social');
-        User::query()->whereKey($aluno['id'])->update(['nomeSocial' => 'Sam']);
+        Usuario::query()->whereKey($aluno['id'])->update(['nome_social' => 'Sam']);
 
         $this->como($aluno['token'])->get('/aluno/perfil')
             ->assertSee('Nome social', escape: false)
@@ -99,7 +99,7 @@ final class PerfilDoAlunoTest extends TestCase
             ->post('/aluno/perfil/nome', ['nome' => 'Nome Novo Do Aluno', 'senhaAtual' => self::SENHA])
             ->assertRedirect('/aluno/perfil');
 
-        $this->assertSame('Nome Novo Do Aluno', User::query()->whereKey($aluno['id'])->value('name'));
+        $this->assertSame('Nome Novo Do Aluno', Usuario::query()->whereKey($aluno['id'])->value('nome'));
 
         // O nome vem do banco a cada página, e não do token: o painel já
         // cumprimenta pelo nome novo com a MESMA sessão.
@@ -110,23 +110,23 @@ final class PerfilDoAlunoTest extends TestCase
     public function test_trocar_o_nome_nao_reescreve_certificado_ja_emitido(): void
     {
         $aluno = $this->makeStudent('Aluno Perfil Cert');
-        $curso = Course::query()->first();
+        $curso = Curso::query()->first();
         $this->assertNotNull($curso);
-        $cert = Certificate::query()->create([
+        $cert = Certificado::query()->create([
             'id' => 'cert-perfil-'.uniqid(),
-            'studentName' => $aluno['name'],
-            'userId' => $aluno['id'],
-            'courseId' => $curso->id,
-            'courseTitle' => $curso->title,
-            'issueDate' => now(),
-            'attendancePercent' => 90,
-            'verificationHash' => 'AVA-PERFIL-'.strtoupper(uniqid()),
+            'nome_aluno' => $aluno['nome'],
+            'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id,
+            'titulo_curso' => $curso->titulo,
+            'data_emissao' => now(),
+            'percentual_frequencia' => 90,
+            'hash_verificacao' => 'AVA-PERFIL-'.strtoupper(uniqid()),
         ]);
 
         $this->como($aluno['token'])
             ->post('/aluno/perfil/nome', ['nome' => 'Outro Nome Qualquer', 'senhaAtual' => self::SENHA]);
 
-        $this->assertSame($aluno['name'], Certificate::query()->whereKey($cert->id)->value('studentName'));
+        $this->assertSame($aluno['nome'], Certificado::query()->whereKey($cert->id)->value('nome_aluno'));
     }
 
     public function test_trocar_o_nome_com_senha_errada_nao_grava(): void
@@ -139,7 +139,7 @@ final class PerfilDoAlunoTest extends TestCase
             ->assertRedirect('/aluno/perfil')
             ->assertSessionHasErrorsIn('nome', 'senhaAtual');
 
-        $this->assertSame($aluno['name'], User::query()->whereKey($aluno['id'])->value('name'));
+        $this->assertSame($aluno['nome'], Usuario::query()->whereKey($aluno['id'])->value('nome'));
     }
 
     /**
@@ -155,10 +155,10 @@ final class PerfilDoAlunoTest extends TestCase
                 ->post('/aluno/perfil/nome', ['nome' => 'Tentativa '.$i, 'senhaAtual' => 'errada000']);
         }
 
-        $conta = User::query()->whereKey($aluno['id'])->first(['failedLoginAttempts', 'lockedUntil']);
+        $conta = Usuario::query()->whereKey($aluno['id'])->first(['tentativas_login_falhas', 'bloqueado_ate']);
         $this->assertNotNull($conta);
-        $this->assertSame(0, (int) $conta->failedLoginAttempts);
-        $this->assertNull($conta->lockedUntil);
+        $this->assertSame(0, (int) $conta->tentativas_login_falhas);
+        $this->assertNull($conta->bloqueado_ate);
     }
 
     public function test_trocar_a_senha_com_a_senha_atual_certa_vale_no_proximo_login(): void
@@ -173,7 +173,7 @@ final class PerfilDoAlunoTest extends TestCase
             ])
             ->assertRedirect('/aluno/perfil');
 
-        $hash = (string) User::query()->whereKey($aluno['id'])->value('passwordHash');
+        $hash = (string) Usuario::query()->whereKey($aluno['id'])->value('senha_hash');
         $this->assertTrue(password_verify('novasenha2026', $hash));
         $this->assertFalse(password_verify(self::SENHA, $hash));
     }
@@ -191,7 +191,7 @@ final class PerfilDoAlunoTest extends TestCase
             ])
             ->assertSessionHasErrorsIn('senha', 'senhaAtual');
 
-        $hash = (string) User::query()->whereKey($aluno['id'])->value('passwordHash');
+        $hash = (string) Usuario::query()->whereKey($aluno['id'])->value('senha_hash');
         $this->assertTrue(password_verify(self::SENHA, $hash));
     }
 
@@ -236,14 +236,14 @@ final class PerfilDoAlunoTest extends TestCase
     public function test_as_alteracoes_ficam_auditadas(): void
     {
         $aluno = $this->makeStudent('Aluno Perfil Auditoria');
-        $antes = (int) DB::table('SecurityLog')->count();
+        $antes = (int) DB::table('log_seguranca')->count();
 
         $this->como($aluno['token'])
             ->post('/aluno/perfil/nome', ['nome' => 'Nome Auditado', 'senhaAtual' => self::SENHA]);
 
-        $this->assertGreaterThan($antes, (int) DB::table('SecurityLog')->count());
+        $this->assertGreaterThan($antes, (int) DB::table('log_seguranca')->count());
         $this->assertTrue(
-            DB::table('SecurityLog')->where('action', 'Alteração de Nome')->exists(),
+            DB::table('log_seguranca')->where('acao', 'Alteração de Nome')->exists(),
             'A troca de nome não deixou registro na auditoria.',
         );
     }
@@ -256,22 +256,22 @@ final class PerfilDoAlunoTest extends TestCase
     public function test_o_menu_mostra_os_cursos_concluidos_mesmo_sem_a_pagina_passar_a_lista(): void
     {
         $aluno = $this->makeStudent('Aluno Perfil Menu');
-        $curso = Course::query()->where('status', 1)->first();
+        $curso = Curso::query()->where('status', 1)->first();
         $this->assertNotNull($curso);
 
-        DB::table('StudentEnrollment')->insert([
+        DB::table('matricula')->insert([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'enrolledCourseId' => null,
-            'completedCourseIds' => json_encode([$curso->id]),
-            'canMultiEnroll' => false,
-            'extraCourseIds' => json_encode([]),
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => null,
+            'cursos_concluidos_ids' => json_encode([$curso->id]),
+            'pode_multimatricula' => false,
+            'cursos_extras_ids' => json_encode([]),
         ]);
 
         $resposta = $this->como($aluno['token'])->get('/aluno/perfil');
 
-        $resposta->assertSee(e((string) $curso->title), false);
+        $resposta->assertSee(e((string) $curso->titulo), false);
         $resposta->assertDontSee('Nenhum curso concluído ainda', escape: false);
     }
 }

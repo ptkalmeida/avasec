@@ -113,7 +113,7 @@
                      com erro de sintaxe no fim do compilado. Custou um 500 em
                      todas as telas públicas de uma vez. --}}
                 @php($painelDoPapel = ['student' => '/aluno', 'instructor' => '/inst', 'admin' => '/admin'])
-                @php($painel = $painelDoPapel[$usuarioLogado['role'] ?? ''] ?? null)
+                @php($painel = $painelDoPapel[$usuarioLogado['papel'] ?? ''] ?? null)
 
                 @if ($painel !== null)
                     {{-- Quem já entrou não vê "Entrar": vê o caminho de volta ao

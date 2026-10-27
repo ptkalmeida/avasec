@@ -61,8 +61,8 @@
                              título vem logo abaixo em texto. Repetir o título no
                              `alt` faria o leitor de tela anunciar o curso duas
                              vezes seguidas. --}}
-                        @if ($curso['image'] !== '')
-                            <img src="{{ $curso['image'] }}" alt="" aria-hidden="true"
+                        @if ($curso['imagem'] !== '')
+                            <img src="{{ $curso['imagem'] }}" alt="" aria-hidden="true"
                                  loading="lazy" referrerpolicy="no-referrer"
                                  class="h-full w-full object-cover">
                         @else
@@ -76,17 +76,17 @@
                             </div>
                         @endif
                         <span class="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] truncate rounded-full bg-white px-2.5 py-1 text-nota font-semibold uppercase tracking-wide text-ava-acao shadow-sm">
-                            {{ $curso['category'] }}
+                            {{ $curso['categoria'] }}
                         </span>
                     </div>
 
                     <div class="flex flex-1 flex-col justify-between space-y-3 p-5">
                         <div class="space-y-2">
-                            <h2 class="line-clamp-2 font-titulo text-cartao leading-snug text-ava-tinta">{{ $curso['title'] }}</h2>
+                            <h2 class="line-clamp-2 font-titulo text-cartao leading-snug text-ava-tinta">{{ $curso['titulo'] }}</h2>
                             @if ($curso['instructor'] !== '')
                                 <p class="text-apoio font-semibold text-escult-ink-2">Tutorado por: Prof. {{ $curso['instructor'] }}</p>
                             @endif
-                            <p class="line-clamp-3 text-apoio leading-relaxed text-escult-ink-2">{{ $curso['description'] }}</p>
+                            <p class="line-clamp-3 text-apoio leading-relaxed text-escult-ink-2">{{ $curso['descricao'] }}</p>
                         </div>
 
                         {{-- "Inscrever-se" sempre levou ao login, e continua levando:
@@ -95,7 +95,7 @@
                            class="mt-3 flex w-full items-center justify-center gap-1.5 rounded-[10px] bg-ava-acao py-2.5 text-center text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
                             <span>Inscrever-se</span>
                             <span aria-hidden="true">→</span>
-                            <span class="sr-only">no curso {{ $curso['title'] }}</span>
+                            <span class="sr-only">no curso {{ $curso['titulo'] }}</span>
                         </a>
                     </div>
                 </li>

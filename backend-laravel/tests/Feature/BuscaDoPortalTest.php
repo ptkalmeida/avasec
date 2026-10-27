@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Course;
+use App\Models\Curso;
 use App\Services\CatalogoPublico;
 use App\Services\SitePageContentService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -46,7 +46,7 @@ final class BuscaDoPortalTest extends TestCase
     {
         $this->curso('busca-inativo', 'Zzyx Inativado')->inativar(null, 'teste');
         $this->curso('busca-rascunho', 'Zzyx Rascunho', ['status' => 3]);
-        $this->curso('busca-vencido', 'Zzyx Vencido', ['vigenciaAte' => '2020-01-01', 'contractExpirationDate' => '2020-01-01']);
+        $this->curso('busca-vencido', 'Zzyx Vencido', ['vigencia_ate' => '2020-01-01', 'vencimento_contrato_texto' => '2020-01-01']);
 
         Livewire::test('publico.busca-do-portal')
             ->set('termo', 'Zzyx')
@@ -59,7 +59,7 @@ final class BuscaDoPortalTest extends TestCase
      */
     public function test_so_devolve_curso_cursavel(): void
     {
-        $titulosCursaveis = array_column(app(CatalogoPublico::class)->cursaveis(), 'title');
+        $titulosCursaveis = array_column(app(CatalogoPublico::class)->cursaveis(), 'titulo');
 
         /** @var list<array{title:string,category:string}> $achados */
         $achados = Livewire::test('publico.busca-do-portal')
@@ -67,7 +67,7 @@ final class BuscaDoPortalTest extends TestCase
             ->get('cursos');
 
         foreach ($achados as $achado) {
-            $this->assertContains($achado['title'], $titulosCursaveis);
+            $this->assertContains($achado['titulo'], $titulosCursaveis);
         }
     }
 
@@ -103,25 +103,25 @@ final class BuscaDoPortalTest extends TestCase
         $this->assertIsArray($primeira);
 
         Livewire::test('publico.busca-do-portal')
-            ->set('termo', mb_substr((string) $primeira['title'], 0, 8))
-            ->assertSee($primeira['title']);
+            ->set('termo', mb_substr((string) $primeira['titulo'], 0, 8))
+            ->assertSee($primeira['titulo']);
     }
 
     /** @param array<string, mixed> $extra */
-    private function curso(string $id, string $titulo, array $extra = []): Course
+    private function curso(string $id, string $titulo, array $extra = []): Curso
     {
-        $curso = new Course;
+        $curso = new Curso;
         $curso->forceFill(array_merge([
             'id' => $id,
-            'title' => $titulo,
+            'titulo' => $titulo,
             'slug' => $id,
-            'category' => 'Teste',
-            'description' => 'Descrição de '.$titulo,
-            'instructorName' => 'Instrutor de Teste',
-            'thumbnail' => 'https://example.test/capa.jpg',
+            'categoria' => 'Teste',
+            'descricao' => 'Descrição de '.$titulo,
+            'nome_instrutor' => 'Instrutor de Teste',
+            'miniatura' => 'https://example.test/capa.jpg',
             'status' => 1,
-            'vigenciaAte' => '2099-12-31',
-            'contractExpirationDate' => '2099-12-31',
+            'vigencia_ate' => '2099-12-31',
+            'vencimento_contrato_texto' => '2099-12-31',
         ], $extra))->save();
 
         return $curso;

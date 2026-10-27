@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\User;
+use App\Models\Usuario;
 use App\Support\Cep;
 use App\Support\Cpf;
 use App\Support\Fuso;
@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\RateLimiter;
  * os hashes $2a$ gerados pelo bcryptjs do Node (o facade rejeita esse prefixo) e
  * gera hashes $2y$ que o bcryptjs do Node também consegue verificar.
  *
- * @phpstan-type PublicUser array{id: string, name: string, email: string, role: string, status: string, municipio?: string, uf?: string, areaInteresse?: string, dataCadastro?: string}
+ * @phpstan-type PublicUser array{id: string, nome: string, email: string, papel: string, status: string, municipio?: string, uf?: string, area_interesse?: string, data_cadastro_texto?: string}
  */
 final class AuthService
 {
@@ -39,20 +39,20 @@ final class AuthService
     private const BCRYPT_COST = 10;
 
     /**
-     * @param  array{name:string,email:string,password:string,role?:string|null,cpf?:string|null,municipio?:string|null,uf?:string|null,areaInteresse?:string|null,dataCadastro?:string|null,celular?:string|null,cep?:string|null,endereco?:string|null,nomeSocial?:string|null,identidade?:string|null}  $input
-     * @param  array{sub:string,name:string,role:string}|null  $requester
-     * @return array{token: string|null, user: PublicUser, duplicado?: bool}
+     * @param  array{nome:string,email:string,password:string,papel?:string|null,cpf?:string|null,municipio?:string|null,uf?:string|null,area_interesse?:string|null,data_cadastro_texto?:string|null,celular?:string|null,cep?:string|null,endereco?:string|null,nome_social?:string|null,identidade?:string|null}  $input
+     * @param  array{sub:string,nome:string,papel:string}|null  $requester
+     * @return array{token: string|null, usuario: PublicUser, duplicado?: bool}
      */
     public function register(array $input, ?array $requester): array
     {
-        $isAdminProvisioning = ($requester['role'] ?? null) === 'admin';
+        $isAdminProvisioning = ($requester['papel'] ?? null) === 'admin';
 
-        $requestedRole = $input['role'] ?? null;
+        $requestedRole = $input['papel'] ?? null;
         if (! $isAdminProvisioning && $requestedRole !== null && $requestedRole !== 'student') {
             throw ApiException::forbidden('Apenas administradores podem criar contas de instrutor ou administrador.');
         }
 
-        $emailJaExiste = User::query()->withTrashed()->where('email', $input['email'])->exists();
+        $emailJaExiste = Usuario::query()->withTrashed()->where('email', $input['email'])->exists();
         if ($emailJaExiste && $isAdminProvisioning) {
             throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este e-mail.');
         }
@@ -62,7 +62,7 @@ final class AuthService
         $cpf = isset($input['cpf']) && $input['cpf'] !== ''
             ? Cpf::normalize($input['cpf'])
             : null;
-        $cpfJaExiste = $cpf !== null && User::query()->withTrashed()->where('cpf', $cpf)->exists();
+        $cpfJaExiste = $cpf !== null && Usuario::query()->withTrashed()->where('cpf', $cpf)->exists();
         if ($cpfJaExiste && $isAdminProvisioning) {
             throw new ApiException(409, 'CONFLICT', 'Já existe um usuário cadastrado com este CPF.');
         }
@@ -80,11 +80,11 @@ final class AuthService
             return [
                 'token' => null,
                 'duplicado' => true,
-                'user' => [
+                'usuario' => [
                     'id' => $this->generateId(),
-                    'name' => $input['name'],
+                    'nome' => $input['nome'],
                     'email' => $input['email'],
-                    'role' => 'student',
+                    'papel' => 'student',
                     'status' => 'pending_confirmation',
                 ],
             ];
@@ -96,46 +96,46 @@ final class AuthService
         }
         $status = $isAdminProvisioning ? 'active' : 'pending_confirmation';
 
-        $user = new User;
+        $user = new Usuario;
         $user->id = $this->generateId();
-        $user->name = $input['name'];
+        $user->nome = $input['nome'];
         $user->email = $input['email'];
-        $user->passwordHash = $this->hash($input['password']);
-        $user->role = $role;
+        $user->senha_hash = $this->hash($input['password']);
+        $user->papel = $role;
         $user->status = $status;
         $user->cpf = $cpf;
         $user->municipio = $input['municipio'] ?? null;
         $user->uf = $input['uf'] ?? null;
-        $user->areaInteresse = $input['areaInteresse'] ?? null;
+        $user->area_interesse = $input['area_interesse'] ?? null;
         // Data local: cadastro às 22h BRT registrava o dia seguinte em UTC.
-        $user->dataCadastro = $input['dataCadastro'] ?? Fuso::agora()->format('Y-m-d');
+        $user->data_cadastro_texto = $input['data_cadastro_texto'] ?? Fuso::agora()->format('Y-m-d');
         $user->celular = $input['celular'] ?? null;
         $user->cep = isset($input['cep']) && $input['cep'] !== ''
             ? Cep::normalize($input['cep'])
             : null;
         $user->endereco = $input['endereco'] ?? null;
-        $user->nomeSocial = $input['nomeSocial'] ?? null;
+        $user->nome_social = $input['nome_social'] ?? null;
         $user->identidade = $input['identidade'] ?? null;
-        $user->failedLoginAttempts = 0;
-        $user->lockedUntil = null;
+        $user->tentativas_login_falhas = 0;
+        $user->bloqueado_ate = null;
         $user->save();
 
         // Token só para a própria pessoa quando a conta nasce ativa (cadastro público
         // vira pending -> sem token; provisionamento por admin é conta de terceiro -> sem token).
         $token = ($status === 'active' && ! $isAdminProvisioning)
-            ? Jwt::issue($user->id, $user->name, $user->role)
+            ? Jwt::issue($user->id, $user->nome, $user->papel)
             : null;
 
-        return ['token' => $token, 'user' => $this->toPublicUser($user)];
+        return ['token' => $token, 'usuario' => $this->toPublicUser($user)];
     }
 
     /**
-     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string,role?:string|null,ip?:string|null}  $input
-     * @return array{token: string, user: PublicUser}
+     * @param  array{nome?:string|null,email?:string|null,cpf?:string|null,password:string,papel?:string|null,ip?:string|null}  $input
+     * @return array{token: string, usuario: PublicUser}
      */
     public function login(array $input): array
     {
-        $papel = $input['role'] ?? null;
+        $papel = $input['papel'] ?? null;
 
         /*
          * Bloqueio por (identificador, rede), e não só por conta (ADR 022). Antes, 5 senhas
@@ -154,9 +154,9 @@ final class AuthService
         // de admin/gestor; `name` permanece para as contas demo internas.
         // A busca por CPF normaliza antes, para casar com o que está gravado.
         if (! empty($input['cpf'])) {
-            $user = User::query()->where('cpf', Cpf::normalize($input['cpf']))->first();
+            $user = Usuario::query()->where('cpf', Cpf::normalize($input['cpf']))->first();
         } elseif (! empty($input['email'])) {
-            $user = User::query()->where('email', $input['email'])->first();
+            $user = Usuario::query()->where('email', $input['email'])->first();
         } else {
             /*
              * Nome não é único: um aluno e um gestor podem ter o mesmo. Sem o
@@ -164,16 +164,16 @@ final class AuthService
              * Gestão chegou a autenticar um aluno. Com o papel, a busca já
              * começa restrita a ele.
              */
-            $porNome = User::query()->where('name', $input['name'] ?? '');
+            $porNome = Usuario::query()->where('nome', $input['nome'] ?? '');
             if ($papel !== null) {
-                $porNome->where('role', $papel);
+                $porNome->where('papel', $papel);
             }
             $user = $porNome->first();
         }
 
         // Conta de outro papel que o pedido é tratada como inexistente: mesma
         // mensagem genérica, sem contar tentativa contra a conta de outra pessoa.
-        if ($user !== null && $papel !== null && $user->role !== $papel) {
+        if ($user !== null && $papel !== null && $user->papel !== $papel) {
             $user = null;
         }
 
@@ -183,16 +183,16 @@ final class AuthService
             throw ApiException::unauthorized('Usuário ou senha inválidos.');
         }
 
-        if ($user->lockedUntil !== null && $user->lockedUntil->isFuture()) {
+        if ($user->bloqueado_ate !== null && $user->bloqueado_ate->isFuture()) {
             throw self::contaTravada();
         }
 
-        if (! password_verify($input['password'], $user->passwordHash)) {
+        if (! password_verify($input['password'], $user->senha_hash)) {
             RateLimiter::hit($chaveDeFalha, self::LOCKOUT_MINUTES * 60);
-            $nextAttempts = $user->failedLoginAttempts + 1;
+            $nextAttempts = $user->tentativas_login_falhas + 1;
             $shouldLock = $nextAttempts >= self::MAX_FAILED_ATTEMPTS_CONTA;
-            $user->failedLoginAttempts = $shouldLock ? 0 : $nextAttempts;
-            $user->lockedUntil = $shouldLock
+            $user->tentativas_login_falhas = $shouldLock ? 0 : $nextAttempts;
+            $user->bloqueado_ate = $shouldLock
                 ? CarbonImmutable::now()->addMinutes(self::LOCKOUT_MINUTES)
                 : null;
             $user->save();
@@ -200,9 +200,9 @@ final class AuthService
         }
 
         RateLimiter::clear($chaveDeFalha);
-        if ($user->failedLoginAttempts > 0 || $user->lockedUntil !== null) {
-            $user->failedLoginAttempts = 0;
-            $user->lockedUntil = null;
+        if ($user->tentativas_login_falhas > 0 || $user->bloqueado_ate !== null) {
+            $user->tentativas_login_falhas = 0;
+            $user->bloqueado_ate = null;
             $user->save();
         }
 
@@ -218,15 +218,15 @@ final class AuthService
             );
         }
 
-        $token = Jwt::issue($user->id, $user->name, $user->role);
+        $token = Jwt::issue($user->id, $user->nome, $user->papel);
 
-        return ['token' => $token, 'user' => $this->toPublicUser($user)];
+        return ['token' => $token, 'usuario' => $this->toPublicUser($user)];
     }
 
     /** @return PublicUser */
-    public function getCurrentUser(string $userId): array
+    public function getCurrentUser(string $usuario_id): array
     {
-        $user = User::query()->find($userId);
+        $user = Usuario::query()->find($usuario_id);
         if ($user === null) {
             throw ApiException::notFound('Usuário não encontrado.');
         }
@@ -244,37 +244,37 @@ final class AuthService
      * numa tela de perfil. Aqui não há contador; o limite contra força bruta
      * fica no limitador da rota (`auth-password`, por usuário).
      */
-    public function senhaConfere(string $userId, string $senha): bool
+    public function senhaConfere(string $usuario_id, string $senha): bool
     {
-        $user = User::query()->find($userId);
+        $user = Usuario::query()->find($usuario_id);
 
         return $user !== null
-            && is_string($user->passwordHash)
-            && password_verify($senha, $user->passwordHash);
+            && is_string($user->senha_hash)
+            && password_verify($senha, $user->senha_hash);
     }
 
     /**
      * Troca a própria senha e encerra TODAS as sessões da conta (ADR 022); devolve o token
      * da sessão atual, que continua valendo, para o controller reemitir o cookie.
      */
-    public function changePassword(string $userId, string $newPassword, string $currentPassword): string
+    public function changePassword(string $usuario_id, string $newPassword, string $currentPassword): string
     {
-        $user = User::query()->find($userId);
+        $user = Usuario::query()->find($usuario_id);
         if ($user === null) {
             throw ApiException::notFound('Usuário não encontrado.');
         }
 
         // A senha atual é SEMPRE verificada (autosserviço). Reset sem a senha atual,
         // se necessário, deve ser um fluxo administrativo separado e auditado.
-        if (! password_verify($currentPassword, $user->passwordHash)) {
+        if (! password_verify($currentPassword, $user->senha_hash)) {
             throw ApiException::unauthorized('Senha atual incorreta.');
         }
 
-        $user->passwordHash = $this->hash($newPassword);
+        $user->senha_hash = $this->hash($newPassword);
         $user->save();
         Sessoes::encerrarTodas($user->id);
 
-        return Jwt::issue($user->id, $user->name, $user->role);
+        return Jwt::issue($user->id, $user->nome, $user->papel);
     }
 
     /**
@@ -286,14 +286,14 @@ final class AuthService
      *
      * @return array<string, mixed> usuário público (nunca o hash)
      */
-    public function adminResetPassword(string $userId, string $newPassword): array
+    public function adminResetPassword(string $usuario_id, string $newPassword): array
     {
-        $user = User::query()->find($userId);
+        $user = Usuario::query()->find($usuario_id);
         if ($user === null) {
             throw ApiException::notFound('Usuário não encontrado.');
         }
 
-        $user->passwordHash = $this->hash($newPassword);
+        $user->senha_hash = $this->hash($newPassword);
         $user->save();
         // Redefinir é, quase sempre, retomar uma conta em risco: quem a tinha aberta sai (ADR 022).
         Sessoes::encerrarTodas($user->id);
@@ -306,27 +306,27 @@ final class AuthService
      */
     public function listUsersByRole(?string $role, int $skip, int $take): array
     {
-        $query = User::query();
+        $query = Usuario::query();
         if ($role !== null) {
-            $query->where('role', $role);
+            $query->where('papel', $role);
         }
         $total = (clone $query)->count();
-        $items = $query->orderBy('createdAt')->skip($skip)->take($take)->get()
-            ->map(fn (User $u) => $this->toPublicUser($u))->all();
+        $items = $query->orderBy('criado_em')->skip($skip)->take($take)->get()
+            ->map(fn (Usuario $u) => $this->toPublicUser($u))->all();
 
         return ['items' => $items, 'total' => $total];
     }
 
     /**
      * Escopo por perfil: instrutor só vê alunos matriculados/admitidos nos próprios
-     * cursos. Cursos por FK (instructorId) com fallback por nome (legado); alunos por
-     * FK (userId) com fallback por nome. Espelha listStudentsForInstructor do Node.
+     * cursos. Cursos por FK (instrutor_id) com fallback por nome (legado); alunos por
+     * FK (usuario_id) com fallback por nome. Espelha listStudentsForInstructor do Node.
      *
      * @return array{items: array<int, array<string, mixed>>, total: int}
      */
-    public function listStudentsForInstructor(string $instructorSub, string $instructorName, int $skip, int $take): array
+    public function listStudentsForInstructor(string $instructorSub, string $nome_instrutor, int $skip, int $take): array
     {
-        $requester = ['sub' => $instructorSub, 'name' => $instructorName, 'role' => 'instructor'];
+        $requester = ['sub' => $instructorSub, 'nome' => $nome_instrutor, 'papel' => 'instructor'];
 
         // Vínculo por FK apenas (ADR 10). Fonte única do escopo: InstructorScope.
         $studentIds = InstructorScope::studentIds($requester);
@@ -334,19 +334,19 @@ final class AuthService
             return ['items' => [], 'total' => 0];
         }
 
-        $query = User::query()->where('role', 'student')->whereIn('id', $studentIds);
+        $query = Usuario::query()->where('papel', 'student')->whereIn('id', $studentIds);
 
         $total = (clone $query)->count();
-        $items = $query->orderBy('createdAt')->skip($skip)->take($take)->get()
-            ->map(fn (User $u) => $this->toPublicUser($u))->all();
+        $items = $query->orderBy('criado_em')->skip($skip)->take($take)->get()
+            ->map(fn (Usuario $u) => $this->toPublicUser($u))->all();
 
         return ['items' => $items, 'total' => $total];
     }
 
     /** @return PublicUser */
-    public function updateAccountStatus(string $userId, string $status): array
+    public function updateAccountStatus(string $usuario_id, string $status): array
     {
-        $user = User::query()->find($userId);
+        $user = Usuario::query()->find($usuario_id);
         if ($user === null) {
             throw ApiException::notFound('Usuário não encontrado.');
         }
@@ -369,25 +369,25 @@ final class AuthService
     /**
      * Inativa a conta preservando o histórico acadêmico inteiro (ADR 12).
      *
-     * Isto era `User::query()->where('id', $userId)->delete()`, e as chaves
+     * Isto era `Usuario::query()->where('id', $usuario_id)->delete()`, e as chaves
      * estrangeiras estão em ON DELETE CASCADE: apagar UMA pessoa destruía as
-     * notas de avaliação (`QuizSubmission`), os trabalhos entregues e corrigidos
-     * (`ExerciseSubmission`), o progresso e as presenças (`StudentProgress`), a
+     * notas de avaliação (`tentativa_avaliacao`), os trabalhos entregues e corrigidos
+     * (`entrega_exercicio`), o progresso e as presenças (`progresso_aluno`), a
      * matrícula, os requerimentos e o histórico de atendimento — e o certificado
-     * sobrevivia apontando para ninguém (`Certificate.userId` é SET NULL).
+     * sobrevivia apontando para ninguém (`Certificado.usuario_id` é SET NULL).
      *
      * A pessoa sai do ar; o que ela cursou continua reconstituível.
      *
-     * @param  array{sub:string,name:string,role:string}|null  $requester
+     * @param  array{sub:string,nome:string,papel:string}|null  $requester
      */
-    public function deleteUser(string $userId, ?array $requester = null, ?string $motivo = null): void
+    public function deleteUser(string $usuario_id, ?array $requester = null, ?string $motivo = null): void
     {
-        $user = User::query()->find($userId);
+        $user = Usuario::query()->find($usuario_id);
         if ($user === null) {
             return;
         }
 
-        // Bloquear a conta junto: `inativadoEm` tira das listagens, e o `status`
+        // Bloquear a conta junto: `inativado_em` tira das listagens, e o `status`
         // é o que o middleware de autenticação consulta para recusar o login.
         $user->status = 'blocked';
         $user->saveQuietly();
@@ -411,68 +411,68 @@ final class AuthService
      *
      * @return PublicUser
      */
-    public function reactivateUser(string $userId): array
+    public function reactivateUser(string $usuario_id): array
     {
-        $user = User::onlyTrashed()->whereIn('role', ['student', 'instructor'])->find($userId);
+        $user = Usuario::onlyTrashed()->whereIn('papel', ['student', 'instructor'])->find($usuario_id);
         if ($user === null) {
             throw ApiException::notFound('Conta retirada não encontrada.');
         }
 
         $user->reativar();
 
-        $publico = $this->updateAccountStatus($userId, 'active');
+        $publico = $this->updateAccountStatus($usuario_id, 'active');
         // Explícito, e não só pelo que `updateAccountStatus` faz: ele só encerra as sessões
         // quando a conta NÃO estava ativa, e uma conta retirada por um caminho antigo
         // (anterior ao bloqueio junto da retirada) pode ter ficado com `status = active`.
-        Sessoes::encerrarTodas($userId);
+        Sessoes::encerrarTodas($usuario_id);
 
         return $publico;
     }
 
     /**
      * Rename seguro (ADR 10): identidade é o id, então mudar o nome é atualizar
-     * o User e os SNAPSHOTS de exibição das satélites na mesma transação.
-     * EXCEÇÃO: Certificate.studentName fica intocado — é o nome impresso no PDF
+     * o Usuario e os SNAPSHOTS de exibição das satélites na mesma transação.
+     * EXCEÇÃO: Certificado.nome_aluno fica intocado — é o nome impresso no PDF
      * emitido e a chave humana da verificação pública (documento histórico).
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return PublicUser
      */
-    public function renameUser(string $userId, string $newName, array $requester): array
+    public function renameUser(string $usuario_id, string $newName, array $requester): array
     {
-        if ($requester['role'] !== 'admin' && $requester['sub'] !== $userId) {
+        if ($requester['papel'] !== 'admin' && $requester['sub'] !== $usuario_id) {
             throw ApiException::forbidden('Você só pode alterar o próprio nome.');
         }
-        $user = User::query()->find($userId);
+        $user = Usuario::query()->find($usuario_id);
         if ($user === null) {
             throw ApiException::notFound('Usuário não encontrado.');
         }
 
         DB::transaction(function () use ($user, $newName): void {
-            $user->name = $newName;
+            $user->nome = $newName;
             $user->save();
 
-            foreach (['StudentEnrollment', 'StudentProgress', 'AdmissionRequest', 'AcademicRequest', 'QuizSubmission', 'ExerciseSubmission'] as $table) {
-                DB::table($table)->where('userId', $user->id)->update(['studentName' => $newName]);
+            foreach (['matricula', 'progresso_aluno', 'solicitacao_ingresso', 'solicitacao_academica', 'tentativa_avaliacao', 'entrega_exercicio'] as $table) {
+                DB::table($table)->where('usuario_id', $user->id)->update(['nome_aluno' => $newName]);
             }
-            DB::table('DirectMessage')->where('studentUserId', $user->id)->update(['studentName' => $newName]);
-            foreach (['DirectMessage', 'ChatMessage', 'ForumMessage'] as $table) {
-                DB::table($table)->where('senderUserId', $user->id)->update(['senderName' => $newName]);
+            DB::table('mensagem_direta')->where('aluno_usuario_id', $user->id)->update(['nome_aluno' => $newName]);
+            foreach (['mensagem_direta', 'mensagem_chat', 'mensagem_forum'] as $table) {
+                DB::table($table)->where('remetente_usuario_id', $user->id)->update(['nome_remetente' => $newName]);
             }
-            DB::table('Course')->where('instructorId', $user->id)->update(['instructorName' => $newName]);
+            DB::table('curso')->where('instrutor_id', $user->id)->update(['nome_instrutor' => $newName]);
         });
 
         return $this->toPublicUser($user);
     }
 
     /** @return PublicUser */
-    public function toPublicUser(User $user): array
+    public function toPublicUser(Usuario $user): array
     {
         $public = [
             'id' => $user->id,
-            'name' => $user->name,
+            'nome' => $user->nome,
             'email' => $user->email,
-            'role' => $user->role,
+            'papel' => $user->papel,
             'status' => $user->status,
         ];
         // Campos opcionais só aparecem quando presentes (mesma forma do toPublicUser do Node).
@@ -482,11 +482,11 @@ final class AuthService
         if ($user->uf !== null) {
             $public['uf'] = $user->uf;
         }
-        if ($user->areaInteresse !== null) {
-            $public['areaInteresse'] = $user->areaInteresse;
+        if ($user->area_interesse !== null) {
+            $public['area_interesse'] = $user->area_interesse;
         }
-        if ($user->dataCadastro !== null) {
-            $public['dataCadastro'] = $user->dataCadastro;
+        if ($user->data_cadastro_texto !== null) {
+            $public['data_cadastro_texto'] = $user->data_cadastro_texto;
         }
 
         return $public;
@@ -495,7 +495,7 @@ final class AuthService
     /**
      * Chave do contador de erros: identificador normalizado + papel + rede.
      *
-     * @param  array{name?:string|null,email?:string|null,cpf?:string|null,password:string,role?:string|null,ip?:string|null}  $input
+     * @param  array{nome?:string|null,email?:string|null,cpf?:string|null,password:string,papel?:string|null,ip?:string|null}  $input
      */
     private static function chaveDeFalha(array $input): string
     {
@@ -503,9 +503,9 @@ final class AuthService
         $email = $input['email'] ?? null;
         $identificador = ! empty($cpf)
             ? 'cpf:'.Cpf::normalize((string) $cpf)
-            : (! empty($email) ? 'email:'.mb_strtolower((string) $email) : 'nome:'.mb_strtolower((string) ($input['name'] ?? '')));
+            : (! empty($email) ? 'email:'.mb_strtolower((string) $email) : 'nome:'.mb_strtolower((string) ($input['nome'] ?? '')));
 
-        return 'login-falha:'.sha1($identificador.'|'.($input['role'] ?? '').'|'.($input['ip'] ?? ''));
+        return 'login-falha:'.sha1($identificador.'|'.($input['papel'] ?? '').'|'.($input['ip'] ?? ''));
     }
 
     private static function contaTravada(): ApiException

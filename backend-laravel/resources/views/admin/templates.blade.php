@@ -44,7 +44,7 @@
         <div class="flex flex-wrap items-center justify-between gap-2">
             <h2 class="text-[0.875rem] font-bold text-slate-900">{{ $tipos[$tipo] }}</h2>
             @if ($tipo === 'certificado')
-                <a href="/api/document-templates/certificado/preview" target="_blank" rel="noopener"
+                <a href="/api/modelos-documento/certificado/previa" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                     <i class="fa-regular fa-eye" aria-hidden="true"></i> Visualizar documento atual
                 </a>
@@ -64,12 +64,12 @@
 
         <div>
             <label for="instituicao" class="{{ $rotulo }}">Nome da instituição</label>
-            <input id="instituicao" name="institutionName" type="text" maxlength="191" value="{{ $instituicao }}" class="{{ $campo }}">
+            <input id="instituicao" name="nome_instituicao" type="text" maxlength="191" value="{{ $instituicao }}" class="{{ $campo }}">
         </div>
 
         <div>
             <label for="rodape" class="{{ $rotulo }}">Texto de rodapé</label>
-            <textarea id="rodape" name="footerText" rows="3" maxlength="2000" class="{{ $campo }}">{{ $rodape }}</textarea>
+            <textarea id="rodape" name="texto_rodape" rows="3" maxlength="2000" class="{{ $campo }}">{{ $rodape }}</textarea>
         </div>
 
         <fieldset class="space-y-2">

@@ -7,11 +7,11 @@ namespace App\Models;
 use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
-final class AcademicRequest extends Model
+final class DocumentoAula extends Model
 {
     use Inativavel;
 
-    protected $table = 'AcademicRequest';
+    protected $table = 'documento_aula';
 
     protected $keyType = 'string';
 
@@ -19,5 +19,5 @@ final class AcademicRequest extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'studentName', 'userId', 'type', 'description', 'status', 'submittedAt', 'courseTitle'];
+    protected $fillable = ['id', 'aula_id', 'titulo', 'tipo', 'url', 'tamanho'];
 }

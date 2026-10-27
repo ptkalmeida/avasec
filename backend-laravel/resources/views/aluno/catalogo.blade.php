@@ -34,7 +34,7 @@
         @else
             <ul role="list" aria-label="Cursos disponíveis" class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 @foreach ($cursos as $curso)
-                    @php($capa = $curso['coverImage'] ?: ($curso['thumbnail'] ?? ''))
+                    @php($capa = $curso['imagem_capa'] ?: ($curso['miniatura'] ?? ''))
                     <li class="flex flex-col overflow-hidden rounded-2xl border border-ava-borda bg-white shadow-3xs">
                         <div class="h-36 overflow-hidden bg-ava-marinho">
                             @if ($capa !== '')
@@ -45,20 +45,20 @@
 
                         <div class="flex flex-1 flex-col justify-between gap-3 p-5">
                             <div class="space-y-2">
-                                @if (! empty($curso['category']))
+                                @if (! empty($curso['categoria']))
                                     <span class="inline-block rounded-full bg-ava-lilas-fundo px-2.5 py-1 text-nota font-semibold uppercase tracking-wide text-ava-lilas">
-                                        {{ $curso['category'] }}
+                                        {{ $curso['categoria'] }}
                                     </span>
                                 @endif
-                                <h2 class="font-titulo text-cartao leading-snug text-ava-tinta">{{ $curso['title'] }}</h2>
-                                <p class="line-clamp-3 text-apoio leading-relaxed text-escult-ink-2">{{ $curso['description'] }}</p>
+                                <h2 class="font-titulo text-cartao leading-snug text-ava-tinta">{{ $curso['titulo'] }}</h2>
+                                <p class="line-clamp-3 text-apoio leading-relaxed text-escult-ink-2">{{ $curso['descricao'] }}</p>
                             </div>
 
                             <a href="/aluno/catalogo/{{ $curso['slug'] ?? $curso['id'] }}"
                                class="inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-ava-acao px-5 py-2.5 text-rotulo font-semibold text-ava-acao transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                                 <span>Ver e escolher</span>
                                 <span aria-hidden="true">→</span>
-                                <span class="sr-only">— {{ $curso['title'] }}</span>
+                                <span class="sr-only">— {{ $curso['titulo'] }}</span>
                             </a>
                         </div>
                     </li>

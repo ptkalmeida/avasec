@@ -48,20 +48,20 @@ final class UploadTest extends TestCase
 
     private function studentToken(?string &$id = null, ?string &$name = null): string
     {
-        $u = DB::table('User')->where('role', 'student')->where('status', 'active')->first(['id', 'name']);
+        $u = DB::table('usuario')->where('papel', 'student')->where('status', 'active')->first(['id', 'nome']);
         $this->assertNotNull($u);
         $id = $u->id;
-        $name = $u->name;
+        $name = $u->nome;
 
-        return Jwt::issue($u->id, $u->name, 'student');
+        return Jwt::issue($u->id, $u->nome, 'student');
     }
 
     private function instructorToken(): string
     {
-        $u = DB::table('User')->where('role', 'instructor')->where('status', 'active')->first(['id', 'name']);
+        $u = DB::table('usuario')->where('papel', 'instructor')->where('status', 'active')->first(['id', 'nome']);
         $this->assertNotNull($u);
 
-        return Jwt::issue($u->id, $u->name, 'instructor');
+        return Jwt::issue($u->id, $u->nome, 'instructor');
     }
 
     public function test_aluno_nao_publica_na_pasta_publica_mas_envia_privado(): void
@@ -72,21 +72,21 @@ final class UploadTest extends TestCase
         $auth = ['Authorization' => 'Bearer '.$this->studentToken(), 'Accept' => 'application/json'];
 
         $this->post('/api/upload', ['file' => $this->realPng('golpe.png')], $auth)->assertStatus(403);
-        $this->post('/api/upload?visibility=public', ['file' => $this->realPng('golpe.png')], $auth)->assertStatus(403);
+        $this->post('/api/upload?visibilidade=public', ['file' => $this->realPng('golpe.png')], $auth)->assertStatus(403);
         $this->assertSame([], Storage::disk('publico')->allFiles());
 
-        $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth)->assertStatus(201);
+        $this->post('/api/upload?visibilidade=private', ['file' => $this->realPng('entrega.png')], $auth)->assertStatus(201);
     }
 
     public function test_instrutor_e_admin_continuam_publicando(): void
     {
         Storage::fake('publico');
-        $admin = DB::table('User')->where('role', 'admin')->where('status', 'active')->first(['id', 'name']);
+        $admin = DB::table('usuario')->where('papel', 'admin')->where('status', 'active')->first(['id', 'nome']);
         $this->assertNotNull($admin);
 
-        foreach ([$this->instructorToken(), Jwt::issue($admin->id, $admin->name, 'admin')] as $token) {
+        foreach ([$this->instructorToken(), Jwt::issue($admin->id, $admin->nome, 'admin')] as $token) {
             $this->post('/api/upload', ['file' => $this->realPng('capa.png')], ['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'])
-                ->assertStatus(201)->assertJsonPath('visibility', 'public');
+                ->assertStatus(201)->assertJsonPath('visibilidade', 'public');
         }
     }
 
@@ -132,12 +132,12 @@ final class UploadTest extends TestCase
         $response = $this->withHeader('Authorization', "Bearer $token")
             ->post('/api/upload', ['file' => $this->realPng('material.png')], ['Accept' => 'application/json']);
 
-        $response->assertStatus(201)->assertJsonPath('visibility', 'public');
+        $response->assertStatus(201)->assertJsonPath('visibilidade', 'public');
         $this->assertStringStartsWith('/uploads/', $response->json('url'));
         // Arquivo realmente gravado no diretório público.
         $name = basename($response->json('url'));
         $this->assertFileExists($this->tmpRoot.DIRECTORY_SEPARATOR.'public'.DIRECTORY_SEPARATOR.$name);
-        $this->assertDatabaseHas('StoredFile', ['id' => $name, 'visibility' => 'public']);
+        $this->assertDatabaseHas('arquivo_armazenado', ['id' => $name, 'visibilidade' => 'public']);
     }
 
     public function test_cada_visibilidade_grava_no_seu_disco_do_laravel_filesystem(): void
@@ -149,7 +149,7 @@ final class UploadTest extends TestCase
         $auth = ['Authorization' => 'Bearer '.$this->instructorToken(), 'Accept' => 'application/json'];
 
         $publico = $this->post('/api/upload', ['file' => $this->realPng('capa.png')], $auth)->assertStatus(201);
-        $privado = $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth)->assertStatus(201);
+        $privado = $this->post('/api/upload?visibilidade=private', ['file' => $this->realPng('entrega.png')], $auth)->assertStatus(201);
 
         $nomePublico = basename((string) $publico->json('url'));
         $nomePrivado = basename((string) $privado->json('url'));
@@ -219,41 +219,41 @@ final class UploadTest extends TestCase
         $ownerToken = $this->studentToken($ownerId, $ownerName);
 
         // Dono envia arquivo privado.
-        $up = $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth($ownerToken));
-        $up->assertStatus(201)->assertJsonPath('visibility', 'private');
-        $fileUrl = $up->json('url'); // /api/files/<id>
-        $this->assertStringStartsWith('/api/files/', $fileUrl);
+        $up = $this->post('/api/upload?visibilidade=private', ['file' => $this->realPng('entrega.png')], $auth($ownerToken));
+        $up->assertStatus(201)->assertJsonPath('visibilidade', 'private');
+        $url_arquivo = $up->json('url'); // /api/arquivos/<id>
+        $this->assertStringStartsWith('/api/arquivos/', $url_arquivo);
 
         // Dono baixa: 200.
-        $this->get($fileUrl, $auth($ownerToken))->assertOk();
+        $this->get($url_arquivo, $auth($ownerToken))->assertOk();
 
         // Outro aluno REAL e ativo (não dono, não staff): 403. (Precisa existir no banco,
         // senão o middleware `active` responderia 401 por conta inexistente.)
-        $admin = DB::table('User')->where('role', 'admin')->first();
-        $reg = $this->postJson('/api/auth/register', [
-            'name' => 'Outro Aluno '.uniqid(),
+        $admin = DB::table('usuario')->where('papel', 'admin')->first();
+        $reg = $this->postJson('/api/autenticacao/cadastro', [
+            'nome' => 'Outro Aluno '.uniqid(),
             'email' => 'outro-'.uniqid().'@example.com',
             'password' => 'senha123456',
-            'role' => 'student',
+            'papel' => 'student',
             'cpf' => $this->makeCpf(),
-        ], $auth(Jwt::issue($admin->id, $admin->name, 'admin')));
-        $otherToken = Jwt::issue($reg->json('user.id'), $reg->json('user.name'), 'student');
-        $this->get($fileUrl, $auth($otherToken))->assertStatus(403);
+        ], $auth(Jwt::issue($admin->id, $admin->nome, 'admin')));
+        $otherToken = Jwt::issue($reg->json('usuario.id'), $reg->json('usuario.nome'), 'student');
+        $this->get($url_arquivo, $auth($otherToken))->assertStatus(403);
 
         // Instrutor do curso do dono: 200. (Não é "por ser staff": o escopo é o vínculo
         // com a turma — ver o caso seguinte, que era o furo.)
-        $inst = DB::table('User')->where('role', 'instructor')->where('status', 'active')->first(['id', 'name']);
+        $inst = DB::table('usuario')->where('papel', 'instructor')->where('status', 'active')->first(['id', 'nome']);
         $this->assertNotEmpty(
             array_intersect(
-                DB::table('Course')->where('instructorId', $inst->id)->pluck('id')->all(),
-                CourseAccess::accessibleCourseIds(['sub' => $ownerId, 'name' => '', 'role' => 'student'])
+                DB::table('curso')->where('instrutor_id', $inst->id)->pluck('id')->all(),
+                CourseAccess::accessibleCourseIds(['sub' => $ownerId, 'nome' => '', 'papel' => 'student'])
             ),
             'Dono do arquivo não é aluno deste instrutor — o 200 abaixo não provaria escopo.'
         );
-        $this->get($fileUrl, $auth(Jwt::issue($inst->id, $inst->name, 'instructor')))->assertOk();
+        $this->get($url_arquivo, $auth(Jwt::issue($inst->id, $inst->nome, 'instructor')))->assertOk();
 
         // Sem token: 401.
-        $this->get($fileUrl, $json)->assertStatus(401);
+        $this->get($url_arquivo, $json)->assertStatus(401);
     }
 
     // Entrega privada é documento pessoal do aluno. Antes bastava ter papel de
@@ -266,22 +266,22 @@ final class UploadTest extends TestCase
         $ownerName = null;
         $ownerToken = $this->studentToken($ownerId, $ownerName);
 
-        $up = $this->post('/api/upload?visibility=private', ['file' => $this->realPng('entrega.png')], $auth($ownerToken));
-        $fileUrl = $up->assertStatus(201)->json('url');
+        $up = $this->post('/api/upload?visibilidade=private', ['file' => $this->realPng('entrega.png')], $auth($ownerToken));
+        $url_arquivo = $up->assertStatus(201)->json('url');
 
         // Instrutor sem curso nenhum atribuído: não alcança aluno algum.
-        $alheio = DB::table('User')->where('role', 'instructor')->where('status', 'active')
-            ->whereNotIn('id', DB::table('Course')->distinct()->select('instructorId'))
-            ->first(['id', 'name']);
+        $alheio = DB::table('usuario')->where('papel', 'instructor')->where('status', 'active')
+            ->whereNotIn('id', DB::table('curso')->distinct()->select('instrutor_id'))
+            ->first(['id', 'nome']);
         if ($alheio === null) {
             $this->markTestSkipped('Seed sem instrutor fora da titularidade dos cursos.');
         }
 
-        $this->get($fileUrl, $auth(Jwt::issue($alheio->id, $alheio->name, 'instructor')))
+        $this->get($url_arquivo, $auth(Jwt::issue($alheio->id, $alheio->nome, 'instructor')))
             ->assertStatus(403);
 
         // Admin segue irrestrito (coordenação).
-        $admin = DB::table('User')->where('role', 'admin')->first(['id', 'name']);
-        $this->get($fileUrl, $auth(Jwt::issue($admin->id, $admin->name, 'admin')))->assertOk();
+        $admin = DB::table('usuario')->where('papel', 'admin')->first(['id', 'nome']);
+        $this->get($url_arquivo, $auth(Jwt::issue($admin->id, $admin->nome, 'admin')))->assertOk();
     }
 }

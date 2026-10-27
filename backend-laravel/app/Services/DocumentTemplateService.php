@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\DocumentTemplate;
+use App\Models\ModeloDocumento;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -28,23 +28,23 @@ final class DocumentTemplateService
      */
     private const DEFAULTS = [
         'certificado' => [
-            'institutionName' => 'República Federativa do Brasil • AVA LMS',
-            'institutionLogoPath' => null,
-            'signatories' => [
+            'nome_instituicao' => 'República Federativa do Brasil • AVA LMS',
+            'caminho_logo_instituicao' => null,
+            'signatarios' => [
                 ['name' => 'Alessandro Pinto', 'role' => 'Diretor de Tecnologia & AVA'],
                 ['name' => 'Mariana Santos', 'role' => 'Professora Responsável (Coordenação Acadêmica)'],
             ],
-            'footerText' => 'A emissão de certificados na plataforma AVA respeita a presença mínima e obrigatória nas atividades letivas e transmissões ao vivo.',
-            'customHtml' => null,
+            'texto_rodape' => 'A emissão de certificados na plataforma AVA respeita a presença mínima e obrigatória nas atividades letivas e transmissões ao vivo.',
+            'html_personalizado' => null,
         ],
         'historico' => [
-            'institutionName' => 'República Federativa do Brasil • AVA LMS',
-            'institutionLogoPath' => null,
-            'signatories' => [
+            'nome_instituicao' => 'República Federativa do Brasil • AVA LMS',
+            'caminho_logo_instituicao' => null,
+            'signatarios' => [
                 ['name' => 'Secretaria Acadêmica', 'role' => 'AVA LMS'],
             ],
-            'footerText' => 'Documento de uso interno — não substitui o histórico escolar oficial da instituição de origem.',
-            'customHtml' => null,
+            'texto_rodape' => 'Documento de uso interno — não substitui o histórico escolar oficial da instituição de origem.',
+            'html_personalizado' => null,
         ],
     ];
 
@@ -55,28 +55,28 @@ final class DocumentTemplateService
     {
         $this->assertValidType($type);
 
-        $row = DocumentTemplate::query()->find($type);
+        $row = ModeloDocumento::query()->find($type);
         $defaults = self::DEFAULTS[$type];
 
         if ($row === null) {
-            return array_merge($defaults, ['type' => $type, 'updatedAt' => null, 'updatedByUserId' => null]);
+            return array_merge($defaults, ['tipo' => $type, 'atualizado_em' => null, 'atualizado_por_usuario_id' => null]);
         }
 
         return [
-            'type' => $type,
-            'institutionName' => $row->institutionName ?? $defaults['institutionName'],
-            'institutionLogoPath' => $row->institutionLogoPath,
-            'signatories' => $row->signatories ?? $defaults['signatories'],
-            'footerText' => $row->footerText ?? $defaults['footerText'],
-            'customHtml' => $row->customHtml,
-            'updatedAt' => $row->updatedAt?->toIso8601String(),
-            'updatedByUserId' => $row->updatedByUserId,
+            'tipo' => $type,
+            'nome_instituicao' => $row->nome_instituicao ?? $defaults['nome_instituicao'],
+            'caminho_logo_instituicao' => $row->caminho_logo_instituicao,
+            'signatarios' => $row->signatarios ?? $defaults['signatarios'],
+            'texto_rodape' => $row->texto_rodape ?? $defaults['texto_rodape'],
+            'html_personalizado' => $row->html_personalizado,
+            'atualizado_em' => $row->atualizado_em?->toIso8601String(),
+            'atualizado_por_usuario_id' => $row->atualizado_por_usuario_id,
         ];
     }
 
     /**
-     * @param  array{institutionName?:string|null,institutionLogoPath?:string|null,signatories?:list<array{name:string,role:string}>,footerText?:string|null,customHtml?:string|null}  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{nome_instituicao?:string|null,caminho_logo_instituicao?:string|null,signatarios?:list<array{name: string, role: string}>,texto_rodape?:string|null,html_personalizado?:string|null}  $input
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function upsert(string $type, array $input, array $requester): array
@@ -85,25 +85,25 @@ final class DocumentTemplateService
 
         // Templates moldam documentos oficiais entregues a QUALQUER aluno —
         // só o Admin Superior concede/edita, nunca instrutor.
-        if ($requester['role'] !== 'admin') {
+        if ($requester['papel'] !== 'admin') {
             throw ApiException::forbidden('Apenas o Admin Superior pode editar templates de documentos.');
         }
 
         DB::transaction(function () use ($type, $input, $requester): void {
             $antes = $this->conteudoDoModelo($type);
 
-            $row = DocumentTemplate::query()->find($type);
+            $row = ModeloDocumento::query()->find($type);
             $merged = array_merge(
-                $row?->only(['institutionName', 'institutionLogoPath', 'signatories', 'footerText', 'customHtml']) ?? [],
+                $row?->only(['nome_instituicao', 'caminho_logo_instituicao', 'signatarios', 'texto_rodape', 'html_personalizado']) ?? [],
                 $input,
             );
-            $merged['updatedByUserId'] = $requester['sub'];
-            $merged['updatedAt'] = CarbonImmutable::now();
+            $merged['atualizado_por_usuario_id'] = $requester['sub'];
+            $merged['atualizado_em'] = CarbonImmutable::now();
 
             if ($row !== null) {
                 $row->fill($merged)->save();
             } else {
-                DocumentTemplate::query()->create(array_merge($merged, ['type' => $type]));
+                ModeloDocumento::query()->create(array_merge($merged, ['tipo' => $type]));
             }
 
             // O que estava no ar vai para o histórico (ADR 021) — só se a gravação mudou algo.
@@ -123,7 +123,7 @@ final class DocumentTemplateService
     public function conteudoDoModelo(string $type): array
     {
         $tudo = $this->get($type);
-        unset($tudo['type'], $tudo['updatedAt'], $tudo['updatedByUserId']);
+        unset($tudo['tipo'], $tudo['atualizado_em'], $tudo['atualizado_por_usuario_id']);
 
         return $tudo;
     }
@@ -132,14 +132,14 @@ final class DocumentTemplateService
      * Devolve ao ar uma versão anterior. Passa pelo `upsert`: mesma regra de quem
      * pode, e o que estava no ar vira uma nova versão.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function restaurarVersao(string $type, string $versaoId, array $requester): array
     {
         $this->assertValidType($type);
 
-        if ($requester['role'] !== 'admin') {
+        if ($requester['papel'] !== 'admin') {
             throw ApiException::forbidden('Apenas o Admin Superior pode editar templates de documentos.');
         }
 
@@ -148,7 +148,7 @@ final class DocumentTemplateService
             throw ApiException::notFound('Versão não encontrada.');
         }
 
-        /** @var array{institutionName?:string|null,institutionLogoPath?:string|null,signatories?:list<array{name:string,role:string}>,footerText?:string|null,customHtml?:string|null} $versao */
+        /** @var array{nome_instituicao?:string|null,caminho_logo_instituicao?:string|null,signatarios?:list<array{name: string, role: string}>,texto_rodape?:string|null,html_personalizado?:string|null} $versao */
         return $this->upsert($type, $versao, $requester);
     }
 

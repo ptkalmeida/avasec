@@ -16,11 +16,11 @@ use Illuminate\Database\Eloquent\Builder;
  *   3 rascunho   só admin — em elaboração
  *
  * Não existe nível "excluído" aqui de propósito. Existir e quem-pode-ver são
- * perguntas diferentes: a primeira é respondida por `inativadoEm` (ver
+ * perguntas diferentes: a primeira é respondida por `inativado_em` (ver
  * App\Models\Concerns\Inativavel). Um valor 0 nesta escada faria o número
  * significar duas coisas e criaria duas fontes para o mesmo fato.
  *
- * Aviso de projeto: `Course.statusCurso` é um campo de texto legado com os
+ * Aviso de projeto: `Curso.status_curso` é um campo de texto legado com os
  * valores 'Ativo' e NULL que NENHUMA consulta filtra — decoração. Todo valor
  * acrescentado a esta escada tem de ter um consumidor, ou terá o mesmo destino.
  */

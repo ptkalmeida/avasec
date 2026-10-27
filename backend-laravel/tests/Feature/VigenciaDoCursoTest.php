@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\AdmissionRequest;
-use App\Models\Course;
-use App\Models\StudentEnrollment;
-use App\Models\User;
+use App\Models\SolicitacaoIngresso;
+use App\Models\Curso;
+use App\Models\Matricula;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -45,21 +45,21 @@ final class VigenciaDoCursoTest extends TestCase
         return $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $token);
     }
 
-    private function curso(string $titulo, ?string $vigenciaAte): Course
+    private function curso(string $titulo, ?string $vigencia_ate): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-vig-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição do curso de teste de vigência.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição do curso de teste de vigência.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
-            'vigenciaAte' => $vigenciaAte,
-            'contractExpirationDate' => $vigenciaAte,
+            'vigencia_ate' => $vigencia_ate,
+            'vencimento_contrato_texto' => $vigencia_ate,
         ]);
 
         return $curso->refresh();
@@ -114,7 +114,7 @@ final class VigenciaDoCursoTest extends TestCase
             ->post('/aluno/catalogo/'.$curso->slug.'/matricula', ['ciente' => '1']);
 
         $this->assertFalse(
-            StudentEnrollment::query()->whereKey($aluno['id'])->where('enrolledCourseId', $curso->id)->exists(),
+            Matricula::query()->whereKey($aluno['id'])->where('curso_matriculado_id', $curso->id)->exists(),
             'O aluno foi matriculado num curso com a vigência vencida.',
         );
     }
@@ -126,16 +126,16 @@ final class VigenciaDoCursoTest extends TestCase
         $curso = $this->curso('Curso Vencido API', now()->subDay()->format('Y-m-d'));
 
         $this->withHeader('Authorization', 'Bearer '.$aluno['token'])
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => $curso->id])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => $curso->id])
             ->assertStatus(409);
 
         $this->assertFalse(
-            StudentEnrollment::query()->whereKey($aluno['id'])->where('enrolledCourseId', $curso->id)->exists(),
+            Matricula::query()->whereKey($aluno['id'])->where('curso_matriculado_id', $curso->id)->exists(),
         );
     }
 
     /**
-     * A terceira porta: `POST /api/admissions`. Com a aprovação automática
+     * A terceira porta: `POST /api/ingressos`. Com a aprovação automática
      * ligada (que é a configuração de hoje) este pedido MATRICULA na hora, e o
      * bloqueio que primeiro cobriu só o `selfEnroll` não o alcançava.
      */
@@ -146,14 +146,14 @@ final class VigenciaDoCursoTest extends TestCase
         $curso = $this->curso('Curso Vencido Pedido', now()->subDay()->format('Y-m-d'));
 
         $this->withHeader('Authorization', 'Bearer '.$aluno['token'])
-            ->postJson('/api/admissions', ['courseId' => $curso->id])
+            ->postJson('/api/ingressos', ['curso_id' => $curso->id])
             ->assertStatus(409);
 
         $this->assertFalse(
-            StudentEnrollment::query()->whereKey($aluno['id'])->where('enrolledCourseId', $curso->id)->exists(),
+            Matricula::query()->whereKey($aluno['id'])->where('curso_matriculado_id', $curso->id)->exists(),
             'O pedido matriculou o aluno num curso com a vigência vencida.',
         );
-        $this->assertFalse(AdmissionRequest::query()->where('userId', $aluno['id'])->where('courseId', $curso->id)->exists());
+        $this->assertFalse(SolicitacaoIngresso::query()->where('usuario_id', $aluno['id'])->where('curso_id', $curso->id)->exists());
     }
 
     /** A quarta: o gestor aprovando um pedido pendente de um curso que venceu depois. */
@@ -164,31 +164,31 @@ final class VigenciaDoCursoTest extends TestCase
         $curso = $this->curso('Curso Que Venceu Depois', now()->addDay()->format('Y-m-d'));
 
         $pedido = $this->withHeader('Authorization', 'Bearer '.$aluno['token'])
-            ->postJson('/api/admissions', ['courseId' => $curso->id])
+            ->postJson('/api/ingressos', ['curso_id' => $curso->id])
             ->assertSuccessful()->json();
         $this->assertSame('pending', $pedido['status']);
 
         // O curso vence ENQUANTO o pedido espera.
-        Course::query()->whereKey($curso->id)->update([
-            'vigenciaAte' => now()->subDay()->format('Y-m-d'),
-            'contractExpirationDate' => now()->subDay()->format('Y-m-d'),
+        Curso::query()->whereKey($curso->id)->update([
+            'vigencia_ate' => now()->subDay()->format('Y-m-d'),
+            'vencimento_contrato_texto' => now()->subDay()->format('Y-m-d'),
         ]);
 
-        $admin = User::query()->where('role', 'admin')->first();
+        $admin = Usuario::query()->where('papel', 'admin')->first();
         $this->assertNotNull($admin);
-        $tokenAdmin = Jwt::issue((string) $admin->id, (string) $admin->name, 'admin');
+        $tokenAdmin = Jwt::issue((string) $admin->id, (string) $admin->nome, 'admin');
 
         $this->withHeader('Authorization', 'Bearer '.$tokenAdmin)
-            ->putJson('/api/admissions/'.$pedido['id'], ['status' => 'approved'])
+            ->putJson('/api/ingressos/'.$pedido['id'], ['status' => 'approved'])
             ->assertStatus(409);
 
         $this->assertFalse(
-            StudentEnrollment::query()->whereKey($aluno['id'])->where('enrolledCourseId', $curso->id)->exists(),
+            Matricula::query()->whereKey($aluno['id'])->where('curso_matriculado_id', $curso->id)->exists(),
         );
 
         // Reprovar continua possível: o gestor pode encerrar o pedido.
         $this->withHeader('Authorization', 'Bearer '.$tokenAdmin)
-            ->putJson('/api/admissions/'.$pedido['id'], ['status' => 'rejected'])
+            ->putJson('/api/ingressos/'.$pedido['id'], ['status' => 'rejected'])
             ->assertSuccessful();
     }
 
@@ -201,16 +201,16 @@ final class VigenciaDoCursoTest extends TestCase
         $aluno = $this->makeStudent('Aluno Ja Matriculado');
         $curso = $this->curso('Curso Vencido Com Aluno', now()->subDay()->format('Y-m-d'));
 
-        StudentEnrollment::query()->create([
+        Matricula::query()->create([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'enrolledCourseId' => $curso->id,
-            'enrolledAt' => now(),
-            'completedCourseIds' => [],
-            'dropOutPenaltyUntil' => null,
-            'canMultiEnroll' => false,
-            'extraCourseIds' => [],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => $curso->id,
+            'matriculado_em_texto' => now(),
+            'cursos_concluidos_ids' => [],
+            'penalidade_desistencia_ate' => null,
+            'pode_multimatricula' => false,
+            'cursos_extras_ids' => [],
         ]);
 
         $this->como($aluno['token'])->get('/aluno/curso/'.$curso->slug)

@@ -14,33 +14,33 @@
     pessoa revê tudo antes de enviar, e o leitor de tela anda pelas questões
     como por qualquer formulário.
 --}}
-<x-layouts.aluno titulo="{{ $prova['title'] }}" ativo="curso" :cursoDoMenu="$curso">
+<x-layouts.aluno titulo="{{ $prova['titulo'] }}" ativo="curso" :cursoDoMenu="$curso">
 
     <div class="mx-auto max-w-3xl space-y-8">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/aluno" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Painel</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <a href="/aluno/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['title'] }}</a>
+            <a href="/aluno/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <a href="/aluno/curso/{{ $ref }}/avaliacoes" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Avaliações</a>
         </nav>
 
-        <h1 class="font-titulo text-3xl leading-tight tracking-tight text-ava-tinta break-words">{{ $prova['title'] }}</h1>
+        <h1 class="font-titulo text-3xl leading-tight tracking-tight text-ava-tinta break-words">{{ $prova['titulo'] }}</h1>
 
         @if ($resultado !== null)
             {{-- ===== Resultado ===== --}}
             @php($acertos = count(array_filter($resultado['correcao'], static fn (array $q): bool => $q['acertou'])))
 
             <section role="status" aria-labelledby="titulo-resultado"
-                     class="space-y-2 rounded-2xl border p-6 {{ $resultado['passed'] ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}">
-                <h2 id="titulo-resultado" class="font-titulo text-cartao {{ $resultado['passed'] ? 'text-emerald-900' : 'text-amber-950' }}">
-                    {{ $resultado['passed'] ? 'Aprovado nesta avaliação' : 'Ainda não foi desta vez' }}
+                     class="space-y-2 rounded-2xl border p-6 {{ $resultado['aprovado'] ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}">
+                <h2 id="titulo-resultado" class="font-titulo text-cartao {{ $resultado['aprovado'] ? 'text-emerald-900' : 'text-amber-950' }}">
+                    {{ $resultado['aprovado'] ? 'Aprovado nesta avaliação' : 'Ainda não foi desta vez' }}
                 </h2>
                 <p class="text-corpo text-ava-tinta">
                     Você acertou <strong>{{ $acertos }} de {{ count($resultado['correcao']) }}</strong> questões:
-                    <strong>{{ $resultado['scorePercent'] }}%</strong>.
-                    @unless ($resultado['passed'])
+                    <strong>{{ $resultado['percentual_nota'] }}%</strong>.
+                    @unless ($resultado['aprovado'])
                         Para ser aprovado é preciso ao menos {{ $minimo }}%.
                     @endunless
                 </p>
@@ -58,18 +58,18 @@
                                 </span>
                                 <span class="break-words">
                                     <span class="sr-only">{{ $q['acertou'] ? 'Acertou' : 'Errou' }} — </span>
-                                    Questão {{ $q['numero'] }}: {{ $q['questionText'] }}
+                                    Questão {{ $q['numero'] }}: {{ $q['texto_questao'] }}
                                 </span>
                             </p>
-                            @if ($q['explanation'] !== null)
-                                <p class="pl-7 text-apoio leading-relaxed text-escult-ink-2 break-words">{{ $q['explanation'] }}</p>
+                            @if ($q['explicacao'] !== null)
+                                <p class="pl-7 text-apoio leading-relaxed text-escult-ink-2 break-words">{{ $q['explicacao'] }}</p>
                             @endif
-                            @if ($q['reviewMessage'] !== null)
-                                <p class="pl-7 text-apoio leading-relaxed text-escult-ink-2 break-words">{{ $q['reviewMessage'] }}</p>
+                            @if ($q['mensagem_revisao'] !== null)
+                                <p class="pl-7 text-apoio leading-relaxed text-escult-ink-2 break-words">{{ $q['mensagem_revisao'] }}</p>
                             @endif
-                            @if ($q['recommendedModule'] !== null)
+                            @if ($q['modulo_recomendado'] !== null)
                                 <p class="pl-7 text-apoio text-escult-ink-2 break-words">
-                                    Revise: <strong class="font-semibold text-ava-tinta">{{ $q['recommendedModule'] }}</strong>
+                                    Revise: <strong class="font-semibold text-ava-tinta">{{ $q['modulo_recomendado'] }}</strong>
                                 </p>
                             @endif
                         </li>
@@ -88,14 +88,14 @@
                 </a>
             </div>
 
-        @elseif ($prova['questions'] === [])
+        @elseif ($prova['questoes'] === [])
             <div class="rounded-2xl border border-dashed border-ava-borda bg-ava-faixa/50 p-8 text-center">
                 <p class="text-corpo font-semibold text-ava-tinta">Esta avaliação ainda não tem questões.</p>
             </div>
 
         @else
             {{-- ===== A prova ===== --}}
-            @php($total = count($prova['questions']))
+            @php($total = count($prova['questoes']))
 
             <p class="text-apoio leading-relaxed text-escult-ink-2">
                 {{ $total === 1 ? '1 questão' : $total.' questões' }}. Responda todas e envie no fim:
@@ -121,15 +121,15 @@
                   class="space-y-6">
                 @csrf
 
-                @foreach ($prova['questions'] as $i => $q)
+                @foreach ($prova['questoes'] as $i => $q)
                     @php($marcada = old('respostas.'.$q['id']))
                     <fieldset class="min-w-0 space-y-3 rounded-2xl border border-ava-borda bg-white p-5">
                         <legend class="sr-only">Questão {{ $i + 1 }} de {{ $total }}</legend>
                         <p aria-hidden="true" class="text-sobretitulo uppercase text-escult-ink-3">Questão {{ $i + 1 }} de {{ $total }}</p>
-                        <p id="enunciado-{{ $i }}" class="text-corpo font-semibold leading-relaxed text-ava-tinta break-words">{{ $q['questionText'] }}</p>
+                        <p id="enunciado-{{ $i }}" class="text-corpo font-semibold leading-relaxed text-ava-tinta break-words">{{ $q['texto_questao'] }}</p>
 
                         <div role="radiogroup" aria-labelledby="enunciado-{{ $i }}" class="space-y-2">
-                            @foreach ($q['options'] as $j => $opcao)
+                            @foreach ($q['opcoes'] as $j => $opcao)
                                 <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-ava-borda p-3.5 text-apoio text-ava-tinta transition-colors hover:bg-ava-faixa has-[:checked]:border-ava-acao has-[:checked]:bg-ava-faixa has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ava-acao">
                                     <input type="radio" name="respostas[{{ $q['id'] }}]" value="{{ $j }}"
                                            @checked($marcada !== null && (string) $marcada === (string) $j)

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Exceptions\ApiException;
-use App\Models\User;
+use App\Models\Usuario;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,7 +37,7 @@ final class RequireActiveAccount
          * que manda o app tentar renovar sessão em vez de dizer o que houve.
          */
         $user = is_string($sub)
-            ? User::query()->withTrashed()->find($sub, ['status', 'role', 'inativadoEm'])
+            ? Usuario::query()->withTrashed()->find($sub, ['status', 'papel', 'inativado_em'])
             : null;
         if ($user === null) {
             throw ApiException::unauthorized('Token inválido ou expirado.');
@@ -56,8 +56,8 @@ final class RequireActiveAccount
             throw ApiException::accountPending();
         }
 
-        if (is_array($authUser) && is_string($user->role)) {
-            $authUser['role'] = $user->role;
+        if (is_array($authUser) && is_string($user->papel)) {
+            $authUser['papel'] = $user->papel;
             $request->attributes->set('auth_user', $authUser);
         }
 

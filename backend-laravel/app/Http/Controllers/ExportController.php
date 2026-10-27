@@ -31,7 +31,7 @@ final class ExportController extends Controller
             'dataset' => $dataset,
             'exportedAt' => CarbonImmutable::now()->toIso8601String(),
             'count' => count($data),
-            'data' => $data,
+            'dados' => $data,
         ]);
     }
 }

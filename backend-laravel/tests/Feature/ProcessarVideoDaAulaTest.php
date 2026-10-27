@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Jobs\ProcessarVideoDaAula;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Usuario;
 use App\Models\VersaoDeConteudo;
 use App\Services\Midia\TranscodificadorDeVideo;
 use App\Support\VideoProvider;
@@ -37,34 +37,34 @@ final class ProcessarVideoDaAulaTest extends TestCase
         config(['midia.disco' => 'midia', 'midia.url_publica' => self::BASE, 'midia.hls' => false]);
     }
 
-    private function aulaComYoutube(): Lesson
+    private function aulaComYoutube(): Aula
     {
         $dono = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $dono,
-            'name' => 'Instrutor Mídia',
+            'nome' => 'Instrutor Mídia',
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-midia-'.uniqid(),
-            'title' => 'Curso Da Mídia Teste',
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $dono,
-            'instructorName' => 'Instrutor Mídia',
+            'titulo' => 'Curso Da Mídia Teste',
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $dono,
+            'nome_instrutor' => 'Instrutor Mídia',
         ]);
 
-        return Lesson::query()->create([
+        return Aula::query()->create([
             'id' => 'lesson-midia-'.uniqid(),
-            'courseId' => $curso->id,
-            'title' => 'Aula com vídeo',
-            'duration' => '10 min',
-            'videoUrl' => self::YOUTUBE,
-            'content' => 'Texto',
-            'lesson_order' => 1,
+            'curso_id' => $curso->id,
+            'titulo' => 'Aula com vídeo',
+            'duracao' => '10 min',
+            'url_video' => self::YOUTUBE,
+            'conteudo' => 'Texto',
+            'ordem' => 1,
         ]);
     }
 
@@ -80,7 +80,7 @@ final class ProcessarVideoDaAulaTest extends TestCase
         });
     }
 
-    private function executar(Lesson $aula, ?TranscodificadorDeVideo $t = null): void
+    private function executar(Aula $aula, ?TranscodificadorDeVideo $t = null): void
     {
         (new ProcessarVideoDaAula($aula->id, 'originais/'.$aula->id.'/original.mp4'))
             ->handle($t ?? $this->ffmpegFalso());
@@ -95,7 +95,7 @@ final class ProcessarVideoDaAulaTest extends TestCase
             throw new RuntimeException('o FFmpeg não podia ser chamado');
         }));
 
-        $this->assertSame(self::YOUTUBE, $aula->fresh()?->videoUrl);
+        $this->assertSame(self::YOUTUBE, $aula->fresh()?->url_video);
         $this->assertSame([], Storage::disk('midia')->allFiles());
     }
 
@@ -107,7 +107,7 @@ final class ProcessarVideoDaAulaTest extends TestCase
 
         $this->executar($aula);
 
-        $url = (string) $aula->fresh()?->videoUrl;
+        $url = (string) $aula->fresh()?->url_video;
         $this->assertStringStartsWith(self::BASE.'/aulas/'.$aula->id.'/', $url);
         $this->assertStringEndsWith('/video.mp4', $url);
         // O endereço gravado é um que o resto do sistema já sabe ler como arquivo.
@@ -140,9 +140,9 @@ final class ProcessarVideoDaAulaTest extends TestCase
         Storage::disk('midia')->put('originais/'.$aula->id.'/original.mp4', 'video-original');
 
         $this->executar($aula);
-        $primeira = (string) $aula->fresh()?->videoUrl;
+        $primeira = (string) $aula->fresh()?->url_video;
         $this->executar($aula);
-        $segunda = (string) $aula->fresh()?->videoUrl;
+        $segunda = (string) $aula->fresh()?->url_video;
 
         $this->assertNotSame($primeira, $segunda);
         Storage::disk('midia')->assertExists(substr($primeira, strlen(self::BASE) + 1));
@@ -157,7 +157,7 @@ final class ProcessarVideoDaAulaTest extends TestCase
 
         $this->executar($aula);
 
-        $pasta = dirname(substr((string) $aula->fresh()?->videoUrl, strlen(self::BASE) + 1));
+        $pasta = dirname(substr((string) $aula->fresh()?->url_video, strlen(self::BASE) + 1));
         Storage::disk('midia')->assertExists($pasta.'/hls/master.m3u8');
         Storage::disk('midia')->assertExists($pasta.'/hls/720p/index.m3u8');
         Storage::disk('midia')->assertExists($pasta.'/hls/360p/seg_0000.ts');
@@ -178,7 +178,7 @@ final class ProcessarVideoDaAulaTest extends TestCase
             // esperado
         }
 
-        $this->assertSame(self::YOUTUBE, $aula->fresh()?->videoUrl);
+        $this->assertSame(self::YOUTUBE, $aula->fresh()?->url_video);
         $this->assertSame(['originais/'.$aula->id.'/original.mp4'], Storage::disk('midia')->allFiles());
     }
 

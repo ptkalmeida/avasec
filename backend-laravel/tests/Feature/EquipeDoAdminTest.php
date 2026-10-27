@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -28,30 +28,30 @@ final class EquipeDoAdminTest extends TestCase
         return $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $token);
     }
 
-    private function gestor(string $nome, string $status = 'active'): User
+    private function gestor(string $nome, string $status = 'active'): Usuario
     {
-        return User::query()->create([
+        return Usuario::query()->create([
             'id' => (string) Str::uuid(),
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
             'status' => $status,
         ]);
     }
 
-    private function curso(string $titulo, string $gestorId): Course
+    private function curso(string $titulo, string $gestorId): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-eq-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'd',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $gestorId,
-            'instructorName' => 'Gestor',
+            'titulo' => $titulo,
+            'descricao' => 'd',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $gestorId,
+            'nome_instrutor' => 'Gestor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ]);
@@ -67,7 +67,7 @@ final class EquipeDoAdminTest extends TestCase
         $this->como($aluno['token'])->get('/admin/equipe')->assertRedirect('/aluno');
 
         $gestor = $this->gestor('Gestor Equipe Fora');
-        $this->como(Jwt::issue($gestor->id, $gestor->name, 'instructor'))->get('/admin/equipe')->assertRedirect('/inst');
+        $this->como(Jwt::issue($gestor->id, $gestor->nome, 'instructor'))->get('/admin/equipe')->assertRedirect('/inst');
     }
 
     public function test_lista_o_gestor_com_as_trilhas_dele(): void

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\LibraryItem;
-use App\Models\WebinarEvent;
+use App\Models\ItemBiblioteca;
+use App\Models\EventoWebinar;
 use App\Support\DataTexto;
 use App\Support\SafeUrl;
 use App\Support\Visibilidade;
@@ -20,14 +20,14 @@ final class CatalogService
 {
     /**
      * Itens da biblioteca na escada de visibilidade do papel (nulo = visitante, só o publicado).
-     * Esta lista alimenta `GET /api/library`, que é público: antes ela devolvia tudo,
+     * Esta lista alimenta `GET /api/biblioteca`, que é público: antes ela devolvia tudo,
      * inclusive item restrito ou em rascunho, a qualquer visitante anônimo.
      *
-     * @return Collection<int, LibraryItem>
+     * @return Collection<int, ItemBiblioteca>
      */
     public function listLibraryItems(?string $role = null): Collection
     {
-        $consulta = LibraryItem::query();
+        $consulta = ItemBiblioteca::query();
         Visibilidade::aplicar($consulta, $role);
 
         return $consulta->get();
@@ -46,22 +46,22 @@ final class CatalogService
      * tela diz que o arquivo ainda não está disponível em vez de oferecer um
      * "Baixar" que não baixa nada.
      *
-     * @return list<array{id:string,title:string,type:string,category:string,description:string|null,href:string|null}>
+     * @return list<array{id:string,titulo:string,tipo:string,categoria:string,descricao:string|null,href:string|null}>
      */
     public function listLibraryItemsFor(?string $role): array
     {
-        $consulta = LibraryItem::query();
+        $consulta = ItemBiblioteca::query();
         Visibilidade::aplicar($consulta, $role);
 
         $itens = [];
-        foreach ($consulta->orderBy('category')->orderBy('title')->get() as $item) {
+        foreach ($consulta->orderBy('categoria')->orderBy('titulo')->get() as $item) {
             $url = SafeUrl::sanitize(is_string($item->url) ? $item->url : null);
             $itens[] = [
                 'id' => (string) $item->id,
-                'title' => (string) $item->title,
-                'type' => (string) $item->type,
-                'category' => (string) $item->category,
-                'description' => is_string($item->description) && $item->description !== '' ? $item->description : null,
+                'titulo' => (string) $item->titulo,
+                'tipo' => (string) $item->tipo,
+                'categoria' => (string) $item->categoria,
+                'descricao' => is_string($item->descricao) && $item->descricao !== '' ? $item->descricao : null,
                 'href' => $url,
             ];
         }
@@ -70,16 +70,16 @@ final class CatalogService
     }
 
     /** @param array<string, mixed> $data */
-    public function upsertLibraryItem(array $data): LibraryItem
+    public function upsertLibraryItem(array $data): ItemBiblioteca
     {
         $id = is_string($data['id'] ?? null) ? $data['id'] : ('lib-'.$this->nowMs());
 
-        return $this->upsert(LibraryItem::class, $id, [
+        return $this->upsert(ItemBiblioteca::class, $id, [
             'id' => $id,
-            'title' => $data['title'],
-            'type' => $data['type'],
-            'category' => $data['category'],
-            'description' => $data['description'] ?? null,
+            'titulo' => $data['titulo'],
+            'tipo' => $data['tipo'],
+            'categoria' => $data['categoria'],
+            'descricao' => $data['descricao'] ?? null,
             'url' => $data['url'],
         ]);
     }
@@ -88,39 +88,39 @@ final class CatalogService
      * Webinars na escada de visibilidade do papel (nulo = visitante, só o publicado).
      * `GET /api/webinars` é público; webinar restrito ou em rascunho não pode sair dele.
      *
-     * @return Collection<int, WebinarEvent>
+     * @return Collection<int, EventoWebinar>
      */
     public function listWebinars(?string $role = null): Collection
     {
-        $consulta = WebinarEvent::query();
+        $consulta = EventoWebinar::query();
         Visibilidade::aplicar($consulta, $role);
 
         return $consulta->get();
     }
 
     /** @param array<string, mixed> $data */
-    public function upsertWebinar(array $data): WebinarEvent
+    public function upsertWebinar(array $data): EventoWebinar
     {
         $id = is_string($data['id'] ?? null) ? $data['id'] : ('webinar-'.$this->nowMs());
 
-        return $this->upsert(WebinarEvent::class, $id, [
+        return $this->upsert(EventoWebinar::class, $id, [
             'id' => $id,
-            'title' => $data['title'],
-            'date' => $data['date'],
-            'time' => $data['time'],
+            'titulo' => $data['titulo'],
+            'data_texto' => $data['data_texto'],
+            'horario' => $data['horario'],
             /*
-             * `dataEvento` combina as duas colunas de texto num instante (Norma
+             * `data_evento` combina as duas colunas de texto num instante (Norma
              * C.2.4). `date` e `time` continuam como estão — são o que a agenda
              * pública exibe. Data ou hora irreconhecível deixa a coluna NULL em vez
              * de agendar o webinar num instante inventado.
              */
-            'dataEvento' => DataTexto::instante(
-                is_string($data['date']) ? $data['date'] : null,
-                is_string($data['time']) ? $data['time'] : null,
+            'data_evento' => DataTexto::instante(
+                is_string($data['data_texto']) ? $data['data_texto'] : null,
+                is_string($data['horario']) ? $data['horario'] : null,
             ),
-            'description' => $data['description'],
+            'descricao' => $data['descricao'],
             'link' => $data['link'],
-            'image' => $data['image'] ?? null,
+            'imagem' => $data['imagem'] ?? null,
         ]);
     }
 
@@ -133,7 +133,7 @@ final class CatalogService
     {
         // Inativa em vez de apagar (ADR 12): o evento sai da agenda pública, mas
         // fica registrado que existiu, quem desmarcou e por quê.
-        WebinarEvent::query()->find($id)?->inativar($porUserId, $motivo);
+        EventoWebinar::query()->find($id)?->inativar($porUserId, $motivo);
     }
 
     /**

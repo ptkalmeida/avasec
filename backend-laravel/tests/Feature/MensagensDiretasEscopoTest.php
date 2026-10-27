@@ -17,7 +17,7 @@ use Tests\TestCase;
  * que "os testes de escopo ligam as flags explicitamente e cobram a regra com
  * elas ativas, para que ligar a funcionalidade não reabra o vazamento". Para
  * esta flag isso **não era verdade** — nenhum teste do backend a ligava, então
- * `/api/dms` ia entrar no ar com o escopo implementado e não verificado.
+ * `/api/mensagens-diretas` ia entrar no ar com o escopo implementado e não verificado.
  *
  * O que se protege aqui é o que já custou correção neste projeto: antes,
  * qualquer instrutor fazia dump da caixa de mensagens diretas da escola inteira.
@@ -35,10 +35,10 @@ final class MensagensDiretasEscopoTest extends TestCase
     }
 
     /** Matricula o aluno num curso pela rota real, para entrar no escopo do instrutor. */
-    private function matricular(string $token, string $courseId): void
+    private function matricular(string $token, string $curso_id): void
     {
         $this->withHeaders($this->auth($token))
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseId])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => $curso_id])
             ->assertOk();
         $this->flushHeaders();
     }
@@ -53,7 +53,7 @@ final class MensagensDiretasEscopoTest extends TestCase
          * instrutor que por acaso não tivesse curso. Isso trouxe dois defeitos:
          *
          * 1. A consulta filtrava por `status = 'active'`, mas quem barra o
-         *    acesso é o `RequireActiveAccount`, que olha `inativadoEm`. Como
+         *    acesso é o `RequireActiveAccount`, que olha `inativado_em`. Como
          *    `DB::table` não aplica o escopo do SoftDeletes, ela escolhia um
          *    instrutor INATIVADO, emitia token para ele e levava 403 "acesso
          *    suspenso" — falha sem relação nenhuma com escopo de mensagens.
@@ -68,19 +68,19 @@ final class MensagensDiretasEscopoTest extends TestCase
          */
         $adminToken = $this->staffToken('admin');
         $nome = 'Instrutor Sem Curso '.uniqid();
-        $res = $this->withHeader('Authorization', "Bearer {$adminToken}")->postJson('/api/auth/register', [
-            'name' => $nome,
+        $res = $this->withHeader('Authorization', "Bearer {$adminToken}")->postJson('/api/autenticacao/cadastro', [
+            'nome' => $nome,
             'email' => 'inst-sem-curso-'.uniqid().'@example.com',
             'password' => 'senha123456',
-            'role' => 'instructor',
+            'papel' => 'instructor',
         ]);
         $res->assertStatus(201);
         $this->flushHeaders();
 
-        $id = $res->json('user.id');
+        $id = $res->json('usuario.id');
         $this->assertSame(
             0,
-            DB::table('Course')->where('instructorId', $id)->count(),
+            DB::table('curso')->where('instrutor_id', $id)->count(),
             'Instrutor recém-criado não pode conduzir curso — a premissa do teste caiu.'
         );
 
@@ -90,7 +90,7 @@ final class MensagensDiretasEscopoTest extends TestCase
     private function enviar(string $token, string $texto): void
     {
         $this->withHeaders($this->auth($token))
-            ->postJson('/api/dms', ['text' => $texto])
+            ->postJson('/api/mensagens-diretas', ['texto' => $texto])
             ->assertStatus(201);
         $this->flushHeaders();
     }
@@ -103,18 +103,18 @@ final class MensagensDiretasEscopoTest extends TestCase
         $this->enviar($a['token'], 'duvida do aluno A');
         $this->enviar($b['token'], 'duvida do aluno B');
 
-        $itens = $this->getJson('/api/dms', $this->auth($a['token']))->assertOk()->json();
+        $itens = $this->getJson('/api/mensagens-diretas', $this->auth($a['token']))->assertOk()->json();
         $this->assertIsArray($itens);
         $this->assertNotSame([], $itens, 'O aluno A não viu a própria mensagem.');
         foreach ($itens as $dm) {
-            $this->assertSame($a['id'], $dm['studentUserId'] ?? null, 'Aluno recebeu canal de outro.');
+            $this->assertSame($a['id'], $dm['aluno_usuario_id'] ?? null, 'Aluno recebeu canal de outro.');
         }
     }
 
     public function test_aluno_nao_consegue_escrever_no_canal_de_outro(): void
     {
         /*
-         * O corpo aceita `studentUserId` porque a equipe endereça o aluno por id
+         * O corpo aceita `aluno_usuario_id` porque a equipe endereça o aluno por id
          * (ADR 10). Vindo de um aluno, o campo tem de ser recusado.
          *
          * E a recusa é 403 EXPLÍCITO, não um redirecionamento silencioso para o
@@ -126,33 +126,33 @@ final class MensagensDiretasEscopoTest extends TestCase
         $vitima = $this->makeStudent('DM Vitima');
 
         $this->withHeaders($this->auth($a['token']))
-            ->postJson('/api/dms', ['studentUserId' => $vitima['id'], 'text' => 'tentativa de invasao'])
+            ->postJson('/api/mensagens-diretas', ['aluno_usuario_id' => $vitima['id'], 'texto' => 'tentativa de invasao'])
             ->assertStatus(403)
             ->assertJsonPath('message', 'Você só pode agir em seu próprio nome.');
         $this->flushHeaders();
 
         // Nada foi gravado em canal nenhum.
-        $this->assertSame([], $this->getJson('/api/dms', $this->auth($vitima['token']))->assertOk()->json());
-        $this->assertSame([], $this->getJson('/api/dms', $this->auth($a['token']))->assertOk()->json());
+        $this->assertSame([], $this->getJson('/api/mensagens-diretas', $this->auth($vitima['token']))->assertOk()->json());
+        $this->assertSame([], $this->getJson('/api/mensagens-diretas', $this->auth($a['token']))->assertOk()->json());
     }
 
     public function test_instrutor_le_dms_dos_proprios_alunos(): void
     {
         $curso = $this->anySeededCourseId();
-        $instrutorDoCurso = DB::table('Course')->where('id', $curso)->value('instructorId');
+        $instrutorDoCurso = DB::table('curso')->where('id', $curso)->value('instrutor_id');
         if (! is_string($instrutorDoCurso) || $instrutorDoCurso === '') {
-            $this->markTestSkipped('Curso semeado sem instructorId.');
+            $this->markTestSkipped('Curso semeado sem instrutor_id.');
         }
 
         $aluno = $this->makeStudent('DM Meu Aluno');
         $this->matricular($aluno['token'], $curso);
         $this->enviar($aluno['token'], 'duvida sobre a aula 1');
 
-        $dono = DB::table('User')->where('id', $instrutorDoCurso)->first(['id', 'name', 'role']);
-        $token = Jwt::issue($dono->id, $dono->name, 'instructor');
+        $dono = DB::table('usuario')->where('id', $instrutorDoCurso)->first(['id', 'nome', 'papel']);
+        $token = Jwt::issue($dono->id, $dono->nome, 'instructor');
 
-        $itens = $this->getJson('/api/dms', $this->auth($token))->assertOk()->json();
-        $ids = array_map(static fn ($d) => $d['studentUserId'] ?? null, $itens);
+        $itens = $this->getJson('/api/mensagens-diretas', $this->auth($token))->assertOk()->json();
+        $ids = array_map(static fn ($d) => $d['aluno_usuario_id'] ?? null, $itens);
         $this->assertContains($aluno['id'], $ids, 'Instrutor não viu a DM do próprio aluno.');
     }
 
@@ -169,7 +169,7 @@ final class MensagensDiretasEscopoTest extends TestCase
         $this->matricular($aluno['token'], $this->anySeededCourseId());
         $this->enviar($aluno['token'], 'duvida que nao e dele');
 
-        $itens = $this->getJson('/api/dms', $this->auth($token))->assertOk()->json();
+        $itens = $this->getJson('/api/mensagens-diretas', $this->auth($token))->assertOk()->json();
         $this->assertSame([], $itens, 'Instrutor sem curso leu a caixa de mensagens da escola.');
     }
 
@@ -185,9 +185,9 @@ final class MensagensDiretasEscopoTest extends TestCase
         $this->enviar($aluno['token'], 'conteudo sensivel');
 
         // IDOR: pedir o canal por id não pode furar o escopo por curso.
-        $itens = $this->getJson('/api/dms?studentUserId='.$aluno['id'], $this->auth($token))
+        $itens = $this->getJson('/api/mensagens-diretas?aluno_usuario_id='.$aluno['id'], $this->auth($token))
             ->assertOk()->json();
-        $this->assertSame([], $itens, 'Escopo furado ao pedir o canal por studentUserId.');
+        $this->assertSame([], $itens, 'Escopo furado ao pedir o canal por aluno_usuario_id.');
     }
 
     public function test_admin_le_todos_os_canais(): void
@@ -195,8 +195,8 @@ final class MensagensDiretasEscopoTest extends TestCase
         $aluno = $this->makeStudent('DM Para Admin');
         $this->enviar($aluno['token'], 'duvida vista pelo admin');
 
-        $itens = $this->getJson('/api/dms', $this->auth($this->staffToken('admin')))->assertOk()->json();
-        $ids = array_map(static fn ($d) => $d['studentUserId'] ?? null, $itens);
+        $itens = $this->getJson('/api/mensagens-diretas', $this->auth($this->staffToken('admin')))->assertOk()->json();
+        $ids = array_map(static fn ($d) => $d['aluno_usuario_id'] ?? null, $itens);
         $this->assertContains($aluno['id'], $ids, 'Admin não é irrestrito, como a decisão exige.');
     }
 
@@ -210,9 +210,9 @@ final class MensagensDiretasEscopoTest extends TestCase
         config(['features.mensagensDiretas' => false]);
         $aluno = $this->makeStudent('DM Flag Off');
 
-        $this->getJson('/api/dms', $this->auth($aluno['token']))
+        $this->getJson('/api/mensagens-diretas', $this->auth($aluno['token']))
             ->assertStatus(404)->assertJsonPath('code', 'FEATURE_DISABLED');
-        $this->postJson('/api/dms', ['text' => 'nao deve entrar'], $this->auth($aluno['token']))
+        $this->postJson('/api/mensagens-diretas', ['texto' => 'nao deve entrar'], $this->auth($aluno['token']))
             ->assertStatus(404)->assertJsonPath('code', 'FEATURE_DISABLED');
     }
 }

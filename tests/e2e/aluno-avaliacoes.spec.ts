@@ -37,7 +37,7 @@ test.describe('Avaliações do aluno — telas em Blade', () => {
     await expect(page.locator('fieldset').first()).toBeVisible();
 
     const html = await page.content();
-    expect(html).not.toContain('correctOptionIndex');
+    expect(html).not.toContain('indice_opcao_correta');
     expect(html).not.toMatch(/alternativa correta/i);
 
     await page.getByRole('button', { name: 'Enviar respostas' }).click();

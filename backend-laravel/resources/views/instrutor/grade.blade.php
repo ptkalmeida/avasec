@@ -18,14 +18,14 @@
     Setas e remoção são formulários (POST), e não JavaScript: funcionam sem ele,
     e cada clique grava uma coisa só — o React reenviava o curso inteiro.
 --}}
-<x-layouts.instrutor :titulo="'Grade curricular — '.$curso['title']" ativo="grade" :cursoDoMenu="$curso">
+<x-layouts.instrutor :titulo="'Grade curricular — '.$curso['titulo']" ativo="grade" :cursoDoMenu="$curso">
 
     <div class="mx-auto max-w-4xl space-y-6">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/inst" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Meus cursos</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['title'] }}</a>
+            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <span class="text-ava-tinta">Grade curricular</span>
         </nav>
@@ -58,7 +58,7 @@
 
         @if ($vigenciaVencida)
             <p class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-apoio text-amber-950">
-                A vigência deste curso terminou em <strong>{{ $vigenciaAte }}</strong>: ele não é oferecido a novos alunos.
+                A vigência deste curso terminou em <strong>{{ $vigencia_ate }}</strong>: ele não é oferecido a novos alunos.
                 A grade continua editável.
             </p>
         @endif
@@ -83,7 +83,7 @@
                                     <button type="submit" @disabled($i === 0)
                                             class="cursor-pointer rounded-lg p-1.5 text-escult-ink-2 transition-colors hover:bg-ava-faixa hover:text-ava-acao focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent">
                                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M14.77 12.79a.75.75 0 0 1-1.06-.02L10 8.832 6.29 12.77a.75.75 0 1 1-1.08-1.04l4.25-4.5a.75.75 0 0 1 1.08 0l4.25 4.5a.75.75 0 0 1-.02 1.06Z" clip-rule="evenodd"/></svg>
-                                        <span class="sr-only">Subir a aula {{ $i + 1 }}, {{ $aula['title'] }}</span>
+                                        <span class="sr-only">Subir a aula {{ $i + 1 }}, {{ $aula['titulo'] }}</span>
                                     </button>
                                 </form>
 
@@ -95,16 +95,16 @@
                                     <button type="submit" @disabled($i === count($aulas) - 1)
                                             class="cursor-pointer rounded-lg p-1.5 text-escult-ink-2 transition-colors hover:bg-ava-faixa hover:text-ava-acao focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent">
                                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>
-                                        <span class="sr-only">Descer a aula {{ $i + 1 }}, {{ $aula['title'] }}</span>
+                                        <span class="sr-only">Descer a aula {{ $i + 1 }}, {{ $aula['titulo'] }}</span>
                                     </button>
                                 </form>
                             </div>
 
                             <div class="min-w-0 flex-1 space-y-1.5">
-                                <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $aula['title'] }}</h2>
+                                <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $aula['titulo'] }}</h2>
 
                                 <p class="flex flex-wrap items-center gap-x-4 gap-y-1 text-apoio text-escult-ink-2">
-                                    <span>{{ $aula['duration'] ?? 'Sem duração' }}</span>
+                                    <span>{{ $aula['duracao'] ?? 'Sem duração' }}</span>
                                     <span>{{ $aula['documentos'] === 1 ? '1 documento' : $aula['documentos'].' documentos' }}</span>
                                     @if ($aula['temVideo'])
                                         <span class="rounded-full bg-amber-50 px-2 py-0.5 text-sobretitulo uppercase text-amber-900">Vídeo</span>
@@ -115,12 +115,12 @@
                                     <a href="/inst/curso/{{ $ref }}/aulas/{{ rawurlencode($aula['id']) }}"
                                        class="inline-flex items-center rounded-[10px] border border-ava-borda bg-white px-4 py-2 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                                         Editar conteúdo
-                                        <span class="sr-only">da aula {{ $i + 1 }}, {{ $aula['title'] }}</span>
+                                        <span class="sr-only">da aula {{ $i + 1 }}, {{ $aula['titulo'] }}</span>
                                     </a>
                                     <button type="button" @click="removendo = true"
                                             class="cursor-pointer rounded-[10px] border border-ava-borda bg-white px-4 py-2 text-rotulo font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
                                         Retirar da grade
-                                        <span class="sr-only">a aula {{ $i + 1 }}, {{ $aula['title'] }}</span>
+                                        <span class="sr-only">a aula {{ $i + 1 }}, {{ $aula['titulo'] }}</span>
                                     </button>
                                 </div>
 
@@ -130,7 +130,7 @@
                                       class="space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
                                     @csrf
                                     <p class="text-apoio font-semibold text-rose-900">
-                                        Retirar “{{ $aula['title'] }}” da grade?
+                                        Retirar “{{ $aula['titulo'] }}” da grade?
                                     </p>
                                     <p class="text-apoio text-rose-900">
                                         Os alunos deixam de vê-la e ela sai da conta do progresso. Nada é apagado: a aula

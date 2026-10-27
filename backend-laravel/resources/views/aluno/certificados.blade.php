@@ -33,7 +33,7 @@
             @else
                 <ul role="list" class="space-y-4">
                     @foreach ($emitidos as $cert)
-                        @php($carga = $cargaPorCurso[$cert['courseId']] ?? null)
+                        @php($carga = $cargaPorCurso[$cert['curso_id']] ?? null)
                         <li class="flex flex-col justify-between gap-5 rounded-2xl border border-ava-borda bg-white p-5 shadow-3xs md:flex-row md:items-center">
                             <div class="min-w-0 space-y-2">
                                 <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-sobretitulo uppercase text-emerald-800">
@@ -43,14 +43,14 @@
                                     </svg>
                                     Emitido
                                 </span>
-                                <h3 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $cert['courseTitle'] }}</h3>
+                                <h3 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $cert['titulo_curso'] }}</h3>
 
                                 <dl class="flex flex-wrap gap-x-5 gap-y-1 text-apoio text-escult-ink-2">
-                                    <div><dt class="inline">Emitido em</dt> <dd class="inline font-semibold text-ava-tinta">{{ $cert['issueDate'] }}</dd></div>
+                                    <div><dt class="inline">Emitido em</dt> <dd class="inline font-semibold text-ava-tinta">{{ $cert['data_emissao'] }}</dd></div>
                                     @if ($carga !== null)
                                         <div><dt class="inline">Carga horária</dt> <dd class="inline font-semibold text-ava-tinta">{{ $carga }}h</dd></div>
                                     @endif
-                                    <div><dt class="inline">Frequência</dt> <dd class="inline font-semibold text-ava-tinta">{{ $cert['attendancePercent'] }}%</dd></div>
+                                    <div><dt class="inline">Frequência</dt> <dd class="inline font-semibold text-ava-tinta">{{ $cert['percentual_frequencia'] }}%</dd></div>
                                 </dl>
 
                                 {{--
@@ -61,7 +61,7 @@
                                 --}}
                                 <p class="text-apoio text-escult-ink-2">
                                     Código de verificação:
-                                    <code class="select-all rounded border border-ava-borda bg-ava-faixa px-1.5 py-0.5 font-mono text-ava-tinta break-all">{{ $cert['verificationHash'] }}</code>
+                                    <code class="select-all rounded border border-ava-borda bg-ava-faixa px-1.5 py-0.5 font-mono text-ava-tinta break-all">{{ $cert['hash_verificacao'] }}</code>
                                 </p>
                             </div>
 
@@ -97,7 +97,7 @@
                         @php($s = $item['situacao'])
                         @php($ref = ($curso['slug'] ?? '') !== '' ? $curso['slug'] : $curso['id'])
                         <li class="space-y-4 rounded-2xl border border-ava-borda bg-white p-5 shadow-3xs">
-                            <h3 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $curso['title'] }}</h3>
+                            <h3 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $curso['titulo'] }}</h3>
 
                             @if (! $s['emite'])
                                 <p class="text-apoio text-escult-ink-2">Este curso não emite certificado.</p>

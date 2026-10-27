@@ -13,14 +13,14 @@
     modal pelo mesmo motivo. Aberto ou fechado não é estado que precise
     sobreviver a um F5.
 --}}
-<x-layouts.instrutor :titulo="$curso['title']" ativo="gestao" :cursoDoMenu="$curso">
+<x-layouts.instrutor :titulo="$curso['titulo']" ativo="gestao" :cursoDoMenu="$curso">
 
     <div class="mx-auto max-w-4xl space-y-6">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/inst" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Meus cursos</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <span class="text-ava-tinta">{{ $curso['title'] }}</span>
+            <span class="text-ava-tinta">{{ $curso['titulo'] }}</span>
         </nav>
 
         @if (session('avisoDoCurso'))
@@ -30,10 +30,10 @@
         @endif
 
         <div class="space-y-2">
-            @if (! empty($curso['category']))
-                <p class="text-sobretitulo uppercase text-escult-ink-3">{{ $curso['category'] }}</p>
+            @if (! empty($curso['categoria']))
+                <p class="text-sobretitulo uppercase text-escult-ink-3">{{ $curso['categoria'] }}</p>
             @endif
-            <h1 class="font-titulo text-3xl leading-tight tracking-tight text-ava-tinta break-words">{{ $curso['title'] }}</h1>
+            <h1 class="font-titulo text-3xl leading-tight tracking-tight text-ava-tinta break-words">{{ $curso['titulo'] }}</h1>
         </div>
 
         {{-- Vigência vencida: o que aconteceu e o que fazer, lado a lado. --}}
@@ -41,7 +41,7 @@
             <section aria-labelledby="titulo-vigencia" class="space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-5">
                 <h2 id="titulo-vigencia" class="text-sobretitulo uppercase text-amber-900">Vigência de exibição encerrada</h2>
                 <p class="text-apoio leading-relaxed text-amber-950">
-                    A licença de exibição terminou em <strong>{{ $vigenciaAte }}</strong>. Enquanto isso durar, o curso
+                    A licença de exibição terminou em <strong>{{ $vigencia_ate }}</strong>. Enquanto isso durar, o curso
                     <strong>não é oferecido no catálogo</strong> e ninguém pode se matricular nele. Quem já está
                     matriculado continua com acesso.
                 </p>
@@ -80,16 +80,16 @@
                 </div>
                 <div>
                     <dt class="text-escult-ink-2">Certificado</dt>
-                    <dd class="font-semibold text-ava-tinta">{{ $emiteCertificado ? 'Emite' : 'Não emite' }}</dd>
+                    <dd class="font-semibold text-ava-tinta">{{ $emite_certificado ? 'Emite' : 'Não emite' }}</dd>
                 </div>
                 <div>
                     <dt class="text-escult-ink-2">Vigência</dt>
-                    <dd class="font-semibold text-ava-tinta">{{ $vigenciaAte ?? 'Permanente' }}</dd>
+                    <dd class="font-semibold text-ava-tinta">{{ $vigencia_ate ?? 'Permanente' }}</dd>
                 </div>
-                @if (! empty($curso['cargaHoraria']))
+                @if (! empty($curso['carga_horaria']))
                     <div>
                         <dt class="text-escult-ink-2">Carga horária</dt>
-                        <dd class="font-semibold text-ava-tinta">{{ $curso['cargaHoraria'] }}h</dd>
+                        <dd class="font-semibold text-ava-tinta">{{ $curso['carga_horaria'] }}h</dd>
                     </div>
                 @endif
                 @if (! empty($curso['modalidade']))
@@ -106,10 +106,10 @@
                 @endif
             </dl>
 
-            @if (! empty($curso['description']))
+            @if (! empty($curso['descricao']))
                 <div class="space-y-1 border-t border-ava-borda pt-4">
                     <h3 class="text-sobretitulo uppercase text-escult-ink-3">Descrição</h3>
-                    <p class="whitespace-pre-line text-apoio leading-relaxed text-escult-ink-2 break-words">{{ $curso['description'] }}</p>
+                    <p class="whitespace-pre-line text-apoio leading-relaxed text-escult-ink-2 break-words">{{ $curso['descricao'] }}</p>
                 </div>
             @endif
         </section>
@@ -199,7 +199,7 @@
 
         {{-- Propriedades --}}
         <section aria-labelledby="titulo-propriedades" class="rounded-2xl border border-ava-borda bg-white shadow-3xs">
-            <details class="group" @if ($errors->hasAny(['title', 'description', 'category', 'cargaHoraria', 'minAttendance'])) open @endif>
+            <details class="group" @if ($errors->hasAny(['titulo', 'descricao', 'categoria', 'carga_horaria', 'frequencia_minima'])) open @endif>
                 <summary class="cursor-pointer list-none rounded-2xl p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                     <h2 id="titulo-propriedades" class="inline font-titulo text-cartao text-ava-tinta">Propriedades do curso</h2>
                     <span class="ml-2 text-apoio text-escult-ink-3 group-open:hidden">editar</span>
@@ -209,55 +209,55 @@
                     @csrf
 
                     <div class="space-y-1.5">
-                        <label for="title" class="block text-rotulo font-semibold text-ava-tinta">Título</label>
-                        <input id="title" name="title" type="text" required minlength="3" maxlength="200"
-                               value="{{ old('title', $curso['title']) }}"
-                               @error('title') aria-invalid="true" aria-describedby="erro-title" @enderror
+                        <label for="titulo" class="block text-rotulo font-semibold text-ava-tinta">Título</label>
+                        <input id="titulo" name="titulo" type="text" required minlength="3" maxlength="200"
+                               value="{{ old('titulo', $curso['titulo']) }}"
+                               @error('titulo') aria-invalid="true" aria-describedby="erro-title" @enderror
                                class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">
-                        @error('title')
+                        @error('titulo')
                             <p id="erro-title" class="text-apoio font-semibold text-rose-700">{{ $message }}</p>
                         @enderror
                         <p class="text-apoio text-escult-ink-3">Mudar o título muda o endereço do curso; o antigo continua levando até aqui.</p>
                     </div>
 
                     <div class="space-y-1.5">
-                        <label for="category" class="block text-rotulo font-semibold text-ava-tinta">Categoria</label>
-                        <input id="category" name="category" type="text" required maxlength="120"
-                               value="{{ old('category', $curso['category']) }}"
+                        <label for="categoria" class="block text-rotulo font-semibold text-ava-tinta">Categoria</label>
+                        <input id="categoria" name="categoria" type="text" required maxlength="120"
+                               value="{{ old('categoria', $curso['categoria']) }}"
                                class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">
-                        @error('category')
+                        @error('categoria')
                             <p class="text-apoio font-semibold text-rose-700">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div class="space-y-1.5">
-                        <label for="description" class="block text-rotulo font-semibold text-ava-tinta">Descrição</label>
-                        <textarea id="description" name="description" rows="6" required minlength="10" maxlength="5000"
-                                  class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-apoio text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">{{ old('description', $curso['description']) }}</textarea>
-                        @error('description')
+                        <label for="descricao" class="block text-rotulo font-semibold text-ava-tinta">Descrição</label>
+                        <textarea id="descricao" name="descricao" rows="6" required minlength="10" maxlength="5000"
+                                  class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-apoio text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">{{ old('descricao', $curso['descricao']) }}</textarea>
+                        @error('descricao')
                             <p class="text-apoio font-semibold text-rose-700">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div class="space-y-1.5">
-                            <label for="cargaHoraria" class="block text-rotulo font-semibold text-ava-tinta">Carga horária (horas)</label>
-                            <input id="cargaHoraria" name="cargaHoraria" type="number" min="1" max="2000"
-                                   value="{{ old('cargaHoraria', $curso['cargaHoraria']) }}"
+                            <label for="carga_horaria" class="block text-rotulo font-semibold text-ava-tinta">Carga horária (horas)</label>
+                            <input id="carga_horaria" name="carga_horaria" type="number" min="1" max="2000"
+                                   value="{{ old('carga_horaria', $curso['carga_horaria']) }}"
                                    class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">
-                            @error('cargaHoraria')
+                            @error('carga_horaria')
                                 <p class="text-apoio font-semibold text-rose-700">{{ $message }}</p>
                             @enderror
                             <p class="text-apoio text-escult-ink-3">Sai no certificado.</p>
                         </div>
 
                         <div class="space-y-1.5">
-                            <label for="minAttendance" class="block text-rotulo font-semibold text-ava-tinta">Frequência mínima (%)</label>
-                            <input id="minAttendance" name="minAttendance" type="number" min="0" max="100"
-                                   value="{{ old('minAttendance', $minimaDoCurso) }}"
+                            <label for="frequencia_minima" class="block text-rotulo font-semibold text-ava-tinta">Frequência mínima (%)</label>
+                            <input id="frequencia_minima" name="frequencia_minima" type="number" min="0" max="100"
+                                   value="{{ old('frequencia_minima', $minimaDoCurso) }}"
                                    aria-describedby="dica-minima"
                                    class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">
-                            @error('minAttendance')
+                            @error('frequencia_minima')
                                 <p class="text-apoio font-semibold text-rose-700">{{ $message }}</p>
                             @enderror
                             <p id="dica-minima" class="text-apoio text-escult-ink-3">Em branco usa o padrão da escola ({{ $minimaEfetiva }}%). Decide a emissão do certificado.</p>
@@ -278,16 +278,16 @@
                         </div>
 
                         <div class="space-y-1.5 sm:col-span-2">
-                            <label for="areaTematica" class="block text-rotulo font-semibold text-ava-tinta">Área temática</label>
-                            <input id="areaTematica" name="areaTematica" type="text" maxlength="150"
-                                   value="{{ old('areaTematica', $curso['areaTematica']) }}"
+                            <label for="area_tematica" class="block text-rotulo font-semibold text-ava-tinta">Área temática</label>
+                            <input id="area_tematica" name="area_tematica" type="text" maxlength="150"
+                                   value="{{ old('area_tematica', $curso['area_tematica']) }}"
                                    class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">
                         </div>
                     </div>
 
                     <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-ava-borda p-3.5 text-apoio text-ava-tinta hover:bg-ava-faixa has-[:checked]:border-ava-acao has-[:checked]:bg-ava-faixa">
-                        <input type="checkbox" name="emiteCertificado" value="1"
-                               @checked(old('emiteCertificado', ($curso['emiteCertificado'] ?? null) !== false))
+                        <input type="checkbox" name="emite_certificado" value="1"
+                               @checked(old('emite_certificado', ($curso['emite_certificado'] ?? null) !== false))
                                class="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-ava-acao)]">
                         <span>
                             Este curso emite certificado

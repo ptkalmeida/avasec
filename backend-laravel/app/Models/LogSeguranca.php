@@ -6,9 +6,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-final class SecurityLog extends Model
+final class LogSeguranca extends Model
 {
-    protected $table = 'SecurityLog';
+    protected $table = 'log_seguranca';
 
     protected $keyType = 'string';
 
@@ -16,7 +16,7 @@ final class SecurityLog extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'timestamp', 'ocorridoEm', 'user', 'role', 'ipAddress', 'device', 'action', 'details', 'status'];
+    protected $fillable = ['id', 'registrado_em_texto', 'ocorrido_em', 'usuario', 'papel', 'ip', 'dispositivo', 'acao', 'detalhes', 'status'];
 
     protected $casts = [
         /*
@@ -28,6 +28,6 @@ final class SecurityLog extends Model
          * navegador de quem le, nao. Sem o sufixo, o JavaScript interpretaria o
          * valor como hora local e deslocaria tudo em 3 horas.
          */
-        'ocorridoEm' => 'datetime:Y-m-d\TH:i:sP',
+        'ocorrido_em' => 'datetime:Y-m-d\TH:i:sP',
     ];
 }

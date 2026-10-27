@@ -8,11 +8,11 @@
     versão React eles já eram decoração cíclica (`ICONES[index % 3]`), nunca
     campo editável, e `aria-hidden` desde lá.
 --}}
-<x-layouts.publico ativo="A Escola" :titulo="$pagina['title']" :descricao="$pagina['description']">
+<x-layouts.publico ativo="A Escola" :titulo="$pagina['titulo']" :descricao="$pagina['descricao']">
     <x-componentes.moldura-pagina
         :sobretitulo="$pagina['eyebrow']"
-        :titulo="$pagina['title']"
-        :descricao="$pagina['description']"
+        :titulo="$pagina['titulo']"
+        :descricao="$pagina['descricao']"
         centralizado
     >
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -21,8 +21,8 @@
                     <div class="h-14 w-14 rounded-full bg-ava-icone-fundo text-ava-acao flex items-center justify-center">
                         <x-icone-do-cartao :indice="$i" />
                     </div>
-                    <h4 class="text-cartao text-ava-tinta font-titulo">{{ $item['title'] }}</h4>
-                    <p class="text-apoio text-escult-ink-2 leading-relaxed">{{ $item['description'] }}</p>
+                    <h4 class="text-cartao text-ava-tinta font-titulo">{{ $item['titulo'] }}</h4>
+                    <p class="text-apoio text-escult-ink-2 leading-relaxed">{{ $item['descricao'] }}</p>
                 </div>
             @endforeach
         </div>

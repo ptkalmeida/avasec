@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Certificate;
+use App\Models\Certificado;
 use App\Support\Fuso;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -67,12 +67,12 @@ final class FusoExibicaoTest extends TestCase
         /*
          * A ARMADILHA, prendida aqui de propósito.
          *
-         * `Certificate.issueDate` é coluna `DATE`. Data pura não tem instante: o
+         * `Certificado.data_emissao` é coluna `DATE`. Data pura não tem instante: o
          * Carbon a materializa à meia-noite, e converter meia-noite UTC para BRT
          * devolve 21h do DIA ANTERIOR. Formatar em `d/m/Y` depois disso trocaria
          * o dia impresso no certificado.
          *
-         * Por isso os pontos que formatam `issueDate` NÃO usam `Fuso`. Este
+         * Por isso os pontos que formatam `data_emissao` NÃO usam `Fuso`. Este
          * teste demonstra o estrago para que ninguém "padronize" aquilo depois.
          */
         $dataPura = CarbonImmutable::parse('2026-09-03 00:00:00', 'UTC');
@@ -85,9 +85,9 @@ final class FusoExibicaoTest extends TestCase
     {
         // A prova de que a decisão acima está de fato aplicada: o cast do model
         // formata a data como está na coluna, sem deslocar o dia.
-        $cert = new Certificate(['issueDate' => '2026-09-03']);
+        $cert = new Certificado(['data_emissao' => '2026-09-03']);
 
-        $this->assertSame('03/09/2026', $cert->issueDate?->format('d/m/Y'));
+        $this->assertSame('03/09/2026', $cert->data_emissao?->format('d/m/Y'));
     }
 
     public function test_hora_de_virada_nao_muda_o_dia_do_instante_errado(): void

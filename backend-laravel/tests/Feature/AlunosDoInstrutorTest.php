@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\AdmissionRequest;
-use App\Models\Certificate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\Quiz;
-use App\Models\QuizSubmission;
-use App\Models\StudentEnrollment;
-use App\Models\StudentProgress;
-use App\Models\User;
+use App\Models\SolicitacaoIngresso;
+use App\Models\Certificado;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Avaliacao;
+use App\Models\TentativaAvaliacao;
+use App\Models\Matricula;
+use App\Models\ProgressoAluno;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -44,29 +44,29 @@ final class AlunosDoInstrutorTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    private function curso(string $instructorId, string $titulo = 'Curso Da Turma Teste'): Course
+    private function curso(string $instrutor_id, string $titulo = 'Curso Da Turma Teste'): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-turma-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ]);
@@ -78,19 +78,19 @@ final class AlunosDoInstrutorTest extends TestCase
      * @param  array<string, mixed>  $extra
      * @return array{id:string,name:string,token:string}
      */
-    private function aluno(string $nome, Course $curso, array $extra = []): array
+    private function aluno(string $nome, Curso $curso, array $extra = []): array
     {
         $aluno = $this->makeStudent($nome);
-        StudentEnrollment::query()->create(array_merge([
+        Matricula::query()->create(array_merge([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'enrolledCourseId' => $curso->id,
-            'enrolledAt' => now(),
-            'completedCourseIds' => [],
-            'dropOutPenaltyUntil' => null,
-            'canMultiEnroll' => false,
-            'extraCourseIds' => [],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => $curso->id,
+            'matriculado_em_texto' => now(),
+            'cursos_concluidos_ids' => [],
+            'penalidade_desistencia_ate' => null,
+            'pode_multimatricula' => false,
+            'cursos_extras_ids' => [],
         ], $extra));
 
         return $aluno;
@@ -107,24 +107,24 @@ final class AlunosDoInstrutorTest extends TestCase
         $curso = $this->curso($eu['id']);
         $aulas = [];
         foreach ([1, 2, 3, 4] as $n) {
-            $aulas[] = Lesson::query()->create([
-                'id' => "lesson-turma-{$curso->id}-{$n}", 'courseId' => $curso->id,
-                'title' => "Aula {$n}", 'duration' => '10 min', 'content' => 'c', 'lesson_order' => $n,
+            $aulas[] = Aula::query()->create([
+                'id' => "lesson-turma-{$curso->id}-{$n}", 'curso_id' => $curso->id,
+                'titulo' => "Aula {$n}", 'duracao' => '10 min', 'conteudo' => 'c', 'ordem' => $n,
             ]);
         }
-        $quiz = Quiz::query()->create(['id' => 'quiz-turma-'.uniqid(), 'courseId' => $curso->id, 'title' => 'Prova da turma']);
+        $quiz = Avaliacao::query()->create(['id' => 'quiz-turma-'.uniqid(), 'curso_id' => $curso->id, 'titulo' => 'Prova da turma']);
         $aluno = $this->aluno('Ana Da Turma', $curso);
 
-        StudentProgress::query()->create([
-            'id' => 'prog-'.uniqid(), 'userId' => $aluno['id'], 'studentName' => $aluno['name'], 'courseId' => $curso->id,
+        ProgressoAluno::query()->create([
+            'id' => 'prog-'.uniqid(), 'usuario_id' => $aluno['id'], 'nome_aluno' => $aluno['nome'], 'curso_id' => $curso->id,
             // 2 aulas reais e UM id órfão: o resíduo não é progresso.
-            'completedLessons' => [$aulas[0]->id, $aulas[1]->id, 'lesson-que-nao-existe-mais'],
-            'attendedLiveSessions' => [],
+            'aulas_concluidas' => [$aulas[0]->id, $aulas[1]->id, 'lesson-que-nao-existe-mais'],
+            'sessoes_ao_vivo_assistidas' => [],
         ]);
-        QuizSubmission::query()->create([
-            'id' => 'sub-turma-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'],
-            'courseId' => $curso->id, 'quizId' => $quiz->id, 'scorePercent' => 90, 'passed' => true,
-            'submittedAt' => '21/10/2026 às 10:00', 'enviadoEm' => now(),
+        TentativaAvaliacao::query()->create([
+            'id' => 'sub-turma-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id, 'avaliacao_id' => $quiz->id, 'percentual_nota' => 90, 'aprovado' => true,
+            'enviado_em_texto' => '21/10/2026 às 10:00', 'enviado_em' => now(),
         ]);
 
         $resposta = $this->como($eu['token'])->get('/inst/curso/'.$curso->slug.'/alunos');
@@ -143,13 +143,13 @@ final class AlunosDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Aprovado Uma Vez');
         $curso = $this->curso($eu['id']);
-        $quiz = Quiz::query()->create(['id' => 'quiz-uma-vez-'.uniqid(), 'courseId' => $curso->id, 'title' => 'Prova']);
+        $quiz = Avaliacao::query()->create(['id' => 'quiz-uma-vez-'.uniqid(), 'curso_id' => $curso->id, 'titulo' => 'Prova']);
         $aluno = $this->aluno('Aluno Aprovou E Piorou', $curso);
         foreach ([[100, true, 0], [0, false, 5]] as $n => [$nota, $passou, $seg]) {
-            QuizSubmission::query()->create([
-                'id' => 'sub-uv-'.$n.'-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'],
-                'courseId' => $curso->id, 'quizId' => $quiz->id, 'scorePercent' => $nota, 'passed' => $passou,
-                'submittedAt' => '21/10/2026 às 10:0'.$n, 'enviadoEm' => now()->addSeconds($seg),
+            TentativaAvaliacao::query()->create([
+                'id' => 'sub-uv-'.$n.'-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'],
+                'curso_id' => $curso->id, 'avaliacao_id' => $quiz->id, 'percentual_nota' => $nota, 'aprovado' => $passou,
+                'enviado_em_texto' => '21/10/2026 às 10:0'.$n, 'enviado_em' => now()->addSeconds($seg),
             ]);
         }
 
@@ -162,10 +162,10 @@ final class AlunosDoInstrutorTest extends TestCase
         $eu = $this->instrutor('Gestor Certificado');
         $curso = $this->curso($eu['id']);
         $aluno = $this->aluno('Aluno Certificado', $curso);
-        Certificate::query()->create([
-            'id' => 'cert-turma-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'],
-            'courseId' => $curso->id, 'courseTitle' => $curso->title, 'issueDate' => now(),
-            'attendancePercent' => 90, 'verificationHash' => 'AVA-TURMA-'.strtoupper(uniqid()),
+        Certificado::query()->create([
+            'id' => 'cert-turma-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id, 'titulo_curso' => $curso->titulo, 'data_emissao' => now(),
+            'percentual_frequencia' => 90, 'hash_verificacao' => 'AVA-TURMA-'.strtoupper(uniqid()),
         ]);
 
         $this->como($eu['token'])->get('/inst/curso/'.$curso->slug.'/alunos')
@@ -177,7 +177,7 @@ final class AlunosDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Concorrente Turma');
         $curso = $this->curso($eu['id']);
-        $this->aluno('Aluno Concorrente Da Turma', $curso, ['enrolledCourseId' => null, 'extraCourseIds' => [$curso->id]]);
+        $this->aluno('Aluno Concorrente Da Turma', $curso, ['curso_matriculado_id' => null, 'cursos_extras_ids' => [$curso->id]]);
 
         $this->como($eu['token'])->get('/inst/curso/'.$curso->slug.'/alunos')
             ->assertSee('Aluno Concorrente Da Turma', escape: false);
@@ -188,7 +188,7 @@ final class AlunosDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Concluidos');
         $curso = $this->curso($eu['id']);
-        $this->aluno('Aluno Que Ja Concluiu', $curso, ['enrolledCourseId' => null, 'completedCourseIds' => [$curso->id]]);
+        $this->aluno('Aluno Que Ja Concluiu', $curso, ['curso_matriculado_id' => null, 'cursos_concluidos_ids' => [$curso->id]]);
 
         $this->como($eu['token'])->get('/inst/curso/'.$curso->slug.'/alunos')
             ->assertSee('1 já concluiu', escape: false)
@@ -251,9 +251,9 @@ final class AlunosDoInstrutorTest extends TestCase
         $aluno = $this->makeStudent('Aluno Que Pediu');
         $outroAluno = $this->makeStudent('Aluno Que Pediu Outro Curso');
         foreach ([[$aluno, $curso], [$outroAluno, $outro]] as $i => [$a, $c]) {
-            AdmissionRequest::query()->create([
-                'id' => 'adm-fila-'.$i.'-'.uniqid(), 'studentName' => $a['name'], 'userId' => $a['id'],
-                'courseId' => $c->id, 'status' => 'pending', 'submittedAt' => '21/10/2026',
+            SolicitacaoIngresso::query()->create([
+                'id' => 'adm-fila-'.$i.'-'.uniqid(), 'nome_aluno' => $a['nome'], 'usuario_id' => $a['id'],
+                'curso_id' => $c->id, 'status' => 'pending', 'enviado_em_texto' => '21/10/2026',
             ]);
         }
 
@@ -269,19 +269,19 @@ final class AlunosDoInstrutorTest extends TestCase
         $eu = $this->instrutor('Gestor Aprova');
         $curso = $this->curso($eu['id']);
         $aluno = $this->makeStudent('Aluno A Aprovar');
-        $pedido = AdmissionRequest::query()->create([
-            'id' => 'adm-aprova-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'],
-            'courseId' => $curso->id, 'status' => 'pending', 'submittedAt' => '21/10/2026',
+        $pedido = SolicitacaoIngresso::query()->create([
+            'id' => 'adm-aprova-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id, 'status' => 'pending', 'enviado_em_texto' => '21/10/2026',
         ]);
-        $antes = (int) DB::table('SecurityLog')->count();
+        $antes = (int) DB::table('log_seguranca')->count();
 
         $this->como($eu['token'])
             ->post('/inst/curso/'.$curso->slug.'/pedidos/'.$pedido->id, ['decisao' => 'approved'])
             ->assertRedirect('/inst/curso/'.$curso->slug.'/alunos');
 
-        $this->assertSame('approved', AdmissionRequest::query()->whereKey($pedido->id)->value('status'));
-        $this->assertSame($curso->id, StudentEnrollment::query()->whereKey($aluno['id'])->value('enrolledCourseId'));
-        $this->assertGreaterThan($antes, (int) DB::table('SecurityLog')->count());
+        $this->assertSame('approved', SolicitacaoIngresso::query()->whereKey($pedido->id)->value('status'));
+        $this->assertSame($curso->id, Matricula::query()->whereKey($aluno['id'])->value('curso_matriculado_id'));
+        $this->assertGreaterThan($antes, (int) DB::table('log_seguranca')->count());
     }
 
     public function test_reprovar_nao_matricula(): void
@@ -290,16 +290,16 @@ final class AlunosDoInstrutorTest extends TestCase
         $eu = $this->instrutor('Gestor Reprova');
         $curso = $this->curso($eu['id']);
         $aluno = $this->makeStudent('Aluno A Reprovar');
-        $pedido = AdmissionRequest::query()->create([
-            'id' => 'adm-reprova-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'],
-            'courseId' => $curso->id, 'status' => 'pending', 'submittedAt' => '21/10/2026',
+        $pedido = SolicitacaoIngresso::query()->create([
+            'id' => 'adm-reprova-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id, 'status' => 'pending', 'enviado_em_texto' => '21/10/2026',
         ]);
 
         $this->como($eu['token'])
             ->post('/inst/curso/'.$curso->slug.'/pedidos/'.$pedido->id, ['decisao' => 'rejected']);
 
-        $this->assertSame('rejected', AdmissionRequest::query()->whereKey($pedido->id)->value('status'));
-        $this->assertNull(StudentEnrollment::query()->whereKey($aluno['id'])->value('enrolledCourseId'));
+        $this->assertSame('rejected', SolicitacaoIngresso::query()->whereKey($pedido->id)->value('status'));
+        $this->assertNull(Matricula::query()->whereKey($aluno['id'])->value('curso_matriculado_id'));
     }
 
     /** O pedido de OUTRO curso não se decide pelo endereço deste. */
@@ -310,16 +310,16 @@ final class AlunosDoInstrutorTest extends TestCase
         $meu = $this->curso($eu['id'], 'Curso Meu Pedido');
         $outro = $this->curso($eu['id'], 'Curso Irmao Pedido');
         $aluno = $this->makeStudent('Aluno Do Pedido Irmao');
-        $pedido = AdmissionRequest::query()->create([
-            'id' => 'adm-irmao-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'],
-            'courseId' => $outro->id, 'status' => 'pending', 'submittedAt' => '21/10/2026',
+        $pedido = SolicitacaoIngresso::query()->create([
+            'id' => 'adm-irmao-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'],
+            'curso_id' => $outro->id, 'status' => 'pending', 'enviado_em_texto' => '21/10/2026',
         ]);
 
         $this->como($eu['token'])
             ->post('/inst/curso/'.$meu->slug.'/pedidos/'.$pedido->id, ['decisao' => 'approved'])
             ->assertNotFound();
 
-        $this->assertSame('pending', AdmissionRequest::query()->whereKey($pedido->id)->value('status'));
+        $this->assertSame('pending', SolicitacaoIngresso::query()->whereKey($pedido->id)->value('status'));
     }
 
     /** Decidir um pedido já decidido não é possível: ele sai da fila. */
@@ -329,16 +329,16 @@ final class AlunosDoInstrutorTest extends TestCase
         $eu = $this->instrutor('Gestor Ja Decidido');
         $curso = $this->curso($eu['id']);
         $aluno = $this->makeStudent('Aluno Ja Decidido');
-        $pedido = AdmissionRequest::query()->create([
-            'id' => 'adm-decidido-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'],
-            'courseId' => $curso->id, 'status' => 'rejected', 'submittedAt' => '21/10/2026',
+        $pedido = SolicitacaoIngresso::query()->create([
+            'id' => 'adm-decidido-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id, 'status' => 'rejected', 'enviado_em_texto' => '21/10/2026',
         ]);
 
         $this->como($eu['token'])
             ->post('/inst/curso/'.$curso->slug.'/pedidos/'.$pedido->id, ['decisao' => 'approved'])
             ->assertNotFound();
 
-        $this->assertSame('rejected', AdmissionRequest::query()->whereKey($pedido->id)->value('status'));
+        $this->assertSame('rejected', SolicitacaoIngresso::query()->whereKey($pedido->id)->value('status'));
     }
 
     public function test_decisao_invalida_e_recusada(): void

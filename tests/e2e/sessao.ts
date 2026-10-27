@@ -37,9 +37,9 @@ export function emitirToken(email: string, sessaoPropria = false): string {
   if (emCache !== undefined) return emCache;
 
   const php = `
-    $u = \\App\\Models\\User::withTrashed()->where("email", "${email}")->first();
+    $u = \\App\\Models\\Usuario::withTrashed()->where("email", "${email}")->first();
     if (!$u) { echo "SEM_USUARIO"; return; }
-    echo \\App\\Support\\Jwt::issue($u->id, $u->name, $u->role);
+    echo \\App\\Support\\Jwt::issue($u->id, $u->nome, $u->papel);
   `.replace(/\s+/g, ' ');
 
   const saida = execFileSync('php', ['artisan', 'tinker', `--execute=${php}`], {

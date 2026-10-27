@@ -5,7 +5,7 @@
     basta uma tentativa aprovada (LearningService::avaliacoesDoCursoParaAluno).
     A nota mostrada é a da tentativa mais recente.
 --}}
-<x-layouts.aluno titulo="Avaliações — {{ $curso['title'] }}" ativo="curso" :cursoDoMenu="$curso">
+<x-layouts.aluno titulo="Avaliações — {{ $curso['titulo'] }}" ativo="curso" :cursoDoMenu="$curso">
 
     @php
         $aprovadas = count(array_filter($avaliacoes, static fn (array $a): bool => $a['aprovada']));
@@ -16,7 +16,7 @@
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/aluno" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Painel</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <a href="/aluno/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['title'] }}</a>
+            <a href="/aluno/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <span class="text-ava-tinta">Avaliações</span>
         </nav>
@@ -24,7 +24,7 @@
         <div class="space-y-2">
             <h1 class="font-titulo text-3xl tracking-tight text-ava-tinta">Avaliações</h1>
             <p class="text-apoio leading-relaxed text-escult-ink-2">
-                {{ $curso['title'] }}.
+                {{ $curso['titulo'] }}.
                 @if ($avaliacoes !== [])
                     Para o certificado, é preciso ser aprovado em todas, com pelo menos {{ $minimo }}% de acertos.
                     Você pode refazer quantas vezes quiser.
@@ -61,13 +61,13 @@
                                 </span>
                             @endif
 
-                            <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $avaliacao['title'] }}</h2>
+                            <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $avaliacao['titulo'] }}</h2>
 
                             <p class="text-apoio text-escult-ink-2">
                                 {{ $avaliacao['questoes'] === 1 ? '1 questão' : $avaliacao['questoes'].' questões' }}
                                 @if ($avaliacao['ultima'] !== null)
-                                    · última tentativa: <strong class="font-semibold text-ava-tinta">{{ $avaliacao['ultima']['scorePercent'] }}%</strong>
-                                    em {{ $avaliacao['ultima']['submittedAt'] }}
+                                    · última tentativa: <strong class="font-semibold text-ava-tinta">{{ $avaliacao['ultima']['percentual_nota'] }}%</strong>
+                                    em {{ $avaliacao['ultima']['enviado_em_texto'] }}
                                     · {{ $avaliacao['tentativas'] === 1 ? '1 tentativa' : $avaliacao['tentativas'].' tentativas' }}
                                 @endif
                             </p>
@@ -78,7 +78,7 @@
                                class="inline-flex shrink-0 items-center justify-center rounded-[10px] px-5 py-2.5 text-rotulo font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2
                                       {{ $avaliacao['aprovada'] ? 'border border-ava-borda bg-white text-ava-tinta hover:bg-ava-faixa' : 'bg-ava-acao text-white hover:bg-ava-acao-escuro' }}">
                                 {{ $avaliacao['ultima'] === null ? 'Começar' : 'Refazer' }}
-                                <span class="sr-only">{{ $avaliacao['title'] }}</span>
+                                <span class="sr-only">{{ $avaliacao['titulo'] }}</span>
                             </a>
                         @else
                             <p class="shrink-0 text-apoio text-escult-ink-3">Ainda sem questões</p>

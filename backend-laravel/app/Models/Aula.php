@@ -10,11 +10,11 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-final class Lesson extends Model
+final class Aula extends Model
 {
     use Inativavel;
 
-    protected $table = 'Lesson';
+    protected $table = 'aula';
 
     protected $keyType = 'string';
 
@@ -22,12 +22,9 @@ final class Lesson extends Model
 
     public $timestamps = false;
 
-    // A coluna real é `lesson_order` (Prisma @map); o contrato expõe `order`.
-    protected $fillable = ['id', 'courseId', 'title', 'duration', 'videoUrl', 'content', 'lesson_order'];
+    protected $fillable = ['id', 'curso_id', 'titulo', 'duracao', 'url_video', 'conteudo', 'ordem'];
 
-    protected $hidden = ['lesson_order'];
-
-    protected $appends = ['order'];
+    protected $casts = ['ordem' => 'integer'];
 
     /**
      * Todo texto de aula que é SUBSTITUÍDO guarda antes a versão que ia se perder
@@ -38,7 +35,7 @@ final class Lesson extends Model
     protected static function booted(): void
     {
         self::updating(static function (self $aula): void {
-            $campos = ['title', 'duration', 'videoUrl', 'content'];
+            $campos = ['titulo', 'duracao', 'url_video', 'conteudo'];
             $id = $aula->getKey();
             if (! is_string($id) || ! $aula->isDirty($campos)) {
                 return;
@@ -58,21 +55,9 @@ final class Lesson extends Model
         });
     }
 
-    /** @return Attribute<int, never> */
-    protected function order(): Attribute
+    /** @return HasMany<DocumentoAula, $this> */
+    public function documentos(): HasMany
     {
-        return Attribute::make(
-            get: function (): int {
-                $raw = $this->attributes['lesson_order'] ?? 0;
-
-                return is_numeric($raw) ? (int) $raw : 0;
-            },
-        );
-    }
-
-    /** @return HasMany<LessonDocument, $this> */
-    public function documents(): HasMany
-    {
-        return $this->hasMany(LessonDocument::class, 'lessonId');
+        return $this->hasMany(DocumentoAula::class, 'aula_id');
     }
 }

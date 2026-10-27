@@ -12,12 +12,12 @@ use Carbon\CarbonImmutable;
  * Porte de leitura do `src/utils/liveSchedule.ts`. Reúne as duas origens que o
  * sistema já tem e recorta a janela dos próximos dias:
  *
- *  - aulas ao vivo de cada curso (`LiveSession`), agendadas pelo gestor;
- *  - webinars globais (`WebinarEvent`), agendados pela coordenação.
+ *  - aulas ao vivo de cada curso (`sessao_ao_vivo`), agendadas pelo gestor;
+ *  - webinars globais (`evento_webinar`), agendados pela coordenação.
  *
  * ## O formato da data, que é onde mora a armadilha
  *
- * `LiveSession.scheduledAt` guarda ISO **local sem fuso** (`2026-09-15T19:30`),
+ * `SessaoAoVivo.agendado_para_texto` guarda ISO **local sem fuso** (`2026-09-15T19:30`),
  * que é exatamente o que um `<input type="datetime-local">` produz. É
  * deliberado: a escola opera num único fuso, e guardar o horário literal evita
  * a aula das 19:30 aparecer como 22:30 por conversão de UTC. Por isso a leitura
@@ -130,29 +130,29 @@ final class AgendaAoVivo
         $eventos = [];
 
         foreach ($cursos as $curso) {
-            $sessoes = is_array($curso['liveSessions'] ?? null) ? $curso['liveSessions'] : [];
+            $sessoes = is_array($curso['sessoes_ao_vivo'] ?? null) ? $curso['sessoes_ao_vivo'] : [];
 
             foreach ($sessoes as $sessao) {
                 if (! is_array($sessao)) {
                     continue;
                 }
 
-                $quando = self::instanteDaAula(is_string($sessao['scheduledAt'] ?? null) ? $sessao['scheduledAt'] : null);
+                $quando = self::instanteDaAula(is_string($sessao['agendado_para_texto'] ?? null) ? $sessao['agendado_para_texto'] : null);
                 if ($quando === null) {
                     continue;
                 }
 
-                $duracao = $sessao['durationMinutes'] ?? null;
+                $duracao = $sessao['duracao_minutos'] ?? null;
 
                 $eventos[] = [
                     'id' => self::texto($sessao['id'] ?? null),
                     'quando' => $quando,
-                    'titulo' => self::texto($sessao['title'] ?? null),
-                    'contexto' => self::texto($curso['title'] ?? null),
+                    'titulo' => self::texto($sessao['titulo'] ?? null),
+                    'contexto' => self::texto($curso['titulo'] ?? null),
                     'tipo' => 'aula',
                     'duracaoMinutos' => is_numeric($duracao) ? (int) $duracao : null,
                     /*
-                     * Nunca o `meetingLink`. Ele é a chave da sala de uma turma, o
+                     * Nunca o `link_reuniao`. Ele é a chave da sala de uma turma, o
                      * catálogo anônimo já vem sem ele (ISO-01), e quem está
                      * matriculado entra pelo painel do curso. Publicar esse link
                      * numa página aberta desfaria a correção.
@@ -164,8 +164,8 @@ final class AgendaAoVivo
 
         foreach ($webinars as $webinar) {
             $quando = self::instanteDoWebinar(
-                is_string($webinar['date'] ?? null) ? $webinar['date'] : null,
-                is_string($webinar['time'] ?? null) ? $webinar['time'] : null,
+                is_string($webinar['data_texto'] ?? null) ? $webinar['data_texto'] : null,
+                is_string($webinar['horario'] ?? null) ? $webinar['horario'] : null,
             );
 
             if ($quando === null) {
@@ -177,7 +177,7 @@ final class AgendaAoVivo
             $eventos[] = [
                 'id' => self::texto($webinar['id'] ?? null),
                 'quando' => $quando,
-                'titulo' => self::texto($webinar['title'] ?? null),
+                'titulo' => self::texto($webinar['titulo'] ?? null),
                 'contexto' => 'Webinar aberto',
                 'tipo' => 'webinar',
                 'duracaoMinutos' => null,

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\DirectMessage;
-use App\Models\Lesson;
-use App\Models\StudentEnrollment;
-use App\Models\User;
+use App\Models\MensagemDireta;
+use App\Models\Aula;
+use App\Models\Matricula;
+use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Str;
 use Tests\Support\SeedsIdentity;
@@ -62,24 +62,24 @@ final class SuportePedagogicoTest extends TestCase
 
         $this->como($aluno['token'])->post('/aluno/suporte', ['texto' => 'Minha duvida de teste.']);
 
-        $gestor = User::query()->where('role', 'instructor')->first();
+        $gestor = Usuario::query()->where('papel', 'instructor')->first();
         $this->assertNotNull($gestor);
-        DirectMessage::query()->create([
+        MensagemDireta::query()->create([
             'id' => 'dm-teste-'.uniqid(),
-            'studentName' => $aluno['name'],
-            'studentUserId' => $aluno['id'],
-            'senderName' => (string) $gestor->name,
-            'senderUserId' => (string) $gestor->id,
-            'senderRole' => 'instructor',
-            'text' => 'Resposta do gestor para o teste.',
-            'timestamp' => now()->toIso8601String(),
-            'enviadaEm' => now(),
+            'nome_aluno' => $aluno['nome'],
+            'aluno_usuario_id' => $aluno['id'],
+            'nome_remetente' => (string) $gestor->nome,
+            'remetente_usuario_id' => (string) $gestor->id,
+            'papel_remetente' => 'instructor',
+            'texto' => 'Resposta do gestor para o teste.',
+            'registrado_em_texto' => now()->toIso8601String(),
+            'enviada_em' => now(),
         ]);
 
         $this->como($aluno['token'])->get('/aluno/suporte')
             ->assertSee('Minha duvida de teste.', escape: false)
             ->assertSee('Resposta do gestor para o teste.', escape: false)
-            ->assertSee(e((string) $gestor->name), false);
+            ->assertSee(e((string) $gestor->nome), false);
     }
 
     /** A conversa é a do próprio aluno: a de outro não aparece. */
@@ -98,19 +98,19 @@ final class SuportePedagogicoTest extends TestCase
     public function test_a_aula_aparece_como_etiqueta_e_nao_no_meio_do_texto(): void
     {
         $aluno = $this->makeStudent('Aluno Suporte Etiqueta');
-        $aula = Lesson::query()->first();
+        $aula = Aula::query()->first();
         $this->assertNotNull($aula);
 
-        StudentEnrollment::query()->create([
+        Matricula::query()->create([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'enrolledCourseId' => $aula->courseId,
-            'enrolledAt' => now(),
-            'completedCourseIds' => [],
-            'dropOutPenaltyUntil' => null,
-            'canMultiEnroll' => false,
-            'extraCourseIds' => [],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => $aula->curso_id,
+            'matriculado_em_texto' => now(),
+            'cursos_concluidos_ids' => [],
+            'penalidade_desistencia_ate' => null,
+            'pode_multimatricula' => false,
+            'cursos_extras_ids' => [],
         ]);
 
         $this->como($aluno['token'])
@@ -118,7 +118,7 @@ final class SuportePedagogicoTest extends TestCase
 
         $html = (string) $this->como($aluno['token'])->get('/aluno/suporte')->getContent();
 
-        $this->assertStringContainsString('Aula: '.e((string) $aula->title), $html);
+        $this->assertStringContainsString('Aula: '.e((string) $aula->titulo), $html);
         $this->assertStringNotContainsString('[Aula:', $html);
     }
 
@@ -130,14 +130,14 @@ final class SuportePedagogicoTest extends TestCase
             ->post('/aluno/suporte', ['texto' => 'Não consigo abrir o vídeo da aula 2.'])
             ->assertRedirect('/aluno/suporte');
 
-        $registrada = DirectMessage::query()
-            ->where('studentUserId', $aluno['id'])
-            ->where('senderUserId', $aluno['id'])
+        $registrada = MensagemDireta::query()
+            ->where('aluno_usuario_id', $aluno['id'])
+            ->where('remetente_usuario_id', $aluno['id'])
             ->first();
 
         $this->assertNotNull($registrada, 'A mensagem não chegou ao banco.');
-        $this->assertSame('Não consigo abrir o vídeo da aula 2.', $registrada->text);
-        $this->assertSame('student', $registrada->senderRole);
+        $this->assertSame('Não consigo abrir o vídeo da aula 2.', $registrada->texto);
+        $this->assertSame('student', $registrada->papel_remetente);
     }
 
     public function test_depois_de_enviar_a_confirmacao_e_anunciada(): void
@@ -159,39 +159,39 @@ final class SuportePedagogicoTest extends TestCase
     public function test_vindo_de_uma_aula_do_proprio_curso_o_assunto_leva_o_titulo(): void
     {
         $aluno = $this->makeStudent('Aluno Suporte Aula');
-        $aula = Lesson::query()->first();
+        $aula = Aula::query()->first();
         $this->assertNotNull($aula, 'Seed sem aula.');
 
-        StudentEnrollment::query()->create([
+        Matricula::query()->create([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'enrolledCourseId' => $aula->courseId,
-            'enrolledAt' => now(),
-            'completedCourseIds' => [],
-            'dropOutPenaltyUntil' => null,
-            'canMultiEnroll' => false,
-            'extraCourseIds' => [],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => $aula->curso_id,
+            'matriculado_em_texto' => now(),
+            'cursos_concluidos_ids' => [],
+            'penalidade_desistencia_ate' => null,
+            'pode_multimatricula' => false,
+            'cursos_extras_ids' => [],
         ]);
 
         $this->como($aluno['token'])
             ->post('/aluno/suporte', ['texto' => 'Não entendi o exemplo.', 'aula' => $aula->id]);
 
-        $texto = DirectMessage::query()->where('studentUserId', $aluno['id'])->value('text');
-        $this->assertSame('[Aula: '.trim((string) $aula->title).'] Não entendi o exemplo.', $texto);
+        $texto = MensagemDireta::query()->where('aluno_usuario_id', $aluno['id'])->value('texto');
+        $this->assertSame('[Aula: '.trim((string) $aula->titulo).'] Não entendi o exemplo.', $texto);
     }
 
     /** Aula de curso alheio não entra no assunto: o id vem da URL. */
     public function test_aula_de_curso_alheio_nao_entra_no_assunto(): void
     {
         $aluno = $this->makeStudent('Aluno Suporte Alheio');
-        $aula = Lesson::query()->first();
+        $aula = Aula::query()->first();
         $this->assertNotNull($aula, 'Seed sem aula.');
 
         $this->como($aluno['token'])
             ->post('/aluno/suporte', ['texto' => 'Mensagem simples.', 'aula' => $aula->id]);
 
-        $texto = DirectMessage::query()->where('studentUserId', $aluno['id'])->value('text');
+        $texto = MensagemDireta::query()->where('aluno_usuario_id', $aluno['id'])->value('texto');
         $this->assertSame('Mensagem simples.', $texto);
     }
 
@@ -205,7 +205,7 @@ final class SuportePedagogicoTest extends TestCase
             ->assertRedirect('/aluno/suporte')
             ->assertSessionHasErrors('texto');
 
-        $this->assertFalse(DirectMessage::query()->where('studentUserId', $aluno['id'])->exists());
+        $this->assertFalse(MensagemDireta::query()->where('aluno_usuario_id', $aluno['id'])->exists());
     }
 
     /**

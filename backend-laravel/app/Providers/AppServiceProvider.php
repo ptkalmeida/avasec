@@ -93,7 +93,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('justification', static fn (Request $r) => Limit::perMinutes(60, 20)->by(self::actorKey($r))->response($tooMany));
         // exportação de dados gerenciais: 10 por 60 min por usuário.
         RateLimiter::for('export', static fn (Request $r) => Limit::perMinutes(60, 10)->by(self::actorKey($r))->response($tooMany));
-        // telemetria de UI: rota PÚBLICA que grava no banco (ClientEvent). Sem limite,
+        // telemetria de UI: rota PÚBLICA que grava no banco (EventoCliente). Sem limite,
         // qualquer anônimo inflava a tabela com texto próprio. Por usuário quando há
         // token; por IP quando anônimo.
         RateLimiter::for('telemetry', static fn (Request $r) => Limit::perMinute(60)->by(self::actorKey($r))->response($tooMany));
@@ -133,7 +133,7 @@ class AppServiceProvider extends ServiceProvider
      */
     private static function loginIdentifier(Request $r): string
     {
-        foreach (['cpf', 'email', 'name'] as $field) {
+        foreach (['cpf', 'email', 'nome'] as $field) {
             $value = $r->input($field);
             if (is_string($value) && trim($value) !== '') {
                 $normalized = mb_strtolower(trim($value));

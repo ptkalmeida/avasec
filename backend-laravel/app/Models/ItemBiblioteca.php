@@ -8,15 +8,15 @@ use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Mapeia a tabela existente `LibraryItem` (de propriedade do schema Prisma durante
+ * Mapeia a tabela existente `item_biblioteca` (de propriedade do schema Prisma durante
  * a migração — NÃO há migration Laravel para ela). PK é string gerada pela aplicação,
  * e a tabela não tem colunas created_at/updated_at.
  */
-final class LibraryItem extends Model
+final class ItemBiblioteca extends Model
 {
     use Inativavel;
 
-    protected $table = 'LibraryItem';
+    protected $table = 'item_biblioteca';
 
     protected $keyType = 'string';
 
@@ -24,5 +24,5 @@ final class LibraryItem extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'title', 'type', 'category', 'description', 'url'];
+    protected $fillable = ['id', 'titulo', 'tipo', 'categoria', 'descricao', 'url'];
 }

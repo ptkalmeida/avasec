@@ -77,8 +77,8 @@
         @if ($curso !== null)
             @php($ref = $curso['slug'] ?? $curso['id'])
 
-            <p x-show="!recolhido" class="mt-3 truncate px-3 text-sobretitulo uppercase text-escult-ink-3" title="{{ $curso['title'] }}">
-                {{ $curso['title'] }}
+            <p x-show="!recolhido" class="mt-3 truncate px-3 text-sobretitulo uppercase text-escult-ink-3" title="{{ $curso['titulo'] }}">
+                {{ $curso['titulo'] }}
             </p>
 
             <x-instrutor.item-do-menu :rota="'/inst/curso/'.$ref" rotulo="Gestão do curso"

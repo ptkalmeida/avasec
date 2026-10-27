@@ -30,7 +30,7 @@ Não estavam entre os 15 do relatório:
 1. **Modal "Redefinir Senha" do admin não chamava API alguma** — só alterava estado
    local do React. A coordenação via a confirmação e a senha antiga continuava
    valendo: acesso que se acreditava revogado seguia ativo. O endpoint passou a
-   existir (`PUT /api/auth/users/{id}/password`, `role:admin`, auditado). Commit
+   existir (`PUT /api/autenticacao/usuarios/{id}/senha`, `role:admin`, auditado). Commit
    `0968ca1`.
 2. **Senha padrão `1234` era inválida desde a ADR 11** (mín. 8, letra e número): o
    cadastro de aluno falhava sem a tela dizer por quê. Commit `0968ca1`.

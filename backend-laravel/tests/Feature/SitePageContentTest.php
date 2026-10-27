@@ -20,12 +20,12 @@ final class SitePageContentTest extends TestCase
 
     public function test_anonymous_visitor_reads_all_pages_with_defaults(): void
     {
-        $response = $this->getJson('/api/site-content')->assertOk();
+        $response = $this->getJson('/api/conteudo-site')->assertOk();
 
         // Sem nenhuma linha salva, o conteúdo vem dos defaults hardcoded.
-        $response->assertJsonPath('pages.orientacoes.title', 'Orientações Gerais');
+        $response->assertJsonPath('pages.orientacoes.titulo', 'Orientações Gerais');
         $response->assertJsonCount(4, 'pages.orientacoes.items');
-        $response->assertJsonPath('pages.duvidas.updatedAt', null);
+        $response->assertJsonPath('pages.duvidas.atualizado_em', null);
 
         // O schema acompanha a resposta para a tela do admin montar os rótulos.
         $response->assertJsonPath('schema.duvidas.label', 'Dúvidas Frequentes');
@@ -34,15 +34,15 @@ final class SitePageContentTest extends TestCase
 
     public function test_anonymous_visitor_reads_a_single_page(): void
     {
-        $this->getJson('/api/site-content/calendario')
+        $this->getJson('/api/conteudo-site/calendario')
             ->assertOk()
-            ->assertJsonPath('pageKey', 'calendario')
+            ->assertJsonPath('chave_pagina', 'calendario')
             ->assertJsonCount(3, 'items');
     }
 
     public function test_unknown_page_key_is_404(): void
     {
-        $this->getJson('/api/site-content/pagina-inexistente')
+        $this->getJson('/api/conteudo-site/pagina-inexistente')
             ->assertStatus(404)
             ->assertJsonPath('error', true);
     }
@@ -52,25 +52,25 @@ final class SitePageContentTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson('/api/site-content/orientacoes', [
+            ->putJson('/api/conteudo-site/orientacoes', [
                 'eyebrow' => 'Manual Atualizado',
-                'title' => 'Orientações do Estudante',
-                'description' => 'Novo texto de abertura.',
+                'titulo' => 'Orientações do Estudante',
+                'descricao' => 'Novo texto de abertura.',
                 'items' => [
-                    ['id' => 'diretriz-1', 'title' => 'Primeira regra', 'description' => 'Descrição da primeira regra.'],
-                    ['id' => 'diretriz-2', 'title' => 'Segunda regra', 'description' => 'Descrição da segunda regra.'],
+                    ['id' => 'diretriz-1', 'titulo' => 'Primeira regra', 'descricao' => 'Descrição da primeira regra.'],
+                    ['id' => 'diretriz-2', 'titulo' => 'Segunda regra', 'descricao' => 'Descrição da segunda regra.'],
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('title', 'Orientações do Estudante')
+            ->assertJsonPath('titulo', 'Orientações do Estudante')
             ->assertJsonCount(2, 'items')
-            ->assertJsonPath('items.1.title', 'Segunda regra');
+            ->assertJsonPath('items.1.titulo', 'Segunda regra');
 
         // A escrita persiste e continua visível para o visitante anônimo.
         $this->flushHeaders();
-        $this->getJson('/api/site-content/orientacoes')
+        $this->getJson('/api/conteudo-site/orientacoes')
             ->assertOk()
-            ->assertJsonPath('title', 'Orientações do Estudante')
+            ->assertJsonPath('titulo', 'Orientações do Estudante')
             ->assertJsonCount(2, 'items');
     }
 
@@ -79,13 +79,13 @@ final class SitePageContentTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $response = $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson('/api/site-content/duvidas', [
+            ->putJson('/api/conteudo-site/duvidas', [
                 'items' => [['id' => 'faq-1', 'question' => 'Pergunta?', 'answer' => 'Resposta.']],
             ])
             ->assertOk();
 
-        $this->assertNotNull($response->json('updatedAt'));
-        $this->assertNotNull($response->json('updatedByUserId'));
+        $this->assertNotNull($response->json('atualizado_em'));
+        $this->assertNotNull($response->json('atualizado_por_usuario_id'));
     }
 
     public function test_unknown_fields_are_discarded_and_long_text_is_truncated(): void
@@ -93,8 +93,8 @@ final class SitePageContentTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $response = $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson('/api/site-content/duvidas', [
-                'title' => str_repeat('A', 500),
+            ->putJson('/api/conteudo-site/duvidas', [
+                'titulo' => str_repeat('A', 500),
                 'campoInventado' => 'deveria ser ignorado',
                 'items' => [
                     [
@@ -108,7 +108,7 @@ final class SitePageContentTest extends TestCase
             ->assertOk();
 
         // Campo curto é truncado no limite do schema (191), não rejeitado.
-        $this->assertSame(191, mb_strlen((string) $response->json('title')));
+        $this->assertSame(191, mb_strlen((string) $response->json('titulo')));
         $this->assertNull($response->json('campoInventado'));
         $this->assertNull($response->json('items.0.chaveDesconhecida'));
     }
@@ -118,7 +118,7 @@ final class SitePageContentTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson('/api/site-content/duvidas', [
+            ->putJson('/api/conteudo-site/duvidas', [
                 'items' => [
                     ['id' => 'faq-1', 'question' => 'Só esta vale', 'answer' => 'Resposta.'],
                     ['id' => 'faq-2', 'question' => '', 'answer' => ''],
@@ -135,11 +135,11 @@ final class SitePageContentTest extends TestCase
         // 'o-ava' aceita no máximo 9 destaques.
         $items = [];
         for ($i = 1; $i <= 15; $i++) {
-            $items[] = ['id' => "ava-{$i}", 'title' => "Destaque {$i}", 'description' => 'Texto.'];
+            $items[] = ['id' => "ava-{$i}", 'titulo' => "Destaque {$i}", 'descricao' => 'Texto.'];
         }
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson('/api/site-content/o-ava', ['items' => $items])
+            ->putJson('/api/conteudo-site/o-ava', ['items' => $items])
             ->assertOk()
             ->assertJsonCount(9, 'items');
     }
@@ -149,7 +149,7 @@ final class SitePageContentTest extends TestCase
         $student = $this->makeStudent('sitecontent');
 
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->putJson('/api/site-content/duvidas', ['title' => 'Invasão'])
+            ->putJson('/api/conteudo-site/duvidas', ['titulo' => 'Invasão'])
             ->assertStatus(403);
     }
 
@@ -158,13 +158,13 @@ final class SitePageContentTest extends TestCase
         $instructor = $this->staffToken('instructor');
 
         $this->withHeader('Authorization', "Bearer {$instructor}")
-            ->putJson('/api/site-content/duvidas', ['title' => 'Invasão'])
+            ->putJson('/api/conteudo-site/duvidas', ['titulo' => 'Invasão'])
             ->assertStatus(403);
     }
 
     public function test_anonymous_cannot_write_site_content(): void
     {
-        $this->putJson('/api/site-content/duvidas', ['title' => 'Invasão'])
+        $this->putJson('/api/conteudo-site/duvidas', ['titulo' => 'Invasão'])
             ->assertStatus(401);
     }
 }

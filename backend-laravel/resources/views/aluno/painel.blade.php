@@ -25,7 +25,7 @@
     <div class="mx-auto max-w-4xl space-y-8">
 
         <h1 class="font-titulo text-3xl tracking-tight text-ava-tinta">
-            Olá, {{ $aluno['name'] }}
+            Olá, {{ $aluno['nome'] }}
         </h1>
 
         @forelse ($emAndamento as $curso)
@@ -37,20 +37,20 @@
                          não uma foto de banco de imagens, que afirmaria algo
                          sobre um curso que ninguém cadastrou. --}}
                     <div class="h-28 w-full shrink-0 overflow-hidden rounded-xl bg-ava-marinho sm:w-44">
-                        @if (! empty($curso['coverImage']) || ! empty($curso['thumbnail']))
-                            <img src="{{ $curso['coverImage'] ?: $curso['thumbnail'] }}" alt="" aria-hidden="true"
+                        @if (! empty($curso['imagem_capa']) || ! empty($curso['miniatura']))
+                            <img src="{{ $curso['imagem_capa'] ?: $curso['miniatura'] }}" alt="" aria-hidden="true"
                                  referrerpolicy="no-referrer" class="h-full w-full object-cover">
                         @endif
                     </div>
 
                     <div class="min-w-0 flex-1 space-y-3">
                         <div class="space-y-1">
-                            @if (! empty($curso['category']))
+                            @if (! empty($curso['categoria']))
                                 <span class="inline-block rounded-full bg-ava-lilas-fundo px-2.5 py-1 text-nota font-semibold uppercase tracking-wide text-ava-lilas">
-                                    {{ $curso['category'] }}
+                                    {{ $curso['categoria'] }}
                                 </span>
                             @endif
-                            <h2 class="font-titulo text-cartao leading-snug text-ava-tinta">{{ $curso['title'] }}</h2>
+                            <h2 class="font-titulo text-cartao leading-snug text-ava-tinta">{{ $curso['titulo'] }}</h2>
                         </div>
 
                         <div class="space-y-1.5">
@@ -59,7 +59,7 @@
                                  aria-valuenow="{{ $curso['percentual'] }}"
                                  aria-valuemin="0"
                                  aria-valuemax="100"
-                                 aria-label="Progresso em {{ $curso['title'] }}">
+                                 aria-label="Progresso em {{ $curso['titulo'] }}">
                                 <div class="h-full rounded-full bg-ava-lilas" style="width: {{ $curso['percentual'] }}%"></div>
                             </div>
                             <p class="text-apoio text-escult-ink-2">

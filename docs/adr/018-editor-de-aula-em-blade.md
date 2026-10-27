@@ -5,6 +5,8 @@
   ("editor de aula primeiro, admin depois")
 - **Afeta:** ADR 017 (MPA em vez de SPA), ADR 12 (nada é apagado)
 
+> **Nota (27/10/2026):** os nomes de tabela, coluna e rota citados aqui foram atualizados para os de depois da [ADR 024](024-nomes-em-portugues.md); o texto histórico segue como foi decidido.
+
 ## Contexto
 
 O plano 16 deixou o editor de conteúdo de aula para o fim (M6) e exigiu uma
@@ -22,7 +24,7 @@ O levantamento mostrou três coisas:
 2. **O parser já existia em PHP, só de leitura** (`ConteudoDaAula`, usado pela
    página da aula do aluno). Faltava a metade de escrita.
 3. **O salvamento era frágil.** Toda edição de uma aula fazia
-   `PUT /api/courses/{id}` com a lista de TODAS as aulas do curso. Quem salvava a
+   `PUT /api/cursos/{id}` com a lista de TODAS as aulas do curso. Quem salvava a
    identificação de uma aula regravava o texto das outras com o que a sua tela
    guardava, e uma aba velha desfazia, sem aviso, o trabalho de outra pessoa.
 

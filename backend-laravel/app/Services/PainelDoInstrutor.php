@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\AdmissionRequest;
-use App\Models\Certificate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\Quiz;
-use App\Models\QuizSubmission;
-use App\Models\StudentEnrollment;
-use App\Models\StudentProgress;
-use App\Models\User;
+use App\Models\SolicitacaoIngresso;
+use App\Models\Certificado;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Avaliacao;
+use App\Models\TentativaAvaliacao;
+use App\Models\Matricula;
+use App\Models\ProgressoAluno;
+use App\Models\Usuario;
 use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;
 use App\Support\Fuso;
@@ -27,7 +27,7 @@ use Carbon\CarbonInterface;
  * O que o painel do instrutor precisa saber, calculado num lugar só.
  *
  * Nenhuma regra de negócio nova mora aqui: posse de curso continua vindo de
- * `InstructorScope` (FK `instructorId`, ADR 10), que é a mesma fonte que a API
+ * `InstructorScope` (FK `instrutor_id`, ADR 10), que é a mesma fonte que a API
  * usa. O que este serviço faz é reunir, para a tela, o que o React montava
  * filtrando listas já carregadas no navegador.
  */
@@ -42,36 +42,36 @@ final class PainelDoInstrutor
      * curso em rascunho ou restrito, porque é ele quem o prepara; a escada de
      * `Visibilidade` governa quem LÊ o conteúdo, não quem o gerencia.
      *
-     * @param  array{sub:string,name:string,role:string}  $instrutor
-     * @return list<array{id:string,slug:string|null,title:string,category:string|null,aulas:int,alunos:int,vigenciaAte:string|null,vigenciaVencida:bool,publicado:bool}>
+     * @param  array{sub:string,nome:string,papel:string}  $instrutor
+     * @return list<array{id:string,slug:string|null,titulo:string,categoria:string|null,aulas:int,alunos:int,vigencia_ate:string|null,vigenciaVencida:bool,publicado:bool}>
      */
     public function cursos(array $instrutor): array
     {
         /*
          * Curso INATIVADO não entra, e isso é a mesma regra da API: quem sai
-         * do ar sai de `/api/courses`, e o painel React também não o mostrava.
+         * do ar sai de `/api/cursos`, e o painel React também não o mostrava.
          * Trazê-lo de volta aqui ressuscitaria na tela do instrutor o que a
          * coordenação tirou — os dois cursos inativados hoje são, de fato,
          * limpeza de dados de teste.
          *
          * O que fica em aberto, e está no plano 18: o instrutor cujo curso é
          * tirado do ar vê o curso sumir sem nenhuma explicação, embora o motivo
-         * esteja gravado em `motivoInativacao`.
+         * esteja gravado em `motivo_inativacao`.
          */
-        $consulta = Course::query();
-        if ($instrutor['role'] !== 'admin') {
+        $consulta = Curso::query();
+        if ($instrutor['papel'] !== 'admin') {
             $consulta->whereIn('id', InstructorScope::courseIds($instrutor));
         }
 
-        $cursos = $consulta->orderBy('title')->get();
+        $cursos = $consulta->orderBy('titulo')->get();
         if ($cursos->isEmpty()) {
             return [];
         }
 
         $ids = $cursos->pluck('id')->all();
-        $aulas = Lesson::query()->whereIn('courseId', $ids)
-            ->selectRaw('courseId, COUNT(*) as total')->groupBy('courseId')
-            ->pluck('total', 'courseId');
+        $aulas = Aula::query()->whereIn('curso_id', $ids)
+            ->selectRaw('curso_id, COUNT(*) as total')->groupBy('curso_id')
+            ->pluck('total', 'curso_id');
 
         // Data pura compara com data pura, como TEXTO `Y-m-d`.
         $hoje = Fuso::agora()->format('Y-m-d');
@@ -79,24 +79,24 @@ final class PainelDoInstrutor
         $lista = [];
         foreach ($cursos as $curso) {
             /*
-             * `vigenciaAte` e `status` entraram por migration em laço (as de
+             * `vigencia_ate` e `status` entraram por migration em laço (as de
              * 08/10 e a da escada de visibilidade), então a análise estática
              * não as enxerga como propriedade do modelo. `getAttribute` com
              * estreitamento diz a verdade sobre o que pode vir: nulo, quando a
              * coluna não foi preenchida.
              */
-            $vencimento = $curso->getAttribute('vigenciaAte');
+            $vencimento = $curso->getAttribute('vigencia_ate');
             $vencimento = $vencimento instanceof CarbonInterface ? $vencimento : null;
             $visibilidade = $curso->getAttribute('status');
-            $vigencia = ['vigenciaAte' => $vencimento, 'contractExpirationDate' => $curso->contractExpirationDate];
+            $vigencia = ['vigencia_ate' => $vencimento, 'vencimento_contrato_texto' => $curso->vencimento_contrato_texto];
             $lista[] = [
                 'id' => (string) $curso->id,
                 'slug' => is_string($curso->slug) && $curso->slug !== '' ? $curso->slug : null,
-                'title' => (string) $curso->title,
-                'category' => is_string($curso->category) && $curso->category !== '' ? $curso->category : null,
+                'titulo' => (string) $curso->titulo,
+                'categoria' => is_string($curso->categoria) && $curso->categoria !== '' ? $curso->categoria : null,
                 'aulas' => is_numeric($n = $aulas[$curso->id] ?? 0) ? (int) $n : 0,
                 'alunos' => $this->quantosAlunos((string) $curso->id),
-                'vigenciaAte' => VigenciaDoCurso::diaParaPessoa($vigencia),
+                'vigencia_ate' => VigenciaDoCurso::diaParaPessoa($vigencia),
                 // A pergunta tem uma resposta só, em `VigenciaDoCurso`.
                 'vigenciaVencida' => VigenciaDoCurso::vencida($vigencia),
                 'publicado' => is_numeric($visibilidade) && (int) $visibilidade === Visibilidade::PUBLICADO,
@@ -116,30 +116,30 @@ final class PainelDoInstrutor
      * hidratação.
      *
      * @param  array<string, mixed>  $curso  Como `CourseService::getCourseById` o entrega.
-     * @param  array{sub:string,name:string,role:string}  $instrutor
-     * @return array{curso:array<string, mixed>,aulas:int,avaliacoes:int,alunos:int,minimaEfetiva:int,minimaDoCurso:int|null,vigenciaVencida:bool,vigenciaAte:string|null,emiteCertificado:bool,encontros:list<array{titulo:string,quando:string,link:string|null}>}
+     * @param  array{sub:string,nome:string,papel:string}  $instrutor
+     * @return array{curso:array<string, mixed>,aulas:int,avaliacoes:int,alunos:int,minimaEfetiva:int,minimaDoCurso:int|null,vigenciaVencida:bool,vigencia_ate:string|null,emite_certificado:bool,encontros:list<array{titulo:string,quando:string,link:string|null}>}
      */
     public function panoramaDoCurso(array $curso, array $instrutor): array
     {
         $id = is_string($curso['id'] ?? null) ? $curso['id'] : '';
 
-        $avaliacoes = Quiz::query()->where('courseId', $id);
+        $avaliacoes = Avaliacao::query()->where('curso_id', $id);
         Visibilidade::aplicar($avaliacoes, 'student');
 
-        $minimaDoCurso = is_numeric($curso['minAttendance'] ?? null) ? (int) $curso['minAttendance'] : null;
+        $minimaDoCurso = is_numeric($curso['frequencia_minima'] ?? null) ? (int) $curso['frequencia_minima'] : null;
 
         return [
             'curso' => $curso,
-            'aulas' => is_array($curso['lessons'] ?? null) ? count($curso['lessons']) : 0,
+            'aulas' => is_array($curso['aulas'] ?? null) ? count($curso['aulas']) : 0,
             'avaliacoes' => $avaliacoes->count(),
             'alunos' => $this->quantosAlunos($id),
             'minimaEfetiva' => BusinessRules::courseMinAttendance($minimaDoCurso),
             'minimaDoCurso' => $minimaDoCurso,
             'vigenciaVencida' => VigenciaDoCurso::vencida($curso),
-            'vigenciaAte' => VigenciaDoCurso::diaParaPessoa($curso),
+            'vigencia_ate' => VigenciaDoCurso::diaParaPessoa($curso),
             // Fonte única: a coluna do curso, a mesma que a emissão usa
             // (`CertificateService::situacaoParaCertificado`) — decisão de 23/10/2026.
-            'emiteCertificado' => ($curso['emiteCertificado'] ?? null) !== false,
+            'emite_certificado' => ($curso['emite_certificado'] ?? null) !== false,
             'encontros' => $this->encontros($curso),
         ];
     }
@@ -157,19 +157,19 @@ final class PainelDoInstrutor
      */
     private function encontros(array $curso): array
     {
-        $sessoes = is_array($curso['liveSessions'] ?? null) ? $curso['liveSessions'] : [];
+        $sessoes = is_array($curso['sessoes_ao_vivo'] ?? null) ? $curso['sessoes_ao_vivo'] : [];
 
         $lista = [];
         foreach ($sessoes as $sessao) {
             if (! is_array($sessao)) {
                 continue;
             }
-            $link = SafeUrl::sanitize(is_string($sessao['meetingLink'] ?? null) ? $sessao['meetingLink'] : null);
+            $link = SafeUrl::sanitize(is_string($sessao['link_reuniao'] ?? null) ? $sessao['link_reuniao'] : null);
             $lista[] = [
-                'titulo' => is_string($sessao['title'] ?? null) ? $sessao['title'] : 'Encontro',
-                // `scheduledAt` é texto local, já no fuso de exibição: não se
+                'titulo' => is_string($sessao['titulo'] ?? null) ? $sessao['titulo'] : 'Encontro',
+                // `agendado_para_texto` é texto local, já no fuso de exibição: não se
                 // converte de novo (a armadilha está documentada em `Fuso`).
-                'quando' => is_string($sessao['scheduledAt'] ?? null) ? $sessao['scheduledAt'] : '',
+                'quando' => is_string($sessao['agendado_para_texto'] ?? null) ? $sessao['agendado_para_texto'] : '',
                 'link' => $link,
             ];
         }
@@ -190,7 +190,7 @@ final class PainelDoInstrutor
      * Cada número vem de onde o resto do sistema o tira:
      *  - progresso: `ProgressoDoAluno`, que só conta aula que AINDA existe;
      *  - avaliações: uma tentativa aprovada basta, como o certificado;
-     *  - certificado: a linha em `Certificate`, que nunca é apagada (ADR 12).
+     *  - certificado: a linha em `certificado`, que nunca é apagada (ADR 12).
      *
      * O painel React mostrava, na aba de mensagens, uma "presença" tirada de uma
      * tabela fixa por nome de aluno, e e-mail inventado a partir do nome. Nada
@@ -198,53 +198,53 @@ final class PainelDoInstrutor
      *
      * @return array{cursando:list<array{id:string,nome:string,email:string|null,aulasFeitas:int,aulas:int,provasAprovadas:int,provas:int,certificado:bool}>,concluiram:int}
      */
-    public function alunosDoCurso(string $courseId): array
+    public function alunosDoCurso(string $curso_id): array
     {
-        $idsDasAulas = array_values(Lesson::query()->where('courseId', $courseId)->pluck('id')->all());
-        $json = '"'.$courseId.'"';
+        $idsDasAulas = array_values(Aula::query()->where('curso_id', $curso_id)->pluck('id')->all());
+        $json = '"'.$curso_id.'"';
 
-        $matriculas = StudentEnrollment::query()
-            ->where(static function ($q) use ($courseId, $json): void {
-                $q->where('enrolledCourseId', $courseId)
-                    ->orWhere('extraCourseIds', 'like', '%'.$json.'%');
+        $matriculas = Matricula::query()
+            ->where(static function ($q) use ($curso_id, $json): void {
+                $q->where('curso_matriculado_id', $curso_id)
+                    ->orWhere('cursos_extras_ids', 'like', '%'.$json.'%');
             })
-            ->get(['userId', 'studentName']);
+            ->get(['usuario_id', 'nome_aluno']);
 
-        $concluiram = StudentEnrollment::query()
-            ->where('completedCourseIds', 'like', '%'.$json.'%')
+        $concluiram = Matricula::query()
+            ->where('cursos_concluidos_ids', 'like', '%'.$json.'%')
             ->count();
 
-        $ids = $matriculas->pluck('userId')->filter()->unique()->values()->all();
+        $ids = $matriculas->pluck('usuario_id')->filter()->unique()->values()->all();
         if ($ids === []) {
             return ['cursando' => [], 'concluiram' => $concluiram];
         }
 
-        $usuarios = User::query()->whereIn('id', $ids)->get(['id', 'name', 'email'])->keyBy('id');
-        $progresso = StudentProgress::query()->where('courseId', $courseId)->whereIn('userId', $ids)->get()->keyBy('userId');
+        $usuarios = Usuario::query()->whereIn('id', $ids)->get(['id', 'nome', 'email'])->keyBy('id');
+        $progresso = ProgressoAluno::query()->where('curso_id', $curso_id)->whereIn('usuario_id', $ids)->get()->keyBy('usuario_id');
 
-        $publicadas = Quiz::query()->where('courseId', $courseId);
+        $publicadas = Avaliacao::query()->where('curso_id', $curso_id);
         Visibilidade::aplicar($publicadas, 'student');
         $idsDasProvas = $publicadas->pluck('id')->all();
 
-        $aprovadas = QuizSubmission::query()
-            ->where('courseId', $courseId)->where('passed', true)
-            ->whereIn('quizId', $idsDasProvas)->whereIn('userId', $ids)
-            ->get(['userId', 'quizId'])
-            ->groupBy('userId')
-            ->map(static fn ($linhas): int => $linhas->pluck('quizId')->unique()->count());
+        $aprovadas = TentativaAvaliacao::query()
+            ->where('curso_id', $curso_id)->where('aprovado', true)
+            ->whereIn('avaliacao_id', $idsDasProvas)->whereIn('usuario_id', $ids)
+            ->get(['usuario_id', 'avaliacao_id'])
+            ->groupBy('usuario_id')
+            ->map(static fn ($linhas): int => $linhas->pluck('avaliacao_id')->unique()->count());
 
-        $comCertificado = Certificate::query()->where('courseId', $courseId)->whereIn('userId', $ids)
-            ->pluck('userId')->flip();
+        $comCertificado = Certificado::query()->where('curso_id', $curso_id)->whereIn('usuario_id', $ids)
+            ->pluck('usuario_id')->flip();
 
         $lista = [];
         foreach ($matriculas as $m) {
-            $uid = (string) $m->userId;
+            $uid = (string) $m->usuario_id;
             $usuario = $usuarios->get($uid);
-            $feitas = $progresso->get($uid)?->completedLessons;
+            $feitas = $progresso->get($uid)?->aulas_concluidas;
 
             $lista[] = [
                 'id' => $uid,
-                'nome' => $usuario !== null ? (string) $usuario->name : (string) $m->studentName,
+                'nome' => $usuario !== null ? (string) $usuario->nome : (string) $m->nome_aluno,
                 'email' => $usuario !== null && is_string($usuario->email) && $usuario->email !== '' ? $usuario->email : null,
                 'aulasFeitas' => ProgressoDoAluno::contarValidas(is_array($feitas) ? array_values($feitas) : [], $idsDasAulas),
                 'aulas' => count($idsDasAulas),
@@ -266,20 +266,20 @@ final class PainelDoInstrutor
      * configuração de hoje — o pedido nasce aprovado. A tela decide mostrar a
      * fila pela REGRA, e não por a lista estar vazia.
      *
-     * @return list<array{id:string,aluno:string,enviadoEm:string}>
+     * @return list<array{id:string,aluno:string,enviado_em:string}>
      */
-    public function pedidosPendentes(string $courseId): array
+    public function pedidosPendentes(string $curso_id): array
     {
         $lista = [];
-        $pedidos = AdmissionRequest::query()
-            ->where('courseId', $courseId)->where('status', 'pending')
-            ->orderBy('id')->get(['id', 'studentName', 'submittedAt']);
+        $pedidos = SolicitacaoIngresso::query()
+            ->where('curso_id', $curso_id)->where('status', 'pending')
+            ->orderBy('id')->get(['id', 'nome_aluno', 'enviado_em_texto']);
 
         foreach ($pedidos as $p) {
             $lista[] = [
                 'id' => (string) $p->id,
-                'aluno' => (string) $p->studentName,
-                'enviadoEm' => (string) $p->submittedAt,
+                'aluno' => (string) $p->nome_aluno,
+                'enviado_em' => (string) $p->enviado_em_texto,
             ];
         }
 
@@ -288,20 +288,20 @@ final class PainelDoInstrutor
 
     /**
      * Quantos alunos estão neste curso: matriculados no principal, nos
-     * concorrentes (`extraCourseIds`) ou que já o concluíram.
+     * concorrentes (`cursos_extras_ids`) ou que já o concluíram.
      *
      * A contagem é a mesma leitura que `EnrollmentService` faz das três
      * colunas; está aqui porque o painel precisa dela POR CURSO, e aquele
      * serviço responde por pessoa.
      */
-    private function quantosAlunos(string $courseId): int
+    private function quantosAlunos(string $curso_id): int
     {
-        $json = '"'.$courseId.'"';
+        $json = '"'.$curso_id.'"';
 
-        return StudentEnrollment::query()
-            ->where('enrolledCourseId', $courseId)
-            ->orWhere('extraCourseIds', 'like', '%'.$json.'%')
-            ->orWhere('completedCourseIds', 'like', '%'.$json.'%')
+        return Matricula::query()
+            ->where('curso_matriculado_id', $curso_id)
+            ->orWhere('cursos_extras_ids', 'like', '%'.$json.'%')
+            ->orWhere('cursos_concluidos_ids', 'like', '%'.$json.'%')
             ->count();
     }
 
@@ -313,7 +313,7 @@ final class PainelDoInstrutor
      * Item com zero não entra — uma fila que diz "0 a corrigir" vira ruído
      * permanente e a pessoa para de ler a fila inteira.
      *
-     * @param  array{sub:string,name:string,role:string}  $instrutor
+     * @param  array{sub:string,nome:string,papel:string}  $instrutor
      * @return list<array{id:string,quantidade:int,texto:string,rota:string}>
      */
     public function aFazer(array $instrutor): array
@@ -332,9 +332,9 @@ final class PainelDoInstrutor
          * e contar trabalho que não se pode fazer é pior que não contar.
          */
         if (config('features.aprovacaoAutomaticaMatricula') !== true) {
-            $cursos = $instrutor['role'] === 'admin' ? null : InstructorScope::courseIds($instrutor);
-            $pendentes = AdmissionRequest::query()->where('status', 'pending')
-                ->when($cursos !== null, static fn ($q) => $q->whereIn('courseId', $cursos ?? []))
+            $cursos = $instrutor['papel'] === 'admin' ? null : InstructorScope::courseIds($instrutor);
+            $pendentes = SolicitacaoIngresso::query()->where('status', 'pending')
+                ->when($cursos !== null, static fn ($q) => $q->whereIn('curso_id', $cursos ?? []))
                 ->count();
 
             if ($pendentes > 0) {
@@ -374,7 +374,7 @@ final class PainelDoInstrutor
     /**
      * Quantas pendências ao todo — o número que o menu mostra.
      *
-     * @param  array{sub:string,name:string,role:string}  $instrutor
+     * @param  array{sub:string,nome:string,papel:string}  $instrutor
      */
     public function quantasPendencias(array $instrutor): int
     {

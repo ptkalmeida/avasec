@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\StudentEnrollment;
+use App\Models\Curso;
+use App\Models\Matricula;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\Support\SeedsIdentity;
@@ -43,7 +43,7 @@ final class CatalogoDoAlunoTest extends TestCase
     {
         $aluno = $this->alunoNovo();
 
-        $resposta = $this->como($aluno['id'], $aluno['name'])->get('/aluno/catalogo');
+        $resposta = $this->como($aluno['id'], $aluno['nome'])->get('/aluno/catalogo');
 
         $resposta->assertOk();
         $resposta->assertSee('Catálogo', escape: false);
@@ -53,16 +53,16 @@ final class CatalogoDoAlunoTest extends TestCase
     public function test_matricula_efetiva_e_leva_ao_curso(): void
     {
         $aluno = $this->alunoNovo();
-        $curso = Course::query()->where('status', 1)->firstOrFail();
+        $curso = Curso::query()->where('status', 1)->firstOrFail();
 
-        $resposta = $this->como($aluno['id'], $aluno['name'])
+        $resposta = $this->como($aluno['id'], $aluno['nome'])
             ->post('/aluno/catalogo/'.$curso->id.'/matricula', ['ciente' => '1']);
 
         $resposta->assertRedirect('/aluno/curso/'.($curso->slug !== null && $curso->slug !== '' ? $curso->slug : $curso->id));
 
-        $matricula = StudentEnrollment::query()->where('userId', $aluno['id'])->first();
+        $matricula = Matricula::query()->where('usuario_id', $aluno['id'])->first();
         $this->assertNotNull($matricula, 'A matrícula não foi gravada.');
-        $this->assertSame($curso->id, $matricula->enrolledCourseId);
+        $this->assertSame($curso->id, $matricula->curso_matriculado_id);
     }
 
     /**
@@ -73,22 +73,22 @@ final class CatalogoDoAlunoTest extends TestCase
     public function test_sem_o_termo_de_ciencia_nao_matricula(): void
     {
         $aluno = $this->alunoNovo();
-        $curso = Course::query()->where('status', 1)->firstOrFail();
+        $curso = Curso::query()->where('status', 1)->firstOrFail();
 
-        $resposta = $this->como($aluno['id'], $aluno['name'])
+        $resposta = $this->como($aluno['id'], $aluno['nome'])
             ->from('/aluno/catalogo/'.$curso->id)
             ->post('/aluno/catalogo/'.$curso->id.'/matricula', []);
 
         $resposta->assertSessionHasErrors('ciente');
         $this->assertNull(
-            StudentEnrollment::query()->where('userId', $aluno['id'])->value('enrolledCourseId'),
+            Matricula::query()->where('usuario_id', $aluno['id'])->value('curso_matriculado_id'),
             'Matriculou sem o termo aceito.',
         );
     }
 
     public function test_visitante_sem_sessao_nao_matricula_ninguem(): void
     {
-        $curso = Course::query()->where('status', 1)->firstOrFail();
+        $curso = Curso::query()->where('status', 1)->firstOrFail();
 
         $this->post('/aluno/catalogo/'.$curso->id.'/matricula', ['ciente' => '1'])
             ->assertRedirect('/entrar');
@@ -101,18 +101,18 @@ final class CatalogoDoAlunoTest extends TestCase
     public function test_curso_que_o_aluno_ja_tem_nao_aparece_como_oferta(): void
     {
         $aluno = $this->alunoNovo();
-        $curso = Course::query()->where('status', 1)->firstOrFail();
+        $curso = Curso::query()->where('status', 1)->firstOrFail();
 
-        $this->como($aluno['id'], $aluno['name'])
+        $this->como($aluno['id'], $aluno['nome'])
             ->post('/aluno/catalogo/'.$curso->id.'/matricula', ['ciente' => '1']);
 
         // Some da lista...
-        $lista = $this->como($aluno['id'], $aluno['name'])->get('/aluno/catalogo');
+        $lista = $this->como($aluno['id'], $aluno['nome'])->get('/aluno/catalogo');
         $lista->assertDontSee('/aluno/catalogo/'.$curso->id.'"', escape: false);
 
         // ...e a ficha dele leva ao curso.
         $destino = $curso->slug !== null && $curso->slug !== '' ? $curso->slug : $curso->id;
-        $this->como($aluno['id'], $aluno['name'])
+        $this->como($aluno['id'], $aluno['nome'])
             ->get('/aluno/catalogo/'.$curso->id)
             ->assertRedirect('/aluno/curso/'.$destino);
     }
@@ -124,12 +124,12 @@ final class CatalogoDoAlunoTest extends TestCase
     public function test_quem_ja_tem_curso_ativo_e_avisado_antes_de_escolher(): void
     {
         $aluno = $this->alunoNovo();
-        $curso = Course::query()->where('status', 1)->firstOrFail();
+        $curso = Curso::query()->where('status', 1)->firstOrFail();
 
-        $this->como($aluno['id'], $aluno['name'])
+        $this->como($aluno['id'], $aluno['nome'])
             ->post('/aluno/catalogo/'.$curso->id.'/matricula', ['ciente' => '1']);
 
-        $this->como($aluno['id'], $aluno['name'])
+        $this->como($aluno['id'], $aluno['nome'])
             ->get('/aluno/catalogo')
             ->assertSee('Você já tem um curso em andamento', escape: false);
     }
@@ -138,6 +138,6 @@ final class CatalogoDoAlunoTest extends TestCase
     {
         $aluno = $this->alunoNovo();
 
-        $this->como($aluno['id'], $aluno['name'])->get('/aluno/catalogo/nao-existe')->assertNotFound();
+        $this->como($aluno['id'], $aluno['nome'])->get('/aluno/catalogo/nao-existe')->assertNotFound();
     }
 }

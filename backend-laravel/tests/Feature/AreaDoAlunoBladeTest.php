@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\StudentEnrollment;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Matricula;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use Tests\TestCase;
 
@@ -34,12 +34,12 @@ final class AreaDoAlunoBladeTest extends TestCase
      * matrícula e metade deste arquivo se pulava sozinha. Teste pulado parece
      * teste verde no resumo, e esta é a parte que guarda registro acadêmico.
      */
-    private function aluno(): User
+    private function aluno(): Usuario
     {
-        $base = User::query()
-            ->where('role', 'student')
+        $base = Usuario::query()
+            ->where('papel', 'student')
             ->where('status', 'active')
-            ->whereNull('inativadoEm');
+            ->whereNull('inativado_em');
 
         $comCurso = (clone $base)
             ->whereIn('id', $this->matriculadosComCurso())
@@ -63,11 +63,11 @@ final class AreaDoAlunoBladeTest extends TestCase
      * ela não decifra este, chegaria um texto cifrado onde se espera um JWT. O
      * sintoma é ótimo para perder uma tarde: todo teste autenticado "desloga".
      */
-    private function comoAluno(User $aluno, ?string $papelNoToken = null): self
+    private function comoAluno(Usuario $aluno, ?string $papelNoToken = null): self
     {
         return $this->withUnencryptedCookie(
             JwtAuthenticate::SESSION_COOKIE,
-            Jwt::issue((string) $aluno->id, (string) $aluno->name, $papelNoToken ?? (string) $aluno->role),
+            Jwt::issue((string) $aluno->id, (string) $aluno->nome, $papelNoToken ?? (string) $aluno->papel),
         );
     }
 
@@ -93,7 +93,7 @@ final class AreaDoAlunoBladeTest extends TestCase
      */
     public function test_quem_nao_e_aluno_nao_entra_na_area_do_aluno(): void
     {
-        $gestor = User::query()->whereIn('role', ['instructor', 'admin'])->whereNull('inativadoEm')->first();
+        $gestor = Usuario::query()->whereIn('papel', ['instructor', 'admin'])->whereNull('inativado_em')->first();
 
         if ($gestor === null) {
             $this->markTestSkipped('Sem gestor/admin no banco de desenvolvimento.');
@@ -116,7 +116,7 @@ final class AreaDoAlunoBladeTest extends TestCase
         $resposta = $this->comoAluno($aluno, papelNoToken: 'admin')->get('/aluno');
 
         $resposta->assertOk();
-        $resposta->assertSee('Olá, '.$aluno->name, escape: false);
+        $resposta->assertSee('Olá, '.$aluno->nome, escape: false);
     }
 
     // ---------- tela 3: painel ----------
@@ -128,7 +128,7 @@ final class AreaDoAlunoBladeTest extends TestCase
         $resposta = $this->comoAluno($aluno)->get('/aluno');
 
         $resposta->assertOk();
-        $resposta->assertSee('Olá, '.$aluno->name, escape: false);
+        $resposta->assertSee('Olá, '.$aluno->nome, escape: false);
 
         // A skill proíbe foto de perfil: a pessoa é identificada por texto.
         $resposta->assertDontSee('avatar', escape: false);
@@ -189,23 +189,23 @@ final class AreaDoAlunoBladeTest extends TestCase
     // ---------- tela 4: navegação do curso ----------
 
     /**
-     * O curso que o aluno cursa — por `enrolledCourseId` **ou** por
-     * `extraCourseIds`.
+     * O curso que o aluno cursa — por `curso_matriculado_id` **ou** por
+     * `cursos_extras_ids`.
      *
      * Olhar só a primeira coluna não é simplificação: o aluno do banco de
      * desenvolvimento tem exatamente o segundo caso (matrícula concorrente
-     * concedida pela coordenação), e um teste que olhasse só `enrolledCourseId`
+     * concedida pela coordenação), e um teste que olhasse só `curso_matriculado_id`
      * se pularia sozinho justamente onde há dado para conferir.
      */
-    private function cursoDoAluno(User $aluno): ?string
+    private function cursoDoAluno(Usuario $aluno): ?string
     {
-        $matricula = StudentEnrollment::query()->where('userId', $aluno->id)->first();
+        $matricula = Matricula::query()->where('usuario_id', $aluno->id)->first();
 
-        if (is_string($matricula?->enrolledCourseId) && $matricula->enrolledCourseId !== '') {
-            return $matricula->enrolledCourseId;
+        if (is_string($matricula?->curso_matriculado_id) && $matricula->curso_matriculado_id !== '') {
+            return $matricula->curso_matriculado_id;
         }
 
-        $extras = is_array($matricula?->extraCourseIds) ? $matricula->extraCourseIds : [];
+        $extras = is_array($matricula?->cursos_extras_ids) ? $matricula->cursos_extras_ids : [];
         foreach ($extras as $id) {
             if (is_string($id) && $id !== '') {
                 return $id;
@@ -220,12 +220,12 @@ final class AreaDoAlunoBladeTest extends TestCase
     {
         $ids = [];
 
-        foreach (StudentEnrollment::query()->get(['userId', 'enrolledCourseId', 'extraCourseIds']) as $linha) {
-            $temPrincipal = is_string($linha->enrolledCourseId) && $linha->enrolledCourseId !== '';
-            $temExtra = is_array($linha->extraCourseIds) && $linha->extraCourseIds !== [];
+        foreach (Matricula::query()->get(['usuario_id', 'curso_matriculado_id', 'cursos_extras_ids']) as $linha) {
+            $temPrincipal = is_string($linha->curso_matriculado_id) && $linha->curso_matriculado_id !== '';
+            $temExtra = is_array($linha->cursos_extras_ids) && $linha->cursos_extras_ids !== [];
 
             if ($temPrincipal || $temExtra) {
-                $ids[] = (string) $linha->userId;
+                $ids[] = (string) $linha->usuario_id;
             }
         }
 
@@ -281,7 +281,7 @@ final class AreaDoAlunoBladeTest extends TestCase
         $aluno = $this->aluno();
         $meu = $this->cursoDoAluno($aluno);
 
-        $outro = Course::query()
+        $outro = Curso::query()
             ->when($meu !== null, fn ($q) => $q->where('id', '!=', $meu))
             ->where('status', 1)
             ->first();
@@ -311,7 +311,7 @@ final class AreaDoAlunoBladeTest extends TestCase
             $this->markTestSkipped('O aluno de desenvolvimento não tem curso em andamento.');
         }
 
-        $slug = Course::query()->where('id', $cursoId)->value('slug');
+        $slug = Curso::query()->where('id', $cursoId)->value('slug');
 
         if (! is_string($slug) || $slug === '') {
             $this->markTestSkipped('O curso do aluno não tem slug.');

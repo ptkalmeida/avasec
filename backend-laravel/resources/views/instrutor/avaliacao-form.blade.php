@@ -5,7 +5,7 @@
     de propósito:
 
     - o CURSO vem do endereço, e o formulário não tem campo de curso. O editor
-      React tinha o seletor, e a API aceita `courseId` no corpo; aqui uma prova
+      React tinha o seletor, e a API aceita `curso_id` no corpo; aqui uma prova
       não muda de curso por edição;
     - a validação mora no SERVIDOR (`QuestaoDeProva`). No React ela existia só
       no navegador, e a API gravava gabarito impossível;
@@ -19,7 +19,7 @@
     Adicionar e remover questões e alternativas usa Alpine: a lista é dinâmica
     por natureza, e é o único trecho desta tela que precisa de JavaScript.
 --}}
-<x-layouts.instrutor :titulo="($prova === null ? 'Nova avaliação' : 'Editar avaliação').' — '.$curso['title']" ativo="avaliacoes" :cursoDoMenu="$curso">
+<x-layouts.instrutor :titulo="($prova === null ? 'Nova avaliação' : 'Editar avaliação').' — '.$curso['titulo']" ativo="avaliacoes" :cursoDoMenu="$curso">
 
     @php
         $acao = $prova === null
@@ -35,7 +35,7 @@
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/inst" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Meus cursos</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['title'] }}</a>
+            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <a href="/inst/curso/{{ $ref }}/avaliacoes" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Avaliações</a>
         </nav>
@@ -74,7 +74,7 @@
               x-data="{
                   proxima: 0,
                   questoes: [],
-                  titulo: @js(old('titulo', $prova['title'] ?? '')),
+                  titulo: @js(old('titulo', $prova['titulo'] ?? '')),
                   nova(q = {}) {
                       return {
                           chave: ++this.proxima,

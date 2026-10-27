@@ -68,7 +68,7 @@
                 @if ($aula !== null)
                     <input type="hidden" name="aula" value="{{ $aula['id'] }}">
                     <p class="text-apoio text-escult-ink-2">
-                        Sobre a aula <strong class="text-ava-tinta">{{ $aula['title'] }}</strong>
+                        Sobre a aula <strong class="text-ava-tinta">{{ $aula['titulo'] }}</strong>
                         — o gestor recebe o nome da aula junto com a sua mensagem.
                     </p>
                 @endif

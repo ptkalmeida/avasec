@@ -23,11 +23,11 @@ final class DocumentTemplateTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->getJson('/api/document-templates/certificado')
+            ->getJson('/api/modelos-documento/certificado')
             ->assertOk()
-            ->assertJsonPath('type', 'certificado')
-            ->assertJsonPath('customHtml', null)
-            ->assertJsonCount(2, 'signatories');
+            ->assertJsonPath('tipo', 'certificado')
+            ->assertJsonPath('html_personalizado', null)
+            ->assertJsonCount(2, 'signatarios');
     }
 
     public function test_unknown_type_is_404(): void
@@ -35,7 +35,7 @@ final class DocumentTemplateTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->getJson('/api/document-templates/inexistente')
+            ->getJson('/api/modelos-documento/inexistente')
             ->assertStatus(404);
     }
 
@@ -46,12 +46,12 @@ final class DocumentTemplateTest extends TestCase
         $student = $this->makeStudent('Aluno Templates');
 
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->getJson('/api/document-templates/certificado')
+            ->getJson('/api/modelos-documento/certificado')
             ->assertOk()
-            ->assertJsonPath('type', 'certificado');
+            ->assertJsonPath('tipo', 'certificado');
 
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->putJson('/api/document-templates/certificado', ['institutionName' => 'Hackeado'])
+            ->putJson('/api/modelos-documento/certificado', ['nome_instituicao' => 'Hackeado'])
             ->assertStatus(403);
     }
 
@@ -60,7 +60,7 @@ final class DocumentTemplateTest extends TestCase
         $instructor = $this->staffToken('instructor');
 
         $this->withHeader('Authorization', "Bearer {$instructor}")
-            ->putJson('/api/document-templates/certificado', ['institutionName' => 'Tentativa'])
+            ->putJson('/api/modelos-documento/certificado', ['nome_instituicao' => 'Tentativa'])
             ->assertStatus(403);
     }
 
@@ -69,23 +69,23 @@ final class DocumentTemplateTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson('/api/document-templates/certificado', [
-                'institutionName' => 'Escola Estadual da Cultura',
-                'signatories' => [
+            ->putJson('/api/modelos-documento/certificado', [
+                'nome_instituicao' => 'Escola Estadual da Cultura',
+                'signatarios' => [
                     ['name' => 'Fulano de Tal', 'role' => 'Diretor'],
                 ],
-                'footerText' => 'Rodapé customizado.',
+                'texto_rodape' => 'Rodapé customizado.',
             ])
             ->assertOk()
-            ->assertJsonPath('institutionName', 'Escola Estadual da Cultura')
-            ->assertJsonPath('signatories.0.name', 'Fulano de Tal')
-            ->assertJsonPath('footerText', 'Rodapé customizado.');
+            ->assertJsonPath('nome_instituicao', 'Escola Estadual da Cultura')
+            ->assertJsonPath('signatarios.0.name', 'Fulano de Tal')
+            ->assertJsonPath('texto_rodape', 'Rodapé customizado.');
 
         // Persistiu — uma nova leitura devolve o mesmo valor, não o default.
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->getJson('/api/document-templates/certificado')
+            ->getJson('/api/modelos-documento/certificado')
             ->assertOk()
-            ->assertJsonPath('institutionName', 'Escola Estadual da Cultura');
+            ->assertJsonPath('nome_instituicao', 'Escola Estadual da Cultura');
     }
 
     public function test_admin_previews_certificado_template_as_pdf(): void
@@ -93,7 +93,7 @@ final class DocumentTemplateTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $response = $this->withHeader('Authorization', "Bearer {$admin}")
-            ->get('/api/document-templates/certificado/preview');
+            ->get('/api/modelos-documento/certificado/previa');
 
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
@@ -105,7 +105,7 @@ final class DocumentTemplateTest extends TestCase
         $student = $this->makeStudent('Aluno Preview');
 
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->get('/api/document-templates/certificado/preview')
+            ->get('/api/modelos-documento/certificado/previa')
             ->assertStatus(403);
     }
 
@@ -114,7 +114,7 @@ final class DocumentTemplateTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->get('/api/document-templates/historico/preview')
+            ->get('/api/modelos-documento/historico/previa')
             ->assertStatus(400);
     }
 
@@ -122,32 +122,32 @@ final class DocumentTemplateTest extends TestCase
     {
         $admin = $this->staffToken('admin');
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson('/api/document-templates/certificado', ['institutionName' => 'Instituição Customizada XYZ'])
+            ->putJson('/api/modelos-documento/certificado', ['nome_instituicao' => 'Instituição Customizada XYZ'])
             ->assertOk();
         $this->flushHeaders();
 
         $student = $this->makeStudent('Aluno Template PDF');
-        $courseId = 'course-tpl-'.uniqid();
-        $lessonId = 'lesson-tpl-'.uniqid();
-        DB::table('Course')->insert([
-            'id' => $courseId, 'title' => 'Curso Template', 'description' => 'desc', 'category' => 'x',
-            'thumbnail' => 't', 'instructorName' => 'Gestor de Conteúdos', 'cargaHoraria' => 40,
+        $curso_id = 'course-tpl-'.uniqid();
+        $aula_id = 'lesson-tpl-'.uniqid();
+        DB::table('curso')->insert([
+            'id' => $curso_id, 'titulo' => 'Curso Template', 'descricao' => 'desc', 'categoria' => 'x',
+            'miniatura' => 't', 'nome_instrutor' => 'Gestor de Conteúdos', 'carga_horaria' => 40,
         ]);
-        DB::table('Lesson')->insert([
-            'id' => $lessonId, 'courseId' => $courseId, 'title' => 'A1', 'duration' => '5min', 'lesson_order' => 0,
+        DB::table('aula')->insert([
+            'id' => $aula_id, 'curso_id' => $curso_id, 'titulo' => 'A1', 'duracao' => '5min', 'ordem' => 0,
         ]);
-        $this->matricular($student, $courseId);
-        DB::table('StudentProgress')->insert([
-            'id' => 'prog-tpl-'.uniqid(), 'studentName' => $student['name'], 'userId' => $student['id'], 'courseId' => $courseId,
-            'completedLessons' => json_encode([$lessonId]), 'attendedLiveSessions' => json_encode([]),
+        $this->matricular($student, $curso_id);
+        DB::table('progresso_aluno')->insert([
+            'id' => 'prog-tpl-'.uniqid(), 'nome_aluno' => $student['nome'], 'usuario_id' => $student['id'], 'curso_id' => $curso_id,
+            'aulas_concluidas' => json_encode([$aula_id]), 'sessoes_ao_vivo_assistidas' => json_encode([]),
         ]);
 
         $issued = $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->postJson('/api/certificates', ['courseId' => $courseId]);
+            ->postJson('/api/certificados', ['curso_id' => $curso_id]);
         $issued->assertStatus(201);
 
         $response = $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->get("/api/certificates/{$issued->json('id')}/pdf");
+            ->get("/api/certificados/{$issued->json('id')}/pdf");
 
         $response->assertOk();
         $this->assertStringStartsWith('%PDF-', (string) $response->getContent());

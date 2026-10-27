@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
-use App\Models\Course;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Usuario;
 use App\Rules\CpfRule;
 use App\Rules\StrongPasswordRule;
 use App\Services\AlunosDoAdmin;
@@ -105,16 +105,16 @@ final class AlunosDoAdminController extends Controller
      */
     public function cadastrar(Request $request): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
-        $nome = trim((string) preg_replace('/\s{2,}/', ' ', $request->string('name')->toString()));
+        $nome = trim((string) preg_replace('/\s{2,}/', ' ', $request->string('nome')->toString()));
 
         $dados = Validator::make(
             // A sigla da UF é maiúscula: o campo da tela a força, e o servidor também.
-            array_merge($request->all(), ['name' => $nome, 'uf' => mb_strtoupper(trim($request->string('uf')->toString()))]),
+            array_merge($request->all(), ['nome' => $nome, 'uf' => mb_strtoupper(trim($request->string('uf')->toString()))]),
             [
-                'name' => ['required', 'string', 'max:150', static function (string $atributo, mixed $valor, \Closure $falhou): void {
+                'nome' => ['required', 'string', 'max:150', static function (string $atributo, mixed $valor, \Closure $falhou): void {
                     $texto = is_string($valor) ? $valor : '';
                     if (preg_match("/^[\\p{L}'\\- ]+$/u", $texto) !== 1) {
                         $falhou('O nome aceita apenas letras — sem números ou símbolos.');
@@ -139,32 +139,32 @@ final class AlunosDoAdminController extends Controller
                 'senha' => ['nullable', 'string', 'max:128', new StrongPasswordRule],
                 'municipio' => ['nullable', 'string', 'max:120', "regex:/^[\\p{L}'\\- ]+\$/u"],
                 'uf' => ['nullable', 'string', 'size:2', 'in:'.implode(',', self::UFS)],
-                'areaInteresse' => ['nullable', 'string', 'max:120', 'regex:/^[\\p{L}0-9&,\\-\\/ ]+$/u'],
+                'area_interesse' => ['nullable', 'string', 'max:120', 'regex:/^[\\p{L}0-9&,\\-\\/ ]+$/u'],
             ],
             [
                 'curso.required' => 'Selecione o curso de matrícula.',
                 'municipio.regex' => 'O município aceita apenas letras.',
                 'uf.in' => 'UF inválida — use a sigla de duas letras do estado (ex.: PE).',
                 'uf.size' => 'UF inválida — use a sigla de duas letras do estado (ex.: PE).',
-                'areaInteresse.regex' => 'A área de interesse aceita apenas letras, números e os sinais & , - /',
+                'area_interesse.regex' => 'A área de interesse aceita apenas letras, números e os sinais & , - /',
             ],
             [
-                'name' => 'nome',
+                'nome' => 'nome',
                 'email' => 'e-mail',
                 'cpf' => 'CPF',
                 'curso' => 'curso',
                 'senha' => 'senha',
                 'municipio' => 'município',
                 'uf' => 'UF',
-                'areaInteresse' => 'área de interesse',
+                'area_interesse' => 'área de interesse',
             ],
         )->validate();
 
-        $curso = Course::query()->find((string) $dados['curso']);
+        $curso = Curso::query()->find((string) $dados['curso']);
         if ($curso === null) {
             return $this->voltarComErro($request, 'curso', 'Este curso não existe mais.');
         }
-        if (VigenciaDoCurso::vencida(['vigenciaAte' => $curso->getAttribute('vigenciaAte'), 'contractExpirationDate' => $curso->contractExpirationDate])) {
+        if (VigenciaDoCurso::vencida(['vigencia_ate' => $curso->getAttribute('vigencia_ate'), 'vencimento_contrato_texto' => $curso->vencimento_contrato_texto])) {
             return $this->voltarComErro($request, 'curso', 'Este curso está com a vigência vencida e não aceita matrícula nova.');
         }
 
@@ -174,20 +174,20 @@ final class AlunosDoAdminController extends Controller
         try {
             $id = DB::transaction(function () use ($dados, $nome, $senha, $admin, $curso): string {
                 $criado = $this->auth->register([
-                    'name' => $nome,
+                    'nome' => $nome,
                     'email' => mb_strtolower(trim((string) $dados['email'])),
                     'password' => $senha,
-                    'role' => 'student',
+                    'papel' => 'student',
                     'cpf' => (string) $dados['cpf'],
                     'municipio' => $this->opcional($dados['municipio'] ?? null),
                     'uf' => $this->opcional($dados['uf'] ?? null),
-                    'areaInteresse' => $this->opcional($dados['areaInteresse'] ?? null),
+                    'area_interesse' => $this->opcional($dados['area_interesse'] ?? null),
                 ], $admin);
 
-                $userId = (string) $criado['user']['id'];
-                $this->matriculas->createAdmission(['userId' => $userId, 'courseId' => (string) $curso->id], $admin);
+                $usuario_id = (string) $criado['usuario']['id'];
+                $this->matriculas->createAdmission(['usuario_id' => $usuario_id, 'curso_id' => (string) $curso->id], $admin);
 
-                return $userId;
+                return $usuario_id;
             });
         } catch (ApiException $e) {
             return $this->voltarComErro($request, 'entrada', $e->getMessage());
@@ -195,11 +195,11 @@ final class AlunosDoAdminController extends Controller
             return $this->voltarComErro($request, 'entrada', 'Não foi possível matricular o aluno.');
         }
 
-        $this->audit->log($request, 'Cadastro de Usuário', 'Aluno "'.$nome.'" cadastrado e matriculado em "'.$curso->title.'" pelo painel administrativo.');
+        $this->audit->log($request, 'Cadastro de Usuário', 'Aluno "'.$nome.'" cadastrado e matriculado em "'.$curso->titulo.'" pelo painel administrativo.');
 
         $resposta = redirect('/admin/alunos/'.$id)->with(
             'avisoDoAluno',
-            'Aluno '.$nome.' matriculado(a) em '.$curso->title.', sob supervisão de '.($curso->instructorName ?? 'gestor a definir').'.',
+            'Aluno '.$nome.' matriculado(a) em '.$curso->titulo.', sob supervisão de '.($curso->nome_instrutor ?? 'gestor a definir').'.',
         );
 
         // A senha gerada vai UMA vez, para a coordenação repassar ao aluno: o
@@ -219,13 +219,13 @@ final class AlunosDoAdminController extends Controller
         $this->audit->log(
             $request,
             'Redefinição de Senha',
-            'Senha de "'.$aluno->name.'" ('.$alunoId.') redefinida pela coordenação.',
+            'Senha de "'.$aluno->nome.'" ('.$alunoId.') redefinida pela coordenação.',
             'WARNING',
         );
 
         return redirect('/admin/alunos/'.$alunoId)
-            ->with('avisoDoAluno', 'A senha de '.$aluno->name.' foi atualizada.')
-            ->with('senhaDefinida', ['nome' => (string) $aluno->name, 'senha' => (string) $dados['novaSenha']]);
+            ->with('avisoDoAluno', 'A senha de '.$aluno->nome.' foi atualizada.')
+            ->with('senhaDefinida', ['nome' => (string) $aluno->nome, 'senha' => (string) $dados['novaSenha']]);
     }
 
     /**
@@ -248,7 +248,7 @@ final class AlunosDoAdminController extends Controller
 
         if ($aluno->status === 'active') {
             // Duplo clique ou duas pessoas na coordenação: o resultado desejado já existe.
-            return $volta->with('avisoDoAluno', 'O cadastro de '.$aluno->name.' já estava confirmado.');
+            return $volta->with('avisoDoAluno', 'O cadastro de '.$aluno->nome.' já estava confirmado.');
         }
 
         if ($aluno->status !== 'pending_confirmation') {
@@ -259,29 +259,29 @@ final class AlunosDoAdminController extends Controller
         $this->audit->log(
             $request,
             'Alteração de Status de Conta',
-            'Cadastro de "'.$aluno->name.'" ('.$alunoId.') confirmado pela coordenação: aguardando confirmação → ativa.',
+            'Cadastro de "'.$aluno->nome.'" ('.$alunoId.') confirmado pela coordenação: aguardando confirmação → ativa.',
         );
 
-        return $volta->with('avisoDoAluno', $aluno->name.' teve o cadastro confirmado e já pode entrar na plataforma.');
+        return $volta->with('avisoDoAluno', $aluno->nome.' teve o cadastro confirmado e já pode entrar na plataforma.');
     }
 
     public function matriculaMultipla(Request $request, string $alunoId): RedirectResponse
     {
         abort_unless(config('features.matriculasMultiplas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
         $aluno = $this->aluno($alunoId);
         $permitir = $request->boolean('permitir');
 
-        $this->matriculas->upsertEnrollment($alunoId, ['canMultiEnroll' => $permitir], $admin);
-        $this->audit->log($request, 'Alteração de Matrícula', 'Matrícula de "'.$aluno->name.'" atualizada: matrícula múltipla '.($permitir ? 'permitida' : 'revogada').'.');
+        $this->matriculas->upsertEnrollment($alunoId, ['pode_multimatricula' => $permitir], $admin);
+        $this->audit->log($request, 'Alteração de Matrícula', 'Matrícula de "'.$aluno->nome.'" atualizada: matrícula múltipla '.($permitir ? 'permitida' : 'revogada').'.');
 
         return redirect('/admin/alunos/'.$alunoId)->with(
             'avisoDoAluno',
             $permitir
-                ? $aluno->name.' agora pode cursar mais de uma disciplina ao mesmo tempo.'
-                : 'Matrícula múltipla revogada para '.$aluno->name.'.',
+                ? $aluno->nome.' agora pode cursar mais de uma disciplina ao mesmo tempo.'
+                : 'Matrícula múltipla revogada para '.$aluno->nome.'.',
         );
     }
 
@@ -292,7 +292,7 @@ final class AlunosDoAdminController extends Controller
      */
     public function inativar(Request $request, string $alunoId): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
         $aluno = $this->aluno($alunoId);
 
@@ -304,7 +304,7 @@ final class AlunosDoAdminController extends Controller
 
         return redirect('/admin/alunos')->with(
             'avisoDosAlunos',
-            $aluno->name.' foi retirado(a) da plataforma. O registro, as matrículas e o histórico ficam preservados.',
+            $aluno->nome.' foi retirado(a) da plataforma. O registro, as matrículas e o histórico ficam preservados.',
         );
     }
 
@@ -315,7 +315,7 @@ final class AlunosDoAdminController extends Controller
      */
     public function reativar(Request $request, string $alunoId): RedirectResponse
     {
-        $aluno = User::onlyTrashed()->where('role', 'student')->find($alunoId);
+        $aluno = Usuario::onlyTrashed()->where('papel', 'student')->find($alunoId);
         abort_if($aluno === null, 404);
 
         $this->auth->reactivateUser($alunoId);
@@ -323,13 +323,13 @@ final class AlunosDoAdminController extends Controller
 
         return redirect('/admin/alunos')->with(
             'avisoDosAlunos',
-            $aluno->name.' voltou à plataforma. As matrículas, as notas e os certificados estão como estavam; a pessoa entra com um login novo.',
+            $aluno->nome.' voltou à plataforma. As matrículas, as notas e os certificados estão como estavam; a pessoa entra com um login novo.',
         );
     }
 
-    private function aluno(string $alunoId): User
+    private function aluno(string $alunoId): Usuario
     {
-        $aluno = User::query()->where('role', 'student')->find($alunoId);
+        $aluno = Usuario::query()->where('papel', 'student')->find($alunoId);
         abort_if($aluno === null, 404);
 
         return $aluno;
@@ -344,14 +344,14 @@ final class AlunosDoAdminController extends Controller
     private function cursosAbertosParaMatricula(): array
     {
         $lista = [];
-        foreach (Course::query()->orderBy('title')->get() as $curso) {
-            if (VigenciaDoCurso::vencida(['vigenciaAte' => $curso->getAttribute('vigenciaAte'), 'contractExpirationDate' => $curso->contractExpirationDate])) {
+        foreach (Curso::query()->orderBy('titulo')->get() as $curso) {
+            if (VigenciaDoCurso::vencida(['vigencia_ate' => $curso->getAttribute('vigencia_ate'), 'vencimento_contrato_texto' => $curso->vencimento_contrato_texto])) {
                 continue;
             }
             $lista[] = [
                 'id' => (string) $curso->id,
-                'titulo' => (string) $curso->title,
-                'gestor' => is_string($curso->instructorName) && $curso->instructorName !== '' ? $curso->instructorName : null,
+                'titulo' => (string) $curso->titulo,
+                'gestor' => is_string($curso->nome_instrutor) && $curso->nome_instrutor !== '' ? $curso->nome_instrutor : null,
             ];
         }
 

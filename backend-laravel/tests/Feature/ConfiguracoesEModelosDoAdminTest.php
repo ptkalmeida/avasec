@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\DocumentTemplate;
-use App\Models\SystemSettings;
-use App\Models\User;
+use App\Models\ModeloDocumento;
+use App\Models\ConfiguracaoSistema;
+use App\Models\Usuario;
 use App\Support\CanalDeMensagens;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -39,17 +39,17 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
     /** @return array<string, mixed> */
     private function gravadas(): array
     {
-        $linha = SystemSettings::query()->find('singleton');
+        $linha = ConfiguracaoSistema::query()->find('singleton');
 
-        return is_array($linha?->data) ? $linha->data : [];
+        return is_array($linha?->dados) ? $linha->dados : [];
     }
 
     // ---- acesso ---------------------------------------------------------------
     public function test_so_o_admin_chega_e_escreve(): void
     {
         $aluno = $this->makeStudent('Aluno Config Acesso');
-        $gestor = User::query()->where('role', 'instructor')->firstOrFail();
-        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->name, 'instructor');
+        $gestor = Usuario::query()->where('papel', 'instructor')->firstOrFail();
+        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->nome, 'instructor');
 
         // O visitante vem primeiro: o cookie de `como()` persiste no cliente de teste.
         foreach (['/admin/configuracoes', '/admin/templates'] as $caminho) {
@@ -60,13 +60,13 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
             $this->como($aluno['token'])->get($caminho)->assertRedirect('/aluno');
             $this->como($tokenDoGestor)->get($caminho)->assertRedirect('/inst');
         }
-        $this->como($tokenDoGestor)->post('/admin/templates/certificado', ['institutionName' => 'X'])->assertRedirect('/inst');
+        $this->como($tokenDoGestor)->post('/admin/templates/certificado', ['nome_instituicao' => 'X'])->assertRedirect('/inst');
     }
 
     // ---- configurações --------------------------------------------------------
     public function test_a_tela_mostra_o_que_esta_valendo(): void
     {
-        SystemSettings::query()->updateOrCreate(['id' => 'singleton'], ['data' => [
+        ConfiguracaoSistema::query()->updateOrCreate(['id' => 'singleton'], ['dados' => [
             'allowDirectMessages' => true, 'allowGlobalChat' => false, 'openEnrollment' => true,
             'autoCertify' => false, 'liveClassRecording' => true, 'autoArchiveDuration' => '3_meses',
         ]]);
@@ -104,7 +104,7 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $this->assertSame('nunca', $gravado['autoArchiveDuration']);
         $this->assertArrayNotHasKey('chaveInventada', $gravado);
 
-        $this->assertTrue(DB::table('SecurityLog')->where('action', 'Alteração de Configurações do Sistema')->exists());
+        $this->assertTrue(DB::table('log_seguranca')->where('acao', 'Alteração de Configurações do Sistema')->exists());
     }
 
     public function test_mensagens_diretas_ligadas_abrem_o_canal(): void
@@ -130,7 +130,7 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
     /** A base de hoje tem "12 meses", que não está na lista: salvar não pode trocá-lo sem aviso. */
     public function test_valor_antigo_de_arquivamento_continua_ofertado_e_valido(): void
     {
-        SystemSettings::query()->updateOrCreate(['id' => 'singleton'], ['data' => ['autoArchiveDuration' => '12 meses']]);
+        ConfiguracaoSistema::query()->updateOrCreate(['id' => 'singleton'], ['dados' => ['autoArchiveDuration' => '12 meses']]);
         $token = $this->admin();
 
         $this->como($token)->get('/admin/configuracoes')->assertSee('12 meses (valor atual)');
@@ -165,10 +165,10 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $tela->assertDontSee('<div id="root">', false);
         $tela->assertSee('Certificado de Conclusão');
         $tela->assertSee('Histórico Escolar');
-        $tela->assertSee('name="institutionName"', false);
+        $tela->assertSee('name="nome_instituicao"', false);
         $tela->assertSee('name="assinaturas[0][name]"', false);
-        $tela->assertSee('/api/document-templates/certificado/preview', false);
-        $tela->assertDontSee('customHtml');
+        $tela->assertSee('/api/modelos-documento/certificado/previa', false);
+        $tela->assertDontSee('html_personalizado');
     }
 
     public function test_o_historico_avisa_que_ainda_nao_gera_documento(): void
@@ -176,13 +176,13 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $tela = $this->como($this->admin())->get('/admin/templates?tipo=historico');
 
         $tela->assertSee('ainda não tem emissão de PDF própria');
-        $tela->assertDontSee('/api/document-templates/certificado/preview', false);
+        $tela->assertDontSee('/api/modelos-documento/certificado/previa', false);
     }
 
     public function test_tipo_inventado_volta_para_o_certificado(): void
     {
         $this->como($this->admin())->get('/admin/templates?tipo=diploma')->assertRedirect('/admin/templates');
-        $this->como($this->admin())->post('/admin/templates/diploma', ['institutionName' => 'X'])->assertNotFound();
+        $this->como($this->admin())->post('/admin/templates/diploma', ['nome_instituicao' => 'X'])->assertNotFound();
     }
 
     public function test_salvar_o_modelo_grava_instituicao_rodape_e_assinaturas(): void
@@ -191,8 +191,8 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
 
         $this->como($token)->post('/admin/templates/certificado', [
             'acao' => 'salvar',
-            'institutionName' => 'Escola Estadual da Cultura RJ',
-            'footerText' => 'Rodapé novo do certificado.',
+            'nome_instituicao' => 'Escola Estadual da Cultura RJ',
+            'texto_rodape' => 'Rodapé novo do certificado.',
             'assinaturas' => [
                 ['name' => 'Fulana de Tal', 'role' => 'Diretora'],
                 ['name' => '', 'role' => ''],
@@ -200,32 +200,32 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
             ],
         ])->assertRedirect('/admin/templates?tipo=certificado')->assertSessionHas('avisoDeModelo');
 
-        $modelo = DocumentTemplate::query()->findOrFail('certificado');
-        $this->assertSame('Escola Estadual da Cultura RJ', $modelo->institutionName);
-        $this->assertSame('Rodapé novo do certificado.', $modelo->footerText);
+        $modelo = ModeloDocumento::query()->findOrFail('certificado');
+        $this->assertSame('Escola Estadual da Cultura RJ', $modelo->nome_instituicao);
+        $this->assertSame('Rodapé novo do certificado.', $modelo->texto_rodape);
         // A linha em branco é espaço de preenchimento: não vira assinatura.
         $this->assertSame([
             ['name' => 'Fulana de Tal', 'role' => 'Diretora'],
             ['name' => 'Beltrano Silva', 'role' => 'Secretário'],
-        ], $modelo->signatories);
+        ], $modelo->signatarios);
         // O HTML livre nunca é tocado por esta tela.
-        $this->assertNull($modelo->customHtml);
+        $this->assertNull($modelo->html_personalizado);
 
         $this->como($token)->get('/admin/templates')->assertSee('Fulana de Tal')->assertSee('Rodapé novo do certificado.');
-        $this->assertTrue(DB::table('SecurityLog')->where('action', 'Edição de Template de Documento')->exists());
+        $this->assertTrue(DB::table('log_seguranca')->where('acao', 'Edição de Template de Documento')->exists());
     }
 
     public function test_assinatura_pela_metade_e_um_erro_visivel_e_nao_grava(): void
     {
-        $antes = DocumentTemplate::query()->find('certificado')?->institutionName;
+        $antes = ModeloDocumento::query()->find('certificado')?->nome_instituicao;
 
         $this->como($this->admin())->post('/admin/templates/certificado', [
             'acao' => 'salvar',
-            'institutionName' => 'Nome Que Nao Deve Gravar',
+            'nome_instituicao' => 'Nome Que Nao Deve Gravar',
             'assinaturas' => [['name' => 'Só o nome', 'role' => '']],
         ])->assertRedirect('/admin/templates?tipo=certificado')->assertSessionHasErrors('assinaturas');
 
-        $this->assertSame($antes, DocumentTemplate::query()->find('certificado')?->institutionName);
+        $this->assertSame($antes, ModeloDocumento::query()->find('certificado')?->nome_instituicao);
 
         // E a tela volta com o que a pessoa digitou.
         $this->como($this->admin())->get('/admin/templates')->assertSee('Só o nome');
@@ -234,11 +234,11 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
     public function test_adicionar_e_remover_assinatura_mexem_so_no_rascunho(): void
     {
         $token = $this->admin();
-        $antes = DocumentTemplate::query()->find('historico')?->signatories;
+        $antes = ModeloDocumento::query()->find('historico')?->signatarios;
 
         $this->como($token)->post('/admin/templates/historico', [
             'acao' => 'adicionar',
-            'institutionName' => 'Rascunho',
+            'nome_instituicao' => 'Rascunho',
             'assinaturas' => [['name' => 'Primeira', 'role' => 'Cargo 1']],
         ])->assertRedirect('/admin/templates?tipo=historico');
 
@@ -247,7 +247,7 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $tela->assertSee('Primeira');
 
         // Nada foi gravado.
-        $this->assertSame($antes, DocumentTemplate::query()->find('historico')?->signatories);
+        $this->assertSame($antes, ModeloDocumento::query()->find('historico')?->signatarios);
 
         $this->como($token)->post('/admin/templates/historico', [
             'acao' => 'remover:0',
@@ -256,7 +256,7 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $depois = $this->como($token)->get('/admin/templates?tipo=historico');
         $depois->assertDontSee('Primeira');
         $depois->assertSee('Segunda');
-        $this->assertSame($antes, DocumentTemplate::query()->find('historico')?->signatories);
+        $this->assertSame($antes, ModeloDocumento::query()->find('historico')?->signatarios);
     }
 
     public function test_limite_de_dez_assinaturas(): void

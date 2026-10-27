@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\Quiz;
-use App\Models\StudentEnrollment;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Avaliacao;
+use App\Models\Matricula;
+use App\Models\Usuario;
 use App\Support\VigenciaDoCurso;
 use Illuminate\Database\Query\Expression;
 
@@ -31,15 +31,15 @@ final class CursosDoAdmin
      */
     public function listar(?string $busca): array
     {
-        $consulta = Course::query()->orderBy('title');
+        $consulta = Curso::query()->orderBy('titulo');
 
         $termo = trim((string) $busca);
         if ($termo !== '') {
             // `%` e `_` digitados pela pessoa são texto, não curinga.
             $literal = addcslashes($termo, '\\%_');
             $consulta->where(static function ($q) use ($literal): void {
-                $q->where('title', 'like', '%'.$literal.'%')
-                    ->orWhere('instructorName', 'like', '%'.$literal.'%');
+                $q->where('titulo', 'like', '%'.$literal.'%')
+                    ->orWhere('nome_instrutor', 'like', '%'.$literal.'%');
             });
         }
 
@@ -49,14 +49,14 @@ final class CursosDoAdmin
         }
 
         $aulas = [];
-        foreach (Lesson::query()->toBase()->groupBy('courseId')->pluck(new Expression('count(*)'), 'courseId') as $cursoId => $total) {
+        foreach (Aula::query()->toBase()->groupBy('curso_id')->pluck(new Expression('count(*)'), 'curso_id') as $cursoId => $total) {
             if (is_numeric($total)) {
                 $aulas[(string) $cursoId] = (int) $total;
             }
         }
 
         $avaliacoes = [];
-        foreach (Quiz::query()->toBase()->groupBy('courseId')->pluck(new Expression('count(*)'), 'courseId') as $cursoId => $total) {
+        foreach (Avaliacao::query()->toBase()->groupBy('curso_id')->pluck(new Expression('count(*)'), 'curso_id') as $cursoId => $total) {
             if (is_numeric($total)) {
                 $avaliacoes[(string) $cursoId] = (int) $total;
             }
@@ -69,24 +69,24 @@ final class CursosDoAdmin
             $id = (string) $curso->id;
             $status = $curso->getAttribute('status');
             $linha = [
-                'vigenciaAte' => $curso->getAttribute('vigenciaAte'),
-                'contractExpirationDate' => $curso->contractExpirationDate,
+                'vigencia_ate' => $curso->getAttribute('vigencia_ate'),
+                'vencimento_contrato_texto' => $curso->vencimento_contrato_texto,
             ];
 
             $lista[] = [
                 'id' => $id,
                 'ref' => is_string($curso->slug) && $curso->slug !== '' ? $curso->slug : $id,
-                'titulo' => (string) $curso->title,
-                'categoria' => is_string($curso->category) && $curso->category !== '' ? $curso->category : null,
-                'descricao' => (string) $curso->description,
+                'titulo' => (string) $curso->titulo,
+                'categoria' => is_string($curso->categoria) && $curso->categoria !== '' ? $curso->categoria : null,
+                'descricao' => (string) $curso->descricao,
                 'aulas' => $aulas[$id] ?? 0,
                 'avaliacoes' => $avaliacoes[$id] ?? 0,
-                'instrutorId' => is_string($curso->instructorId) && $curso->instructorId !== '' ? $curso->instructorId : null,
-                'instrutorNome' => is_string($curso->instructorName) && $curso->instructorName !== '' ? $curso->instructorName : null,
-                'tipo' => $curso->courseType === 'ao_vivo' ? 'ao_vivo' : 'fixo',
+                'instrutorId' => is_string($curso->instrutor_id) && $curso->instrutor_id !== '' ? $curso->instrutor_id : null,
+                'instrutorNome' => is_string($curso->nome_instrutor) && $curso->nome_instrutor !== '' ? $curso->nome_instrutor : null,
+                'tipo' => $curso->tipo_curso === 'ao_vivo' ? 'ao_vivo' : 'fixo',
                 // Sem valor gravado, o painel sempre tratou o chat como ligado.
-                'chat' => $curso->hasChat !== false,
-                'capa' => is_string($curso->coverImage) && $curso->coverImage !== '' ? $curso->coverImage : null,
+                'chat' => $curso->tem_chat !== false,
+                'capa' => is_string($curso->imagem_capa) && $curso->imagem_capa !== '' ? $curso->imagem_capa : null,
                 'vigenciaDia' => VigenciaDoCurso::dia($linha),
                 'vigenciaTexto' => VigenciaDoCurso::diaParaPessoa($linha),
                 'vencida' => VigenciaDoCurso::vencida($linha),
@@ -111,7 +111,7 @@ final class CursosDoAdmin
     public function categorias(): array
     {
         $nomes = [];
-        foreach (Course::query()->whereNotNull('category')->where('category', '!=', '')->distinct()->orderBy('category')->pluck('category') as $nome) {
+        foreach (Curso::query()->whereNotNull('categoria')->where('categoria', '!=', '')->distinct()->orderBy('categoria')->pluck('categoria') as $nome) {
             if (is_string($nome)) {
                 $nomes[] = $nome;
             }
@@ -128,8 +128,8 @@ final class CursosDoAdmin
     public function instrutores(): array
     {
         $lista = [];
-        foreach (User::query()->where('role', 'instructor')->orderBy('name')->get(['id', 'name']) as $pessoa) {
-            $lista[] = ['id' => (string) $pessoa->id, 'nome' => (string) $pessoa->name];
+        foreach (Usuario::query()->where('papel', 'instructor')->orderBy('nome')->get(['id', 'nome']) as $pessoa) {
+            $lista[] = ['id' => (string) $pessoa->id, 'nome' => (string) $pessoa->nome];
         }
 
         return $lista;
@@ -144,19 +144,19 @@ final class CursosDoAdmin
     private function alunosPorCurso(): array
     {
         $cursosDe = [];
-        foreach (StudentEnrollment::query()->get(['userId', 'enrolledCourseId', 'extraCourseIds']) as $matricula) {
+        foreach (Matricula::query()->get(['usuario_id', 'curso_matriculado_id', 'cursos_extras_ids']) as $matricula) {
             $ids = [];
-            if (is_string($matricula->enrolledCourseId) && $matricula->enrolledCourseId !== '') {
-                $ids[] = $matricula->enrolledCourseId;
+            if (is_string($matricula->curso_matriculado_id) && $matricula->curso_matriculado_id !== '') {
+                $ids[] = $matricula->curso_matriculado_id;
             }
-            $extras = $matricula->extraCourseIds;
+            $extras = $matricula->cursos_extras_ids;
             foreach (is_array($extras) ? $extras : [] as $extra) {
                 if (is_string($extra) && $extra !== '') {
                     $ids[] = $extra;
                 }
             }
             foreach (array_unique($ids) as $cursoId) {
-                $cursosDe[$cursoId][] = (string) $matricula->userId;
+                $cursosDe[$cursoId][] = (string) $matricula->usuario_id;
             }
         }
 
@@ -172,9 +172,9 @@ final class CursosDoAdmin
         }
 
         $pessoas = [];
-        foreach (User::query()->whereIn('id', array_keys($todos))->get(['id', 'name', 'email']) as $pessoa) {
+        foreach (Usuario::query()->whereIn('id', array_keys($todos))->get(['id', 'nome', 'email']) as $pessoa) {
             $pessoas[(string) $pessoa->id] = [
-                'nome' => (string) $pessoa->name,
+                'nome' => (string) $pessoa->nome,
                 'email' => is_string($pessoa->email) && $pessoa->email !== '' ? $pessoa->email : null,
             ];
         }

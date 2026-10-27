@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Models\Usuario;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
 use App\Services\EquipeDoAdmin;
@@ -46,12 +46,12 @@ final class EquipeDoAdminController extends Controller
     /**
      * Devolver à equipe um gestor retirado. A conta volta ativa (a retirada a bloqueou) e as
      * sessões anteriores são encerradas, então a pessoa entra com login novo. As disciplinas
-     * que ela gerencia nunca saíram do vínculo (a retirada inativa a conta, não o `instructorId`),
+     * que ela gerencia nunca saíram do vínculo (a retirada inativa a conta, não o `instrutor_id`),
      * e voltam a aparecer sob a gestão dela.
      */
     public function reativar(Request $request, string $gestorId): RedirectResponse
     {
-        $gestor = User::onlyTrashed()->where('role', 'instructor')->find($gestorId);
+        $gestor = Usuario::onlyTrashed()->where('papel', 'instructor')->find($gestorId);
         abort_if($gestor === null, 404);
 
         $this->auth->reactivateUser($gestorId);
@@ -59,7 +59,7 @@ final class EquipeDoAdminController extends Controller
 
         return redirect('/admin/equipe')->with(
             'avisoDaEquipe',
-            $gestor->name.' voltou à equipe. A conta está ativa; a pessoa entra com um login novo.',
+            $gestor->nome.' voltou à equipe. A conta está ativa; a pessoa entra com um login novo.',
         );
     }
 }

@@ -20,10 +20,10 @@ final class Etapa5Test extends TestCase
 
     private function token(string $role): string
     {
-        $u = DB::table('User')->where('role', $role)->where('status', 'active')->first(['id', 'name', 'role']);
+        $u = DB::table('usuario')->where('papel', $role)->where('status', 'active')->first(['id', 'nome', 'papel']);
         $this->assertNotNull($u, "Seed sem usuário ativo com role '$role'.");
 
-        return Jwt::issue($u->id, $u->name, $u->role);
+        return Jwt::issue($u->id, $u->nome, $u->papel);
     }
 
     private function auth(string $token): array
@@ -35,41 +35,41 @@ final class Etapa5Test extends TestCase
 
     public function test_admin_exports_students_without_password_hash(): void
     {
-        $res = $this->getJson('/api/export/students', $this->auth($this->token('admin')));
+        $res = $this->getJson('/api/exportar/students', $this->auth($this->token('admin')));
         $res->assertOk()->assertJsonPath('dataset', 'students');
-        $data = $res->json('data');
+        $data = $res->json('dados');
         $this->assertIsArray($data);
-        $this->assertArrayNotHasKey('passwordHash', $data[0] ?? []);
+        $this->assertArrayNotHasKey('senha_hash', $data[0] ?? []);
     }
 
     public function test_student_cannot_export(): void
     {
-        $this->getJson('/api/export/students', $this->auth($this->token('student')))->assertStatus(403);
+        $this->getJson('/api/exportar/students', $this->auth($this->token('student')))->assertStatus(403);
     }
 
     public function test_instructor_cannot_export(): void
     {
-        $this->getJson('/api/export/students', $this->auth($this->token('instructor')))->assertStatus(403);
+        $this->getJson('/api/exportar/students', $this->auth($this->token('instructor')))->assertStatus(403);
     }
 
     public function test_export_courses_and_progress_shapes(): void
     {
         $admin = $this->auth($this->token('admin'));
-        $courses = $this->getJson('/api/export/courses', $admin)->assertOk()->json('data');
-        $this->assertArrayHasKey('minAttendance', $courses[0]);
-        $this->assertArrayHasKey('areaTematica', $courses[0]);
+        $courses = $this->getJson('/api/exportar/courses', $admin)->assertOk()->json('dados');
+        $this->assertArrayHasKey('frequencia_minima', $courses[0]);
+        $this->assertArrayHasKey('area_tematica', $courses[0]);
 
         // progress inclui as FKs (hardening).
-        $prog = $this->getJson('/api/export/progress', $admin)->assertOk()->json('data');
+        $prog = $this->getJson('/api/exportar/progress', $admin)->assertOk()->json('dados');
         if (! empty($prog)) {
-            $this->assertArrayHasKey('userId', $prog[0]);
-            $this->assertArrayHasKey('enrollmentId', $prog[0]);
+            $this->assertArrayHasKey('usuario_id', $prog[0]);
+            $this->assertArrayHasKey('matricula_id', $prog[0]);
         }
     }
 
     public function test_invalid_export_dataset_is_bad_request(): void
     {
-        $this->getJson('/api/export/senhas', $this->auth($this->token('admin')))
+        $this->getJson('/api/exportar/senhas', $this->auth($this->token('admin')))
             ->assertStatus(400)->assertJsonPath('code', 'BAD_REQUEST');
     }
 
@@ -78,37 +78,37 @@ final class Etapa5Test extends TestCase
     public function test_security_logs_have_no_post_route(): void
     {
         // Auditoria é gravada só pelo servidor — não existe POST.
-        $this->postJson('/api/security-logs', ['x' => 1], $this->auth($this->token('admin')))
+        $this->postJson('/api/logs-seguranca', ['x' => 1], $this->auth($this->token('admin')))
             ->assertStatus(405);
     }
 
     public function test_security_logs_list_is_admin_only(): void
     {
-        $this->getJson('/api/security-logs', $this->auth($this->token('admin')))->assertOk()
+        $this->getJson('/api/logs-seguranca', $this->auth($this->token('admin')))->assertOk()
             ->assertJsonStructure(['items', 'pagination']);
-        $this->getJson('/api/security-logs', $this->auth($this->token('student')))->assertStatus(403);
+        $this->getJson('/api/logs-seguranca', $this->auth($this->token('student')))->assertStatus(403);
     }
 
     public function test_telemetry_accepts_anonymous_and_read_is_admin_only(): void
     {
         // POST anônimo (sem token) é aceito.
-        $this->postJson('/api/telemetry', ['action' => 'nav', 'details' => 'abriu painel'], ['Accept' => 'application/json'])
+        $this->postJson('/api/telemetria', ['acao' => 'nav', 'detalhes' => 'abriu painel'], ['Accept' => 'application/json'])
             ->assertStatus(201);
         // Leitura só admin.
-        $this->getJson('/api/telemetry', ['Accept' => 'application/json'])->assertStatus(401);
-        $this->getJson('/api/telemetry', $this->auth($this->token('admin')))->assertOk();
+        $this->getJson('/api/telemetria', ['Accept' => 'application/json'])->assertStatus(401);
+        $this->getJson('/api/telemetria', $this->auth($this->token('admin')))->assertOk();
     }
 
     // ---------- Settings ----------
 
     public function test_settings_get_is_public_and_put_is_admin_only(): void
     {
-        $this->getJson('/api/system-settings')->assertOk();
-        $this->putJson('/api/system-settings', ['tema' => 'x'], $this->auth($this->token('student')))->assertStatus(403);
+        $this->getJson('/api/configuracoes-sistema')->assertOk();
+        $this->putJson('/api/configuracoes-sistema', ['tema' => 'x'], $this->auth($this->token('student')))->assertStatus(403);
         // Chave real: estas configurações são públicas por contrato, e chave arbitrária
         // deixou de ser aceita (ver SettingsService::ALLOWED_KEYS). O objeto deste teste
         // é a autorização, não a liberdade de formato.
-        $this->putJson('/api/system-settings', ['allowGlobalChat' => true], $this->auth($this->token('admin')))
+        $this->putJson('/api/configuracoes-sistema', ['allowGlobalChat' => true], $this->auth($this->token('admin')))
             ->assertOk()->assertJsonPath('allowGlobalChat', true);
     }
 
@@ -116,27 +116,27 @@ final class Etapa5Test extends TestCase
     // qualquer campo gravado aqui nasce visível a visitante anônimo.
     public function test_settings_rejects_unknown_key(): void
     {
-        $this->putJson('/api/system-settings', ['smtpPassword' => 'segredo'], $this->auth($this->token('admin')))
+        $this->putJson('/api/configuracoes-sistema', ['smtpPassword' => 'segredo'], $this->auth($this->token('admin')))
             ->assertStatus(400);
 
-        $this->getJson('/api/system-settings')->assertOk()->assertJsonMissingPath('smtpPassword');
+        $this->getJson('/api/configuracoes-sistema')->assertOk()->assertJsonMissingPath('smtpPassword');
     }
 
     // ---------- Learning ----------
 
     public function test_quizzes_list_requires_authentication(): void
     {
-        // Segurança: o gabarito (correctOptionIndex) não pode ser raspado anonimamente.
-        $this->getJson('/api/quizzes')->assertStatus(401);
+        // Segurança: o gabarito (indice_opcao_correta) não pode ser raspado anonimamente.
+        $this->getJson('/api/avaliacoes')->assertStatus(401);
 
-        $res = $this->getJson('/api/quizzes', $this->auth($this->token('student')));
+        $res = $this->getJson('/api/avaliacoes', $this->auth($this->token('student')));
         $res->assertOk();
         $this->assertIsArray($res->json());
     }
 
     public function test_quiz_submission_is_student_only(): void
     {
-        $this->postJson('/api/quiz-submissions', ['courseId' => 'c', 'quizId' => 'q', 'scorePercent' => 80, 'passed' => true], $this->auth($this->token('instructor')))
+        $this->postJson('/api/tentativas-avaliacao', ['curso_id' => 'c', 'avaliacao_id' => 'q', 'percentual_nota' => 80, 'aprovado' => true], $this->auth($this->token('instructor')))
             ->assertStatus(403);
     }
 

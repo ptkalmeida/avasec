@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\User;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -46,15 +46,15 @@ final class MolduraDoAdminTest extends TestCase
     private function conta(string $role, string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash(self::SENHA, PASSWORD_BCRYPT),
-            'role' => $role,
+            'senha_hash' => password_hash(self::SENHA, PASSWORD_BCRYPT),
+            'papel' => $role,
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, $role)];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, $role)];
     }
 
     public function test_visitante_vai_para_o_login(): void
@@ -76,10 +76,10 @@ final class MolduraDoAdminTest extends TestCase
     public function test_conta_inativada_ou_rebaixada_nao_entra_com_o_token_antigo(): void
     {
         $inativa = $this->conta('admin', 'Admin Inativado');
-        User::query()->findOrFail($inativa['id'])->inativar($inativa['id'], 'teste');
+        Usuario::query()->findOrFail($inativa['id'])->inativar($inativa['id'], 'teste');
 
         $rebaixada = $this->conta('admin', 'Admin Rebaixado');
-        User::query()->whereKey($rebaixada['id'])->update(['role' => 'student']);
+        Usuario::query()->whereKey($rebaixada['id'])->update(['papel' => 'student']);
 
         $this->como($inativa['token'])->get('/admin/perfil')->assertRedirect('/entrar');
         $this->como($rebaixada['token'])->get('/admin/perfil')->assertRedirect('/aluno');
@@ -131,7 +131,7 @@ final class MolduraDoAdminTest extends TestCase
     public function test_perfil_mostra_nome_e_email_da_conta(): void
     {
         $admin = $this->conta('admin', 'Admin Dados Conta');
-        $email = (string) User::query()->whereKey($admin['id'])->value('email');
+        $email = (string) Usuario::query()->whereKey($admin['id'])->value('email');
 
         $resposta = $this->como($admin['token'])->get('/admin/perfil');
 
@@ -152,20 +152,20 @@ final class MolduraDoAdminTest extends TestCase
         $resposta->assertRedirect('/admin/perfil/senha');
         $resposta->assertSessionHas('senhaAviso');
 
-        $hash = (string) User::query()->whereKey($admin['id'])->value('passwordHash');
+        $hash = (string) Usuario::query()->whereKey($admin['id'])->value('senha_hash');
         $this->assertTrue(password_verify('novaSenha2026', $hash));
         $this->assertFalse(password_verify(self::SENHA, $hash));
 
         // Fica na auditoria.
         $this->assertTrue(
-            DB::table('SecurityLog')->where('user', $admin['name'])->where('action', 'Alteração de Senha')->exists(),
+            DB::table('log_seguranca')->where('usuario', $admin['nome'])->where('acao', 'Alteração de Senha')->exists(),
         );
     }
 
     public function test_senha_atual_errada_nao_troca_e_nao_bloqueia_a_conta(): void
     {
         $admin = $this->conta('admin', 'Admin Senha Errada');
-        $antes = (string) User::query()->whereKey($admin['id'])->value('passwordHash');
+        $antes = (string) Usuario::query()->whereKey($admin['id'])->value('senha_hash');
 
         for ($i = 0; $i < 6; $i++) {
             $this->como($admin['token'])->from('/admin/perfil/senha')->post('/admin/perfil/senha', [
@@ -175,17 +175,17 @@ final class MolduraDoAdminTest extends TestCase
             ])->assertRedirect('/admin/perfil/senha')->assertSessionHasErrors('senhaAtual', errorBag: 'senha');
         }
 
-        $conta = User::query()->findOrFail($admin['id']);
-        $this->assertSame($antes, (string) $conta->passwordHash);
-        $this->assertSame(0, (int) $conta->failedLoginAttempts);
-        $this->assertNull($conta->lockedUntil);
+        $conta = Usuario::query()->findOrFail($admin['id']);
+        $this->assertSame($antes, (string) $conta->senha_hash);
+        $this->assertSame(0, (int) $conta->tentativas_login_falhas);
+        $this->assertNull($conta->bloqueado_ate);
         $this->como($admin['token'])->get('/admin/perfil')->assertOk();
     }
 
     public function test_senha_nova_fraca_ou_sem_confirmacao_e_recusada(): void
     {
         $admin = $this->conta('admin', 'Admin Senha Fraca');
-        $antes = (string) User::query()->whereKey($admin['id'])->value('passwordHash');
+        $antes = (string) Usuario::query()->whereKey($admin['id'])->value('senha_hash');
 
         $this->como($admin['token'])->from('/admin/perfil/senha')->post('/admin/perfil/senha', [
             'senhaAtual' => self::SENHA,
@@ -199,7 +199,7 @@ final class MolduraDoAdminTest extends TestCase
             'novaSenha_confirmation' => 'outraSenha2026',
         ])->assertSessionHasErrors('novaSenha', errorBag: 'senha');
 
-        $this->assertSame($antes, (string) User::query()->whereKey($admin['id'])->value('passwordHash'));
+        $this->assertSame($antes, (string) Usuario::query()->whereKey($admin['id'])->value('senha_hash'));
     }
 
     public function test_o_formulario_de_senha_pede_as_tres_senhas(): void

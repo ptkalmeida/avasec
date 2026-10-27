@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\WebinarEvent;
+use App\Models\EventoWebinar;
 use App\Services\CatalogoPublico;
 use App\Services\CertificateService;
 use App\Services\CourseService;
@@ -132,7 +132,7 @@ final class PaginaPublicaController extends Controller
 
         $encontradas = $busca === '' ? $itens : array_values(array_filter(
             $itens,
-            static fn (array $n): bool => mb_stripos(($n['title'] ?? '').' '.($n['description'] ?? ''), $busca) !== false,
+            static fn (array $n): bool => mb_stripos(($n['titulo'] ?? '').' '.($n['descricao'] ?? ''), $busca) !== false,
         ));
 
         return view('publico.noticias', [
@@ -163,7 +163,7 @@ final class PaginaPublicaController extends Controller
     public function calendario(): View
     {
         $webinars = config('features.eventosWebinars') === true
-            ? array_values(WebinarEvent::query()->get()->map(static fn (WebinarEvent $w): array => $w->toArray())->all())
+            ? array_values(EventoWebinar::query()->get()->map(static fn (EventoWebinar $w): array => $w->toArray())->all())
             : [];
 
         $agora = Fuso::agora();

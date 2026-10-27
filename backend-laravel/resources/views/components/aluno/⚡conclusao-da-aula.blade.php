@@ -26,7 +26,7 @@ use Livewire\Component;
  * ## Quem decide o que é progresso
  *
  * O `EnrollmentService`, pelo mesmo caminho da API. Este componente não escreve
- * em `StudentProgress`: ele lê o registro, acrescenta ou tira ESTE id e manda
+ * em `progresso_aluno`: ele lê o registro, acrescenta ou tira ESTE id e manda
  * salvar. Escrever direto aqui duplicaria a regra que já emite certificado.
  */
 new class extends Component
@@ -62,23 +62,23 @@ new class extends Component
 
         $registro = null;
         foreach ($matriculas->getProgress(null, $aluno) as $linha) {
-            if (($linha['courseId'] ?? null) === $this->cursoId) {
+            if (($linha['curso_id'] ?? null) === $this->cursoId) {
                 $registro = $linha;
                 break;
             }
         }
 
-        $concluidas = is_array($registro['completedLessons'] ?? null) ? $registro['completedLessons'] : [];
-        $presencas = is_array($registro['attendedLiveSessions'] ?? null) ? $registro['attendedLiveSessions'] : [];
+        $concluidas = is_array($registro['aulas_concluidas'] ?? null) ? $registro['aulas_concluidas'] : [];
+        $presencas = is_array($registro['sessoes_ao_vivo_assistidas'] ?? null) ? $registro['sessoes_ao_vivo_assistidas'] : [];
 
         $concluidas = $this->concluida
             ? array_values(array_filter($concluidas, fn (mixed $id): bool => $id !== $this->aulaId))
             : array_values(array_unique([...$concluidas, $this->aulaId]));
 
         $matriculas->upsertProgress([
-            'courseId' => $this->cursoId,
-            'completedLessons' => array_values(array_filter($concluidas, static fn (mixed $id): bool => is_string($id))),
-            'attendedLiveSessions' => array_values(array_filter($presencas, static fn (mixed $id): bool => is_string($id))),
+            'curso_id' => $this->cursoId,
+            'aulas_concluidas' => array_values(array_filter($concluidas, static fn (mixed $id): bool => is_string($id))),
+            'sessoes_ao_vivo_assistidas' => array_values(array_filter($presencas, static fn (mixed $id): bool => is_string($id))),
         ], $aluno);
 
         $this->concluida = ! $this->concluida;

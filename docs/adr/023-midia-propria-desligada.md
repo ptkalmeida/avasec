@@ -6,19 +6,19 @@
 
 ## Contexto
 
-O vídeo de uma aula é hoje um link do YouTube em `Lesson.videoUrl`. Funciona e não custa
+O vídeo de uma aula é hoje um link do YouTube em `aula.url_video`. Funciona e não custa
 armazenamento nem banda ao projeto. A coordenação quer, porém, **ter pronta** a opção de
 hospedar o próprio vídeo (MinIO + FFmpeg), para o dia em que o YouTube deixar de servir
 (privacidade, vídeo que não pode ser público, aluno sem acesso). Deixar para fazer só nesse
 dia é mais caro do que manter uma base pequena, testada e desligada.
 
-O aviso do `AGENTS.md` sobre `Course.statusCurso` ("existe e nenhuma consulta o lê; é
+O aviso do `AGENTS.md` sobre `curso.status_curso` ("existe e nenhuma consulta o lê; é
 decoração") vale aqui: código sem consumidor apodrece. Por isso a base tem **testes que rodam
 sempre** e **uma única porta de entrada** (o interruptor), em vez de código solto.
 
 ## Decisão
 
-Existe, no código, o caminho **original → FFmpeg → MinIO → `Lesson.videoUrl`**, e ele só roda com
+Existe, no código, o caminho **original → FFmpeg → MinIO → `aula.url_video`**, e ele só roda com
 `MEDIA_DRIVER=minio`. O padrão é `youtube`: com ele o job `ProcessarVideoDaAula` sai na primeira
 linha, sem tocar em disco, banco ou FFmpeg.
 
@@ -30,7 +30,7 @@ linha, sem tocar em disco, banco ou FFmpeg.
 | Disco do original e dos derivados | disco `midia` em `config/filesystems.php` (local; `s3` = MinIO) |
 | FFmpeg na imagem | estágio `app` de `docker/producao/Dockerfile` (`ARG INSTALAR_FFMPEG`) |
 
-**Sem mudança de schema.** O job só grava `Lesson.videoUrl` **no fim**, quando o MP4 já está no
+**Sem mudança de schema.** O job só grava `aula.url_video` **no fim**, quando o MP4 já está no
 disco. Quem lê a aula nunca vê um vídeo pela metade, e uma falha deixa a aula como estava. O
 custo: a interface não mostra "processando" enquanto roda. Mostrar isso exige coluna nova e,
 portanto, validação do responsável (`AGENTS.md`, "Nunca mude sem sinalizar").
@@ -54,7 +54,7 @@ portanto, validação do responsável (`AGENTS.md`, "Nunca mude sem sinalizar").
 - O **original nunca é apagado nem sobrescrito**.
 - Cada execução grava numa pasta nova (`aulas/<aula>/<timestamp>-<aleatório>/`); reprocessar
   **acrescenta**, não substitui.
-- Ao trocar o `videoUrl`, o model `Lesson` já guarda a versão anterior (ADR 021): o link do
+- Ao trocar o `url_video`, o model `Aula` já guarda a versão anterior (ADR 021): o link do
   YouTube que saiu fica no histórico, e dá para restaurar.
 - A única coisa removida é a pasta **temporária** de trabalho do job (cópia de trabalho, não
   registro).

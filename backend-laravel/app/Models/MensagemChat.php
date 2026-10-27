@@ -7,11 +7,11 @@ namespace App\Models;
 use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
-final class ForumMessage extends Model
+final class MensagemChat extends Model
 {
     use Inativavel;
 
-    protected $table = 'ForumMessage';
+    protected $table = 'mensagem_chat';
 
     protected $keyType = 'string';
 
@@ -19,11 +19,9 @@ final class ForumMessage extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'courseId', 'senderName', 'senderUserId', 'senderRole', 'text', 'timestamp', 'enviadaEm', 'likes', 'likedBy'];
+    protected $fillable = ['id', 'sessao_id', 'nome_remetente', 'remetente_usuario_id', 'papel_remetente', 'texto', 'registrado_em_texto', 'enviada_em'];
 
     protected $casts = [
-        'likes' => 'integer',
-        'likedBy' => 'array',
         /*
          * Instante real de envio, ao lado do texto de exibicao `timestamp`
          * (Norma C.2.4). O texto NAO muda: continua sendo o que a tela mostra.
@@ -33,6 +31,6 @@ final class ForumMessage extends Model
          * navegador de quem le, nao. Sem o sufixo, o JavaScript interpretaria o
          * valor como hora local e deslocaria tudo em 3 horas.
          */
-        'enviadaEm' => 'datetime:Y-m-d\TH:i:sP',
+        'enviada_em' => 'datetime:Y-m-d\TH:i:sP',
     ];
 }

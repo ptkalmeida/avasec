@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Support;
 
-use App\Models\StudentEnrollment;
+use App\Models\Matricula;
 use App\Support\Fuso;
 use App\Support\Jwt;
 use Illuminate\Support\Facades\DB;
@@ -23,19 +23,19 @@ trait SeedsIdentity
         $adminToken = $this->staffToken('admin');
         $name = $exactName ?? $prefix.' '.uniqid();
         $cpf = $this->makeCpf();
-        $res = $this->withHeader('Authorization', "Bearer {$adminToken}")->postJson('/api/auth/register', [
-            'name' => $name,
+        $res = $this->withHeader('Authorization', "Bearer {$adminToken}")->postJson('/api/autenticacao/cadastro', [
+            'nome' => $name,
             'email' => 'id-'.uniqid().'@example.com',
             'password' => 'senha123456',
-            'role' => 'student',
+            'papel' => 'student',
             // CPF é obrigatório para conta de aluno (ADR 11) — é o login dela.
             'cpf' => $cpf,
         ]);
         $res->assertStatus(201);
-        $id = $res->json('user.id');
+        $id = $res->json('usuario.id');
         $this->flushHeaders();
 
-        return ['id' => $id, 'name' => $name, 'cpf' => $cpf, 'token' => Jwt::issue($id, $name, 'student')];
+        return ['id' => $id, 'nome' => $name, 'cpf' => $cpf, 'token' => Jwt::issue($id, $name, 'student')];
     }
 
     /**
@@ -45,29 +45,37 @@ trait SeedsIdentity
      *
      * @param  array{id: string, name: string}  $aluno
      */
-    protected function matricular(array $aluno, string $courseId): void
+    protected function matricular(array $aluno, string $curso_id): void
     {
-        StudentEnrollment::query()->updateOrCreate(
-            ['userId' => $aluno['id']],
+        Matricula::query()->updateOrCreate(
+            ['usuario_id' => $aluno['id']],
             [
-                'id' => $aluno['id'], 'studentName' => $aluno['name'], 'enrolledCourseId' => $courseId,
-                'completedCourseIds' => [], 'extraCourseIds' => [], 'canMultiEnroll' => false,
+                'id' => $aluno['id'], 'nome_aluno' => $aluno['nome'], 'curso_matriculado_id' => $curso_id,
+                'cursos_concluidos_ids' => [], 'cursos_extras_ids' => [], 'pode_multimatricula' => false,
             ],
         );
     }
 
     protected function staffToken(string $role): string
     {
-        $u = DB::table('User')->where('role', $role)->where('status', 'active')->first(['id', 'name', 'role']);
+        $u = DB::table('usuario')->where('papel', $role)->where('status', 'active')->first(['id', 'nome', 'papel']);
         $this->assertNotNull($u, "Seed sem usuário ativo com role '{$role}'.");
 
-        return Jwt::issue($u->id, $u->name, $u->role);
+        return Jwt::issue($u->id, $u->nome, $u->papel);
     }
 
     protected function anySeededCourseId(): string
     {
-        $id = DB::table('Course')->value('id');
-        $this->assertNotNull($id, 'Seed sem cursos — popular o MySQL de dev.');
+        // Um curso em que dá para matricular: publicado, não inativado e no prazo. Sem isto
+        // o sorteio caía num curso INATIVADO (`DB::table` ignora o SoftDeletes) ou vencido.
+        $hoje = Fuso::agora()->format('Y-m-d');
+        $id = DB::table('curso')
+            ->whereNull('inativado_em')
+            ->where('status', 1)
+            ->where(static fn ($q) => $q->whereNull('vigencia_ate')->orWhere('vigencia_ate', '>=', $hoje))
+            ->orderBy('id')
+            ->value('id');
+        $this->assertNotNull($id, 'Seed sem cursos ativos no prazo — popular o MySQL de dev.');
 
         return $id;
     }
@@ -81,11 +89,11 @@ trait SeedsIdentity
          * sortearem justamente ele. Eles medem outra coisa, e continuam medindo.
          */
         $hoje = Fuso::agora()->format('Y-m-d');
-        $id = DB::table('Course')->where('id', '!=', $excludeId)
+        $id = DB::table('curso')->where('id', '!=', $excludeId)
             // `DB::table` não aplica o SoftDeletes do model: sem esta linha o
             // sorteio cai num curso INATIVADO e a API responde 404.
-            ->whereNull('inativadoEm')
-            ->where(static fn ($q) => $q->whereNull('vigenciaAte')->orWhere('vigenciaAte', '>=', $hoje))
+            ->whereNull('inativado_em')
+            ->where(static fn ($q) => $q->whereNull('vigencia_ate')->orWhere('vigencia_ate', '>=', $hoje))
             ->value('id');
         $this->assertNotNull($id, 'Seed sem um segundo curso distinto e no prazo — popular o MySQL de dev.');
 

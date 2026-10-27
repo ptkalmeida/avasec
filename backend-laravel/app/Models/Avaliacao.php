@@ -8,11 +8,11 @@ use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-final class Quiz extends Model
+final class Avaliacao extends Model
 {
     use Inativavel;
 
-    protected $table = 'Quiz';
+    protected $table = 'avaliacao';
 
     protected $keyType = 'string';
 
@@ -20,11 +20,11 @@ final class Quiz extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'courseId', 'title'];
+    protected $fillable = ['id', 'curso_id', 'titulo'];
 
-    /** @return HasMany<QuizQuestion, $this> */
-    public function questions(): HasMany
+    /** @return HasMany<QuestaoAvaliacao, $this> */
+    public function questoes(): HasMany
     {
-        return $this->hasMany(QuizQuestion::class, 'quizId');
+        return $this->hasMany(QuestaoAvaliacao::class, 'avaliacao_id');
     }
 }

@@ -9,11 +9,11 @@
     hoje o link caía no React. Agora o termo chega pela URL e a página filtra,
     mostrando o estado "sem resultados" com a saída para limpar o filtro.
 --}}
-<x-layouts.publico ativo="A Escola" :titulo="$pagina['title']" :descricao="$pagina['description']">
+<x-layouts.publico ativo="A Escola" :titulo="$pagina['titulo']" :descricao="$pagina['descricao']">
     <x-componentes.moldura-pagina
         :sobretitulo="$pagina['eyebrow']"
-        :titulo="$pagina['title']"
-        :descricao="$pagina['description']"
+        :titulo="$pagina['titulo']"
+        :descricao="$pagina['descricao']"
     >
         {{--
             `foco` é o cartão em destaque, movido pelas setas. Em Alpine, e não
@@ -70,14 +70,14 @@
                         <article
                             x-bind:class="foco % total === {{ $loop->index }} ? 'border-ava-acao ring-1 ring-ava-acao' : 'border-ava-borda'"
                             class="bg-white rounded-2xl border border-ava-borda transition-all duration-300 overflow-hidden shadow-2xs hover:shadow-md flex flex-col justify-between">
-                            @if (! empty($noticia['image']))
+                            @if (! empty($noticia['imagem']))
                                 <div class="h-44 overflow-hidden relative">
                                     {{--
                                         `alt` vazio e `aria-hidden`: a imagem repete o
                                         título que vem logo abaixo, e anunciá-la faria o
                                         leitor de tela dizer a mesma frase duas vezes.
                                     --}}
-                                    <img src="{{ $noticia['image'] }}" alt="" aria-hidden="true" loading="lazy"
+                                    <img src="{{ $noticia['imagem'] }}" alt="" aria-hidden="true" loading="lazy"
                                          referrerpolicy="no-referrer"
                                          class="w-full h-full object-cover hover:scale-105 transition-transform duration-500">
                                     @if (! empty($noticia['tag']))
@@ -90,9 +90,9 @@
 
                             <div class="p-5 flex-1 flex flex-col justify-between space-y-4">
                                 <div class="space-y-2">
-                                    <span class="text-apoio text-escult-ink-2 font-bold block">{{ $noticia['date'] ?? '' }}</span>
-                                    <h2 class="text-cartao text-ava-tinta leading-snug line-clamp-2 font-titulo">{{ $noticia['title'] }}</h2>
-                                    <p class="text-apoio text-escult-ink-2 leading-relaxed line-clamp-3">{{ $noticia['description'] ?? '' }}</p>
+                                    <span class="text-apoio text-escult-ink-2 font-bold block">{{ $noticia['data'] ?? '' }}</span>
+                                    <h2 class="text-cartao text-ava-tinta leading-snug line-clamp-2 font-titulo">{{ $noticia['titulo'] }}</h2>
+                                    <p class="text-apoio text-escult-ink-2 leading-relaxed line-clamp-3">{{ $noticia['descricao'] ?? '' }}</p>
                                 </div>
 
                                 {{--

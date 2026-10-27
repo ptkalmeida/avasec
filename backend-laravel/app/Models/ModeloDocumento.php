@@ -10,13 +10,13 @@ use Illuminate\Database\Eloquent\Model;
 /**
  * PK = `type` — uma linha por tipo de documento (certificado, historico).
  */
-final class DocumentTemplate extends Model
+final class ModeloDocumento extends Model
 {
     use Inativavel;
 
-    protected $table = 'DocumentTemplate';
+    protected $table = 'modelo_documento';
 
-    protected $primaryKey = 'type';
+    protected $primaryKey = 'tipo';
 
     protected $keyType = 'string';
 
@@ -25,12 +25,12 @@ final class DocumentTemplate extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'type', 'institutionName', 'institutionLogoPath', 'signatories',
-        'footerText', 'customHtml', 'updatedByUserId', 'updatedAt',
+        'tipo', 'nome_instituicao', 'caminho_logo_instituicao', 'signatarios',
+        'texto_rodape', 'html_personalizado', 'atualizado_por_usuario_id', 'atualizado_em',
     ];
 
     protected $casts = [
-        'signatories' => 'array',
-        'updatedAt' => 'datetime',
+        'signatarios' => 'array',
+        'atualizado_em' => 'datetime',
     ];
 }

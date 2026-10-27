@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Certificate;
-use App\Models\Course;
+use App\Models\Certificado;
+use App\Models\Curso;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -37,20 +37,20 @@ final class CertificadosDoAlunoTest extends TestCase
     }
 
     /** @param array{id:string,name:string,cpf:string,token:string} $aluno */
-    private function certificadoDe(array $aluno): Certificate
+    private function certificadoDe(array $aluno): Certificado
     {
-        $curso = Course::query()->first();
+        $curso = Curso::query()->first();
         $this->assertNotNull($curso, 'Seed sem curso.');
 
-        return Certificate::query()->create([
+        return Certificado::query()->create([
             'id' => 'cert-aluno-'.uniqid(),
-            'studentName' => $aluno['name'],
-            'userId' => $aluno['id'],
-            'courseId' => $curso->id,
-            'courseTitle' => $curso->title,
-            'issueDate' => now(),
-            'attendancePercent' => 88,
-            'verificationHash' => 'AVA-ALUNO-'.strtoupper(uniqid()),
+            'nome_aluno' => $aluno['nome'],
+            'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id,
+            'titulo_curso' => $curso->titulo,
+            'data_emissao' => now(),
+            'percentual_frequencia' => 88,
+            'hash_verificacao' => 'AVA-ALUNO-'.strtoupper(uniqid()),
         ]);
     }
 
@@ -78,8 +78,8 @@ final class CertificadosDoAlunoTest extends TestCase
         $resposta = $this->como($aluno['token'])->get('/aluno/certificados');
 
         $resposta->assertOk();
-        $resposta->assertSee(e((string) $cert->courseTitle), false);
-        $resposta->assertSee((string) $cert->verificationHash, escape: false);
+        $resposta->assertSee(e((string) $cert->titulo_curso), false);
+        $resposta->assertSee((string) $cert->hash_verificacao, escape: false);
         $resposta->assertSee('88%', escape: false);
         $resposta->assertSee('href="/aluno/certificados/'.$cert->id.'/pdf"', escape: false);
         $resposta->assertSee('href="/aluno/certificados/'.$cert->id.'/pdf?modo=ver"', escape: false);
@@ -93,7 +93,7 @@ final class CertificadosDoAlunoTest extends TestCase
         $cert = $this->certificadoDe($dono);
 
         $this->como($outro['token'])->get('/aluno/certificados')
-            ->assertDontSee((string) $cert->verificationHash, escape: false);
+            ->assertDontSee((string) $cert->hash_verificacao, escape: false);
     }
 
     public function test_baixar_entrega_o_pdf_como_anexo(): void
@@ -149,12 +149,12 @@ final class CertificadosDoAlunoTest extends TestCase
      */
     public function test_a_caminho_aponta_a_avaliacao_pendente_quando_a_frequencia_ja_basta(): void
     {
-        $aluno = DB::table('User')->where('email', 'joao.silva@lms.edu')->first();
+        $aluno = DB::table('usuario')->where('email', 'joao.silva@lms.edu')->first();
         if ($aluno === null) {
             $this->markTestSkipped('Aluno de demonstração ausente.');
         }
 
-        $html = (string) $this->como(Jwt::issue((string) $aluno->id, (string) $aluno->name, 'student'))
+        $html = (string) $this->como(Jwt::issue((string) $aluno->id, (string) $aluno->nome, 'student'))
             ->get('/aluno/certificados')->getContent();
 
         if (! str_contains($html, 'A caminho')) {

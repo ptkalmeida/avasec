@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Course;
+use App\Models\Curso;
 use App\Services\CatalogoPublico;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
@@ -67,21 +67,21 @@ final class CatalogoPublicoBladeTest extends TestCase
 
     public function test_nao_mostra_curso_com_vigencia_vencida(): void
     {
-        $this->curso('cat-vencido', 'Oficina Vencida', ['vigenciaAte' => '2020-01-01', 'contractExpirationDate' => '2020-01-01']);
+        $this->curso('cat-vencido', 'Oficina Vencida', ['vigencia_ate' => '2020-01-01', 'vencimento_contrato_texto' => '2020-01-01']);
 
         $this->get('/cursos')->assertDontSee('Oficina Vencida', escape: false);
     }
 
     public function test_curso_sem_prazo_de_vigencia_aparece(): void
     {
-        $this->curso('cat-permanente', 'Oficina Permanente', ['vigenciaAte' => null, 'contractExpirationDate' => null]);
+        $this->curso('cat-permanente', 'Oficina Permanente', ['vigencia_ate' => null, 'vencimento_contrato_texto' => null]);
 
         $this->get('/cursos')->assertSee('Oficina Permanente', escape: false);
     }
 
     public function test_so_mostra_cursos_que_existem_na_plataforma(): void
     {
-        $titulosDaPlataforma = array_column(app(CatalogoPublico::class)->cursaveis(), 'title');
+        $titulosDaPlataforma = array_column(app(CatalogoPublico::class)->cursaveis(), 'titulo');
         $html = (string) $this->get('/cursos')->getContent();
 
         // A vitrine fixa do React mostrava cursos que nunca existiram no banco.
@@ -114,7 +114,7 @@ final class CatalogoPublicoBladeTest extends TestCase
 
     public function test_curso_sem_capa_ganha_bloco_da_identidade_e_nao_imagem(): void
     {
-        $this->curso('sem-capa', 'Oficina Sem Capa', ['thumbnail' => '', 'coverImage' => '']);
+        $this->curso('sem-capa', 'Oficina Sem Capa', ['miniatura' => '', 'imagem_capa' => '']);
         $html = (string) $this->get('/cursos')->getContent();
 
         $this->assertStringContainsString('Oficina Sem Capa', $html);
@@ -123,7 +123,7 @@ final class CatalogoPublicoBladeTest extends TestCase
 
     public function test_curso_sem_instrutor_nao_inventa_nome(): void
     {
-        $this->curso('cat-sem-instrutor', 'Oficina Sem Instrutor', ['instructorName' => '']);
+        $this->curso('cat-sem-instrutor', 'Oficina Sem Instrutor', ['nome_instrutor' => '']);
         $html = (string) $this->get('/cursos')->getContent();
 
         $this->assertStringContainsString('Oficina Sem Instrutor', $html);
@@ -173,22 +173,22 @@ final class CatalogoPublicoBladeTest extends TestCase
      *
      * @param  array<string, mixed>  $extra
      */
-    private function curso(string $rotulo, string $titulo, array $extra = []): Course
+    private function curso(string $rotulo, string $titulo, array $extra = []): Curso
     {
         $id = 'course-'.(9_000_000_000_000 + ++$this->sequencia);
 
-        $curso = new Course;
+        $curso = new Curso;
         $curso->forceFill(array_merge([
             'id' => $id,
-            'title' => $titulo,
+            'titulo' => $titulo,
             'slug' => $rotulo.'-'.$id,
-            'category' => 'Teste',
-            'description' => 'Descrição de '.$titulo,
-            'instructorName' => 'Instrutor de Teste',
-            'thumbnail' => 'https://example.test/capa.jpg',
+            'categoria' => 'Teste',
+            'descricao' => 'Descrição de '.$titulo,
+            'nome_instrutor' => 'Instrutor de Teste',
+            'miniatura' => 'https://example.test/capa.jpg',
             'status' => 1,
-            'vigenciaAte' => '2099-12-31',
-            'contractExpirationDate' => '2099-12-31',
+            'vigencia_ate' => '2099-12-31',
+            'vencimento_contrato_texto' => '2099-12-31',
         ], $extra))->save();
 
         return $curso;

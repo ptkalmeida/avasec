@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use Firebase\JWT\JWT as FirebaseJwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -30,12 +30,12 @@ final class SessaoRevogavelTest extends TestCase
     private function entrar(string $cpf, string $senha = self::SENHA, string $ip = '10.0.0.1'): TestResponse
     {
         return $this->withServerVariables(['REMOTE_ADDR' => $ip])
-            ->postJson('/api/auth/login', ['cpf' => $cpf, 'password' => $senha, 'role' => 'student']);
+            ->postJson('/api/autenticacao/entrar', ['cpf' => $cpf, 'password' => $senha, 'papel' => 'student']);
     }
 
     private function eu(string $token): TestResponse
     {
-        return $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/auth/me');
+        return $this->withHeader('Authorization', "Bearer {$token}")->getJson('/api/autenticacao/eu');
     }
 
     /** @return array{id: string, cpf: string, token: string} */
@@ -58,7 +58,7 @@ final class SessaoRevogavelTest extends TestCase
         $this->eu($s['token'])->assertOk();
 
         $this->flushHeaders();
-        $this->withHeader('Authorization', 'Bearer '.$s['token'])->postJson('/api/auth/logout')->assertOk();
+        $this->withHeader('Authorization', 'Bearer '.$s['token'])->postJson('/api/autenticacao/sair')->assertOk();
 
         $this->flushHeaders();
         // O token que saiu morreu, mesmo apresentado de novo.
@@ -88,7 +88,7 @@ final class SessaoRevogavelTest extends TestCase
         $s = $this->alunoComDuasSessoes();
 
         $res = $this->withHeader('Authorization', 'Bearer '.$s['token'])
-            ->putJson('/api/auth/password', ['currentPassword' => self::SENHA, 'newPassword' => 'NovaSenha#2026x'])
+            ->putJson('/api/autenticacao/senha', ['currentPassword' => self::SENHA, 'newPassword' => 'NovaSenha#2026x'])
             ->assertOk();
 
         // A sessão que trocou a senha segue, com cookie novo.
@@ -111,7 +111,7 @@ final class SessaoRevogavelTest extends TestCase
 
         $this->flushHeaders();
         $this->withHeader('Authorization', 'Bearer '.$this->staffToken('admin'))
-            ->putJson("/api/auth/users/{$s['id']}/password", ['newPassword' => 'NovaSenha#2026x'])
+            ->putJson("/api/autenticacao/usuarios/{$s['id']}/senha", ['newPassword' => 'NovaSenha#2026x'])
             ->assertOk();
 
         $this->flushHeaders();
@@ -129,9 +129,9 @@ final class SessaoRevogavelTest extends TestCase
 
         $this->flushHeaders();
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson("/api/auth/users/{$s['id']}/status", ['status' => 'blocked'])->assertOk();
+            ->putJson("/api/autenticacao/usuarios/{$s['id']}/status", ['status' => 'blocked'])->assertOk();
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson("/api/auth/users/{$s['id']}/status", ['status' => 'active'])->assertOk();
+            ->putJson("/api/autenticacao/usuarios/{$s['id']}/status", ['status' => 'active'])->assertOk();
 
         $this->flushHeaders();
         // Reativada, a conta entra de novo — mas só com login novo, não com o token de antes.
@@ -148,7 +148,7 @@ final class SessaoRevogavelTest extends TestCase
 
         // Token no formato antigo: sem `sv` e sem `jti`.
         $antigo = FirebaseJwt::encode(
-            ['sub' => $aluno['id'], 'name' => $aluno['name'], 'role' => 'student', 'iat' => time(), 'exp' => time() + 3600],
+            ['sub' => $aluno['id'], 'nome' => $aluno['nome'], 'papel' => 'student', 'iat' => time(), 'exp' => time() + 3600],
             Jwt::secret(),
             'HS256',
         );
@@ -158,7 +158,7 @@ final class SessaoRevogavelTest extends TestCase
 
         $this->flushHeaders();
         $this->withHeader('Authorization', 'Bearer '.$antigo)
-            ->putJson('/api/auth/password', ['currentPassword' => self::SENHA, 'newPassword' => 'NovaSenha#2026x'])->assertOk();
+            ->putJson('/api/autenticacao/senha', ['currentPassword' => self::SENHA, 'newPassword' => 'NovaSenha#2026x'])->assertOk();
 
         $this->flushHeaders();
         $this->eu($antigo)->assertStatus(401);
@@ -178,7 +178,7 @@ final class SessaoRevogavelTest extends TestCase
 
         // ...e o aluno de verdade, em outra rede, entra normalmente.
         $this->entrar($aluno['cpf'], self::SENHA, '10.0.0.77')->assertOk();
-        $this->assertNull(User::query()->whereKey($aluno['id'])->value('lockedUntil'));
+        $this->assertNull(Usuario::query()->whereKey($aluno['id'])->value('bloqueado_ate'));
     }
 
     public function test_cpf_que_nao_existe_tranca_igual_e_o_429_nao_denuncia_quem_tem_conta(): void
@@ -195,11 +195,11 @@ final class SessaoRevogavelTest extends TestCase
     public function test_muitos_erros_somados_de_varias_redes_travam_a_conta_para_todos(): void
     {
         $aluno = $this->makeStudent('Aluno Forca Bruta');
-        DB::table('User')->where('id', $aluno['id'])->update(['failedLoginAttempts' => 29]);
+        DB::table('usuario')->where('id', $aluno['id'])->update(['tentativas_login_falhas' => 29]);
 
         $this->entrar($aluno['cpf'], 'errada', '10.0.1.1')->assertStatus(401);
 
-        $this->assertNotNull(User::query()->whereKey($aluno['id'])->value('lockedUntil'));
+        $this->assertNotNull(Usuario::query()->whereKey($aluno['id'])->value('bloqueado_ate'));
         $this->entrar($aluno['cpf'], self::SENHA, '10.0.1.2')->assertStatus(429)->assertJsonPath('code', 'ACCOUNT_LOCKED');
     }
 
@@ -222,42 +222,42 @@ final class SessaoRevogavelTest extends TestCase
     /** @return array<string, mixed> */
     private function cadastro(string $cpf, string $email): array
     {
-        return ['name' => 'Pessoa Nova '.uniqid(), 'email' => $email, 'cpf' => $cpf, 'password' => 'Senha#Forte2026'];
+        return ['nome' => 'Pessoa Nova '.uniqid(), 'email' => $email, 'cpf' => $cpf, 'password' => 'Senha#Forte2026'];
     }
 
     public function test_cadastro_publico_com_cpf_ou_email_existente_responde_igual_e_nao_grava(): void
     {
         $aluno = $this->makeStudent('Aluno Existente');
-        $emailDoAluno = (string) User::query()->whereKey($aluno['id'])->value('email');
-        $antes = User::query()->withTrashed()->count();
+        $emailDoAluno = (string) Usuario::query()->whereKey($aluno['id'])->value('email');
+        $antes = Usuario::query()->withTrashed()->count();
 
-        $novo = $this->postJson('/api/auth/register', $this->cadastro($this->makeCpf(), 'novo-'.uniqid().'@example.com'))->assertStatus(201);
-        $cpfRepetido = $this->postJson('/api/auth/register', $this->cadastro($aluno['cpf'], 'outro-'.uniqid().'@example.com'))->assertStatus(201);
-        $emailRepetido = $this->postJson('/api/auth/register', $this->cadastro($this->makeCpf(), $emailDoAluno))->assertStatus(201);
+        $novo = $this->postJson('/api/autenticacao/cadastro', $this->cadastro($this->makeCpf(), 'novo-'.uniqid().'@example.com'))->assertStatus(201);
+        $cpfRepetido = $this->postJson('/api/autenticacao/cadastro', $this->cadastro($aluno['cpf'], 'outro-'.uniqid().'@example.com'))->assertStatus(201);
+        $emailRepetido = $this->postJson('/api/autenticacao/cadastro', $this->cadastro($this->makeCpf(), $emailDoAluno))->assertStatus(201);
 
         // Mesma forma de resposta nos três casos, sem token e sem a marca interna.
         foreach ([$novo, $cpfRepetido, $emailRepetido] as $r) {
             $this->assertNull($r->json('token'));
-            $this->assertSame('pending_confirmation', $r->json('user.status'));
-            $this->assertSame(['token', 'user'], array_keys($r->json()));
+            $this->assertSame('pending_confirmation', $r->json('usuario.status'));
+            $this->assertSame(['token', 'usuario'], array_keys($r->json()));
         }
         // Só o cadastro realmente novo gravou uma conta.
-        $this->assertSame($antes + 1, User::query()->withTrashed()->count());
+        $this->assertSame($antes + 1, Usuario::query()->withTrashed()->count());
         // E a conta que já existia não foi tocada.
-        $this->assertSame('active', User::query()->whereKey($aluno['id'])->value('status'));
+        $this->assertSame('active', Usuario::query()->whereKey($aluno['id'])->value('status'));
     }
 
     public function test_cadastro_pela_tela_com_dado_existente_mostra_a_mesma_mensagem(): void
     {
         $aluno = $this->makeStudent('Aluno Tela');
-        $antes = User::query()->withTrashed()->count();
+        $antes = Usuario::query()->withTrashed()->count();
 
         $this->post('/cadastro', $this->cadastro($aluno['cpf'], 'tela-'.uniqid().'@example.com'))
             ->assertRedirect('/entrar')
             ->assertSessionHas('aviso')
             ->assertSessionHasNoErrors();
 
-        $this->assertSame($antes, User::query()->withTrashed()->count());
+        $this->assertSame($antes, Usuario::query()->withTrashed()->count());
     }
 
     public function test_admin_ao_cadastrar_continua_vendo_o_conflito(): void
@@ -266,7 +266,7 @@ final class SessaoRevogavelTest extends TestCase
         $this->flushHeaders();
 
         $this->withHeader('Authorization', 'Bearer '.$this->staffToken('admin'))
-            ->postJson('/api/auth/register', $this->cadastro($aluno['cpf'], 'adm-'.uniqid().'@example.com') + ['role' => 'student'])
+            ->postJson('/api/autenticacao/cadastro', $this->cadastro($aluno['cpf'], 'adm-'.uniqid().'@example.com') + ['papel' => 'student'])
             ->assertStatus(409)->assertJsonPath('code', 'CONFLICT');
     }
 }

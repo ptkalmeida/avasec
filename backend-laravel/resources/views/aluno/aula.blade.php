@@ -19,7 +19,7 @@
     do conteúdo, como a skill pede.
 --}}
 <x-layouts.aluno
-    :titulo="$aula['title']"
+    :titulo="$aula['titulo']"
     ativo="curso"
     :cursoDoMenu="$curso"
     :concluidosDoMenu="$concluidos"
@@ -34,16 +34,16 @@
             {{-- O nome do curso é o contexto; o título da aula é o assunto. --}}
             <p class="text-sobretitulo uppercase text-escult-ink-3">
                 <a href="/aluno/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">
-                    {{ $curso['title'] }}
+                    {{ $curso['titulo'] }}
                 </a>
             </p>
             <h1 class="font-titulo text-2xl leading-tight tracking-tight text-ava-tinta md:text-3xl">
-                {{ $aula['title'] }}
+                {{ $aula['titulo'] }}
             </h1>
         </header>
 
-        @if (! empty($aula['videoUrl']))
-            <x-aluno.video :url="$aula['videoUrl']" :titulo="$aula['title']" />
+        @if (! empty($aula['url_video']))
+            <x-aluno.video :url="$aula['url_video']" :titulo="$aula['titulo']" />
         @endif
 
         <div class="flex flex-wrap items-center justify-between gap-3 border-y border-ava-borda py-4">
@@ -95,11 +95,11 @@
                     <x-aluno.conteudo-da-aula :blocos="$blocos" />
                 @endif
 
-                @if (! empty($aula['documents']))
+                @if (! empty($aula['documentos']))
                     <section class="mt-8 space-y-3 rounded-2xl border border-ava-borda bg-ava-faixa/40 p-5">
                         <h2 class="font-titulo text-cartao text-ava-tinta">Materiais de apoio</h2>
                         <ul role="list" class="space-y-2">
-                            @foreach ($aula['documents'] as $documento)
+                            @foreach ($aula['documentos'] as $documento)
                                 @php($nosso = str_starts_with((string) ($documento['url'] ?? ''), '/uploads/'))
                                 <li>
                                     {{-- O ícone é uma promessa: seta para baixo diz
@@ -110,7 +110,7 @@
                                        @unless ($nosso) target="_blank" rel="noopener noreferrer" @endunless
                                        class="flex items-center gap-3 rounded-[10px] border border-ava-borda bg-white px-4 py-3 transition-colors hover:border-ava-acao/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                                         <span class="shrink-0 text-ava-acao" aria-hidden="true">{{ $nosso ? '↓' : '↗' }}</span>
-                                        <span class="min-w-0 flex-1 text-rotulo font-semibold text-ava-tinta">{{ $documento['title'] ?? 'Material' }}</span>
+                                        <span class="min-w-0 flex-1 text-rotulo font-semibold text-ava-tinta">{{ $documento['titulo'] ?? 'Material' }}</span>
                                         <span class="shrink-0 text-nota uppercase text-escult-ink-3">
                                             {{ $nosso ? 'baixar' : 'abre em nova aba' }}
                                         </span>

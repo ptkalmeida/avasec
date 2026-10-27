@@ -13,14 +13,14 @@
     A fila de pedidos só existe com a aprovação automática desligada — a tela
     decide pela REGRA, e não por a lista estar vazia.
 --}}
-<x-layouts.instrutor :titulo="'Alunos — '.$curso['title']" ativo="alunos" :cursoDoMenu="$curso">
+<x-layouts.instrutor :titulo="'Alunos — '.$curso['titulo']" ativo="alunos" :cursoDoMenu="$curso">
 
     <div class="mx-auto max-w-5xl space-y-6">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/inst" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Meus cursos</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['title'] }}</a>
+            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <span class="text-ava-tinta">Alunos</span>
         </nav>
@@ -71,7 +71,7 @@
                             <li class="flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div class="min-w-0">
                                     <p class="text-rotulo font-semibold text-ava-tinta break-words">{{ $pedido['aluno'] }}</p>
-                                    <p class="text-apoio text-amber-950">pediu matrícula neste curso em {{ $pedido['enviadoEm'] }}</p>
+                                    <p class="text-apoio text-amber-950">pediu matrícula neste curso em {{ $pedido['enviado_em'] }}</p>
                                 </div>
                                 <form method="POST" action="/inst/curso/{{ $ref }}/pedidos/{{ rawurlencode($pedido['id']) }}" class="flex shrink-0 gap-2">
                                     @csrf

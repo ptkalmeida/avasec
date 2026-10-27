@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\StudentEnrollment;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Matricula;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use Tests\TestCase;
 
@@ -23,23 +23,23 @@ use Tests\TestCase;
  */
 final class PaginaDaAulaTest extends TestCase
 {
-    /** @return array{aluno:User, curso:Course, aulas:list<Lesson>} */
+    /** @return array{aluno:Usuario, curso:Curso, aulas:list<Aula>} */
     private function cenario(): array
     {
-        $aluno = User::query()
-            ->where('role', 'student')->where('status', 'active')->whereNull('inativadoEm')->first();
+        $aluno = Usuario::query()
+            ->where('papel', 'student')->where('status', 'active')->whereNull('inativado_em')->first();
 
         if ($aluno === null) {
             $this->markTestSkipped('Sem aluno ativo no banco de desenvolvimento.');
         }
 
-        $matricula = StudentEnrollment::query()->where('userId', $aluno->id)->first();
+        $matricula = Matricula::query()->where('usuario_id', $aluno->id)->first();
         $cursoId = null;
 
-        if (is_string($matricula?->enrolledCourseId) && $matricula->enrolledCourseId !== '') {
-            $cursoId = $matricula->enrolledCourseId;
+        if (is_string($matricula?->curso_matriculado_id) && $matricula->curso_matriculado_id !== '') {
+            $cursoId = $matricula->curso_matriculado_id;
         } else {
-            foreach (is_array($matricula?->extraCourseIds) ? $matricula->extraCourseIds : [] as $id) {
+            foreach (is_array($matricula?->cursos_extras_ids) ? $matricula->cursos_extras_ids : [] as $id) {
                 if (is_string($id) && $id !== '') {
                     $cursoId = $id;
                     break;
@@ -51,8 +51,8 @@ final class PaginaDaAulaTest extends TestCase
             $this->markTestSkipped('O aluno de desenvolvimento não tem curso em andamento.');
         }
 
-        $curso = Course::query()->find($cursoId);
-        $aulas = Lesson::query()->where('courseId', $cursoId)->orderBy('lesson_order')->get()->all();
+        $curso = Curso::query()->find($cursoId);
+        $aulas = Aula::query()->where('curso_id', $cursoId)->orderBy('ordem')->get()->all();
 
         if ($curso === null || $aulas === []) {
             $this->markTestSkipped('Curso do aluno sem aulas no banco de desenvolvimento.');
@@ -61,15 +61,15 @@ final class PaginaDaAulaTest extends TestCase
         return ['aluno' => $aluno, 'curso' => $curso, 'aulas' => $aulas];
     }
 
-    private function como(User $aluno): self
+    private function como(Usuario $aluno): self
     {
         return $this->withUnencryptedCookie(
             JwtAuthenticate::SESSION_COOKIE,
-            Jwt::issue((string) $aluno->id, (string) $aluno->name, 'student'),
+            Jwt::issue((string) $aluno->id, (string) $aluno->nome, 'student'),
         );
     }
 
-    private function endereco(Course $curso, Lesson $aula): string
+    private function endereco(Curso $curso, Aula $aula): string
     {
         $ref = is_string($curso->slug) && $curso->slug !== '' ? $curso->slug : (string) $curso->id;
 
@@ -83,9 +83,9 @@ final class PaginaDaAulaTest extends TestCase
         $resposta = $this->como($aluno)->get($this->endereco($curso, $aulas[0]));
 
         $resposta->assertOk();
-        $resposta->assertSee($aulas[0]->title, escape: false);
+        $resposta->assertSee($aulas[0]->titulo, escape: false);
         // No lugar de "Aula X de Y", o nome do curso — decisão da skill.
-        $resposta->assertSee($curso->title, escape: false);
+        $resposta->assertSee($curso->titulo, escape: false);
         $resposta->assertDontSee('Aula 1 de ', escape: false);
     }
 
@@ -99,7 +99,7 @@ final class PaginaDaAulaTest extends TestCase
 
         $comTexto = null;
         foreach ($aulas as $aula) {
-            if (is_string($aula->content) && mb_strlen(trim($aula->content)) > 80) {
+            if (is_string($aula->conteudo) && mb_strlen(trim($aula->conteudo)) > 80) {
                 $comTexto = $aula;
                 break;
             }
@@ -114,7 +114,7 @@ final class PaginaDaAulaTest extends TestCase
         // Pega a primeira linha de texto corrido do conteúdo e exige que ela
         // tenha chegado à página.
         $primeiraLinha = null;
-        foreach (explode("\n", (string) $comTexto->content) as $linha) {
+        foreach (explode("\n", (string) $comTexto->conteudo) as $linha) {
             $limpa = trim($linha);
             if (mb_strlen($limpa) > 40 && ! str_starts_with($limpa, '#') && ! str_starts_with($limpa, '`')) {
                 $primeiraLinha = $limpa;
@@ -220,7 +220,7 @@ final class PaginaDaAulaTest extends TestCase
     {
         ['aluno' => $aluno, 'curso' => $curso] = $this->cenario();
 
-        $deOutroCurso = Lesson::query()->where('courseId', '!=', $curso->id)->first();
+        $deOutroCurso = Aula::query()->where('curso_id', '!=', $curso->id)->first();
 
         if ($deOutroCurso === null) {
             $this->markTestSkipped('Não há aula de outro curso no banco.');
@@ -246,7 +246,7 @@ final class PaginaDaAulaTest extends TestCase
 
         $comVideo = null;
         foreach ($aulas as $aula) {
-            if (is_string($aula->videoUrl) && str_contains($aula->videoUrl, 'youtu')) {
+            if (is_string($aula->url_video) && str_contains($aula->url_video, 'youtu')) {
                 $comVideo = $aula;
                 break;
             }

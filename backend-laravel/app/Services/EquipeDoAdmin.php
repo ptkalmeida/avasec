@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Course;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Usuario;
 
 /**
  * A lista da "Equipe Pedagógica" do painel administrativo: os gestores de
@@ -23,16 +23,16 @@ final class EquipeDoAdmin
      */
     public function listar(?string $busca): array
     {
-        $consulta = User::query()->where('role', 'instructor')->orderBy('name');
+        $consulta = Usuario::query()->where('papel', 'instructor')->orderBy('nome');
 
         $termo = trim((string) $busca);
         if ($termo !== '') {
             // `%` e `_` digitados pela pessoa são texto, não curinga.
             $literal = addcslashes($termo, '\\%_');
-            $consulta->where('name', 'like', '%'.$literal.'%');
+            $consulta->where('nome', 'like', '%'.$literal.'%');
         }
 
-        $pessoas = $consulta->get(['id', 'name', 'status']);
+        $pessoas = $consulta->get(['id', 'nome', 'status']);
         if ($pessoas->isEmpty()) {
             return [];
         }
@@ -43,15 +43,15 @@ final class EquipeDoAdmin
         }
 
         $cursosDe = [];
-        foreach (Course::query()->whereIn('instructorId', $ids)->orderBy('title')->get(['id', 'title', 'instructorId']) as $curso) {
-            $cursosDe[(string) $curso->instructorId][] = ['id' => (string) $curso->id, 'titulo' => (string) $curso->title];
+        foreach (Curso::query()->whereIn('instrutor_id', $ids)->orderBy('titulo')->get(['id', 'titulo', 'instrutor_id']) as $curso) {
+            $cursosDe[(string) $curso->instrutor_id][] = ['id' => (string) $curso->id, 'titulo' => (string) $curso->titulo];
         }
 
         $lista = [];
         foreach ($pessoas as $pessoa) {
             $lista[] = [
                 'id' => (string) $pessoa->id,
-                'nome' => (string) $pessoa->name,
+                'nome' => (string) $pessoa->nome,
                 'situacao' => (string) $pessoa->status,
                 'cursos' => $cursosDe[(string) $pessoa->id] ?? [],
             ];
@@ -63,6 +63,6 @@ final class EquipeDoAdmin
     /** Quantos gestores existem, com ou sem busca — o "(N)" do cabeçalho. */
     public function total(): int
     {
-        return User::query()->where('role', 'instructor')->count();
+        return Usuario::query()->where('papel', 'instructor')->count();
     }
 }

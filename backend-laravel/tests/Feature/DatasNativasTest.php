@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\ChatMessage;
-use App\Models\Course;
-use App\Models\SecurityLog;
+use App\Models\MensagemChat;
+use App\Models\Curso;
+use App\Models\LogSeguranca;
 use App\Services\AuditLogger;
 use App\Services\AuditLogService;
 use App\Services\CourseService;
@@ -35,13 +35,13 @@ final class DatasNativasTest extends TestCase
 
     /** @var list<array{tabela: string, texto: string, nativa: string, tipo: string}> */
     private const PARES = [
-        ['tabela' => 'SecurityLog', 'texto' => 'timestamp', 'nativa' => 'ocorridoEm', 'tipo' => 'datetime'],
-        ['tabela' => 'ChatMessage', 'texto' => 'timestamp', 'nativa' => 'enviadaEm', 'tipo' => 'datetime'],
-        ['tabela' => 'DirectMessage', 'texto' => 'timestamp', 'nativa' => 'enviadaEm', 'tipo' => 'datetime'],
-        ['tabela' => 'ForumMessage', 'texto' => 'timestamp', 'nativa' => 'enviadaEm', 'tipo' => 'datetime'],
-        ['tabela' => 'Course', 'texto' => 'contractExpirationDate', 'nativa' => 'vigenciaAte', 'tipo' => 'date'],
-        ['tabela' => 'PracticalExercise', 'texto' => 'dueDate', 'nativa' => 'prazoEm', 'tipo' => 'date'],
-        ['tabela' => 'WebinarEvent', 'texto' => 'date', 'nativa' => 'dataEvento', 'tipo' => 'datetime'],
+        ['tabela' => 'log_seguranca', 'texto' => 'registrado_em_texto', 'nativa' => 'ocorrido_em', 'tipo' => 'datetime'],
+        ['tabela' => 'mensagem_chat', 'texto' => 'registrado_em_texto', 'nativa' => 'enviada_em', 'tipo' => 'datetime'],
+        ['tabela' => 'mensagem_direta', 'texto' => 'registrado_em_texto', 'nativa' => 'enviada_em', 'tipo' => 'datetime'],
+        ['tabela' => 'mensagem_forum', 'texto' => 'registrado_em_texto', 'nativa' => 'enviada_em', 'tipo' => 'datetime'],
+        ['tabela' => 'curso', 'texto' => 'vencimento_contrato_texto', 'nativa' => 'vigencia_ate', 'tipo' => 'date'],
+        ['tabela' => 'exercicio_pratico', 'texto' => 'prazo_texto', 'nativa' => 'prazo_em', 'tipo' => 'date'],
+        ['tabela' => 'evento_webinar', 'texto' => 'data_texto', 'nativa' => 'data_evento', 'tipo' => 'datetime'],
     ];
 
     /**
@@ -123,12 +123,12 @@ final class DatasNativasTest extends TestCase
         // Ano 2099 para que estas duas linhas sejam, com folga, as mais recentes
         // da trilha — assim o teste não depende de quantos registros existem.
         foreach ([['z-antigo', $ontem], ['a-recente', $hoje]] as [$sufixo, $quando]) {
-            DB::table('SecurityLog')->insert([
+            DB::table('log_seguranca')->insert([
                 'id' => 'log-teste-'.$sufixo,
-                'timestamp' => $quando->format('H:i:s').' '.$quando->format('d/m/Y'),
-                'ocorridoEm' => $quando->utc()->format('Y-m-d H:i:s'),
-                'user' => 'Teste', 'role' => 'admin', 'ipAddress' => '127.0.0.1',
-                'device' => 'phpunit', 'action' => 'TESTE', 'details' => 'ordenação', 'status' => 'SUCCESS',
+                'registrado_em_texto' => $quando->format('H:i:s').' '.$quando->format('d/m/Y'),
+                'ocorrido_em' => $quando->utc()->format('Y-m-d H:i:s'),
+                'usuario' => 'Teste', 'papel' => 'admin', 'ip' => '127.0.0.1',
+                'dispositivo' => 'phpunit', 'acao' => 'TESTE', 'detalhes' => 'ordenação', 'status' => 'SUCCESS',
             ]);
         }
 
@@ -153,7 +153,7 @@ final class DatasNativasTest extends TestCase
      */
     public function test_auditoria_nova_grava_texto_e_instante(): void
     {
-        $antes = SecurityLog::query()->count();
+        $antes = LogSeguranca::query()->count();
 
         app(AuditLogger::class)->log(
             Request::create('/api/teste', 'GET'),
@@ -161,13 +161,13 @@ final class DatasNativasTest extends TestCase
             'gravação nova tem de preencher as duas colunas',
         );
 
-        $this->assertSame($antes + 1, SecurityLog::query()->count(), 'A auditoria não gravou nada.');
+        $this->assertSame($antes + 1, LogSeguranca::query()->count(), 'A auditoria não gravou nada.');
 
-        $novo = SecurityLog::query()->where('action', 'TESTE_DATA_NATIVA')->first();
+        $novo = LogSeguranca::query()->where('acao', 'TESTE_DATA_NATIVA')->first();
 
         $this->assertNotNull($novo);
-        $this->assertIsString($novo->getAttribute('timestamp'), 'O texto de exibição sumiu.');
-        $this->assertNotNull($novo->getAttribute('ocorridoEm'), 'Registro novo sem instante nativo.');
+        $this->assertIsString($novo->getAttribute('registrado_em_texto'), 'O texto de exibição sumiu.');
+        $this->assertNotNull($novo->getAttribute('ocorrido_em'), 'Registro novo sem instante nativo.');
     }
 
     /**
@@ -177,20 +177,20 @@ final class DatasNativasTest extends TestCase
      */
     public function test_instante_nativo_concorda_com_o_texto_exibido(): void
     {
-        $linhas = DB::table('SecurityLog')
-            ->whereNotNull('ocorridoEm')
-            ->orderByDesc('ocorridoEm')
+        $linhas = DB::table('log_seguranca')
+            ->whereNotNull('ocorrido_em')
+            ->orderByDesc('ocorrido_em')
             ->limit(50)
-            ->get(['timestamp', 'ocorridoEm']);
+            ->get(['registrado_em_texto', 'ocorrido_em']);
 
         $this->assertNotEmpty($linhas, 'Sem registro de auditoria: o teste não teria o que provar.');
 
         foreach ($linhas as $linha) {
-            $nativo = CarbonImmutable::parse((string) $linha->ocorridoEm, 'UTC')
+            $nativo = CarbonImmutable::parse((string) $linha->ocorrido_em, 'UTC')
                 ->setTimezone('America/Sao_Paulo');
 
             $this->assertSame(
-                (string) $linha->timestamp,
+                (string) $linha->registrado_em_texto,
                 $nativo->format('H:i:s').' '.$nativo->format('d/m/Y'),
                 'Texto e instante nativo discordam — provável erro de fuso.',
             );
@@ -202,21 +202,21 @@ final class DatasNativasTest extends TestCase
     {
         $antes = CarbonImmutable::now()->subMinute();
 
-        // Autor real: `ChatMessage.senderUserId` é FK para `User` (ADR 10), e um id
+        // Autor real: `MensagemChat.remetente_usuario_id` é FK para `usuario` (ADR 10), e um id
         // inventado é recusado pelo banco antes de o teste chegar ao que interessa.
-        $autor = (string) DB::table('User')->value('id');
+        $autor = (string) DB::table('usuario')->value('id');
         $this->assertNotSame('', $autor, 'Seed sem usuário: o teste não teria autor.');
 
-        $msg = ChatMessage::query()->create([
+        $msg = MensagemChat::query()->create([
             'id' => 'chat-teste-'.uniqid(),
-            'sessionId' => (string) DB::table('LiveSession')->value('id'),
-            'senderName' => 'Teste', 'senderUserId' => $autor, 'senderRole' => 'admin',
-            'text' => 'prova', 'timestamp' => CarbonImmutable::now()->toIso8601String(),
-            'enviadaEm' => CarbonImmutable::now()->utc(),
+            'sessao_id' => (string) DB::table('sessao_ao_vivo')->value('id'),
+            'nome_remetente' => 'Teste', 'remetente_usuario_id' => $autor, 'papel_remetente' => 'admin',
+            'texto' => 'prova', 'registrado_em_texto' => CarbonImmutable::now()->toIso8601String(),
+            'enviada_em' => CarbonImmutable::now()->utc(),
         ]);
 
-        $this->assertNotNull($msg->getAttribute('enviadaEm'));
-        $this->assertTrue($msg->getAttribute('enviadaEm')->greaterThan($antes));
+        $this->assertNotNull($msg->getAttribute('enviada_em'));
+        $this->assertTrue($msg->getAttribute('enviada_em')->greaterThan($antes));
     }
 
     /**
@@ -225,19 +225,19 @@ final class DatasNativasTest extends TestCase
      */
     public function test_vigencia_do_curso_acompanha_o_texto_na_gravacao(): void
     {
-        $curso = Course::query()->first();
+        $curso = Curso::query()->first();
         $this->assertNotNull($curso);
 
         app(CourseService::class)->updateCourse(
             (string) $curso->getKey(),
-            ['contractExpirationDate' => '2099-05-04'],
-            ['sub' => 'teste', 'name' => 'Teste', 'role' => 'admin'],
+            ['vencimento_contrato_texto' => '2099-05-04'],
+            ['sub' => 'teste', 'nome' => 'Teste', 'papel' => 'admin'],
         );
 
-        $atualizado = Course::query()->find($curso->getKey());
+        $atualizado = Curso::query()->find($curso->getKey());
         $this->assertNotNull($atualizado);
-        $this->assertSame('2099-05-04', (string) $atualizado->getAttribute('contractExpirationDate'));
-        $this->assertSame('2099-05-04', $atualizado->getAttribute('vigenciaAte')?->format('Y-m-d'));
+        $this->assertSame('2099-05-04', (string) $atualizado->getAttribute('vencimento_contrato_texto'));
+        $this->assertSame('2099-05-04', $atualizado->getAttribute('vigencia_ate')?->format('Y-m-d'));
     }
 
     /** @return array<string, string> coluna => DATA_TYPE */

@@ -54,13 +54,13 @@ final class DuracaoDaGradeTest extends TestCase
     public function test_curso_vazio_nao_anuncia_duracao_nenhuma(): void
     {
         $this->assertSame('—', DuracaoDaGrade::texto([]));
-        $this->assertSame('—', DuracaoDaGrade::texto([['duration' => 'a combinar']]));
+        $this->assertSame('—', DuracaoDaGrade::texto([['duracao' => 'a combinar']]));
     }
 
     public function test_muda_quando_uma_aula_e_acrescentada(): void
     {
-        $uma = DuracaoDaGrade::texto([['duration' => '30 min']]);
-        $duas = DuracaoDaGrade::texto([['duration' => '30 min'], ['duration' => '45 min']]);
+        $uma = DuracaoDaGrade::texto([['duracao' => '30 min']]);
+        $duas = DuracaoDaGrade::texto([['duracao' => '30 min'], ['duracao' => '45 min']]);
 
         $this->assertSame('30 min', $uma);
         $this->assertSame('1,3 h', $duas);
@@ -68,20 +68,20 @@ final class DuracaoDaGradeTest extends TestCase
 
     public function test_abaixo_de_uma_hora_fala_em_minutos(): void
     {
-        $this->assertSame('20 min', DuracaoDaGrade::texto([['duration' => '20 min']]));
-        $this->assertSame('59 min', DuracaoDaGrade::texto([['duration' => '59']]));
-        $this->assertSame('1,0 h', DuracaoDaGrade::texto([['duration' => '60']]));
+        $this->assertSame('20 min', DuracaoDaGrade::texto([['duracao' => '20 min']]));
+        $this->assertSame('59 min', DuracaoDaGrade::texto([['duracao' => '59']]));
+        $this->assertSame('1,0 h', DuracaoDaGrade::texto([['duracao' => '60']]));
     }
 
     public function test_declara_quantas_aulas_ficaram_de_fora(): void
     {
         $this->assertSame(
             '1,0 h (1 aula sem duração)',
-            DuracaoDaGrade::texto([['duration' => '1h'], ['duration' => 'a combinar']]),
+            DuracaoDaGrade::texto([['duracao' => '1h'], ['duracao' => 'a combinar']]),
         );
         $this->assertSame(
             '1,0 h (2 aulas sem duração)',
-            DuracaoDaGrade::texto([['duration' => '1h'], ['duration' => ''], ['duration' => null]]),
+            DuracaoDaGrade::texto([['duracao' => '1h'], ['duracao' => ''], ['duracao' => null]]),
         );
     }
 
@@ -93,8 +93,8 @@ final class DuracaoDaGradeTest extends TestCase
      */
     public function test_arredonda_como_o_javascript(): void
     {
-        $this->assertSame('19,6 h', DuracaoDaGrade::texto([['duration' => '1179']]));
-        $this->assertSame('19,3 h', DuracaoDaGrade::texto([['duration' => '1155']]));
-        $this->assertSame('19,9 h', DuracaoDaGrade::texto([['duration' => '1197']]));
+        $this->assertSame('19,6 h', DuracaoDaGrade::texto([['duracao' => '1179']]));
+        $this->assertSame('19,3 h', DuracaoDaGrade::texto([['duracao' => '1155']]));
+        $this->assertSame('19,9 h', DuracaoDaGrade::texto([['duracao' => '1197']]));
     }
 }

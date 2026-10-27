@@ -7,11 +7,11 @@ namespace App\Models;
 use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
-final class Certificate extends Model
+final class Certificado extends Model
 {
     use Inativavel;
 
-    protected $table = 'Certificate';
+    protected $table = 'certificado';
 
     protected $keyType = 'string';
 
@@ -20,14 +20,14 @@ final class Certificate extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'id', 'studentName', 'userId', 'enrollmentId', 'courseId',
-        'courseTitle', 'issueDate', 'attendancePercent', 'verificationHash',
+        'id', 'nome_aluno', 'usuario_id', 'matricula_id', 'curso_id',
+        'titulo_curso', 'data_emissao', 'percentual_frequencia', 'hash_verificacao',
     ];
 
     protected $casts = [
-        'attendancePercent' => 'float',
+        'percentual_frequencia' => 'float',
         // Armazenado como DATE, mas serializado no contrato como d/m/Y (frontend
         // exibe direto, sem new Date). Ordenação passa a ser cronológica correta.
-        'issueDate' => 'date:d/m/Y',
+        'data_emissao' => 'date:d/m/Y',
     ];
 }

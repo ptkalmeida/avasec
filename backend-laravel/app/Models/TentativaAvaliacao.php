@@ -7,11 +7,11 @@ namespace App\Models;
 use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
-final class QuizSubmission extends Model
+final class TentativaAvaliacao extends Model
 {
     use Inativavel;
 
-    protected $table = 'QuizSubmission';
+    protected $table = 'tentativa_avaliacao';
 
     protected $keyType = 'string';
 
@@ -19,13 +19,13 @@ final class QuizSubmission extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'studentName', 'userId', 'courseId', 'quizId', 'scorePercent', 'passed', 'submittedAt', 'enviadoEm'];
+    protected $fillable = ['id', 'nome_aluno', 'usuario_id', 'curso_id', 'avaliacao_id', 'percentual_nota', 'aprovado', 'enviado_em_texto', 'enviado_em'];
 
     protected $casts = [
-        'scorePercent' => 'float',
-        'passed' => 'boolean',
+        'percentual_nota' => 'float',
+        'aprovado' => 'boolean',
         /*
-         * Eixo de ordenação das tentativas. `submittedAt` continua sendo o texto
+         * Eixo de ordenação das tentativas. `enviado_em_texto` continua sendo o texto
          * que a tela exibe ('03/09/2026 às 16:23'), e ordenar por ele ordena
          * alfabeticamente — '01/12' antes de '03/09'.
          *
@@ -36,6 +36,6 @@ final class QuizSubmission extends Model
          * horas MAIS ANTIGA que as do servidor — a "tentativa vigente" seria a
          * errada. Com o deslocamento, os dois lados falam do mesmo instante.
          */
-        'enviadoEm' => 'datetime:Y-m-d\TH:i:sP',
+        'enviado_em' => 'datetime:Y-m-d\TH:i:sP',
     ];
 }

@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Quiz;
-use App\Models\QuizQuestion;
-use App\Models\QuizSubmission;
+use App\Models\Curso;
+use App\Models\Avaliacao;
+use App\Models\QuestaoAvaliacao;
+use App\Models\TentativaAvaliacao;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -33,9 +33,9 @@ final class AvaliacoesDoAlunoTest extends TestCase
 
     private string $slug;
 
-    private Course $curso;
+    private Curso $curso;
 
-    private Quiz $quiz;
+    private Avaliacao $quiz;
 
     /** @var array{id:string,name:string,token:string} */
     private array $aluno;
@@ -45,44 +45,44 @@ final class AvaliacoesDoAlunoTest extends TestCase
         parent::setUp();
 
         $this->slug = 'curso-avaliacao-'.Str::lower(Str::random(8));
-        $this->curso = Course::query()->create([
+        $this->curso = Curso::query()->create([
             'id' => 'course-avaliacao-'.uniqid(),
-            'title' => 'Curso de Teste das Avaliações',
-            'description' => 'd',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorName' => 'Instrutor',
+            'titulo' => 'Curso de Teste das Avaliações',
+            'descricao' => 'd',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($this->curso->id)->update(['slug' => $this->slug, 'status' => Visibilidade::PUBLICADO]);
+        Curso::query()->whereKey($this->curso->id)->update(['slug' => $this->slug, 'status' => Visibilidade::PUBLICADO]);
 
-        $this->quiz = Quiz::query()->create(['id' => 'quiz-teste-'.uniqid(), 'courseId' => $this->curso->id, 'title' => 'Prova de Teste']);
+        $this->quiz = Avaliacao::query()->create(['id' => 'quiz-teste-'.uniqid(), 'curso_id' => $this->curso->id, 'titulo' => 'Prova de Teste']);
         // A certa da 1ª é a C (índice 2); a da 2ª é a A (índice 0).
         $this->questao('q1', 'Primeira pergunta de teste?', 2, 'Explicação para quem acertou a primeira.', 'Dica para quem errou a primeira.', 'Módulo Um de Teste');
         $this->questao('q2', 'Segunda pergunta de teste?', 0, 'Explicação para quem acertou a segunda.', 'Dica para quem errou a segunda.', null);
 
         $this->aluno = $this->makeStudent('Aluno Avaliacoes '.uniqid());
-        DB::table('StudentEnrollment')->insert([
+        DB::table('matricula')->insert([
             'id' => (string) Str::uuid(),
-            'userId' => $this->aluno['id'],
-            'studentName' => $this->aluno['name'],
-            'enrolledCourseId' => $this->curso->id,
-            'completedCourseIds' => json_encode([]),
-            'canMultiEnroll' => false,
-            'extraCourseIds' => json_encode([]),
+            'usuario_id' => $this->aluno['id'],
+            'nome_aluno' => $this->aluno['nome'],
+            'curso_matriculado_id' => $this->curso->id,
+            'cursos_concluidos_ids' => json_encode([]),
+            'pode_multimatricula' => false,
+            'cursos_extras_ids' => json_encode([]),
         ]);
     }
 
     private function questao(string $sufixo, string $texto, int $certa, string $explicacao, string $dica, ?string $modulo): void
     {
-        QuizQuestion::query()->create([
+        QuestaoAvaliacao::query()->create([
             'id' => $this->quiz->id.'-'.$sufixo,
-            'quizId' => $this->quiz->id,
-            'questionText' => $texto,
-            'options' => ['Alternativa um', 'Alternativa dois', 'Alternativa três', 'Alternativa quatro'],
-            'correctOptionIndex' => $certa,
-            'explanation' => $explicacao,
-            'reviewMessage' => $dica,
-            'recommendedModule' => $modulo,
+            'avaliacao_id' => $this->quiz->id,
+            'texto_questao' => $texto,
+            'opcoes' => ['Alternativa um', 'Alternativa dois', 'Alternativa três', 'Alternativa quatro'],
+            'indice_opcao_correta' => $certa,
+            'explicacao' => $explicacao,
+            'mensagem_revisao' => $dica,
+            'modulo_recomendado' => $modulo,
         ]);
     }
 
@@ -130,7 +130,7 @@ final class AvaliacoesDoAlunoTest extends TestCase
 
         $this->assertStringContainsString('Primeira pergunta de teste?', $html);
         $this->assertStringContainsString('Alternativa três', $html);
-        $this->assertStringNotContainsString('correctOptionIndex', $html);
+        $this->assertStringNotContainsString('indice_opcao_correta', $html);
         $this->assertStringNotContainsString('Explicação para quem acertou', $html);
         $this->assertStringNotContainsString('Dica para quem errou', $html);
         $this->assertStringNotContainsString('Módulo Um de Teste', $html);
@@ -147,7 +147,7 @@ final class AvaliacoesDoAlunoTest extends TestCase
 
     public function test_avaliacao_de_outro_curso_pelo_endereco_deste_responde_404(): void
     {
-        $alheia = Quiz::query()->where('courseId', '!=', $this->curso->id)->value('id');
+        $alheia = Avaliacao::query()->where('curso_id', '!=', $this->curso->id)->value('id');
         if (! is_string($alheia)) {
             $this->markTestSkipped('Não há avaliação de outro curso no banco.');
         }
@@ -157,7 +157,7 @@ final class AvaliacoesDoAlunoTest extends TestCase
 
     public function test_avaliacao_em_rascunho_nao_aparece_nem_abre(): void
     {
-        Quiz::query()->whereKey($this->quiz->id)->update(['status' => Visibilidade::RASCUNHO]);
+        Avaliacao::query()->whereKey($this->quiz->id)->update(['status' => Visibilidade::RASCUNHO]);
 
         $this->como($this->aluno['token'])->get('/aluno/curso/'.$this->slug.'/avaliacoes')
             ->assertDontSee('Prova de Teste', escape: false);
@@ -168,11 +168,11 @@ final class AvaliacoesDoAlunoTest extends TestCase
     {
         $this->enviar(['q1' => '2', 'q2' => '3'])->assertRedirect($this->urlDaProva());
 
-        $tentativa = QuizSubmission::query()->where('userId', $this->aluno['id'])->where('quizId', $this->quiz->id)->first();
+        $tentativa = TentativaAvaliacao::query()->where('usuario_id', $this->aluno['id'])->where('avaliacao_id', $this->quiz->id)->first();
         $this->assertNotNull($tentativa, 'A tentativa não foi gravada.');
-        $this->assertSame(50, (int) $tentativa->scorePercent);
-        $this->assertFalse((bool) $tentativa->passed);
-        $this->assertSame($this->curso->id, $tentativa->courseId);
+        $this->assertSame(50, (int) $tentativa->percentual_nota);
+        $this->assertFalse((bool) $tentativa->aprovado);
+        $this->assertSame($this->curso->id, $tentativa->curso_id);
     }
 
     /**
@@ -216,7 +216,7 @@ final class AvaliacoesDoAlunoTest extends TestCase
         $this->enviar(['q1' => '2', 'q2' => '0']);
         $this->enviar(['q1' => '0', 'q2' => '1']);
 
-        $this->assertSame(2, QuizSubmission::query()->where('userId', $this->aluno['id'])->where('quizId', $this->quiz->id)->count());
+        $this->assertSame(2, TentativaAvaliacao::query()->where('usuario_id', $this->aluno['id'])->where('avaliacao_id', $this->quiz->id)->count());
 
         $this->como($this->aluno['token'])->get('/aluno/curso/'.$this->slug.'/avaliacoes')
             ->assertSee('Aprovada', escape: false)
@@ -230,7 +230,7 @@ final class AvaliacoesDoAlunoTest extends TestCase
             ->assertRedirect($this->urlDaProva())
             ->assertSessionHasErrors('respostas');
 
-        $this->assertSame(0, QuizSubmission::query()->where('userId', $this->aluno['id'])->count());
+        $this->assertSame(0, TentativaAvaliacao::query()->where('usuario_id', $this->aluno['id'])->count());
 
         $html = (string) $this->como($this->aluno['token'])
             ->withSession(['_old_input' => ['respostas' => [$this->quiz->id.'-q1' => '2']]])
@@ -243,7 +243,7 @@ final class AvaliacoesDoAlunoTest extends TestCase
         $this->enviar(['q1' => '9', 'q2' => '0'])->assertSessionHasErrors('respostas');
         $this->enviar(['q1' => '-1', 'q2' => '0'])->assertSessionHasErrors('respostas');
 
-        $this->assertSame(0, QuizSubmission::query()->where('userId', $this->aluno['id'])->count());
+        $this->assertSame(0, TentativaAvaliacao::query()->where('usuario_id', $this->aluno['id'])->count());
     }
 
     /** Nota do formulário é ignorada: quem corrige é o servidor. */
@@ -251,14 +251,14 @@ final class AvaliacoesDoAlunoTest extends TestCase
     {
         $this->como($this->aluno['token'])->from($this->urlDaProva())->post($this->urlDaProva(), [
             'respostas' => [$this->quiz->id.'-q1' => '0', $this->quiz->id.'-q2' => '1'],
-            'scorePercent' => 100,
-            'passed' => true,
+            'percentual_nota' => 100,
+            'aprovado' => true,
         ]);
 
-        $tentativa = QuizSubmission::query()->where('userId', $this->aluno['id'])->first();
+        $tentativa = TentativaAvaliacao::query()->where('usuario_id', $this->aluno['id'])->first();
         $this->assertNotNull($tentativa);
-        $this->assertSame(0, (int) $tentativa->scorePercent);
-        $this->assertFalse((bool) $tentativa->passed);
+        $this->assertSame(0, (int) $tentativa->percentual_nota);
+        $this->assertFalse((bool) $tentativa->aprovado);
     }
 
     public function test_pelo_id_do_curso_vai_para_o_endereco_de_hoje(): void

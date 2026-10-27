@@ -10,7 +10,7 @@ produção OK após cada etapa.
 
 ---
 
-## Etapa 1 — FKs reais (userId / instructorId / enrollmentId)
+## Etapa 1 — FKs reais (usuario_id / instrutor_id / matricula_id)
 
 **Estratégia**: expand-and-contract sem big bang. Colunas FK **anuláveis** adicionadas ao lado
 dos campos `*Name` (que foram preservados para exibição); backfill por nome+papel na própria
@@ -18,12 +18,12 @@ migration; validação de **0 órfãos em 13 verificações** antes das FKs; `ON
 (registro histórico nunca é apagado em cascata).
 
 - Migration: `prisma/migrations/20260721190000_real_foreign_keys_expand/` (+`down.sql`).
-- Tabelas: Course(instructorId), StudentEnrollment(id/userId), StudentProgress(userId,
-  enrollmentId), Certificate(userId, enrollmentId), QuizSubmission, ExerciseSubmission,
-  AcademicRequest, AdmissionRequest, ChatMessage(senderUserId), DirectMessage(studentUserId,
-  senderUserId), ForumMessage(senderUserId).
+- Tabelas: Course(instrutor_id), Matricula(id/usuario_id), ProgressoAluno(usuario_id,
+  matricula_id), Certificate(usuario_id, matricula_id), TentativaAvaliacao, EntregaExercicio,
+  SolicitacaoAcademica, SolicitacaoIngresso, MensagemChat(remetente_usuario_id), MensagemDireta(aluno_usuario_id,
+  remetente_usuario_id), MensagemForum(remetente_usuario_id).
 - **Dual-write**: todo INSERT novo grava a FK (`src/server/utils/identity.ts`).
-- **Autorização FK-first**: linhas com FK são comparadas por `userId === token.sub`; o
+- **Autorização FK-first**: linhas com FK são comparadas por `usuario_id === token.sub`; o
   fallback por nome só vale para linhas legadas com FK nula (`ownRowsWhere`/`ownsRow`) —
   homônimos não vazam dados entre si (testado).
 - Seed associa FKs automaticamente (`linkForeignKeys()` em `prisma/seedData.ts`).
@@ -35,11 +35,11 @@ manter rollback trivial.
 ## Etapa 2 — Dados Gerenciais só via endpoints auditados
 
 - Novo `src/utils/managementExport.ts`: os botões "Baixar Todas as 5 Bases" e "Exportar esta
-  Base" do AdminDashboard buscam os dados **exclusivamente** em `GET /api/export/:dataset`
+  Base" do AdminDashboard buscam os dados **exclusivamente** em `GET /api/exportar/:dataset`
   (admin-only, rate limit 10/h, auditoria de quem/quando/qual base) e convertem em CSV.
-- CSVs agora usam os **ids reais** (userId/enrollmentId) da etapa 1, sem datas fabricadas.
+- CSVs agora usam os **ids reais** (usuario_id/matricula_id) da etapa 1, sem datas fabricadas.
 - As tabelas de pré-visualização na tela continuam locais (somente exibição).
-- `exportService` ganhou `areaTematica`/`minAttendance`/`instructorId` no dataset `courses`.
+- `exportService` ganhou `area_tematica`/`frequencia_minima`/`instrutor_id` no dataset `courses`.
 
 ## Etapa 3 — Uploads corrigidos
 
@@ -48,9 +48,9 @@ manter rollback trivial.
 - **Simulador substituído**: o "Simular Upload de PDF/DOC" do aluno virou um input de arquivo
   real com envio ao servidor.
 - **Público vs privado**: `uploads/public` (materiais, servidos estaticamente) vs
-  `uploads/private` (entregas — NUNCA servidos estaticamente). Nova tabela `StoredFile`
+  `uploads/private` (entregas — NUNCA servidos estaticamente). Nova tabela `ArquivoArmazenado`
   (migration `20260721191500_stored_files` + down.sql) registra dono/visibilidade/nome.
-- **Download autorizado**: `GET /api/files/:id` — dono, instrutor ou admin; outros alunos 403;
+- **Download autorizado**: `GET /api/arquivos/:id` — dono, instrutor ou admin; outros alunos 403;
   anônimo 401; `Content-Disposition: attachment` (arquivo de terceiro nunca renderiza no
   contexto da aplicação). Links `<a href>` de anexos viraram download via `authFetch`+blob
   (`src/utils/fileDownload.ts`), pois `<a>` não envia credencial de header.
@@ -62,10 +62,10 @@ manter rollback trivial.
   na rota**, não botão escondido. Fonte única: `src/config/features.ts` (compartilhado).
 - Frontend: fetch inicial pula rotas de flags OFF; renders sem gate corrigidos (CourseForum ×2,
   LiveClassroom ×2, superfícies de mensagens diretas ×3, aba Eventos & Webinars).
-- Mapa flag→rota: forum→/api/forum; atividadesPraticasAvancadas→/api/exercises+submissions;
-  uploadArquivos→/api/upload+/api/files; mensagensDiretas→/api/dms; liveClassroom→/api/chat;
-  eventosWebinars→/api/webinars; solicitacoesAcademicas→/api/academic-requests;
-  matricula→/api/enrollments+admissions; quizSimples, progresso, certificados,
+- Mapa flag→rota: forum→/api/forum; atividadesPraticasAvancadas→/api/exercicios+entregas-exercicio;
+  uploadArquivos→/api/upload+/api/arquivos; mensagensDiretas→/api/mensagens-diretas; liveClassroom→/api/chat;
+  eventosWebinars→/api/webinars; solicitacoesAcademicas→/api/solicitacoes-academicas;
+  matricula→/api/matriculas+ingressos; quizSimples, progresso, certificados,
   catalogoCursos, materiaisComplementares, dadosGerenciais → rotas correspondentes.
 - **Mudança de comportamento intencional**: DMs, chat ao vivo e fórum estavam parcialmente
   visíveis apesar das flags OFF — agora ficam de fato indisponíveis até a flag ligar.
@@ -93,9 +93,9 @@ manter rollback trivial.
 
 ## Etapa 7 — Penalidade de rematrícula: flag + servidor
 
-- Novos endpoints do próprio aluno: `POST /api/enrollments/self/{enroll,drop,complete}`
+- Novos endpoints do próprio aluno: `POST /api/matriculas/proprio/{matricular,desistir,concluir}`
   (identidade do token; rate limit no enroll).
-  - **drop**: o servidor conta os dias reais desde `enrolledAt` persistido; restrição de 30
+  - **drop**: o servidor conta os dias reais desde `matriculado_em_texto` persistido; restrição de 30
     dias só com `features.penalidadesCancelamento` ligada. O "simulador de dias" do frontend
     foi removido — o cliente não decide mais a regra.
   - **enroll**: recusa penalidade ativa (flag-aware) e matrícula dupla (409).
@@ -107,23 +107,23 @@ manter rollback trivial.
 
 ## Etapa 8 — Auditoria ≠ telemetria
 
-- Nova tabela `ClientEvent` (migration `20260721193000_client_event_telemetry` + down.sql) e
-  rota `/api/telemetry`: eventos de UI do frontend (navegação, narração) saem da tabela de
+- Nova tabela `EventoCliente` (migration `20260721193000_client_event_telemetry` + down.sql) e
+  rota `/api/telemetria`: eventos de UI do frontend (navegação, narração) saem da tabela de
   auditoria.
-- **`POST /api/security-logs` foi extinto** — a trilha de auditoria (SecurityLog) agora é
+- **`POST /api/logs-seguranca` foi extinto** — a trilha de auditoria (LogSeguranca) agora é
   escrita exclusivamente pelo servidor (`auditService.logAudit`) a partir das ações reais;
   leitura/limpeza admin-only. Telemetria grava a identidade do token (nunca a alegada no
   corpo) e tem leitura admin paginada.
-- Dados antigos de SecurityLog foram preservados (nenhuma remoção).
+- Dados antigos de LogSeguranca foram preservados (nenhuma remoção).
 
 ## Etapa 9 — JWT em cookie HttpOnly
 
 - **Auditoria**: o token vivia em `localStorage` (legível por qualquer script; XSS = roubo de
   sessão).
 - Agora: login seta cookie `ava_session` (**HttpOnly, SameSite=Lax, Secure em produção,
-  12h** — alinhado à expiração do JWT); `POST /api/auth/logout` limpa; o frontend **não
+  12h** — alinhado à expiração do JWT); `POST /api/autenticacao/sair` limpa; o frontend **não
   persiste mais o token** (localStorage guarda apenas o perfil público para exibição, validado
-  no load via `GET /api/auth/me`).
+  no load via `GET /api/autenticacao/eu`).
 - Middleware aceita cookie OU header `Authorization` (clientes de API/testes); o fallback de
   header para tokens legados no navegador é transitório.
 - CSRF: mitigado por SameSite=Lax + CORS restrito por env + corpo JSON. Um token anti-CSRF
@@ -136,7 +136,7 @@ manter rollback trivial.
   matrícula duplicada, certificado por critério, validação, erros padronizados.
 - Novos (16): cookie HttpOnly (emissão/uso/logout); flags no backend; upload público vs
   privado (dono/intruso/instrutor/anônimo; estático não serve privado); **homônimos não vazam
-  dados** (prova da etapa 1); certificado com userId/enrollmentId + idempotência; datasets de
+  dados** (prova da etapa 1); certificado com usuario_id/matricula_id + idempotência; datasets de
   exportação; telemetria separada (rota de escrita na auditoria extinta; identidade do token
   vence a alegada); matrícula self (409; flag OFF sem penalidade; conclusão sem frequência 403).
 
@@ -152,14 +152,14 @@ linha pré-existente; os campos `*Name` originais estão intactos.
 | Migration | Conteúdo | Down |
 |---|---|---|
 | `20260721190000_real_foreign_keys_expand` | colunas FK + backfill | drop FKs+colunas |
-| `20260721191500_stored_files` | tabela StoredFile | drop tabela |
-| `20260721193000_client_event_telemetry` | tabela ClientEvent | drop tabela |
+| `20260721191500_stored_files` | tabela ArquivoArmazenado | drop tabela |
+| `20260721193000_client_event_telemetry` | tabela EventoCliente | drop tabela |
 
 ## Riscos e pontos de atenção
 
 1. **Fase de transição de identidade**: linhas legadas sem FK ainda caem no fallback por nome.
    O backfill zerou os órfãos no ambiente atual; em produção, rode as queries de validação
-   (contagem de `userId IS NULL`) após o deploy e antes de qualquer migração "contract".
+   (contagem de `usuario_id IS NULL`) após o deploy e antes de qualquer migração "contract".
 2. **Comportamento alterado por flags**: DMs/chat/fórum ficaram genuinamente indisponíveis com
    as flags OFF (antes vazavam na UI). Se a escola esperava o chat de tutoria ativo, ligue
    `mensagensDiretas`/`liveClassroom` em `features.ts`.

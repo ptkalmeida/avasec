@@ -6,6 +6,8 @@
 - **Relaciona-se com:** a [ADR 12](012-nada-e-apagado.md) (o pedido retirado foi
   inativado, não apagado) e com a regra de matrícula única já validada.
 
+> **Nota (27/10/2026):** os nomes de tabela, coluna e rota citados aqui foram atualizados para os de depois da [ADR 024](024-nomes-em-portugues.md); o texto histórico segue como foi decidido.
+
 ## Contexto
 
 A coordenação decidiu que, nesta fase, a matrícula em disciplina **não passa por
@@ -19,13 +21,13 @@ dano. Havia **dois caminhos para matricular**, e apenas um tinha regra:
 | `selfEnroll` — o aluno se inscreve | curso existe · sem restrição por cancelamento · não está já matriculado · **não concluiu o curso** · não tem outra matrícula ativa |
 | `updateAdmissionStatus` — o botão "Aprovar Acesso" | **nenhuma** |
 
-O segundo sobrescrevia `enrolledCourseId` direto. Enquanto uma pessoa lia cada
+O segundo sobrescrevia `curso_matriculado_id` direto. Enquanto uma pessoa lia cada
 pedido, a assimetria passava despercebida — quem aprovava via o nome do aluno e
 o curso, e decidia. Automatizar sem unificar tornaria isso silencioso.
 
 O caso concreto estava no banco: **João Silva, matriculado em Full-Stack
 (`course-2`), com pedido pendente para Metodologias Ágeis (`course-3`) e
-`canMultiEnroll = 0`.** Aprovar — automaticamente ou não — trocaria o curso
+`pode_multimatricula = 0`.** Aprovar — automaticamente ou não — trocaria o curso
 ativo dele, deixando para trás progresso e frequência, sem aviso e sem registro
 de quem decidiu.
 
@@ -80,7 +82,7 @@ diretamente, continua.
 - Cobertura: 4 testes de backend ligam a flag explicitamente nos dois valores —
   um teste que passasse só por a flag estar ligada hoje não diria nada sobre o
   dia em que alguém a desligasse. No frontend, 3 testes cobrem a fila.
-- Verificado no navegador com a resposta de `/api/admissions` interceptada
+- Verificado no navegador com a resposta de `/api/ingressos` interceptada
   devolvendo duas matrículas pendentes: o app as recebeu no estado e a interface
   não as exibiu. A ausência foi provada **com o dado presente**, não com a lista
   vazia.

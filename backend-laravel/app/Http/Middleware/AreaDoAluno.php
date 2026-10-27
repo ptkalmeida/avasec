@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Models\User;
+use App\Models\Usuario;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
@@ -69,7 +69,7 @@ final class AreaDoAluno
          * O status vem SEMPRE do banco — nunca do token, que vale 12h e pode
          * estar descrevendo uma conta que já mudou.
          */
-        $usuario = User::query()->withTrashed()->find($identidade['sub'], ['id', 'name', 'role', 'status', 'inativadoEm']);
+        $usuario = Usuario::query()->withTrashed()->find($identidade['sub'], ['id', 'nome', 'papel', 'status', 'inativado_em']);
 
         if ($usuario === null || $usuario->estaInativo()) {
             return redirect(self::LOGIN);
@@ -85,11 +85,11 @@ final class AreaDoAluno
          * eles têm painel próprio, que ainda é React; mandá-los para a raiz os
          * leva ao painel deles em vez de a uma área que não é a sua.
          */
-        if ($usuario->role !== 'student') {
+        if ($usuario->papel !== 'student') {
             return redirect('/');
         }
 
-        $aluno = ['sub' => (string) $usuario->id, 'name' => (string) $usuario->name, 'role' => 'student'];
+        $aluno = ['sub' => (string) $usuario->id, 'nome' => (string) $usuario->nome, 'papel' => 'student'];
 
         // Nos atributos para os controllers (é o formato que os services pedem)
         // e na view para o layout, que precisa do nome na saudação e no menu.

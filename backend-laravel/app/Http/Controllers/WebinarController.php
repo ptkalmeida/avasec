@@ -23,7 +23,7 @@ final class WebinarController extends Controller
     public function index(Request $request): JsonResponse
     {
         // O papel vem da sessão, se houver (`jwt.optional`): o visitante só recebe o publicado.
-        return response()->json($this->catalog->listWebinars($this->optionalRequester($request)['role'] ?? null));
+        return response()->json($this->catalog->listWebinars($this->optionalRequester($request)['papel'] ?? null));
     }
 
     public function store(Request $request): JsonResponse
@@ -47,21 +47,21 @@ final class WebinarController extends Controller
         // Espelha webinarSchema (Zod) do Node.
         return $this->validateInput($request, [
             'id' => ['sometimes', 'string', 'max:191'],
-            'title' => ['required', 'string', 'max:200'],
+            'titulo' => ['required', 'string', 'max:200'],
             // Data e hora precisam ser parseaveis: a aba Calendario monta a agenda dos
             // proximos 30 dias a partir delas (src/utils/liveSchedule.ts). Como texto
             // livre, um "junho de 2026" entraria no banco e sumiria da agenda em
             // silencio. O formato dd/mm/aaaa e o que os 4 webinars existentes ja usam.
-            'date' => ['required', 'string', 'max:30', 'date_format:d/m/Y'],
-            'time' => ['required', 'string', 'max:20', 'date_format:H:i'],
-            'description' => ['required', 'string', 'max:2000'],
+            'data_texto' => ['required', 'string', 'max:30', 'date_format:d/m/Y'],
+            'horario' => ['required', 'string', 'max:20', 'date_format:H:i'],
+            'descricao' => ['required', 'string', 'max:2000'],
             // O link passou a ser RENDERIZADO num href (botao "Acessar sala" da aba
             // Calendario), entao entra na mesma regra das outras URLs do sistema:
             // sem isso, `javascript:...` num webinar executaria na sessao de quem
             // clicasse. Os 4 webinars da carga inicial tem link '#', que a regra
             // recusa — ao editar um deles, e preciso informar o link de verdade.
             'link' => ['required', 'string', 'max:2000', new SafeUrlRule],
-            'image' => ['nullable', 'string', 'max:2000'],
+            'imagem' => ['nullable', 'string', 'max:2000'],
         ]);
 
     }

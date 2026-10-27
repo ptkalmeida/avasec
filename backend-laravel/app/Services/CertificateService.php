@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\Certificate;
-use App\Models\Course;
-use App\Models\Quiz;
-use App\Models\QuizSubmission;
-use App\Models\StudentEnrollment;
-use App\Models\StudentProgress;
+use App\Models\Certificado;
+use App\Models\Curso;
+use App\Models\Avaliacao;
+use App\Models\TentativaAvaliacao;
+use App\Models\Matricula;
+use App\Models\ProgressoAluno;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;
 use App\Support\Fuso;
@@ -22,27 +22,27 @@ use Carbon\CarbonImmutable;
 /**
  * Emissão e consulta de certificados — espelha src/server/services/certificateService.ts.
  * A emissão NUNCA confia no percentual do cliente: recalcula a frequência a partir do
- * curso + progresso reais. Idempotente por (studentName, courseId).
+ * curso + progresso reais. Idempotente por (nome_aluno, curso_id).
  */
 final class CertificateService
 {
     /**
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array{items: array<int, array<string, mixed>>, total: int}
      */
     public function listCertificates(array $requester, int $skip, int $take): array
     {
         // Aluno vê só os próprios; instrutor só os dos cursos que leciona; admin, todos.
         // Antes o instrutor listava todos os certificados da plataforma.
-        $base = Certificate::query();
-        if ($requester['role'] === 'student') {
+        $base = Certificado::query();
+        if ($requester['papel'] === 'student') {
             Identity::applyOwnRows($base, $requester);
-        } elseif ($requester['role'] === 'instructor') {
-            $base->whereIn('courseId', InstructorScope::courseIds($requester));
+        } elseif ($requester['papel'] === 'instructor') {
+            $base->whereIn('curso_id', InstructorScope::courseIds($requester));
         }
 
         $total = (clone $base)->count();
-        $items = $base->orderBy('issueDate', 'desc')->skip($skip)->take($take)->get()
+        $items = $base->orderBy('data_emissao', 'desc')->skip($skip)->take($take)->get()
             ->map->toArray()->all();
 
         return ['items' => $items, 'total' => $total];
@@ -50,11 +50,11 @@ final class CertificateService
 
     /**
      * Consulta pública de verificação (id, hash ou nome). Resposta em whitelist:
-     * rota sem autenticação nunca expõe identificadores internos (userId/enrollmentId).
+     * rota sem autenticação nunca expõe identificadores internos (usuario_id/matricula_id).
      *
      * Inclui os REVOGADOS, e é o ponto dessa rota existir.
      *
-     * O certificado revogado é inativado (ADR 12), e `Certificate::query()` com
+     * O certificado revogado é inativado (ADR 12), e `Certificado::query()` com
      * SoftDeletes o omite. Sem `withTrashed()` aqui, revogar fazia a verificação
      * pública responder "não existe" sobre um documento que existe no mundo —
      * está impresso, tem hash e pode estar anexado a um processo. Quem confere um
@@ -76,49 +76,49 @@ final class CertificateService
          * pública (achado da varredura de segurança de 23/10/2026). A tela continua prometendo
          * "código ou nome completo do aluno": quem já sabe o nome inteiro continua achando.
          */
-        $cert = Certificate::withTrashed()
+        $cert = Certificado::withTrashed()
             ->where(function ($q) use ($trimmed): void {
                 $q->where('id', $trimmed)
-                    ->orWhere('verificationHash', $trimmed)
-                    ->orWhere('studentName', $trimmed);
+                    ->orWhere('hash_verificacao', $trimmed)
+                    ->orWhere('nome_aluno', $trimmed);
             })
             ->first();
         if ($cert === null) {
             return null;
         }
 
-        $cargaHoraria = Course::query()->find($cert->courseId)?->cargaHoraria;
+        $carga_horaria = Curso::query()->find($cert->curso_id)?->carga_horaria;
 
         return [
             'id' => $cert->id,
-            'studentName' => $cert->studentName,
-            'courseTitle' => $cert->courseTitle,
+            'nome_aluno' => $cert->nome_aluno,
+            'titulo_curso' => $cert->titulo_curso,
             // Acesso direto devolve Carbon (cast date) — formata explicitamente
             // porque este array não passa pela serialização do model.
-            'issueDate' => $cert->issueDate?->format('d/m/Y'),
-            'attendancePercent' => $cert->attendancePercent,
-            'verificationHash' => $cert->verificationHash,
-            'cargaHoraria' => is_numeric($cargaHoraria) ? (int) $cargaHoraria : null,
+            'data_emissao' => $cert->data_emissao?->format('d/m/Y'),
+            'percentual_frequencia' => $cert->percentual_frequencia,
+            'hash_verificacao' => $cert->hash_verificacao,
+            'carga_horaria' => is_numeric($carga_horaria) ? (int) $carga_horaria : null,
             // Estado do documento. `revogado` é o que decide o que a tela diz;
             // a data e o motivo existem para a pessoa que está com o papel na
             // mão entender por quê. Quem revogou NÃO sai daqui: rota pública não
             // expõe identificador interno de servidor.
             'revogado' => $cert->estaInativo(),
-            'revogadoEm' => Fuso::local($cert->inativadoEm)?->format('d/m/Y'),
-            'motivoRevogacao' => $cert->estaInativo() ? $cert->motivoInativacao : null,
+            'revogadoEm' => Fuso::local($cert->inativado_em)?->format('d/m/Y'),
+            'motivoRevogacao' => $cert->estaInativo() ? $cert->motivo_inativacao : null,
         ];
     }
 
     /**
-     * @param  array{userId?:string|null,courseId:string}  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{usuario_id?:string|null,curso_id:string}  $input
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function issueCertificate(array $input, array $requester): array
     {
-        $userId = Identity::resolveActorUserId($requester, $input['userId'] ?? null);
+        $usuario_id = Identity::resolveActorUserId($requester, $input['usuario_id'] ?? null);
 
-        $course = Course::query()->with(['lessons', 'liveSessions'])->find($input['courseId']);
+        $course = Curso::query()->with(['aulas', 'sessoesAoVivo'])->find($input['curso_id']);
         if ($course === null) {
             throw ApiException::notFound('Curso não encontrado.');
         }
@@ -128,7 +128,7 @@ final class CertificateService
          * Sem isto, quem forjava progresso num curso alheio (ou tinha progresso solto no banco)
          * recebia certificado de um curso que nunca cursou. Vale para quem emite, inclusive o admin.
          */
-        if (! CourseAccess::canAccess(['sub' => $userId, 'name' => '', 'role' => 'student'], $course->id)) {
+        if (! CourseAccess::canAccess(['sub' => $usuario_id, 'nome' => '', 'papel' => 'student'], $course->id)) {
             throw ApiException::forbidden('Este aluno não participa do curso.');
         }
 
@@ -136,7 +136,7 @@ final class CertificateService
         // que CertificatePdfService já aplica no download. Faltava aqui: quem podia
         // baixar só o próprio conseguia EMITIR para qualquer curso da escola.
         // Para o aluno o risco já era contido (a frequência é recalculada abaixo).
-        if ($requester['role'] === 'instructor'
+        if ($requester['papel'] === 'instructor'
             && ! in_array($course->id, InstructorScope::courseIds($requester), true)) {
             throw ApiException::forbidden('Você só pode emitir certificados dos seus cursos.');
         }
@@ -146,13 +146,13 @@ final class CertificateService
          *
          * `withTrashed()` é obrigatório aqui (armadilha 1 da ADR 12). Sem ele o
          * certificado REVOGADO não é encontrado, o `create()` abaixo segue em
-         * frente e bate na UNIQUE (studentName, courseId) — erro de servidor. Ou
+         * frente e bate na UNIQUE (nome_aluno, curso_id) — erro de servidor. Ou
          * seja: revogar um certificado tornava aquele aluno impossível de
          * certificar naquele curso para sempre.
          */
-        $existing = Certificate::withTrashed()
-            ->where('userId', $userId)
-            ->where('courseId', $input['courseId'])
+        $existing = Certificado::withTrashed()
+            ->where('usuario_id', $usuario_id)
+            ->where('curso_id', $input['curso_id'])
             ->first();
         if ($existing !== null && ! $existing->estaInativo()) {
             return $existing->toArray();
@@ -161,30 +161,30 @@ final class CertificateService
             /*
              * Revogado NÃO é reemitido por chamada de rotina.
              *
-             * A UNIQUE (studentName, courseId) obriga a reemissão a reaproveitar
-             * a MESMA linha, e `reativar()` limpa `inativadoPor` e
-             * `motivoInativacao` — reemitir aqui apagaria o registro de que houve
+             * A UNIQUE (nome_aluno, curso_id) obriga a reemissão a reaproveitar
+             * a MESMA linha, e `reativar()` limpa `inativado_por` e
+             * `motivo_inativacao` — reemitir aqui apagaria o registro de que houve
              * revogação, que é justamente o que a ADR 12 manda preservar. Devolver
              * a validade a um documento revogado é decisão administrativa, e
              * precisa de fluxo próprio que registre a reabilitação.
              */
-            $quando = Fuso::local($existing->inativadoEm)?->format('d/m/Y') ?? 'data não registrada';
+            $quando = Fuso::local($existing->inativado_em)?->format('d/m/Y') ?? 'data não registrada';
             throw ApiException::forbidden(
                 "Este certificado foi revogado em {$quando} e não é reemitido automaticamente. "
                 .'A reabilitação é ato da administração e tem de ficar registrada.'
             );
         }
 
-        $progress = StudentProgress::query()
-            ->where('userId', $userId)
-            ->where('courseId', $input['courseId'])
+        $progress = ProgressoAluno::query()
+            ->where('usuario_id', $usuario_id)
+            ->where('curso_id', $input['curso_id'])
             ->first();
 
-        $attendancePercent = $this->computeAttendancePercent($course, $progress);
-        $minAttendance = BusinessRules::courseMinAttendance($course->minAttendance);
+        $percentual_frequencia = $this->computeAttendancePercent($course, $progress);
+        $frequencia_minima = BusinessRules::courseMinAttendance($course->frequencia_minima);
 
-        if ($attendancePercent < $minAttendance) {
-            throw ApiException::forbidden("Critério de frequência ainda não atingido para emissão do certificado ({$attendancePercent}% de {$minAttendance}% exigidos).");
+        if ($percentual_frequencia < $frequencia_minima) {
+            throw ApiException::forbidden("Critério de frequência ainda não atingido para emissão do certificado ({$percentual_frequencia}% de {$frequencia_minima}% exigidos).");
         }
 
         /*
@@ -200,7 +200,7 @@ final class CertificateService
          * certificado automático exige TODAS as avaliações ativas APROVADAS.
          * Curso sem avaliação segue só pela frequência — é o que ele mede.
          */
-        $pendentes = $this->avaliacoesNaoAprovadas($course->id, $userId);
+        $pendentes = $this->avaliacoesNaoAprovadas($course->id, $usuario_id);
         if ($pendentes !== []) {
             $quantas = count($pendentes);
             $lista = implode(', ', $pendentes);
@@ -211,20 +211,20 @@ final class CertificateService
             );
         }
 
-        $enrollmentId = StudentEnrollment::query()->whereKey($userId)->value('id');
+        $matricula_id = Matricula::query()->whereKey($usuario_id)->value('id');
 
         $hashHex = strtoupper(bin2hex(random_bytes(8)));
-        $certificate = Certificate::query()->create([
+        $certificate = Certificado::query()->create([
             'id' => "cert-{$course->id}-{$hashHex}",
-            'studentName' => Identity::displayName($userId, $requester),
-            'userId' => $userId,
-            'enrollmentId' => $enrollmentId,
-            'courseId' => $course->id,
-            'courseTitle' => $course->title,
+            'nome_aluno' => Identity::displayName($usuario_id, $requester),
+            'usuario_id' => $usuario_id,
+            'matricula_id' => $matricula_id,
+            'curso_id' => $course->id,
+            'titulo_curso' => $course->titulo,
             // Coluna DATE — o cast do model serializa como d/m/Y no contrato.
-            'issueDate' => CarbonImmutable::now(),
-            'attendancePercent' => $attendancePercent,
-            'verificationHash' => "AVA-{$hashHex}",
+            'data_emissao' => CarbonImmutable::now(),
+            'percentual_frequencia' => $percentual_frequencia,
+            'hash_verificacao' => "AVA-{$hashHex}",
         ]);
 
         return $certificate->toArray();
@@ -245,31 +245,31 @@ final class CertificateService
      *
      * @return array{frequencia:int, minima:int, avaliacoesPendentes:list<string>, emite:bool}
      */
-    public function situacaoParaCertificado(string $courseId, string $userId): array
+    public function situacaoParaCertificado(string $curso_id, string $usuario_id): array
     {
-        $course = Course::query()->with(['lessons', 'liveSessions'])->find($courseId);
+        $course = Curso::query()->with(['aulas', 'sessoesAoVivo'])->find($curso_id);
 
         if ($course === null) {
             return ['frequencia' => 0, 'minima' => BusinessRules::defaultMinAttendance(), 'avaliacoesPendentes' => [], 'emite' => false];
         }
 
-        $progress = StudentProgress::query()
-            ->where('userId', $userId)
-            ->where('courseId', $courseId)
+        $progress = ProgressoAluno::query()
+            ->where('usuario_id', $usuario_id)
+            ->where('curso_id', $curso_id)
             ->first();
 
         return [
             'frequencia' => $this->computeAttendancePercent($course, $progress),
-            'minima' => BusinessRules::courseMinAttendance($course->minAttendance),
-            'avaliacoesPendentes' => array_values($this->avaliacoesNaoAprovadas($courseId, $userId)),
+            'minima' => BusinessRules::courseMinAttendance($course->frequencia_minima),
+            'avaliacoesPendentes' => array_values($this->avaliacoesNaoAprovadas($curso_id, $usuario_id)),
             /*
-             * Uma fonte só: a COLUNA `emiteCertificado` do curso, a que o admin e o
+             * Uma fonte só: a COLUNA `emite_certificado` do curso, a que o admin e o
              * instrutor editam (`NULL` conta como "emite": a coluna nasceu depois
              * dos cursos que já existiam). Até 23/10/2026 também valia a convenção
              * de escrever "Sem Certificado" na categoria; o responsável decidiu que
              * vale o curso apenas, e nenhum curso usava a convenção.
              */
-            'emite' => $course->emiteCertificado !== false,
+            'emite' => $course->emite_certificado !== false,
         ];
     }
 
@@ -285,35 +285,35 @@ final class CertificateService
      *    rascunho, que o aluno nem enxerga, não pode ser cobrada dele — e se o
      *    papel do requisitante entrasse aqui, o gestor emitindo em nome do aluno
      *    seria cobrado por uma prova que só o gestor vê.
-     * 3. Aprovação é `passed` em QUALQUER tentativa, não na última: a ADR 12
+     * 3. Aprovação é `aprovado` em QUALQUER tentativa, não na última: a ADR 12
      *    manda acrescentar tentativa em vez de sobrescrever, então reprovar
      *    depois de já ter sido aprovado não desfaz a aprovação.
      *
      * @return array<int, string>
      */
-    private function avaliacoesNaoAprovadas(string $courseId, string $userId): array
+    private function avaliacoesNaoAprovadas(string $curso_id, string $usuario_id): array
     {
-        $exigidas = Quiz::query()->where('courseId', $courseId);
+        $exigidas = Avaliacao::query()->where('curso_id', $curso_id);
         Visibilidade::aplicar($exigidas, 'student');
         /** @var array<string, string> $titulos */
-        $titulos = $exigidas->pluck('title', 'id')->all();
+        $titulos = $exigidas->pluck('titulo', 'id')->all();
 
         if ($titulos === []) {
             return [];
         }
 
         /** @var array<int, string> $aprovadas */
-        $aprovadas = QuizSubmission::query()
-            ->where('userId', $userId)
-            ->where('courseId', $courseId)
-            ->where('passed', true)
-            ->whereIn('quizId', array_keys($titulos))
-            ->pluck('quizId')
+        $aprovadas = TentativaAvaliacao::query()
+            ->where('usuario_id', $usuario_id)
+            ->where('curso_id', $curso_id)
+            ->where('aprovado', true)
+            ->whereIn('avaliacao_id', array_keys($titulos))
+            ->pluck('avaliacao_id')
             ->all();
 
         $pendentes = [];
-        foreach ($titulos as $quizId => $titulo) {
-            if (! in_array($quizId, $aprovadas, true)) {
+        foreach ($titulos as $avaliacao_id => $titulo) {
+            if (! in_array($avaliacao_id, $aprovadas, true)) {
                 $pendentes[] = $titulo;
             }
         }
@@ -332,26 +332,26 @@ final class CertificateService
      */
     public function deleteCertificate(string $id, ?string $porUserId = null, ?string $motivo = null): void
     {
-        Certificate::query()->find($id)?->inativar($porUserId, $motivo);
+        Certificado::query()->find($id)?->inativar($porUserId, $motivo);
     }
 
-    private function computeAttendancePercent(Course $course, ?StudentProgress $progress): int
+    private function computeAttendancePercent(Curso $course, ?ProgressoAluno $progress): int
     {
-        $totalActivities = $course->lessons->count() + $course->liveSessions->count();
+        $totalActivities = $course->aulas->count() + $course->sessoesAoVivo->count();
         if ($totalActivities === 0) {
             return 0;
         }
         // Conta apenas ids que AINDA existem no curso. Resíduo de aula apagada
-        // ficava em `completedLessons` e era contado como presença — e esta é a
+        // ficava em `aulas_concluidas` e era contado como presença — e esta é a
         // conta que decide a EMISSÃO do certificado, não um número de tela.
-        $aulas = is_array($progress?->completedLessons) ? $progress->completedLessons : [];
-        $encontros = is_array($progress?->attendedLiveSessions) ? $progress->attendedLiveSessions : [];
+        $aulas = is_array($progress?->aulas_concluidas) ? $progress->aulas_concluidas : [];
+        $encontros = is_array($progress?->sessoes_ao_vivo_assistidas) ? $progress->sessoes_ao_vivo_assistidas : [];
         $done = count(array_intersect(
             array_values(array_filter($aulas, static fn ($id): bool => is_string($id))),
-            array_values(array_filter($course->lessons->pluck('id')->all(), static fn ($id): bool => is_string($id))),
+            array_values(array_filter($course->aulas->pluck('id')->all(), static fn ($id): bool => is_string($id))),
         )) + count(array_intersect(
             array_values(array_filter($encontros, static fn ($id): bool => is_string($id))),
-            array_values(array_filter($course->liveSessions->pluck('id')->all(), static fn ($id): bool => is_string($id))),
+            array_values(array_filter($course->sessoesAoVivo->pluck('id')->all(), static fn ($id): bool => is_string($id))),
         ));
 
         return min(100, (int) round(($done / $totalActivities) * 100));

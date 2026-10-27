@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
-use App\Models\Lesson;
+use App\Models\Aula;
 use App\Services\CaixaDeMensagens;
 use App\Services\CatalogService;
 use App\Services\CertificatePdfService;
@@ -34,7 +34,7 @@ use Illuminate\View\View;
  * tela não pode mudar quem alcança o quê (invariante 5 do plano 16).
  *
  * Por isso a lista de cursos sai de `CourseService::listCoursesFor`, e não de
- * um `Course::query()` escrito aqui: aquele método já aplica a escada de
+ * um `Curso::query()` escrito aqui: aquele método já aplica a escada de
  * visibilidade e já remove o material de quem não pertence ao curso. Um
  * atalho neste controller reabriria as duas portas de uma vez.
  */
@@ -68,7 +68,7 @@ final class AreaDoAlunoController extends Controller
      */
     public function painel(Request $request): View
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         $matricula = $this->matriculaDe($aluno);
@@ -109,7 +109,7 @@ final class AreaDoAlunoController extends Controller
      */
     public function certificados(Request $request): View
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         // `listCertificates` com papel de aluno devolve só as linhas dele.
@@ -119,8 +119,8 @@ final class AreaDoAlunoController extends Controller
         $porId = $this->cursosPorId($aluno);
         $comCertificado = [];
         foreach ($emitidos as $cert) {
-            if (is_string($cert['courseId'] ?? null)) {
-                $comCertificado[$cert['courseId']] = true;
+            if (is_string($cert['curso_id'] ?? null)) {
+                $comCertificado[$cert['curso_id']] = true;
             }
         }
 
@@ -142,7 +142,7 @@ final class AreaDoAlunoController extends Controller
             'emitidos' => $emitidos,
             'emAndamento' => $emAndamento,
             'cargaPorCurso' => array_map(
-                static fn (array $c): ?int => is_numeric($c['cargaHoraria'] ?? null) ? (int) $c['cargaHoraria'] : null,
+                static fn (array $c): ?int => is_numeric($c['carga_horaria'] ?? null) ? (int) $c['carga_horaria'] : null,
                 $porId,
             ),
         ]);
@@ -171,11 +171,11 @@ final class AreaDoAlunoController extends Controller
             );
         }
 
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         return view('aluno.biblioteca', [
-            'itens' => $this->catalogo->listLibraryItemsFor($aluno['role']),
+            'itens' => $this->catalogo->listLibraryItemsFor($aluno['papel']),
         ]);
     }
 
@@ -210,13 +210,13 @@ final class AreaDoAlunoController extends Controller
      */
     public function pdfDoCertificado(Request $request, string $certificadoId): Response
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         $resultado = $this->pdf->renderPdf($certificadoId, $aluno);
         $inline = $request->query('modo') === 'ver';
 
-        return response($resultado['content'], 200, [
+        return response($resultado['conteudo'], 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => ($inline ? 'inline' : 'attachment').'; filename="'.$resultado['filename'].'"',
         ]);
@@ -228,7 +228,7 @@ final class AreaDoAlunoController extends Controller
      * ## O defeito que esta tela corrige
      *
      * O cartão "Suporte Pedagógico" da aula ENVIAVA uma mensagem ao gestor
-     * (`POST /api/dms`, flag `mensagensDiretas`, ligada). Quando a skill o tirou
+     * (`POST /api/mensagens-diretas`, flag `mensagensDiretas`, ligada). Quando a skill o tirou
      * da aula, o item do menu passou a apontar para `/aluno/mensagens` — que é a
      * tela de LER a conversa, e essa depende também da flag `forum`, desligada.
      * O aluno clicava e lia "esta seção não está disponível": o único jeito de
@@ -248,7 +248,7 @@ final class AreaDoAlunoController extends Controller
      */
     public function suporte(Request $request): View
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         return view('aluno.suporte', [
@@ -261,7 +261,7 @@ final class AreaDoAlunoController extends Controller
 
     public function enviarSuporte(Request $request): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         // A rota de API é guardada pela flag no middleware; a porta web tem de
@@ -277,10 +277,10 @@ final class AreaDoAlunoController extends Controller
         $aula = $this->aulaDoAssunto($dados['aula'] ?? null, $aluno);
 
         $this->mensagens->createDirectMessage([
-            'studentUserId' => null,
+            'aluno_usuario_id' => null,
             // O formato do assunto mora num lugar só: quem monta e quem lê a
             // etiqueta da aula precisam concordar.
-            'text' => AssuntoDaAula::montar($aula === null ? null : $aula['title'], $texto),
+            'texto' => AssuntoDaAula::montar($aula === null ? null : $aula['titulo'], $texto),
         ], $aluno);
 
         $destino = '/aluno/suporte'.($aula === null ? '' : '?aula='.urlencode($aula['id']));
@@ -295,8 +295,8 @@ final class AreaDoAlunoController extends Controller
      * assunto o título de uma aula de curso alheio — pouco grave, mas é o tipo
      * de vazamento pequeno que ninguém procura.
      *
-     * @param  array{sub:string,name:string,role:string}  $aluno
-     * @return array{id:string,title:string}|null
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
+     * @return array{id:string,titulo:string}|null
      */
     private function aulaDoAssunto(mixed $aulaId, array $aluno): ?array
     {
@@ -304,12 +304,12 @@ final class AreaDoAlunoController extends Controller
             return null;
         }
 
-        $aula = Lesson::query()->find($aulaId);
-        if ($aula === null || ! in_array($aula->courseId, CourseAccess::accessibleCourseIds($aluno), true)) {
+        $aula = Aula::query()->find($aulaId);
+        if ($aula === null || ! in_array($aula->curso_id, CourseAccess::accessibleCourseIds($aluno), true)) {
             return null;
         }
 
-        return ['id' => (string) $aula->id, 'title' => (string) $aula->title];
+        return ['id' => (string) $aula->id, 'titulo' => (string) $aula->titulo];
     }
 
     /**
@@ -329,10 +329,10 @@ final class AreaDoAlunoController extends Controller
      */
     public function curso(Request $request, string $cursoRef): View|RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
-        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['papel']);
 
         $matricula = $this->matriculaDe($aluno);
         $porId = $this->cursosPorId($aluno);
@@ -350,7 +350,7 @@ final class AreaDoAlunoController extends Controller
         $meus = array_merge(
             $this->idsEmAndamento($matricula),
             array_values(array_filter(
-                is_array($matricula['completedCourseIds'] ?? null) ? $matricula['completedCourseIds'] : [],
+                is_array($matricula['cursos_concluidos_ids'] ?? null) ? $matricula['cursos_concluidos_ids'] : [],
                 static fn (mixed $id): bool => is_string($id),
             )),
         );
@@ -413,12 +413,12 @@ final class AreaDoAlunoController extends Controller
      * Além do curso, devolve `id` e `ref` (o slug, ou o id quando não há
      * slug) já como texto — é o que as telas de dentro do curso usam.
      *
-     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
      * @return array{curso:array<string, mixed>,id:string,ref:string}|RedirectResponse
      */
     private function meuCurso(array $aluno, string $cursoRef, string $resto = ''): array|RedirectResponse
     {
-        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['papel']);
         $curso = $this->cursosPorId($aluno)[$resolvido['id']] ?? null;
 
         abort_if(
@@ -446,7 +446,7 @@ final class AreaDoAlunoController extends Controller
     {
         abort_unless(config('features.quizSimples') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($aluno, $cursoRef, '/avaliacoes');
@@ -469,19 +469,19 @@ final class AreaDoAlunoController extends Controller
      * vem da sessão, uma vez só. Recarregar depois volta à prova em branco, e a
      * nota continua na lista de avaliações.
      */
-    public function prova(Request $request, string $cursoRef, string $quizId): View|RedirectResponse
+    public function prova(Request $request, string $cursoRef, string $avaliacao_id): View|RedirectResponse
     {
         abort_unless(config('features.quizSimples') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
-        $meu = $this->meuCurso($aluno, $cursoRef, '/avaliacoes/'.rawurlencode($quizId));
+        $meu = $this->meuCurso($aluno, $cursoRef, '/avaliacoes/'.rawurlencode($avaliacao_id));
         if ($meu instanceof RedirectResponse) {
             return $meu;
         }
 
-        $prova = $this->aprendizagem->provaParaResponder($meu['id'], $quizId);
+        $prova = $this->aprendizagem->provaParaResponder($meu['id'], $avaliacao_id);
         abort_if($prova === null, 404);
 
         $resultado = $request->session()->get('resultadoDaProva');
@@ -490,7 +490,7 @@ final class AreaDoAlunoController extends Controller
             'curso' => $meu['curso'],
             'ref' => $meu['ref'],
             'prova' => $prova,
-            'resultado' => is_array($resultado) && ($resultado['quizId'] ?? null) === $prova['id'] ? $resultado : null,
+            'resultado' => is_array($resultado) && ($resultado['avaliacao_id'] ?? null) === $prova['id'] ? $resultado : null,
             'minimo' => BusinessRules::quizPassThreshold(),
         ]);
     }
@@ -502,11 +502,11 @@ final class AreaDoAlunoController extends Controller
      * Sem limitador de frequência, como o envio pela API. Cada envio grava uma
      * tentativa (ADR 12) — sinalizado no plano 18 §21.
      */
-    public function responderProva(Request $request, string $cursoRef, string $quizId): RedirectResponse
+    public function responderProva(Request $request, string $cursoRef, string $avaliacao_id): RedirectResponse
     {
         abort_unless(config('features.quizSimples') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         // Endereço antigo num POST: o formulário veio de uma página velha. A
@@ -516,8 +516,8 @@ final class AreaDoAlunoController extends Controller
             return $meu;
         }
 
-        $prova = $this->aprendizagem->provaParaResponder($meu['id'], $quizId);
-        abort_if($prova === null || $prova['questions'] === [], 404);
+        $prova = $this->aprendizagem->provaParaResponder($meu['id'], $avaliacao_id);
+        abort_if($prova === null || $prova['questoes'] === [], 404);
 
         $enviadas = $request->input('respostas');
         $enviadas = is_array($enviadas) ? $enviadas : [];
@@ -527,16 +527,16 @@ final class AreaDoAlunoController extends Controller
         // registrada pela metade contaria como nota.
         $respostas = [];
         $faltam = [];
-        foreach ($prova['questions'] as $i => $q) {
+        foreach ($prova['questoes'] as $i => $q) {
             $valor = $enviadas[$q['id']] ?? null;
-            if (is_string($valor) && ctype_digit($valor) && (int) $valor < count($q['options'])) {
+            if (is_string($valor) && ctype_digit($valor) && (int) $valor < count($q['opcoes'])) {
                 $respostas[$q['id']] = (int) $valor;
             } else {
                 $faltam[] = $i + 1;
             }
         }
 
-        $voltar = '/aluno/curso/'.$meu['ref'].'/avaliacoes/'.rawurlencode($quizId);
+        $voltar = '/aluno/curso/'.$meu['ref'].'/avaliacoes/'.rawurlencode($avaliacao_id);
 
         if ($faltam !== []) {
             $ultima = array_pop($faltam);
@@ -549,15 +549,15 @@ final class AreaDoAlunoController extends Controller
         }
 
         try {
-            $tentativa = $this->aprendizagem->submitQuiz(['quizId' => $prova['id'], 'answers' => $respostas], $aluno);
+            $tentativa = $this->aprendizagem->submitQuiz(['avaliacao_id' => $prova['id'], 'answers' => $respostas], $aluno);
         } catch (ApiException $e) {
             return redirect($voltar)->withInput()->withErrors(['respostas' => $e->getMessage()]);
         }
 
         return redirect($voltar)->with('resultadoDaProva', [
-            'quizId' => $prova['id'],
-            'scorePercent' => is_numeric($tentativa['scorePercent'] ?? null) ? (int) $tentativa['scorePercent'] : 0,
-            'passed' => ! empty($tentativa['passed']),
+            'avaliacao_id' => $prova['id'],
+            'percentual_nota' => is_numeric($tentativa['percentual_nota'] ?? null) ? (int) $tentativa['percentual_nota'] : 0,
+            'aprovado' => ! empty($tentativa['aprovado']),
             'correcao' => $this->aprendizagem->correcaoParaAluno($prova['id'], $respostas),
         ]);
     }
@@ -569,13 +569,13 @@ final class AreaDoAlunoController extends Controller
      * "Iniciar primeira aula" chegou a abrir uma aula do meio no React.
      *
      * @param  array<string, mixed>  $curso
-     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
      * @return list<array<string, mixed>>
      */
     private function aulasEmOrdem(array $curso, array $aluno): array
     {
         $concluidas = $this->aulasConcluidasDoRegistro($curso['id'], $aluno);
-        $aulas = is_array($curso['lessons'] ?? null) ? $curso['lessons'] : [];
+        $aulas = is_array($curso['aulas'] ?? null) ? $curso['aulas'] : [];
 
         /** @var list<array<string, mixed>> $lista */
         $lista = [];
@@ -595,7 +595,7 @@ final class AreaDoAlunoController extends Controller
         // `mixed`: aula sem ordem (ou com ordem que não é número) vai para o
         // começo em vez de derrubar a tela.
         $ordem = static function (array $aula): int {
-            $valor = $aula['order'] ?? null;
+            $valor = $aula['ordem'] ?? null;
 
             return is_numeric($valor) ? (int) $valor : 0;
         };
@@ -622,10 +622,10 @@ final class AreaDoAlunoController extends Controller
      */
     public function aula(Request $request, string $cursoRef, string $aulaId): View|RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
-        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['papel']);
         $matricula = $this->matriculaDe($aluno);
         $porId = $this->cursosPorId($aluno);
         $curso = $porId[$resolvido['id']] ?? null;
@@ -659,7 +659,7 @@ final class AreaDoAlunoController extends Controller
             'curso' => $this->comProgresso($curso, $aluno),
             'aulas' => $aulas,
             'aula' => $aula,
-            'blocos' => ConteudoDaAula::analisar(is_string($aula['content'] ?? null) ? $aula['content'] : null)['blocos'],
+            'blocos' => ConteudoDaAula::analisar(is_string($aula['conteudo'] ?? null) ? $aula['conteudo'] : null)['blocos'],
             'anterior' => $aulas[$posicao - 1] ?? null,
             'proxima' => $aulas[$posicao + 1] ?? null,
             'concluidos' => $this->concluidos($matricula, $porId, $aluno),
@@ -678,7 +678,7 @@ final class AreaDoAlunoController extends Controller
      */
     public function catalogo(Request $request): View
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         $matricula = $this->matriculaDe($aluno);
@@ -709,10 +709,10 @@ final class AreaDoAlunoController extends Controller
     /** Ficha do curso no catálogo: o que ele é, antes de a pessoa se matricular. */
     public function fichaDoCatalogo(Request $request, string $cursoRef): View|RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
-        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['papel']);
         $curso = $this->cursosPorId($aluno)[$resolvido['id']] ?? null;
         // Vencido não tem ficha: a ficha é a página de "quero me matricular".
         abort_if($curso === null || VigenciaDoCurso::vencida($curso), 404);
@@ -750,7 +750,7 @@ final class AreaDoAlunoController extends Controller
      */
     public function matricular(Request $request, string $cursoRef): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         $request->validate(
@@ -758,7 +758,7 @@ final class AreaDoAlunoController extends Controller
             ['ciente.accepted' => 'É preciso confirmar que leu as regras de matrícula e certificação.'],
         );
 
-        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['role']);
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $aluno['papel']);
         abort_if(! isset($this->cursosPorId($aluno)[$resolvido['id']]), 404);
 
         try {
@@ -781,7 +781,7 @@ final class AreaDoAlunoController extends Controller
      */
     private function idsDoAluno(array $matricula): array
     {
-        $concluidos = is_array($matricula['completedCourseIds'] ?? null) ? $matricula['completedCourseIds'] : [];
+        $concluidos = is_array($matricula['cursos_concluidos_ids'] ?? null) ? $matricula['cursos_concluidos_ids'] : [];
 
         return array_values(array_unique(array_merge(
             $this->idsEmAndamento($matricula),
@@ -806,7 +806,7 @@ final class AreaDoAlunoController extends Controller
         }
 
         return config('features.matriculasMultiplas') === true
-            && ($matricula['canMultiEnroll'] ?? false) === true;
+            && ($matricula['pode_multimatricula'] ?? false) === true;
     }
 
     /**
@@ -814,10 +814,10 @@ final class AreaDoAlunoController extends Controller
      *
      * `getEnrollments` devolve um mapa de `mixed` (ele serve também ao admin,
      * que recebe todas). Sem estreitar aqui, cada leitura de campo mais adiante
-     * seria sobre `mixed` — e é assim que um `completedCourseIds` que mudou de
+     * seria sobre `mixed` — e é assim que um `cursos_concluidos_ids` que mudou de
      * forma vira erro longe da causa.
      *
-     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
      * @return array<string, mixed>
      */
     private function matriculaDe(array $aluno): array
@@ -830,7 +830,7 @@ final class AreaDoAlunoController extends Controller
     /**
      * Cursos que o aluno pode ver, indexados por id.
      *
-     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
      * @return array<string, array<string, mixed>>
      */
     private function cursosPorId(array $aluno): array
@@ -855,9 +855,9 @@ final class AreaDoAlunoController extends Controller
      */
     private function idsEmAndamento(array $matricula): array
     {
-        $extras = is_array($matricula['extraCourseIds'] ?? null) ? $matricula['extraCourseIds'] : [];
+        $extras = is_array($matricula['cursos_extras_ids'] ?? null) ? $matricula['cursos_extras_ids'] : [];
         $ids = array_merge(
-            is_string($matricula['enrolledCourseId'] ?? null) ? [$matricula['enrolledCourseId']] : [],
+            is_string($matricula['curso_matriculado_id'] ?? null) ? [$matricula['curso_matriculado_id']] : [],
             array_values(array_filter($extras, static fn (mixed $id): bool => is_string($id))),
         );
 
@@ -867,13 +867,13 @@ final class AreaDoAlunoController extends Controller
     /**
      * @param  array<string, mixed>  $matricula
      * @param  array<string, array<string, mixed>>  $porId
-     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
      * @return list<array<string, mixed>>
      */
     private function concluidos(array $matricula, array $porId, array $aluno): array
     {
         $concluidos = [];
-        $ids = is_array($matricula['completedCourseIds'] ?? null) ? $matricula['completedCourseIds'] : [];
+        $ids = is_array($matricula['cursos_concluidos_ids'] ?? null) ? $matricula['cursos_concluidos_ids'] : [];
 
         foreach ($ids as $id) {
             if (is_string($id) && isset($porId[$id])) {
@@ -893,12 +893,12 @@ final class AreaDoAlunoController extends Controller
      * Ele existe só para a largura da barra e para o `aria-valuenow`.
      *
      * @param  array<string, mixed>  $curso
-     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
      * @return array<string, mixed>
      */
     private function comProgresso(array $curso, array $aluno): array
     {
-        $aulas = is_array($curso['lessons'] ?? null) ? $curso['lessons'] : [];
+        $aulas = is_array($curso['aulas'] ?? null) ? $curso['aulas'] : [];
         $idsDasAulas = array_values(array_map(
             static fn (mixed $aula): mixed => is_array($aula) ? ($aula['id'] ?? null) : null,
             $aulas,
@@ -920,19 +920,19 @@ final class AreaDoAlunoController extends Controller
      * banco, e chamá-lo por curso traria de volta o N+1 que o próprio service
      * evita ao devolver tudo de uma vez.
      *
-     * @param  array{sub:string,name:string,role:string}  $aluno
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
      * @return list<mixed>
      */
-    private function aulasConcluidasDoRegistro(mixed $courseId, array $aluno): array
+    private function aulasConcluidasDoRegistro(mixed $curso_id, array $aluno): array
     {
         $this->registros ??= $this->matriculas->getProgress(null, $aluno);
 
         foreach ($this->registros as $registro) {
-            if (($registro['courseId'] ?? null) !== $courseId) {
+            if (($registro['curso_id'] ?? null) !== $curso_id) {
                 continue;
             }
 
-            $concluidas = $registro['completedLessons'] ?? null;
+            $concluidas = $registro['aulas_concluidas'] ?? null;
 
             // `array_values` porque o contrato aqui é uma LISTA: o JSON do banco
             // pode chegar com chaves salteadas depois de uma remoção, e quem lê

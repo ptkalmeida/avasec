@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\Certificate;
-use App\Models\Course;
+use App\Models\Certificado;
+use App\Models\Curso;
 use App\Support\Fuso;
 use App\Support\Identity;
 use App\Support\InstructorScope;
@@ -26,48 +26,48 @@ final class CertificatePdfService
     ) {}
 
     /**
-     * @param  array{sub:string,name:string,role:string}  $requester
-     * @return array{content: string, filename: string}
+     * @param  array{sub:string,nome:string,papel:string}  $requester
+     * @return array{conteudo: string, filename: string}
      */
     public function renderPdf(string $certificateId, array $requester): array
     {
-        $cert = Certificate::query()->find($certificateId);
+        $cert = Certificado::query()->find($certificateId);
         if ($cert === null) {
             throw ApiException::notFound('Certificado não encontrado.');
         }
-        if ($requester['role'] === 'student' && ! Identity::ownsRow($cert->userId, $requester)) {
+        if ($requester['papel'] === 'student' && ! Identity::ownsRow($cert->usuario_id, $requester)) {
             throw ApiException::forbidden('Você só pode baixar o próprio certificado.');
         }
         // Instrutor só baixa PDF de certificado de curso que leciona (antes: qualquer um).
-        if ($requester['role'] === 'instructor'
-            && ! in_array($cert->courseId, InstructorScope::courseIds($requester), true)) {
+        if ($requester['papel'] === 'instructor'
+            && ! in_array($cert->curso_id, InstructorScope::courseIds($requester), true)) {
             throw ApiException::forbidden('Você só pode baixar certificados dos seus cursos.');
         }
 
-        $verificationUrl = $this->verificationUrl($cert->verificationHash);
-        $cargaHoraria = Course::query()->find($cert->courseId)?->cargaHoraria;
+        $verificationUrl = $this->verificationUrl($cert->hash_verificacao);
+        $carga_horaria = Curso::query()->find($cert->curso_id)?->carga_horaria;
         $template = $this->templates->get('certificado');
 
         $vars = [
-            'studentName' => $cert->studentName,
-            'courseTitle' => $cert->courseTitle,
-            'cargaHoraria' => is_numeric($cargaHoraria) ? (int) $cargaHoraria : null,
-            'attendancePercent' => $cert->attendancePercent,
+            'nome_aluno' => $cert->nome_aluno,
+            'titulo_curso' => $cert->titulo_curso,
+            'carga_horaria' => is_numeric($carga_horaria) ? (int) $carga_horaria : null,
+            'percentual_frequencia' => $cert->percentual_frequencia,
             // Acesso direto devolve Carbon (cast date) — formata para o Blade.
-            'issueDate' => $cert->issueDate?->format('d/m/Y'),
-            'verificationHash' => $cert->verificationHash,
+            'data_emissao' => $cert->data_emissao?->format('d/m/Y'),
+            'hash_verificacao' => $cert->hash_verificacao,
             'verificationUrl' => $verificationUrl,
             'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
-            'institutionName' => $template['institutionName'],
-            'signatories' => $template['signatories'],
-            'footerText' => $template['footerText'],
+            'nome_instituicao' => $template['nome_instituicao'],
+            'signatarios' => $template['signatarios'],
+            'texto_rodape' => $template['texto_rodape'],
         ];
 
-        $customHtml = $template['customHtml'] ?? null;
+        $html_personalizado = $template['html_personalizado'] ?? null;
 
         return [
-            'content' => $this->renderFromVars($vars, is_string($customHtml) ? $customHtml : null),
-            'filename' => "certificado-{$cert->verificationHash}.pdf",
+            'conteudo' => $this->renderFromVars($vars, is_string($html_personalizado) ? $html_personalizado : null),
+            'filename' => "certificado-{$cert->hash_verificacao}.pdf",
         ];
     }
 
@@ -76,7 +76,7 @@ final class CertificatePdfService
      * tela do Admin) com dados de exemplo — só para o tipo 'certificado', o único
      * com pipeline de PDF hoje. Admin-only (o controller já garante o papel).
      *
-     * @return array{content: string, filename: string}
+     * @return array{conteudo: string, filename: string}
      */
     public function renderPreviewPdf(): array
     {
@@ -84,24 +84,24 @@ final class CertificatePdfService
         $verificationUrl = $this->verificationUrl('PREVIEW');
 
         $vars = [
-            'studentName' => 'Aluno(a) Exemplo',
-            'courseTitle' => 'Curso Modelo de Demonstração',
-            'cargaHoraria' => 40,
-            'attendancePercent' => 100,
+            'nome_aluno' => 'Aluno(a) Exemplo',
+            'titulo_curso' => 'Curso Modelo de Demonstração',
+            'carga_horaria' => 40,
+            'percentual_frequencia' => 100,
             // Data local: emitir às 22h BRT datava o certificado do dia seguinte.
-            'issueDate' => Fuso::agora()->format('d/m/Y'),
-            'verificationHash' => 'PREVIEW-'.strtoupper(substr(md5((string) microtime()), 0, 8)),
+            'data_emissao' => Fuso::agora()->format('d/m/Y'),
+            'hash_verificacao' => 'PREVIEW-'.strtoupper(substr(md5((string) microtime()), 0, 8)),
             'verificationUrl' => $verificationUrl,
             'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
-            'institutionName' => $template['institutionName'],
-            'signatories' => $template['signatories'],
-            'footerText' => $template['footerText'],
+            'nome_instituicao' => $template['nome_instituicao'],
+            'signatarios' => $template['signatarios'],
+            'texto_rodape' => $template['texto_rodape'],
         ];
 
-        $customHtml = $template['customHtml'] ?? null;
+        $html_personalizado = $template['html_personalizado'] ?? null;
 
         return [
-            'content' => $this->renderFromVars($vars, is_string($customHtml) ? $customHtml : null),
+            'conteudo' => $this->renderFromVars($vars, is_string($html_personalizado) ? $html_personalizado : null),
             'filename' => 'preview-certificado.pdf',
         ];
     }
@@ -109,10 +109,10 @@ final class CertificatePdfService
     /**
      * @param  array<string, mixed>  $vars
      */
-    private function renderFromVars(array $vars, ?string $customHtml): string
+    private function renderFromVars(array $vars, ?string $html_personalizado): string
     {
-        $pdf = is_string($customHtml) && trim($customHtml) !== ''
-            ? Pdf::loadHTML($this->renderCustomHtml($customHtml, $vars))
+        $pdf = is_string($html_personalizado) && trim($html_personalizado) !== ''
+            ? Pdf::loadHTML($this->renderCustomHtml($html_personalizado, $vars))
             : Pdf::loadView('certificates.pdf', $vars);
 
         $pdf->setPaper('a4', 'landscape')
@@ -124,7 +124,7 @@ final class CertificatePdfService
 
     /**
      * Modo "layout livre": o HTML vem de um campo editável pelo Admin Superior
-     * (DocumentTemplate.customHtml), então NUNCA passa por Blade::render() —
+     * (ModeloDocumento.html_personalizado), então NUNCA passa por Blade::render() —
      * isso executaria diretivas PHP arbitrárias armazenadas no banco. Em vez
      * disso, os placeholders documentados na tela de edição são substituídos
      * por texto puro (str_replace), o que é inerte.
@@ -136,7 +136,7 @@ final class CertificatePdfService
         $search = [];
         $replace = [];
         foreach ($vars as $key => $value) {
-            if ($key === 'signatories' || $value === null) {
+            if ($key === 'signatarios' || $value === null) {
                 continue;
             }
             $search[] = '{{'.$key.'}}';

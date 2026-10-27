@@ -26,11 +26,11 @@ final class UploadController extends Controller
         }
 
         $requester = $this->requester($request);
-        $visibility = $request->query('visibility') === 'private' ? 'private' : 'public';
+        $visibility = $request->query('visibilidade') === 'private' ? 'private' : 'public';
 
         // A pasta pública é aberta a qualquer visitante, com o endereço da escola (ADR 022).
         // Aluno só envia arquivo privado (a entrega dele); material público é de instrutor e admin.
-        if ($visibility === 'public' && $requester['role'] === 'student') {
+        if ($visibility === 'public' && $requester['papel'] === 'student') {
             throw ApiException::forbidden('Alunos enviam apenas arquivos privados. Use visibility=private.');
         }
 
@@ -45,7 +45,7 @@ final class UploadController extends Controller
 
         // 'attachment' força download — arquivo de terceiros nunca é renderizado no app.
         // Pelo disco, não pelo caminho: vale igual para o disco local e para o S3/MinIO.
-        return $resolved['disco']->download($resolved['chave'], $resolved['originalName'], [
+        return $resolved['disco']->download($resolved['chave'], $resolved['nome_original'], [
             'Content-Type' => $resolved['mime'],
         ]);
     }

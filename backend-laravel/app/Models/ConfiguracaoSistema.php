@@ -6,9 +6,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-final class SystemSettings extends Model
+final class ConfiguracaoSistema extends Model
 {
-    protected $table = 'SystemSettings';
+    protected $table = 'configuracao_sistema';
 
     protected $keyType = 'string';
 
@@ -16,7 +16,7 @@ final class SystemSettings extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'data'];
+    protected $fillable = ['id', 'dados'];
 
-    protected $casts = ['data' => 'array'];
+    protected $casts = ['dados' => 'array'];
 }

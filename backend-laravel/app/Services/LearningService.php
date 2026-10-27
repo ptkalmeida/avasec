@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\ExerciseSubmission;
-use App\Models\ForumMessage;
-use App\Models\PracticalExercise;
-use App\Models\Quiz;
-use App\Models\QuizQuestion;
-use App\Models\QuizSubmission;
+use App\Models\EntregaExercicio;
+use App\Models\MensagemForum;
+use App\Models\ExercicioPratico;
+use App\Models\Avaliacao;
+use App\Models\QuestaoAvaliacao;
+use App\Models\TentativaAvaliacao;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;
 use App\Support\DataTexto;
@@ -25,9 +25,9 @@ use Illuminate\Support\Str;
 
 /**
  * Quizzes, fórum e exercícios práticos — espelha src/server/services/learningService.ts.
- * senderName/studentName sempre vêm da identidade autenticada, nunca do corpo.
+ * nome_remetente/nome_aluno sempre vêm da identidade autenticada, nunca do corpo.
  *
- * $requester = ['sub'=>id, 'name'=>..., 'role'=>...].
+ * $requester = ['sub'=>id, 'nome'=>..., 'papel'=>...].
  */
 final class LearningService
 {
@@ -36,25 +36,25 @@ final class LearningService
     /**
      * Quizzes dos cursos a que o requester pertence.
      *
-     * O ALUNO recebe só enunciados e alternativas: `correctOptionIndex`,
-     * `explanation` e `reviewMessage` ficam no servidor (decisão de 23/10/2026).
+     * O ALUNO recebe só enunciados e alternativas: `indice_opcao_correta`,
+     * `explanation` e `mensagem_revisao` ficam no servidor (decisão de 23/10/2026).
      * Antes eles iam junto "para o feedback imediato", mas a tela do aluno é
      * Blade desde a M3 e corrige no servidor (`provaParaResponder` +
      * `submitQuiz`); quem chamasse a API à mão lia o gabarito de toda prova do
      * seu curso e tirava 100%. Aluno também não vê prova em rascunho ou restrita.
      * Instrutor e admin continuam recebendo tudo, porque editam a prova.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<int, array<string, mixed>>
      */
     public function listQuizzes(array $requester): array
     {
-        $query = Quiz::query()->with('questions');
-        if ($requester['role'] !== 'admin') {
-            $query->whereIn('courseId', CourseAccess::accessibleCourseIds($requester));
+        $query = Avaliacao::query()->with('questoes');
+        if ($requester['papel'] !== 'admin') {
+            $query->whereIn('curso_id', CourseAccess::accessibleCourseIds($requester));
         }
 
-        $ehAluno = $requester['role'] === 'student';
+        $ehAluno = $requester['papel'] === 'student';
         if ($ehAluno) {
             Visibilidade::aplicar($query, 'student');
         }
@@ -66,10 +66,10 @@ final class LearningService
         }
 
         foreach ($quizzes as &$quiz) {
-            $questoes = is_array($quiz['questions'] ?? null) ? $quiz['questions'] : [];
-            $quiz['questions'] = array_values(array_map(
+            $questoes = is_array($quiz['questoes'] ?? null) ? $quiz['questoes'] : [];
+            $quiz['questoes'] = array_values(array_map(
                 static fn (mixed $q): mixed => is_array($q)
-                    ? array_diff_key($q, array_flip(['correctOptionIndex', 'explanation', 'reviewMessage']))
+                    ? array_diff_key($q, array_flip(['indice_opcao_correta', 'explicacao', 'mensagem_revisao']))
                     : $q,
                 $questoes,
             ));
@@ -81,30 +81,30 @@ final class LearningService
 
     /**
      * @param  array<string, mixed>  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function createQuiz(array $input, array $requester): array
     {
-        $courseId = is_string($input['courseId'] ?? null) ? $input['courseId'] : null;
-        $this->assertInstructorOwnsCourse($courseId, $requester);
+        $curso_id = is_string($input['curso_id'] ?? null) ? $input['curso_id'] : null;
+        $this->assertInstructorOwnsCourse($curso_id, $requester);
 
         /*
          * O gabarito tem de apontar para uma alternativa que EXISTE. Até 21/10
          * esta conferência só morava no navegador (`problemaNaQuestao`), e a API
-         * aceitava `correctOptionIndex` qualquer: duas alternativas com gabarito
+         * aceitava `indice_opcao_correta` qualquer: duas alternativas com gabarito
          * 9 eram gravadas sem reclamação, e a prova ficava impossível de
          * acertar — bloqueando o certificado da turma inteira, já que a prova é
          * exigida para ele.
          */
-        foreach (Payload::assocList($input['questions'] ?? []) as $i => $questao) {
-            $opcoes = is_array($questao['options'] ?? null)
-                ? array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $questao['options']))
+        foreach (Payload::assocList($input['questoes'] ?? []) as $i => $questao) {
+            $opcoes = is_array($questao['opcoes'] ?? null)
+                ? array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $questao['opcoes']))
                 : [];
             $problema = QuestaoDeProva::problema(
-                is_string($questao['questionText'] ?? null) ? $questao['questionText'] : '',
+                is_string($questao['texto_questao'] ?? null) ? $questao['texto_questao'] : '',
                 $opcoes,
-                is_numeric($questao['correctOptionIndex'] ?? null) ? (int) $questao['correctOptionIndex'] : 0,
+                is_numeric($questao['indice_opcao_correta'] ?? null) ? (int) $questao['indice_opcao_correta'] : 0,
             );
             if ($problema !== null) {
                 throw ApiException::validation('Questão '.($i + 1).': '.$problema);
@@ -112,18 +112,18 @@ final class LearningService
         }
 
         $id = is_string($input['id'] ?? null) ? $input['id'] : ('quiz-'.$this->nowMs());
-        $quiz = Quiz::query()->withTrashed()->find($id);
+        $quiz = Avaliacao::query()->withTrashed()->find($id);
         // Um quiz existente não pode ser sequestrado para outro curso alheio.
-        if ($quiz !== null && is_string($quiz->courseId)) {
-            $this->assertInstructorOwnsCourse($quiz->courseId, $requester);
+        if ($quiz !== null && is_string($quiz->curso_id)) {
+            $this->assertInstructorOwnsCourse($quiz->curso_id, $requester);
         }
         if ($quiz !== null) {
-            $quiz->fill(['courseId' => $input['courseId'], 'title' => $input['title']])->save();
+            $quiz->fill(['curso_id' => $input['curso_id'], 'titulo' => $input['titulo']])->save();
         } else {
-            Quiz::query()->create(['id' => $id, 'courseId' => $input['courseId'], 'title' => $input['title']]);
+            Avaliacao::query()->create(['id' => $id, 'curso_id' => $input['curso_id'], 'titulo' => $input['titulo']]);
         }
 
-        $questions = Payload::assocList($input['questions'] ?? []);
+        $questions = Payload::assocList($input['questoes'] ?? []);
 
         /*
          * O id da questão é DECIDIDO AQUI, e não aceito do cliente.
@@ -149,25 +149,25 @@ final class LearningService
         $keptIds = array_values($idsDasQuestoes);
         // Questão que saiu da edição é INATIVADA, não apagada (ADR 12): a
         // resposta que o aluno já deu continua apontando para um item existente.
-        QuizQuestion::query()->where('quizId', $id)
+        QuestaoAvaliacao::query()->where('avaliacao_id', $id)
             ->when(count($keptIds) > 0, fn ($q) => $q->whereNotIn('id', $keptIds))
             ->delete();
 
         foreach ($questions as $i => $q) {
             $qId = $idsDasQuestoes[$i];
             $data = [
-                'quizId' => $id,
-                'questionText' => $q['questionText'],
-                'options' => $q['options'],
-                'correctOptionIndex' => is_numeric($q['correctOptionIndex'] ?? null) ? (int) $q['correctOptionIndex'] : 0,
-                'explanation' => $q['explanation'] ?? null,
-                'reviewMessage' => $q['reviewMessage'] ?? null,
-                'recommendedModule' => $q['recommendedModule'] ?? null,
-                'allowRetry' => $q['allowRetry'] ?? null,
+                'avaliacao_id' => $id,
+                'texto_questao' => $q['texto_questao'],
+                'opcoes' => $q['opcoes'],
+                'indice_opcao_correta' => is_numeric($q['indice_opcao_correta'] ?? null) ? (int) $q['indice_opcao_correta'] : 0,
+                'explicacao' => $q['explicacao'] ?? null,
+                'mensagem_revisao' => $q['mensagem_revisao'] ?? null,
+                'modulo_recomendado' => $q['modulo_recomendado'] ?? null,
+                'permite_nova_tentativa' => $q['permite_nova_tentativa'] ?? null,
             ];
             // withTrashed: questão retirada e depois readicionada com o mesmo id
             // não seria encontrada por find(), e o create() estouraria a chave.
-            $existing = QuizQuestion::query()->withTrashed()->find($qId);
+            $existing = QuestaoAvaliacao::query()->withTrashed()->find($qId);
             if ($existing !== null) {
                 if ($existing->estaInativo()) {
                     $existing->reativar();
@@ -175,60 +175,60 @@ final class LearningService
                 $existing->fill($data)->save();
             } else {
                 $data['id'] = $qId;
-                QuizQuestion::query()->create($data);
+                QuestaoAvaliacao::query()->create($data);
             }
         }
 
-        return Quiz::query()->with('questions')->find($id)?->toArray() ?? [];
+        return Avaliacao::query()->with('questoes')->find($id)?->toArray() ?? [];
     }
 
     /**
      * O id que a questão terá. O pedido do cliente só é aceito quando a questão
      * já pertence a ESTA prova (ver o comentário em `createQuiz`).
      */
-    private function idDaQuestao(?string $pedido, string $quizId, int $posicao): string
+    private function idDaQuestao(?string $pedido, string $avaliacao_id, int $posicao): string
     {
         if ($pedido !== null) {
-            $existente = QuizQuestion::query()->withTrashed()->find($pedido, ['id', 'quizId']);
-            if ($existente !== null && $existente->quizId === $quizId) {
+            $existente = QuestaoAvaliacao::query()->withTrashed()->find($pedido, ['id', 'avaliacao_id']);
+            if ($existente !== null && $existente->avaliacao_id === $avaliacao_id) {
                 return $pedido;
             }
         }
 
-        return $quizId.'-q-'.$this->nowMs().'-'.$posicao.'-'.Str::lower(Str::random(5));
+        return $avaliacao_id.'-q-'.$this->nowMs().'-'.$posicao.'-'.Str::lower(Str::random(5));
     }
 
     /**
      * Inativa a avaliação (ADR 12). As respostas dos alunos NÃO são tocadas.
      *
-     * Isto apagava `QuizSubmission` do quiz junto — as notas que os alunos já
+     * Isto apagava `tentativa_avaliacao` do quiz junto — as notas que os alunos já
      * tinham tirado desapareciam do banco porque quem deu aula excluiu a
      * avaliação. Nota lançada é registro acadêmico e sobrevive à retirada do
      * instrumento que a gerou.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      */
     public function deleteQuiz(string $id, array $requester, ?string $motivo = null): void
     {
-        $quiz = Quiz::query()->find($id);
+        $quiz = Avaliacao::query()->find($id);
         if ($quiz === null) {
             return;
         }
-        $this->assertInstructorOwnsCourse(is_string($quiz->courseId) ? $quiz->courseId : null, $requester);
+        $this->assertInstructorOwnsCourse(is_string($quiz->curso_id) ? $quiz->curso_id : null, $requester);
         $quiz->inativar($requester['sub'] ?? null, $motivo);
     }
 
     /**
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<int, array<string, mixed>>
      */
     public function listQuizSubmissions(array $requester): array
     {
-        $q = QuizSubmission::query();
-        if ($requester['role'] === 'student') {
+        $q = TentativaAvaliacao::query();
+        if ($requester['papel'] === 'student') {
             Identity::applyOwnRows($q, $requester);
-        } elseif ($requester['role'] === 'instructor') {
-            $q->whereIn('courseId', InstructorScope::courseIds($requester));
+        } elseif ($requester['papel'] === 'instructor') {
+            $q->whereIn('curso_id', InstructorScope::courseIds($requester));
         }
 
         /*
@@ -239,50 +239,50 @@ final class LearningService
          *
          * `id` como desempate porque carrega o timestamp em milissegundos: duas
          * tentativas no mesmo segundo ainda saem na ordem em que aconteceram.
-         * Linha sem `enviadoEm` (string antiga não reconhecível) cai para o fim,
+         * Linha sem `enviado_em` (string antiga não reconhecível) cai para o fim,
          * que é onde a mais antiga pertence.
          */
-        return $q->orderByDesc('enviadoEm')->orderByDesc('id')->get()->map->toArray()->all();
+        return $q->orderByDesc('enviado_em')->orderByDesc('id')->get()->map->toArray()->all();
     }
 
     /**
      * A nota NUNCA vem do cliente: é recalculada no servidor comparando as respostas
      * enviadas ($input['answers']: questionId => índice escolhido) com o
-     * correctOptionIndex de cada QuizQuestion. O courseId também é derivado do quiz,
-     * não do corpo. Isso impede o aluno de auto-declarar scorePercent/passed.
+     * indice_opcao_correta de cada QuestaoAvaliacao. O curso_id também é derivado do quiz,
+     * não do corpo. Isso impede o aluno de auto-declarar percentual_nota/aprovado.
      *
-     * @param  array{quizId:string,answers:array<string,int>}  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{avaliacao_id:string,answers:array<string,int>}  $input
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function submitQuiz(array $input, array $requester): array
     {
-        if ($requester['role'] !== 'student') {
+        if ($requester['papel'] !== 'student') {
             throw ApiException::forbidden('Somente alunos podem responder quizzes.');
         }
 
-        $quiz = Quiz::query()->with('questions')->find($input['quizId']);
+        $quiz = Avaliacao::query()->with('questoes')->find($input['avaliacao_id']);
         if ($quiz === null) {
-            throw ApiException::notFound('Quiz não encontrado.');
+            throw ApiException::notFound('Avaliacao não encontrado.');
         }
 
         // Prova em rascunho ou restrita não existe para o aluno: sem esta checagem, quem soubesse o id
         // respondia (e recebia a nota de) uma prova que a escola ainda não publicou.
         if (! Visibilidade::papelAlcanca('student', is_numeric($quiz->getAttribute('status')) ? (int) $quiz->getAttribute('status') : Visibilidade::PUBLICADO)) {
-            throw ApiException::notFound('Quiz não encontrado.');
+            throw ApiException::notFound('Avaliacao não encontrado.');
         }
 
         // Responder avaliação de curso alheio gerava submissão válida num curso ao qual
         // o aluno não pertence — poluindo o painel do instrutor daquela turma.
-        if (! is_string($quiz->courseId) || ! CourseAccess::canAccess($requester, $quiz->courseId)) {
+        if (! is_string($quiz->curso_id) || ! CourseAccess::canAccess($requester, $quiz->curso_id)) {
             throw ApiException::forbidden('Você não participa deste curso.');
         }
 
         $acertos = $this->acertosPorQuestao($quiz, $input['answers']);
         $total = count($acertos);
         $correct = count(array_filter($acertos));
-        $scorePercent = $total === 0 ? 0 : (int) round(($correct / $total) * 100);
-        $passed = $scorePercent >= BusinessRules::quizPassThreshold();
+        $percentual_nota = $total === 0 ? 0 : (int) round(($correct / $total) * 100);
+        $aprovado = $percentual_nota >= BusinessRules::quizPassThreshold();
 
         /*
          * A tentativa nova é ACRESCENTADA. A anterior fica no ar, visível, como
@@ -290,30 +290,30 @@ final class LearningService
          *
          * Antes, responder de novo inativava a anterior — o dado ficava no banco
          * (ADR 12) mas saía das listagens, e a tela só sabia dizer "última
-         * tentativa". Faltava a coluna `enviadoEm`, sem a qual não havia como
-         * afirmar QUAL é a vigente: `submittedAt` é texto de exibição e ordena
+         * tentativa". Faltava a coluna `enviado_em`, sem a qual não havia como
+         * afirmar QUAL é a vigente: `enviado_em_texto` é texto de exibição e ordena
          * alfabeticamente. Com o eixo de ordenação, o histórico inteiro aparece.
          */
         /*
-         * DOIS papéis, de propósito em duas variáveis. `enviadoEm` é o instante
+         * DOIS papéis, de propósito em duas variáveis. `enviado_em` é o instante
          * gravado e fica em UTC, que é o relógio de armazenamento do sistema;
-         * `submittedAt` é texto para uma pessoa ler e vai no fuso de exibição.
+         * `enviado_em_texto` é texto para uma pessoa ler e vai no fuso de exibição.
          * Uma variável só para os dois gravaria BRT na coluna e quebraria o
          * invariante — e o erro não apareceria até alguém comparar duas datas.
          */
         $agora = CarbonImmutable::now();
         $agoraLocal = Fuso::de($agora);
 
-        return QuizSubmission::query()->create([
+        return TentativaAvaliacao::query()->create([
             'id' => 'sub-'.$this->nowMs().'-'.random_int(0, 999),
-            'studentName' => $requester['name'],
-            'userId' => $requester['sub'],
-            'courseId' => $quiz->courseId,
-            'quizId' => $quiz->id,
-            'scorePercent' => $scorePercent,
-            'passed' => $passed,
-            'submittedAt' => $agoraLocal->format('d/m/Y').' às '.$agoraLocal->format('H:i'),
-            'enviadoEm' => $agora,
+            'nome_aluno' => $requester['nome'],
+            'usuario_id' => $requester['sub'],
+            'curso_id' => $quiz->curso_id,
+            'avaliacao_id' => $quiz->id,
+            'percentual_nota' => $percentual_nota,
+            'aprovado' => $aprovado,
+            'enviado_em_texto' => $agoraLocal->format('d/m/Y').' às '.$agoraLocal->format('H:i'),
+            'enviado_em' => $agora,
         ])->toArray();
     }
 
@@ -325,12 +325,12 @@ final class LearningService
      * @param  array<array-key, mixed>  $respostas  questionId => índice escolhido
      * @return array<string, bool>
      */
-    private function acertosPorQuestao(Quiz $quiz, array $respostas): array
+    private function acertosPorQuestao(Avaliacao $quiz, array $respostas): array
     {
         $acertos = [];
-        foreach ($quiz->questions as $question) {
+        foreach ($quiz->questoes as $question) {
             $dada = $respostas[$question->id] ?? null;
-            $acertos[(string) $question->id] = is_int($dada) && $dada === $question->correctOptionIndex;
+            $acertos[(string) $question->id] = is_int($dada) && $dada === $question->indice_opcao_correta;
         }
 
         return $acertos;
@@ -347,21 +347,21 @@ final class LearningService
      * dizer outra coisa que o certificado diz. A nota mostrada é a da
      * tentativa mais recente.
      *
-     * @param  array{sub:string,name:string,role:string}  $aluno
-     * @return list<array{id:string,title:string,questoes:int,aprovada:bool,tentativas:int,ultima:array{scorePercent:int,passed:bool,submittedAt:string}|null}>
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
+     * @return list<array{id:string,titulo:string,questoes:int,aprovada:bool,tentativas:int,ultima:array{percentual_nota:int,aprovado:bool,enviado_em_texto:string}|null}>
      */
-    public function avaliacoesDoCursoParaAluno(string $courseId, array $aluno): array
+    public function avaliacoesDoCursoParaAluno(string $curso_id, array $aluno): array
     {
-        $consulta = Quiz::query()->withCount('questions')->where('courseId', $courseId);
+        $consulta = Avaliacao::query()->withCount('questoes')->where('curso_id', $curso_id);
         Visibilidade::aplicar($consulta, 'student');
         $quizzes = $consulta->orderBy('id')->get();
 
-        $tentativas = QuizSubmission::query()
-            ->where('userId', $aluno['sub'])
-            ->where('courseId', $courseId)
-            ->orderByDesc('enviadoEm')->orderByDesc('id')
+        $tentativas = TentativaAvaliacao::query()
+            ->where('usuario_id', $aluno['sub'])
+            ->where('curso_id', $curso_id)
+            ->orderByDesc('enviado_em')->orderByDesc('id')
             ->get()
-            ->groupBy('quizId');
+            ->groupBy('avaliacao_id');
 
         $lista = [];
         foreach ($quizzes as $quiz) {
@@ -369,14 +369,14 @@ final class LearningService
             $ultima = $doQuiz->first();
             $lista[] = [
                 'id' => (string) $quiz->id,
-                'title' => (string) $quiz->title,
-                'questoes' => is_numeric($n = $quiz->getAttribute('questions_count')) ? (int) $n : 0,
-                'aprovada' => $doQuiz->contains(static fn (QuizSubmission $t): bool => (bool) $t->passed),
+                'titulo' => (string) $quiz->titulo,
+                'questoes' => is_numeric($n = $quiz->getAttribute('questoes_count')) ? (int) $n : 0,
+                'aprovada' => $doQuiz->contains(static fn (TentativaAvaliacao $t): bool => (bool) $t->aprovado),
                 'tentativas' => $doQuiz->count(),
                 'ultima' => $ultima === null ? null : [
-                    'scorePercent' => (int) $ultima->scorePercent,
-                    'passed' => (bool) $ultima->passed,
-                    'submittedAt' => (string) $ultima->submittedAt,
+                    'percentual_nota' => (int) $ultima->percentual_nota,
+                    'aprovado' => (bool) $ultima->aprovado,
+                    'enviado_em_texto' => (string) $ultima->enviado_em_texto,
                 ],
             ];
         }
@@ -400,32 +400,32 @@ final class LearningService
      * os rascunhos. O aluno só alcança as publicadas — e só elas contam para o
      * certificado (`avaliacoesNaoAprovadas`).
      *
-     * @return list<array{id:string,title:string,questoes:int,alunos:int,aprovados:int,tentativas:int}>
+     * @return list<array{id:string,titulo:string,questoes:int,alunos:int,aprovados:int,tentativas:int}>
      */
-    public function avaliacoesDoCurso(string $courseId, string $papel): array
+    public function avaliacoesDoCurso(string $curso_id, string $papel): array
     {
-        $consulta = Quiz::query()->withCount('questions')->where('courseId', $courseId);
+        $consulta = Avaliacao::query()->withCount('questoes')->where('curso_id', $curso_id);
         Visibilidade::aplicar($consulta, $papel);
         $quizzes = $consulta->orderBy('id')->get();
 
-        $tentativas = QuizSubmission::query()
-            ->where('courseId', $courseId)
-            ->get(['quizId', 'userId', 'passed'])
-            ->groupBy('quizId');
+        $tentativas = TentativaAvaliacao::query()
+            ->where('curso_id', $curso_id)
+            ->get(['avaliacao_id', 'usuario_id', 'aprovado'])
+            ->groupBy('avaliacao_id');
 
         $lista = [];
         foreach ($quizzes as $quiz) {
             $doQuiz = $tentativas->get($quiz->id) ?? collect();
-            $porAluno = $doQuiz->groupBy('userId');
+            $porAluno = $doQuiz->groupBy('usuario_id');
 
-            $n = $quiz->getAttribute('questions_count');
+            $n = $quiz->getAttribute('questoes_count');
             $lista[] = [
                 'id' => (string) $quiz->id,
-                'title' => (string) $quiz->title,
+                'titulo' => (string) $quiz->titulo,
                 'questoes' => is_numeric($n) ? (int) $n : 0,
                 'alunos' => $porAluno->count(),
                 'aprovados' => $porAluno->filter(
-                    static fn ($linhas): bool => $linhas->contains(static fn (QuizSubmission $t): bool => (bool) $t->passed),
+                    static fn ($linhas): bool => $linhas->contains(static fn (TentativaAvaliacao $t): bool => (bool) $t->aprovado),
                 )->count(),
                 'tentativas' => $doQuiz->count(),
             ];
@@ -444,45 +444,45 @@ final class LearningService
      *
      * Null quando a avaliação não é deste curso.
      *
-     * @return array{id:string,title:string,questions:list<array{id:string,questionText:string,options:list<string>,correctOptionIndex:int,explanation:string|null,reviewMessage:string|null,recommendedModule:string|null,allowRetry:bool}>}|null
+     * @return array{id:string,titulo:string,questoes:list<array{id:string,texto_questao:string,opcoes:list<string>,indice_opcao_correta:int,explicacao:string|null,mensagem_revisao:string|null,modulo_recomendado:string|null,permite_nova_tentativa:bool}>}|null
      */
-    public function avaliacaoParaEditar(string $courseId, string $quizId): ?array
+    public function avaliacaoParaEditar(string $curso_id, string $avaliacao_id): ?array
     {
-        $quiz = Quiz::query()->with('questions')->whereKey($quizId)->where('courseId', $courseId)->first();
+        $quiz = Avaliacao::query()->with('questoes')->whereKey($avaliacao_id)->where('curso_id', $curso_id)->first();
         if ($quiz === null) {
             return null;
         }
 
         $questoes = [];
-        foreach ($quiz->questions as $q) {
-            $opcoes = is_array($q->options) ? $q->options : [];
+        foreach ($quiz->questoes as $q) {
+            $opcoes = is_array($q->opcoes) ? $q->opcoes : [];
             $questoes[] = [
                 'id' => (string) $q->id,
-                'questionText' => (string) $q->questionText,
-                'options' => array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $opcoes)),
-                'correctOptionIndex' => (int) $q->correctOptionIndex,
-                'explanation' => is_string($q->explanation) ? $q->explanation : null,
-                'reviewMessage' => is_string($q->reviewMessage) ? $q->reviewMessage : null,
-                'recommendedModule' => is_string($q->recommendedModule) ? $q->recommendedModule : null,
+                'texto_questao' => (string) $q->texto_questao,
+                'opcoes' => array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $opcoes)),
+                'indice_opcao_correta' => (int) $q->indice_opcao_correta,
+                'explicacao' => is_string($q->explicacao) ? $q->explicacao : null,
+                'mensagem_revisao' => is_string($q->mensagem_revisao) ? $q->mensagem_revisao : null,
+                'modulo_recomendado' => is_string($q->modulo_recomendado) ? $q->modulo_recomendado : null,
                 // `null` no banco quer dizer "usar o padrão", que é permitir.
-                'allowRetry' => $q->allowRetry !== false,
+                'permite_nova_tentativa' => $q->permite_nova_tentativa !== false,
             ];
         }
 
-        return ['id' => (string) $quiz->id, 'title' => (string) $quiz->title, 'questions' => $questoes];
+        return ['id' => (string) $quiz->id, 'titulo' => (string) $quiz->titulo, 'questoes' => $questoes];
     }
 
     /** Quantos alunos já responderam esta avaliação — o aviso de quem edita uma publicada. */
-    public function quantosJaResponderam(string $quizId): int
+    public function quantosJaResponderam(string $avaliacao_id): int
     {
-        return QuizSubmission::query()->where('quizId', $quizId)->distinct()->count('userId');
+        return TentativaAvaliacao::query()->where('avaliacao_id', $avaliacao_id)->distinct()->count('usuario_id');
     }
 
     /**
      * A prova para o aluno responder — enunciados e alternativas, SEM gabarito.
      *
-     * Não sai daqui `correctOptionIndex`, `explanation`, `reviewMessage` nem
-     * `recommendedModule`. Na API eles iam junto (`listQuizzes`, até 23/10), e a tela do
+     * Não sai daqui `indice_opcao_correta`, `explanation`, `mensagem_revisao` nem
+     * `modulo_recomendado`. Na API eles iam junto (`listQuizzes`, até 23/10), e a tela do
      * React mostrava a alternativa certa a cada questão e deixava refazer a
      * questão até acertar: a nota "recalculada no servidor" era sobre
      * respostas dadas depois de ver o gabarito. Decisão de 20/10: a prova é
@@ -490,11 +490,11 @@ final class LearningService
      *
      * Null quando o quiz não é deste curso ou não está publicado.
      *
-     * @return array{id:string,title:string,questions:list<array{id:string,questionText:string,options:list<string>}>}|null
+     * @return array{id:string,titulo:string,questoes:list<array{id:string,texto_questao:string,opcoes:list<string>}>}|null
      */
-    public function provaParaResponder(string $courseId, string $quizId): ?array
+    public function provaParaResponder(string $curso_id, string $avaliacao_id): ?array
     {
-        $consulta = Quiz::query()->with('questions')->whereKey($quizId)->where('courseId', $courseId);
+        $consulta = Avaliacao::query()->with('questoes')->whereKey($avaliacao_id)->where('curso_id', $curso_id);
         Visibilidade::aplicar($consulta, 'student');
         $quiz = $consulta->first();
         if ($quiz === null) {
@@ -502,16 +502,16 @@ final class LearningService
         }
 
         $questoes = [];
-        foreach ($quiz->questions as $q) {
-            $opcoes = is_array($q->options) ? $q->options : [];
+        foreach ($quiz->questoes as $q) {
+            $opcoes = is_array($q->opcoes) ? $q->opcoes : [];
             $questoes[] = [
                 'id' => (string) $q->id,
-                'questionText' => (string) $q->questionText,
-                'options' => array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $opcoes)),
+                'texto_questao' => (string) $q->texto_questao,
+                'opcoes' => array_values(array_map(static fn (mixed $o): string => is_scalar($o) ? (string) $o : '', $opcoes)),
             ];
         }
 
-        return ['id' => (string) $quiz->id, 'title' => (string) $quiz->title, 'questions' => $questoes];
+        return ['id' => (string) $quiz->id, 'titulo' => (string) $quiz->titulo, 'questoes' => $questoes];
     }
 
     /**
@@ -524,16 +524,16 @@ final class LearningService
      * Os dois textos da questão têm destinatários diferentes, e isso decide
      * quem vê qual. Nos cursos cadastrados, `explanation` é escrita para QUEM
      * ACERTOU ("Correto! As fotografias foram reunidas principalmente
-     * para…") — explica a resposta certa, e por isso a entrega. `reviewMessage`
+     * para…") — explica a resposta certa, e por isso a entrega. `mensagem_revisao`
      * é a dica para quem errou ("Observe o objetivo das fotografias…"). Então:
      * acertou, vê a explicação; errou, vê a dica e o módulo a revisar.
      *
      * @param  array<array-key, mixed>  $respostas
-     * @return list<array{numero:int,questionText:string,acertou:bool,explanation:string|null,reviewMessage:string|null,recommendedModule:string|null}>
+     * @return list<array{numero:int,texto_questao:string,acertou:bool,explicacao:string|null,mensagem_revisao:string|null,modulo_recomendado:string|null}>
      */
-    public function correcaoParaAluno(string $quizId, array $respostas): array
+    public function correcaoParaAluno(string $avaliacao_id, array $respostas): array
     {
-        $quiz = Quiz::query()->with('questions')->find($quizId);
+        $quiz = Avaliacao::query()->with('questoes')->find($avaliacao_id);
         if ($quiz === null) {
             return [];
         }
@@ -542,15 +542,15 @@ final class LearningService
         $texto = static fn (mixed $v): ?string => is_string($v) && trim($v) !== '' ? $v : null;
 
         $correcao = [];
-        foreach ($quiz->questions->values() as $i => $q) {
+        foreach ($quiz->questoes->values() as $i => $q) {
             $acertou = $acertos[(string) $q->id] ?? false;
             $correcao[] = [
                 'numero' => $i + 1,
-                'questionText' => (string) $q->questionText,
+                'texto_questao' => (string) $q->texto_questao,
                 'acertou' => $acertou,
-                'explanation' => $acertou ? $texto($q->explanation) : null,
-                'reviewMessage' => $acertou ? null : $texto($q->reviewMessage),
-                'recommendedModule' => $acertou ? null : $texto($q->recommendedModule),
+                'explicacao' => $acertou ? $texto($q->explicacao) : null,
+                'mensagem_revisao' => $acertou ? null : $texto($q->mensagem_revisao),
+                'modulo_recomendado' => $acertou ? null : $texto($q->modulo_recomendado),
             ];
         }
 
@@ -564,86 +564,86 @@ final class LearningService
      * Antes devolvia o fórum de TODOS os cursos para qualquer autenticado: a regra já
      * existia no projeto, faltava aqui.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<int, array<string, mixed>>
      */
     public function listForumMessages(array $requester): array
     {
-        $query = ForumMessage::query();
-        if ($requester['role'] !== 'admin') {
-            $query->whereIn('courseId', CourseAccess::accessibleCourseIds($requester));
+        $query = MensagemForum::query();
+        if ($requester['papel'] !== 'admin') {
+            $query->whereIn('curso_id', CourseAccess::accessibleCourseIds($requester));
         }
 
         return $query->get()->map->toArray()->all();
     }
 
     /**
-     * @param  array{courseId:string,text:string}  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{curso_id:string,texto:string}  $input
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function createForumMessage(array $input, array $requester): array
     {
-        // courseId vem do corpo: sem esta checagem, qualquer autenticado publicava no
+        // curso_id vem do corpo: sem esta checagem, qualquer autenticado publicava no
         // fórum de qualquer turma. createChatMessage já barrava o caso equivalente.
-        if (! CourseAccess::canAccess($requester, $input['courseId'])) {
+        if (! CourseAccess::canAccess($requester, $input['curso_id'])) {
             throw ApiException::forbidden('Você não participa deste curso.');
         }
 
-        return ForumMessage::query()->create([
+        return MensagemForum::query()->create([
             'id' => 'forum-msg-'.$this->nowMs(),
-            'courseId' => $input['courseId'],
-            'senderName' => $requester['name'],
-            'senderUserId' => $requester['sub'],
-            'senderRole' => $requester['role'],
-            'text' => $input['text'],
-            'timestamp' => Fuso::agora()->format('d/m/Y H:i'),
+            'curso_id' => $input['curso_id'],
+            'nome_remetente' => $requester['nome'],
+            'remetente_usuario_id' => $requester['sub'],
+            'papel_remetente' => $requester['papel'],
+            'texto' => $input['texto'],
+            'registrado_em_texto' => Fuso::agora()->format('d/m/Y H:i'),
             // Mesmo instante em coluna nativa (Norma C.2.4). O texto acima é hora
             // de Brasília e continua sendo o que a tela mostra; a coluna guarda em
             // UTC, como todo instante aqui.
-            'enviadaEm' => CarbonImmutable::now()->utc(),
-            'likes' => 0,
-            'likedBy' => [],
+            'enviada_em' => CarbonImmutable::now()->utc(),
+            'curtidas' => 0,
+            'curtido_por' => [],
         ])->toArray();
     }
 
     /**
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function toggleForumLike(string $messageId, array $requester): array
     {
-        $msg = ForumMessage::query()->find($messageId);
+        $msg = MensagemForum::query()->find($messageId);
         if ($msg === null) {
             throw ApiException::notFound('Mensagem não encontrada.');
         }
         // Curtir devolve a mensagem inteira: sem checar o curso, qualquer logado lia o fórum de qualquer
         // curso só com o id (achado da varredura de segurança de 23/10/2026).
-        if (! is_string($msg->courseId) || ! CourseAccess::canAccess($requester, $msg->courseId)) {
+        if (! is_string($msg->curso_id) || ! CourseAccess::canAccess($requester, $msg->curso_id)) {
             throw ApiException::forbidden('Você não participa deste curso.');
         }
-        // likedBy é um array de userIds desde a ADR 10 (backfill converteu nomes).
-        $likedBy = is_array($msg->likedBy) ? $msg->likedBy : [];
-        $hasLiked = in_array($requester['sub'], $likedBy, true);
+        // curtido_por é um array de userIds desde a ADR 10 (backfill converteu nomes).
+        $curtido_por = is_array($msg->curtido_por) ? $msg->curtido_por : [];
+        $hasLiked = in_array($requester['sub'], $curtido_por, true);
         $next = $hasLiked
-            ? array_values(array_filter($likedBy, fn ($u) => $u !== $requester['sub']))
-            : [...$likedBy, $requester['sub']];
-        $msg->likedBy = $next;
-        $msg->likes = count($next);
+            ? array_values(array_filter($curtido_por, fn ($u) => $u !== $requester['sub']))
+            : [...$curtido_por, $requester['sub']];
+        $msg->curtido_por = $next;
+        $msg->curtidas = count($next);
         $msg->save();
 
         return $msg->toArray();
     }
 
-    /** @param array{sub:string,name:string,role:string} $requester */
+    /** @param array{sub:string,nome:string,papel:string} $requester */
     public function deleteForumMessage(string $id, array $requester): void
     {
-        $msg = ForumMessage::query()->find($id);
+        $msg = MensagemForum::query()->find($id);
         if ($msg === null) {
             return;
         }
-        $owns = Identity::ownsRow($msg->senderUserId, $requester);
-        if ($requester['role'] !== 'admin' && ! $owns) {
+        $owns = Identity::ownsRow($msg->remetente_usuario_id, $requester);
+        if ($requester['papel'] !== 'admin' && ! $owns) {
             throw ApiException::forbidden('Você só pode remover as próprias mensagens.');
         }
         // Sai do fórum, fica no registro (ADR 12): moderação precisa poder
@@ -654,14 +654,14 @@ final class LearningService
     // ---------- EXERCÍCIOS PRÁTICOS ----------
 
     /**
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<int, array<string, mixed>>
      */
     public function listExercises(array $requester): array
     {
-        $query = PracticalExercise::query();
-        if ($requester['role'] !== 'admin') {
-            $query->whereIn('courseId', CourseAccess::accessibleCourseIds($requester));
+        $query = ExercicioPratico::query();
+        if ($requester['papel'] !== 'admin') {
+            $query->whereIn('curso_id', CourseAccess::accessibleCourseIds($requester));
         }
 
         return $query->get()->map->toArray()->all();
@@ -669,70 +669,70 @@ final class LearningService
 
     /**
      * @param  array<string, mixed>  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function createExercise(array $input, array $requester): array
     {
-        $this->assertInstructorOwnsCourse(is_string($input['courseId'] ?? null) ? $input['courseId'] : null, $requester);
+        $this->assertInstructorOwnsCourse(is_string($input['curso_id'] ?? null) ? $input['curso_id'] : null, $requester);
 
         $id = $input['id'] ?? ('exercise-'.$this->nowMs());
         $data = $this->exerciseScalar($input);
         $data['id'] = $id;
 
-        return PracticalExercise::query()->create($data)->toArray();
+        return ExercicioPratico::query()->create($data)->toArray();
     }
 
     /**
      * @param  array<string, mixed>  $updates
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function updateExercise(string $id, array $updates, array $requester): array
     {
-        $exercise = PracticalExercise::query()->find($id);
+        $exercise = ExercicioPratico::query()->find($id);
         if ($exercise === null) {
             throw ApiException::notFound('Exercício não encontrado.');
         }
         // Posse do curso atual do exercício e, se o payload mudar o curso, também do novo.
-        $this->assertInstructorOwnsCourse(is_string($exercise->courseId) ? $exercise->courseId : null, $requester);
-        if (is_string($updates['courseId'] ?? null) && $updates['courseId'] !== $exercise->courseId) {
-            $this->assertInstructorOwnsCourse($updates['courseId'], $requester);
+        $this->assertInstructorOwnsCourse(is_string($exercise->curso_id) ? $exercise->curso_id : null, $requester);
+        if (is_string($updates['curso_id'] ?? null) && $updates['curso_id'] !== $exercise->curso_id) {
+            $this->assertInstructorOwnsCourse($updates['curso_id'], $requester);
         }
         $exercise->fill($this->exerciseScalar($updates))->save();
 
         return $exercise->toArray();
     }
 
-    /** @param array{sub:string,name:string,role:string} $requester */
+    /** @param array{sub:string,nome:string,papel:string} $requester */
     public function deleteExercise(string $id, array $requester, ?string $motivo = null): void
     {
-        $exercise = PracticalExercise::query()->find($id);
+        $exercise = ExercicioPratico::query()->find($id);
         if ($exercise === null) {
             return;
         }
-        $this->assertInstructorOwnsCourse(is_string($exercise->courseId) ? $exercise->courseId : null, $requester);
+        $this->assertInstructorOwnsCourse(is_string($exercise->curso_id) ? $exercise->curso_id : null, $requester);
         // As entregas dos alunos NÃO são tocadas: com a exclusão física, o
-        // ON DELETE CASCADE de ExerciseSubmission.exerciseId levava embora todo
+        // ON DELETE CASCADE de EntregaExercicio.exercicio_id levava embora todo
         // trabalho entregue e corrigido daquele exercício.
         $exercise->inativar($requester['sub'] ?? null, $motivo);
     }
 
     /**
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<int, array<string, mixed>>
      */
     public function listExerciseSubmissions(array $requester): array
     {
-        $q = ExerciseSubmission::query();
-        if ($requester['role'] === 'student') {
+        $q = EntregaExercicio::query();
+        if ($requester['papel'] === 'student') {
             Identity::applyOwnRows($q, $requester);
-        } elseif ($requester['role'] === 'instructor') {
-            // ExerciseSubmission não tem courseId; escopo via exercícios dos cursos do instrutor.
-            $exerciseIds = PracticalExercise::query()
-                ->whereIn('courseId', InstructorScope::courseIds($requester))
+        } elseif ($requester['papel'] === 'instructor') {
+            // EntregaExercicio não tem curso_id; escopo via exercícios dos cursos do instrutor.
+            $exerciseIds = ExercicioPratico::query()
+                ->whereIn('curso_id', InstructorScope::courseIds($requester))
                 ->pluck('id')->all();
-            $q->whereIn('exerciseId', $exerciseIds);
+            $q->whereIn('exercicio_id', $exerciseIds);
         }
 
         return $q->get()->map->toArray()->all();
@@ -740,36 +740,36 @@ final class LearningService
 
     /**
      * @param  array<string, mixed>  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function submitExercise(array $input, array $requester): array
     {
-        if ($requester['role'] !== 'student') {
+        if ($requester['papel'] !== 'student') {
             throw ApiException::forbidden('Somente alunos podem enviar entregas de exercícios.');
         }
 
         // A entrega é de um exercício de um curso a que o aluno pertence, e não de qualquer id.
-        $exercicio = PracticalExercise::query()->whereKey($input['exerciseId'])->first(['id', 'courseId']);
+        $exercicio = ExercicioPratico::query()->whereKey($input['exercicio_id'])->first(['id', 'curso_id']);
         if ($exercicio === null) {
             throw ApiException::notFound('Exercício não encontrado.');
         }
-        if (! is_string($exercicio->courseId) || ! CourseAccess::canAccess($requester, $exercicio->courseId)) {
+        if (! is_string($exercicio->curso_id) || ! CourseAccess::canAccess($requester, $exercicio->curso_id)) {
             throw ApiException::forbidden('Você não participa deste curso.');
         }
 
         $data = [
-            'exerciseId' => $input['exerciseId'],
-            'studentName' => $requester['name'],
-            'userId' => $requester['sub'],
-            'submissionText' => $input['submissionText'],
-            'fileUrl' => $input['fileUrl'] ?? null,
-            'fileName' => $input['fileName'] ?? null,
-            'submittedAt' => Fuso::agora()->format('d/m/Y H:i:s'),
+            'exercicio_id' => $input['exercicio_id'],
+            'nome_aluno' => $requester['nome'],
+            'usuario_id' => $requester['sub'],
+            'texto_entrega' => $input['texto_entrega'],
+            'url_arquivo' => $input['url_arquivo'] ?? null,
+            'nome_arquivo' => $input['nome_arquivo'] ?? null,
+            'enviado_em_texto' => Fuso::agora()->format('d/m/Y H:i:s'),
             'status' => 'pending',
         ];
-        $existing = ExerciseSubmission::query()
-            ->where('exerciseId', $input['exerciseId'])->where('userId', $requester['sub'])->first();
+        $existing = EntregaExercicio::query()
+            ->where('exercicio_id', $input['exercicio_id'])->where('usuario_id', $requester['sub'])->first();
         if ($existing !== null) {
             $existing->fill($data)->save();
 
@@ -777,32 +777,32 @@ final class LearningService
         }
         $data['id'] = 'sub-'.$this->nowMs();
 
-        return ExerciseSubmission::query()->create($data)->toArray();
+        return EntregaExercicio::query()->create($data)->toArray();
     }
 
     /**
      * @param  array<string, mixed>  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function gradeSubmission(string $submissionId, array $input, array $requester): array
     {
-        if ($requester['role'] === 'student') {
+        if ($requester['papel'] === 'student') {
             throw ApiException::forbidden('Alunos não podem corrigir entregas.');
         }
-        $submission = ExerciseSubmission::query()->find($submissionId);
+        $submission = EntregaExercicio::query()->find($submissionId);
         if ($submission === null) {
             throw ApiException::notFound('Entrega não encontrada.');
         }
         // Instrutor só corrige entregas de exercícios dos seus cursos (antes: qualquer um).
-        $exerciseCourseId = PracticalExercise::query()->whereKey($submission->exerciseId)->value('courseId');
+        $exerciseCourseId = ExercicioPratico::query()->whereKey($submission->exercicio_id)->value('curso_id');
         $this->assertInstructorOwnsCourse(is_string($exerciseCourseId) ? $exerciseCourseId : null, $requester);
         $submission->fill([
-            'score' => is_numeric($input['score'] ?? null) ? (int) $input['score'] : 0,
-            'feedback' => $input['feedback'],
+            'nota' => is_numeric($input['nota'] ?? null) ? (int) $input['nota'] : 0,
+            'devolutiva' => $input['devolutiva'],
             'status' => $input['status'],
-            'gradedAt' => Fuso::agora()->format('d/m/Y H:i:s'),
-            'gradedBy' => $requester['name'],
+            'corrigido_em_texto' => Fuso::agora()->format('d/m/Y H:i:s'),
+            'corrigido_por' => $requester['nome'],
         ])->save();
 
         return $submission->toArray();
@@ -814,19 +814,19 @@ final class LearningService
      */
     private function exerciseScalar(array $input): array
     {
-        $campos = array_intersect_key($input, array_flip(['courseId', 'title', 'description', 'instructions', 'maxPoints', 'dueDate']));
+        $campos = array_intersect_key($input, array_flip(['curso_id', 'titulo', 'descricao', 'instrucoes', 'pontuacao_maxima', 'prazo_texto']));
 
         /*
-         * `prazoEm` acompanha `dueDate` (Norma C.2.4): o texto 'd/m/Y' segue sendo
+         * `prazo_em` acompanha `prazo_texto` (Norma C.2.4): o texto 'd/m/Y' segue sendo
          * o que a tela exibe e o que a API entrega, e a coluna DATE ao lado é o
-         * prazo comparável. Só é tocada quando `dueDate` vem no pedido — assim uma
+         * prazo comparável. Só é tocada quando `prazo_texto` vem no pedido — assim uma
          * edição parcial não zera um prazo que ninguém pediu para mudar.
          *
          * Data que não converte vira NULL em vez de data inventada; a validação da
          * rota já exige `date_format:d/m/Y`, então isso é rede, não caminho normal.
          */
-        if (array_key_exists('dueDate', $campos)) {
-            $campos['prazoEm'] = DataTexto::dia(is_string($campos['dueDate']) ? $campos['dueDate'] : null);
+        if (array_key_exists('prazo_texto', $campos)) {
+            $campos['prazo_em'] = DataTexto::dia(is_string($campos['prazo_texto']) ? $campos['prazo_texto'] : null);
         }
 
         return $campos;
@@ -837,16 +837,16 @@ final class LearningService
      * curso que leciona; qualquer outro caso é 403. Evita que um instrutor gerencie
      * quizzes/exercícios/notas de cursos de terceiros.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      */
-    private function assertInstructorOwnsCourse(?string $courseId, array $requester): void
+    private function assertInstructorOwnsCourse(?string $curso_id, array $requester): void
     {
-        if ($requester['role'] === 'admin') {
+        if ($requester['papel'] === 'admin') {
             return;
         }
-        if ($requester['role'] === 'instructor'
-            && $courseId !== null
-            && in_array($courseId, InstructorScope::courseIds($requester), true)) {
+        if ($requester['papel'] === 'instructor'
+            && $curso_id !== null
+            && in_array($curso_id, InstructorScope::courseIds($requester), true)) {
             return;
         }
         throw ApiException::forbidden('Você só pode gerenciar conteúdo dos seus próprios cursos.');

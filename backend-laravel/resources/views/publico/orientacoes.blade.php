@@ -14,11 +14,11 @@
     $romanos = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 @endphp
 
-<x-layouts.publico ativo="Ajuda" :titulo="$pagina['title']" :descricao="$pagina['description']">
+<x-layouts.publico ativo="Ajuda" :titulo="$pagina['titulo']" :descricao="$pagina['descricao']">
     <x-componentes.moldura-pagina
         :sobretitulo="$pagina['eyebrow']"
-        :titulo="$pagina['title']"
-        :descricao="$pagina['description']"
+        :titulo="$pagina['titulo']"
+        :descricao="$pagina['descricao']"
         centralizado
     >
         {{--
@@ -31,8 +31,8 @@
                     <span class="text-sobretitulo text-ava-tinta uppercase bg-ava-icone-fundo rounded-full px-3 py-1 inline-block">
                         Diretriz {{ $romanos[$i] ?? $i + 1 }}
                     </span>
-                    <h4 class="text-cartao text-ava-tinta font-titulo">{{ $diretriz['title'] }}</h4>
-                    <p class="text-rotulo text-escult-ink-2 leading-relaxed">{{ $diretriz['description'] }}</p>
+                    <h4 class="text-cartao text-ava-tinta font-titulo">{{ $diretriz['titulo'] }}</h4>
+                    <p class="text-rotulo text-escult-ink-2 leading-relaxed">{{ $diretriz['descricao'] }}</p>
                 </div>
             @endforeach
         </div>

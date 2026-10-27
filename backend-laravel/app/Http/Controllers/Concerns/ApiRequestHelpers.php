@@ -45,7 +45,7 @@ trait ApiRequestHelpers
     /**
      * Identidade autenticada anexada pelo middleware JwtAuthenticate.
      *
-     * @return array{sub: string, name: string, role: string}
+     * @return array{sub: string, nome: string, papel: string}
      */
     protected function requester(Request $request): array
     {
@@ -61,7 +61,7 @@ trait ApiRequestHelpers
      * Identidade autenticada, se houver — para rotas públicas em que o token é
      * opcional (registro com provisionamento por admin, telemetria).
      *
-     * @return array{sub: string, name: string, role: string}|null
+     * @return array{sub: string, nome: string, papel: string}|null
      */
     protected function optionalRequester(Request $request): ?array
     {
@@ -72,8 +72,8 @@ trait ApiRequestHelpers
 
         return [
             'sub' => $user['sub'],
-            'name' => is_string($user['name'] ?? null) ? $user['name'] : '',
-            'role' => is_string($user['role'] ?? null) ? $user['role'] : '',
+            'nome' => is_string($user['nome'] ?? null) ? $user['nome'] : '',
+            'papel' => is_string($user['papel'] ?? null) ? $user['papel'] : '',
         ];
     }
 

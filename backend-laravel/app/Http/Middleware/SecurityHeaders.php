@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  * aplicamos o subconjunto relevante para respostas JSON/download (a CSP completa do
  * frontend é responsabilidade do Nginx que serve o SPA — ver DEPLOY_LARAVEL.md):
  *  - nosniff: impede o navegador de "adivinhar" o tipo de um download (relevante
- *    para /api/files, que entrega arquivos enviados por terceiros);
+ *    para /api/arquivos, que entrega arquivos enviados por terceiros);
  *  - DENY: respostas da API nunca são embutíveis em iframes;
  *  - Referrer-Policy: não vaza URLs internas para origens externas.
  */

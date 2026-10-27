@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 // Mídia própria (vídeo hospedado pelo AVASEC) — DESLIGADA por padrão (ADR 023).
 //
-// Hoje o vídeo da aula é um link do YouTube (Lesson.videoUrl) e nada aqui roda.
+// Hoje o vídeo da aula é um link do YouTube (Aula.url_video) e nada aqui roda.
 // `MEDIA_DRIVER=minio` é o interruptor: só com ele o job ProcessarVideoDaAula
 // trabalha. Com `youtube` (o padrão) o job sai sem tocar em nada.
 return [
@@ -17,7 +17,7 @@ return [
     // Base pública de onde o navegador lê os derivados (bucket do MinIO ou CDN),
     // sem barra no fim. É a decisão de ENTREGA, que ficou para o dia em que a flag
     // for ligada (ADR 023): sem ela o job se recusa a rodar em vez de gravar em
-    // Lesson.videoUrl um endereço que ninguém sabe servir.
+    // Aula.url_video um endereço que ninguém sabe servir.
     'url_publica' => rtrim((string) env('MEDIA_PUBLIC_URL', ''), '/'),
 
     'ffmpeg' => env('FFMPEG_BIN', 'ffmpeg'),

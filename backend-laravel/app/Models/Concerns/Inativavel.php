@@ -14,7 +14,7 @@ use Illuminate\Support\Carbon;
  * O que sai do ar é inativado: a linha permanece íntegra, com quem tirou, quando
  * e por quê.
  *
- * Usa o `SoftDeletes` do Eloquent com a coluna renomeada para `inativadoEm`. A
+ * Usa o `SoftDeletes` do Eloquent com a coluna renomeada para `inativado_em`. A
  * escolha do SoftDeletes sobre uma coluna conferida à mão é o ponto da ADR: o
  * Eloquent exclui o inativo de TODA consulta automaticamente. Com filtro manual,
  * a proteção depende de cada uma das dezenas de listagens lembrar dele, e uma
@@ -28,16 +28,16 @@ use Illuminate\Support\Carbon;
  * inativável: sem isto a análise estática não conhece o registro da inativação e
  * quem quiser lê-lo é obrigado a passar por `getAttribute()`.
  *
- * @property Carbon|null $inativadoEm
- * @property string|null $inativadoPor
- * @property string|null $motivoInativacao
+ * @property Carbon|null $inativado_em
+ * @property string|null $inativado_por
+ * @property string|null $motivo_inativacao
  */
 trait Inativavel
 {
     use SoftDeletes;
 
     /** Nome da coluna que o SoftDeletes usa. */
-    public const DELETED_AT = 'inativadoEm';
+    public const DELETED_AT = 'inativado_em';
 
     /**
      * Tira do ar preservando o registro.
@@ -48,8 +48,8 @@ trait Inativavel
      */
     public function inativar(?string $porUserId = null, ?string $motivo = null): void
     {
-        $this->setAttribute('inativadoPor', $porUserId);
-        $this->setAttribute('motivoInativacao', $motivo);
+        $this->setAttribute('inativado_por', $porUserId);
+        $this->setAttribute('motivo_inativacao', $motivo);
         // Grava a autoria ANTES de inativar: depois de inativado o registro sai
         // das consultas padrão, e um save() posterior não o encontraria.
         $this->saveQuietly();
@@ -60,8 +60,8 @@ trait Inativavel
     public function reativar(): void
     {
         $this->restore();
-        $this->setAttribute('inativadoPor', null);
-        $this->setAttribute('motivoInativacao', null);
+        $this->setAttribute('inativado_por', null);
+        $this->setAttribute('motivo_inativacao', null);
         $this->saveQuietly();
     }
 

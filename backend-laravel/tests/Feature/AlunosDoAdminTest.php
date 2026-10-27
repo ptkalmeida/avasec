@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Certificate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\StudentEnrollment;
-use App\Models\StudentProgress;
-use App\Models\User;
+use App\Models\Certificado;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Matricula;
+use App\Models\ProgressoAluno;
+use App\Models\Usuario;
 use App\Services\AlunosDoAdmin;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
@@ -39,17 +39,17 @@ final class AlunosDoAdminTest extends TestCase
         return $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $token);
     }
 
-    private function curso(string $titulo): Course
+    private function curso(string $titulo): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-aadm-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição do curso para teste.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorName' => 'Gestor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição do curso para teste.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'nome_instrutor' => 'Gestor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ]);
@@ -61,11 +61,11 @@ final class AlunosDoAdminTest extends TestCase
      * @param  list<string>  $extras
      * @param  list<string>  $concluidos
      */
-    private function matricular(string $userId, string $nome, ?string $principal, array $extras = [], array $concluidos = [], bool $multipla = false): void
+    private function matricular(string $usuario_id, string $nome, ?string $principal, array $extras = [], array $concluidos = [], bool $multipla = false): void
     {
-        StudentEnrollment::query()->updateOrCreate(['userId' => $userId], [
-            'id' => (string) Str::uuid(), 'studentName' => $nome, 'enrolledCourseId' => $principal,
-            'completedCourseIds' => $concluidos, 'extraCourseIds' => $extras, 'canMultiEnroll' => $multipla,
+        Matricula::query()->updateOrCreate(['usuario_id' => $usuario_id], [
+            'id' => (string) Str::uuid(), 'nome_aluno' => $nome, 'curso_matriculado_id' => $principal,
+            'cursos_concluidos_ids' => $concluidos, 'cursos_extras_ids' => $extras, 'pode_multimatricula' => $multipla,
         ]);
     }
 
@@ -82,13 +82,13 @@ final class AlunosDoAdminTest extends TestCase
     {
         $curso = $this->curso('Curso Da Lista De Alunos');
         foreach (['a1', 'a2', 'a3', 'a4'] as $n) {
-            Lesson::query()->create(['id' => $curso->id.'-'.$n, 'courseId' => $curso->id, 'title' => $n, 'content' => 'x', 'duration' => '10', 'lesson_order' => 1]);
+            Aula::query()->create(['id' => $curso->id.'-'.$n, 'curso_id' => $curso->id, 'titulo' => $n, 'conteudo' => 'x', 'duracao' => '10', 'ordem' => 1]);
         }
         $aluno = $this->makeStudent('Zenaide Listada Unica');
-        $this->matricular($aluno['id'], $aluno['name'], $curso->id);
-        StudentProgress::query()->create([
-            'id' => (string) Str::uuid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'], 'courseId' => $curso->id,
-            'completedLessons' => [$curso->id.'-a1'], 'attendedLiveSessions' => [],
+        $this->matricular($aluno['id'], $aluno['nome'], $curso->id);
+        ProgressoAluno::query()->create([
+            'id' => (string) Str::uuid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'], 'curso_id' => $curso->id,
+            'aulas_concluidas' => [$curso->id.'-a1'], 'sessoes_ao_vivo_assistidas' => [],
         ]);
 
         $tela = $this->como($this->admin())->get('/admin/alunos?busca=Zenaide+Listada');
@@ -118,9 +118,9 @@ final class AlunosDoAdminTest extends TestCase
         $com = $this->makeStudent('Filtrada Com Matricula Qzk');
         $sem = $this->makeStudent('Filtrada Sem Matricula Qzk');
         $extra = $this->makeStudent('Filtrada Concorrente Qzk');
-        $this->matricular($com['id'], $com['name'], $curso->id);
-        $this->matricular($extra['id'], $extra['name'], null, [$curso->id]);
-        User::query()->whereKey($sem['id'])->update(['status' => 'blocked']);
+        $this->matricular($com['id'], $com['nome'], $curso->id);
+        $this->matricular($extra['id'], $extra['nome'], null, [$curso->id]);
+        Usuario::query()->whereKey($sem['id'])->update(['status' => 'blocked']);
         $token = $this->admin();
 
         $comMatricula = $this->como($token)->get('/admin/alunos?busca=Qzk&matricula=com');
@@ -149,8 +149,8 @@ final class AlunosDoAdminTest extends TestCase
         $curso = $this->curso('Curso Concluido Filtro');
         $aluno = $this->makeStudent('Concluinte Do Filtro Qzj');
         $outro = $this->makeStudent('Nao Concluinte Do Filtro Qzj');
-        $this->matricular($aluno['id'], $aluno['name'], null, [], [$curso->id]);
-        $this->matricular($outro['id'], $outro['name'], null);
+        $this->matricular($aluno['id'], $aluno['nome'], null, [], [$curso->id]);
+        $this->matricular($outro['id'], $outro['nome'], null);
 
         $tela = $this->como($this->admin())->get('/admin/alunos?busca=Qzj&matricula=concluiu');
 
@@ -162,7 +162,7 @@ final class AlunosDoAdminTest extends TestCase
     public function test_a_busca_trata_curinga_como_texto_e_acha_pelo_email(): void
     {
         $aluno = $this->makeStudent('Busca Curinga Alunos');
-        $email = (string) User::query()->whereKey($aluno['id'])->value('email');
+        $email = (string) Usuario::query()->whereKey($aluno['id'])->value('email');
         $token = $this->admin();
 
         $this->como($token)->get('/admin/alunos?busca='.urlencode($email))->assertSee('Busca Curinga Alunos');
@@ -186,7 +186,7 @@ final class AlunosDoAdminTest extends TestCase
     {
         $resumo = app(AlunosDoAdmin::class)->resumo();
 
-        $this->assertSame(User::query()->where('role', 'student')->count(), $resumo['total']);
+        $this->assertSame(Usuario::query()->where('papel', 'student')->count(), $resumo['total']);
         $this->assertSame($resumo['total'], $resumo['comMatricula'] + $resumo['semMatricula']);
     }
 
@@ -203,7 +203,7 @@ final class AlunosDoAdminTest extends TestCase
     public function test_aluno_inativado_some_da_lista_e_a_ficha_responde_404(): void
     {
         $aluno = $this->makeStudent('Inativado Da Lista Qzp');
-        User::query()->findOrFail($aluno['id'])->inativar($aluno['id'], 'teste');
+        Usuario::query()->findOrFail($aluno['id'])->inativar($aluno['id'], 'teste');
 
         $html = $this->como($this->admin())->get('/admin/alunos?busca=Qzp')->getContent();
         $this->assertIsString($html);
@@ -221,19 +221,19 @@ final class AlunosDoAdminTest extends TestCase
         $extra = $this->curso('Curso Extra Da Ficha');
         $feito = $this->curso('Curso Feito Da Ficha');
         foreach (['b1', 'b2'] as $n) {
-            Lesson::query()->create(['id' => $principal->id.'-'.$n, 'courseId' => $principal->id, 'title' => $n, 'content' => 'x', 'duration' => '10', 'lesson_order' => 1]);
+            Aula::query()->create(['id' => $principal->id.'-'.$n, 'curso_id' => $principal->id, 'titulo' => $n, 'conteudo' => 'x', 'duracao' => '10', 'ordem' => 1]);
         }
 
         $aluno = $this->makeStudent('Ficha Completa Qzf');
-        User::query()->whereKey($aluno['id'])->update(['municipio' => 'Niterói', 'uf' => 'RJ', 'areaInteresse' => 'Audiovisual']);
-        $this->matricular($aluno['id'], $aluno['name'], $principal->id, [$extra->id], [$feito->id], true);
-        StudentProgress::query()->create([
-            'id' => (string) Str::uuid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'], 'courseId' => $principal->id,
-            'completedLessons' => [$principal->id.'-b1', $principal->id.'-b2'], 'attendedLiveSessions' => [],
+        Usuario::query()->whereKey($aluno['id'])->update(['municipio' => 'Niterói', 'uf' => 'RJ', 'area_interesse' => 'Audiovisual']);
+        $this->matricular($aluno['id'], $aluno['nome'], $principal->id, [$extra->id], [$feito->id], true);
+        ProgressoAluno::query()->create([
+            'id' => (string) Str::uuid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'], 'curso_id' => $principal->id,
+            'aulas_concluidas' => [$principal->id.'-b1', $principal->id.'-b2'], 'sessoes_ao_vivo_assistidas' => [],
         ]);
-        Certificate::query()->create([
-            'id' => 'cert-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'], 'courseId' => $feito->id,
-            'courseTitle' => 'Curso Feito Da Ficha', 'issueDate' => '2026-08-01', 'attendancePercent' => 100, 'verificationHash' => Str::random(32),
+        Certificado::query()->create([
+            'id' => 'cert-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'], 'curso_id' => $feito->id,
+            'titulo_curso' => 'Curso Feito Da Ficha', 'data_emissao' => '2026-08-01', 'percentual_frequencia' => 100, 'hash_verificacao' => Str::random(32),
         ]);
 
         $tela = $this->como($this->admin())->get('/admin/alunos/'.$aluno['id']);
@@ -263,12 +263,12 @@ final class AlunosDoAdminTest extends TestCase
 
         $tela->assertDontSee($aluno['cpf']);
         $tela->assertSee(substr($aluno['cpf'], 0, 3).'.***.***-'.substr($aluno['cpf'], 9, 2));
-        $tela->assertDontSee('passwordHash');
+        $tela->assertDontSee('senha_hash');
     }
 
     public function test_ficha_de_instrutor_ou_inexistente_responde_404(): void
     {
-        $gestor = User::query()->where('role', 'instructor')->firstOrFail();
+        $gestor = Usuario::query()->where('papel', 'instructor')->firstOrFail();
 
         $this->como($this->admin())->get('/admin/alunos/'.$gestor->id)->assertNotFound();
         $this->como($this->admin())->get('/admin/alunos/nao-existe')->assertNotFound();

@@ -8,7 +8,7 @@ namespace App\Support;
  * O tempo total de uma grade, somado a partir das aulas — porte de
  * `src/utils/courseDuration.ts`.
  *
- * `Lesson.duration` é TEXTO livre digitado por quem cadastra a aula
+ * `Aula.duration` é TEXTO livre digitado por quem cadastra a aula
  * (`"15 min"`), e não um número de minutos. Somar isso exige interpretar, e
  * interpretar texto livre falha — por isso o resultado separa o que foi somado
  * do que não deu para ler, em vez de tratar aula ilegível como aula de zero
@@ -76,7 +76,7 @@ final class DuracaoDaGrade
         $contadas = 0;
 
         foreach ($aulas as $aula) {
-            $duracao = $aula['duration'] ?? null;
+            $duracao = $aula['duracao'] ?? null;
             $m = self::minutos(is_string($duracao) ? $duracao : null);
             if ($m === null) {
                 $semDuracao++;

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Usuario;
 use App\Support\Fuso;
 use App\Support\VigenciaDoCurso;
 use DateTimeInterface;
@@ -40,7 +40,7 @@ final class RetiradosDoAdmin
      */
     public function cursos(): array
     {
-        $cursos = Course::onlyTrashed()->orderByDesc('inativadoEm')->limit(self::LIMITE)->get();
+        $cursos = Curso::onlyTrashed()->orderByDesc('inativado_em')->limit(self::LIMITE)->get();
         if ($cursos->isEmpty()) {
             return [];
         }
@@ -53,37 +53,37 @@ final class RetiradosDoAdmin
         // As aulas continuam ativas por baixo da disciplina retirada (CourseService::deleteCourse),
         // então a contagem é a do que voltará ao ar.
         $aulas = [];
-        foreach (Lesson::query()->toBase()->whereIn('courseId', $ids)->groupBy('courseId')->pluck(new Expression('count(*)'), 'courseId') as $cursoId => $total) {
+        foreach (Aula::query()->toBase()->whereIn('curso_id', $ids)->groupBy('curso_id')->pluck(new Expression('count(*)'), 'curso_id') as $cursoId => $total) {
             if (is_numeric($total)) {
                 $aulas[(string) $cursoId] = (int) $total;
             }
         }
 
-        $quem = $this->nomes($cursos->pluck('inativadoPor'));
+        $quem = $this->nomes($cursos->pluck('inativado_por'));
 
         $lista = [];
         foreach ($cursos as $curso) {
             $id = (string) $curso->id;
             $linha = [
-                'vigenciaAte' => $curso->getAttribute('vigenciaAte'),
-                'contractExpirationDate' => $curso->contractExpirationDate,
+                'vigencia_ate' => $curso->getAttribute('vigencia_ate'),
+                'vencimento_contrato_texto' => $curso->vencimento_contrato_texto,
             ];
 
             $detalhes = [];
-            if (is_string($curso->category) && $curso->category !== '') {
-                $detalhes[] = $curso->category;
+            if (is_string($curso->categoria) && $curso->categoria !== '') {
+                $detalhes[] = $curso->categoria;
             }
             $total = $aulas[$id] ?? 0;
             $detalhes[] = $total.($total === 1 ? ' aula' : ' aulas');
-            if (is_string($curso->instructorName) && $curso->instructorName !== '') {
-                $detalhes[] = 'Gestor: '.$curso->instructorName;
+            if (is_string($curso->nome_instrutor) && $curso->nome_instrutor !== '') {
+                $detalhes[] = 'Gestor: '.$curso->nome_instrutor;
             }
             $vigencia = VigenciaDoCurso::diaParaPessoa($linha);
             if ($vigencia !== null) {
                 $detalhes[] = (VigenciaDoCurso::vencida($linha) ? 'Vigência vencida em ' : 'Vigência até ').$vigencia;
             }
 
-            $lista[] = $this->linha($id, (string) $curso->title, $detalhes, $curso, $quem);
+            $lista[] = $this->linha($id, (string) $curso->titulo, $detalhes, $curso, $quem);
         }
 
         return $lista;
@@ -110,12 +110,12 @@ final class RetiradosDoAdmin
      */
     private function pessoas(string $papel): array
     {
-        $pessoas = User::onlyTrashed()->where('role', $papel)->orderByDesc('inativadoEm')->limit(self::LIMITE)->get();
+        $pessoas = Usuario::onlyTrashed()->where('papel', $papel)->orderByDesc('inativado_em')->limit(self::LIMITE)->get();
         if ($pessoas->isEmpty()) {
             return [];
         }
 
-        $quem = $this->nomes($pessoas->pluck('inativadoPor'));
+        $quem = $this->nomes($pessoas->pluck('inativado_por'));
 
         $lista = [];
         foreach ($pessoas as $pessoa) {
@@ -124,7 +124,7 @@ final class RetiradosDoAdmin
                 $detalhes[] = $pessoa->email;
             }
 
-            $lista[] = $this->linha((string) $pessoa->id, (string) $pessoa->name, $detalhes, $pessoa, $quem);
+            $lista[] = $this->linha((string) $pessoa->id, (string) $pessoa->nome, $detalhes, $pessoa, $quem);
         }
 
         return $lista;
@@ -135,16 +135,16 @@ final class RetiradosDoAdmin
      * @param  array<string,string>  $quem
      * @return Retirado
      */
-    private function linha(string $id, string $titulo, array $detalhes, Course|User $registro, array $quem): array
+    private function linha(string $id, string $titulo, array $detalhes, Curso|Usuario $registro, array $quem): array
     {
-        $porId = $registro->inativadoPor;
-        $motivo = is_string($registro->motivoInativacao) ? trim($registro->motivoInativacao) : '';
+        $porId = $registro->inativado_por;
+        $motivo = is_string($registro->motivo_inativacao) ? trim($registro->motivo_inativacao) : '';
 
         return [
             'id' => $id,
             'titulo' => $titulo,
             'detalhes' => $detalhes,
-            'retiradoEm' => $this->quando($registro->inativadoEm),
+            'retiradoEm' => $this->quando($registro->inativado_em),
             // Quem retirou nem sempre é encontrado (conta antiga): mostra "—" em vez de omitir a linha.
             'retiradoPor' => is_string($porId) && $porId !== '' ? ($quem[$porId] ?? null) : null,
             'motivo' => $motivo !== '' ? $motivo : null,
@@ -164,8 +164,8 @@ final class RetiradosDoAdmin
 
         $mapa = [];
         // withTrashed: quem retirou pode ter sido retirado depois, e o nome continua valendo.
-        foreach (User::withTrashed()->whereIn('id', $unicos)->get(['id', 'name']) as $pessoa) {
-            $mapa[(string) $pessoa->id] = (string) $pessoa->name;
+        foreach (Usuario::withTrashed()->whereIn('id', $unicos)->get(['id', 'nome']) as $pessoa) {
+            $mapa[(string) $pessoa->id] = (string) $pessoa->nome;
         }
 
         return $mapa;

@@ -31,15 +31,15 @@ final class LoginPorPapelTest extends TestCase
     private function conta(string $role, string $senha): string
     {
         $id = 'user-teste-'.uniqid();
-        DB::table('User')->insert([
+        DB::table('usuario')->insert([
             'id' => $id,
-            'name' => $this->nome,
+            'nome' => $this->nome,
             'email' => "{$role}-".uniqid().'@example.com',
-            'passwordHash' => password_hash($senha, PASSWORD_BCRYPT, ['cost' => 10]),
-            'role' => $role,
+            'senha_hash' => password_hash($senha, PASSWORD_BCRYPT, ['cost' => 10]),
+            'papel' => $role,
             'status' => 'active',
-            'createdAt' => CarbonImmutable::now()->toDateTimeString(),
-            'updatedAt' => CarbonImmutable::now()->toDateTimeString(),
+            'criado_em' => CarbonImmutable::now()->toDateTimeString(),
+            'atualizado_em' => CarbonImmutable::now()->toDateTimeString(),
         ]);
 
         return $id;
@@ -51,14 +51,14 @@ final class LoginPorPapelTest extends TestCase
         $alunoId = $this->conta('student', 'SenhaAluno1');
         $this->conta('instructor', 'SenhaGestor1');
 
-        $res = $this->postJson('/api/auth/login', [
-            'name' => $this->nome, 'password' => 'SenhaAluno1', 'role' => 'instructor',
+        $res = $this->postJson('/api/autenticacao/entrar', [
+            'nome' => $this->nome, 'password' => 'SenhaAluno1', 'papel' => 'instructor',
         ]);
 
         $res->assertStatus(401)->assertJsonPath('message', 'Usuário ou senha inválidos.');
         $res->assertCookieMissing('ava_session');
         // E não conta tentativa contra a conta do aluno, que não foi a pedida.
-        $this->assertSame(0, (int) DB::table('User')->where('id', $alunoId)->value('failedLoginAttempts'));
+        $this->assertSame(0, (int) DB::table('usuario')->where('id', $alunoId)->value('tentativas_login_falhas'));
     }
 
     public function test_cartao_de_gestao_entra_no_gestor_mesmo_com_aluno_homonimo_antes(): void
@@ -66,27 +66,27 @@ final class LoginPorPapelTest extends TestCase
         $this->conta('student', 'SenhaAluno1');
         $gestorId = $this->conta('instructor', 'SenhaGestor1');
 
-        $res = $this->postJson('/api/auth/login', [
-            'name' => $this->nome, 'password' => 'SenhaGestor1', 'role' => 'instructor',
+        $res = $this->postJson('/api/autenticacao/entrar', [
+            'nome' => $this->nome, 'password' => 'SenhaGestor1', 'papel' => 'instructor',
         ]);
 
         $res->assertOk()
-            ->assertJsonPath('user.id', $gestorId)
-            ->assertJsonPath('user.role', 'instructor');
+            ->assertJsonPath('usuario.id', $gestorId)
+            ->assertJsonPath('usuario.papel', 'instructor');
     }
 
     public function test_papel_errado_por_email_tambem_nao_entra(): void
     {
         $this->conta('student', 'SenhaAluno1');
-        $email = DB::table('User')->where('name', $this->nome)->value('email');
+        $email = DB::table('usuario')->where('nome', $this->nome)->value('email');
 
-        $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'SenhaAluno1', 'role' => 'admin'])
+        $this->postJson('/api/autenticacao/entrar', ['email' => $email, 'password' => 'SenhaAluno1', 'papel' => 'admin'])
             ->assertStatus(401);
     }
 
     public function test_papel_invalido_e_recusado(): void
     {
-        $this->postJson('/api/auth/login', ['name' => $this->nome, 'password' => 'x', 'role' => 'superuser'])
+        $this->postJson('/api/autenticacao/entrar', ['nome' => $this->nome, 'password' => 'x', 'papel' => 'superuser'])
             ->assertStatus(400);
     }
 
@@ -94,10 +94,10 @@ final class LoginPorPapelTest extends TestCase
     {
         // CPF e e-mail não mandam papel; o contrato antigo segue valendo.
         $this->conta('instructor', 'SenhaGestor1');
-        $email = DB::table('User')->where('name', $this->nome)->value('email');
+        $email = DB::table('usuario')->where('nome', $this->nome)->value('email');
 
-        $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'SenhaGestor1'])
+        $this->postJson('/api/autenticacao/entrar', ['email' => $email, 'password' => 'SenhaGestor1'])
             ->assertOk()
-            ->assertJsonPath('user.role', 'instructor');
+            ->assertJsonPath('usuario.papel', 'instructor');
     }
 }

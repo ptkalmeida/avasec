@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Models\User;
+use App\Models\Usuario;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
@@ -36,7 +36,7 @@ final class IdentidadeOpcional
         return $next($request);
     }
 
-    /** @return array{sub:string,name:string,role:string}|null */
+    /** @return array{sub:string,nome:string,papel:string}|null */
     private function identidade(Request $request): ?array
     {
         try {
@@ -51,7 +51,7 @@ final class IdentidadeOpcional
 
         // Papel e situação vêm do banco, nunca do token (que vale 12 h). Conta
         // inativada é visitante: `withTrashed` para distingui-la de inexistente.
-        $usuario = User::query()->withTrashed()->find($identidade['sub'], ['id', 'name', 'role', 'status', 'inativadoEm']);
+        $usuario = Usuario::query()->withTrashed()->find($identidade['sub'], ['id', 'nome', 'papel', 'status', 'inativado_em']);
 
         if ($usuario === null || $usuario->estaInativo() || $usuario->status !== 'active') {
             return null;
@@ -59,8 +59,8 @@ final class IdentidadeOpcional
 
         return [
             'sub' => (string) $usuario->id,
-            'name' => (string) $usuario->name,
-            'role' => (string) $usuario->role,
+            'nome' => (string) $usuario->nome,
+            'papel' => (string) $usuario->papel,
         ];
     }
 }

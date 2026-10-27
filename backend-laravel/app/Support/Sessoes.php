@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Support;
 
 use App\Exceptions\ApiException;
-use App\Models\User;
+use App\Models\Usuario;
 use Firebase\JWT\JWT as FirebaseJwt;
 use Firebase\JWT\Key;
 use Illuminate\Support\Facades\DB;
@@ -15,24 +15,24 @@ use Throwable;
  * Encerrar sessão de verdade, no servidor (ADR 022).
  *
  * Duas formas, de propósito:
- * - `encerrarTodas`: soma 1 em `User.versaoDaSessao`; todo token com número menor morre.
+ * - `encerrarTodas`: soma 1 em `Usuario.versao_da_sessao`; todo token com número menor morre.
  *   Para trocar/redefinir senha, bloquear e inativar — quando o motivo vale para a conta.
- * - `encerrarEsta`: grava o `jti` do token em `SessaoEncerrada`; só aquele aparelho sai.
+ * - `encerrarEsta`: grava o `jti` do token em `sessao_encerrada`; só aquele aparelho sai.
  *   Para o "Sair": quem sai do computador do laboratório não derruba o próprio celular.
  */
 final class Sessoes
 {
     /** A versão atual da sessão da conta (0 se a conta não existe). */
-    public static function versaoDe(string $userId): int
+    public static function versaoDe(string $usuario_id): int
     {
-        $v = User::query()->withTrashed()->whereKey($userId)->value('versaoDaSessao');
+        $v = Usuario::query()->withTrashed()->whereKey($usuario_id)->value('versao_da_sessao');
 
         return is_numeric($v) ? (int) $v : 0;
     }
 
-    public static function encerrarTodas(string $userId): void
+    public static function encerrarTodas(string $usuario_id): void
     {
-        User::query()->withTrashed()->whereKey($userId)->increment('versaoDaSessao');
+        Usuario::query()->withTrashed()->whereKey($usuario_id)->increment('versao_da_sessao');
     }
 
     /** O "Sair" deste aparelho: cancela só o token apresentado. Token inválido não é erro. */
@@ -55,7 +55,7 @@ final class Sessoes
             return;
         }
 
-        DB::table('SessaoEncerrada')->insertOrIgnore(['jti' => $jti, 'userId' => $sub, 'encerradaEm' => now()]);
+        DB::table('sessao_encerrada')->insertOrIgnore(['jti' => $jti, 'usuario_id' => $sub, 'encerrada_em' => now()]);
     }
 
     /**
@@ -64,9 +64,9 @@ final class Sessoes
      * Conta inexistente não é recusada aqui: quem decide o que fazer com ela é cada
      * middleware (que distingue conta inativada de inexistente, ADR 12).
      */
-    public static function conferir(string $userId, int $versaoDoToken, ?string $jti): void
+    public static function conferir(string $usuario_id, int $versaoDoToken, ?string $jti): void
     {
-        $atual = User::query()->withTrashed()->whereKey($userId)->value('versaoDaSessao');
+        $atual = Usuario::query()->withTrashed()->whereKey($usuario_id)->value('versao_da_sessao');
         if (! is_numeric($atual)) {
             return;
         }
@@ -75,7 +75,7 @@ final class Sessoes
             throw ApiException::unauthorized('Token inválido ou expirado.');
         }
 
-        if ($jti !== null && DB::table('SessaoEncerrada')->where('jti', $jti)->exists()) {
+        if ($jti !== null && DB::table('sessao_encerrada')->where('jti', $jti)->exists()) {
             throw ApiException::unauthorized('Token inválido ou expirado.');
         }
     }

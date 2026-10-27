@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Certificate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\StudentEnrollment;
-use App\Models\StudentProgress;
-use App\Models\User;
+use App\Models\Certificado;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Matricula;
+use App\Models\ProgressoAluno;
+use App\Models\Usuario;
 use App\Services\BasesGerenciais;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
@@ -67,17 +67,17 @@ final class DadosGerenciaisAdminTest extends TestCase
         return null;
     }
 
-    private function curso(string $titulo, array $extra = []): Course
+    private function curso(string $titulo, array $extra = []): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-dg-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição do curso para teste.',
-            'category' => 'Arte',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorName' => 'Prof. Teste',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição do curso para teste.',
+            'categoria' => 'Arte',
+            'miniatura' => 'sem-imagem.png',
+            'nome_instrutor' => 'Prof. Teste',
         ]);
-        Course::query()->whereKey($curso->id)->update(array_merge([
+        Curso::query()->whereKey($curso->id)->update(array_merge([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ], $extra));
@@ -130,7 +130,7 @@ final class DadosGerenciaisAdminTest extends TestCase
 
         $this->assertNotNull($linha);
         $this->assertSame(['id_aluno', 'nome', 'email', 'status_conta', 'municipio', 'uf', 'area_de_interesse', 'data_de_cadastro'], array_keys($linha));
-        $this->assertSame($aluno['name'], $linha['nome']);
+        $this->assertSame($aluno['nome'], $linha['nome']);
         $this->assertSame('active', $linha['status_conta']);
         // O painel antigo mostrava "São Paulo"/"SP" quando faltava; o arquivo sempre foi vazio.
         $this->assertSame('', $linha['municipio']);
@@ -139,7 +139,7 @@ final class DadosGerenciaisAdminTest extends TestCase
 
     public function test_cursos_usam_o_minimo_do_curso_ou_o_padrao_e_sim_nao_do_certificado(): void
     {
-        $a = $this->curso('Curso Base A', ['minAttendance' => 80, 'emiteCertificado' => false]);
+        $a = $this->curso('Curso Base A', ['frequencia_minima' => 80, 'emite_certificado' => false]);
         $b = $this->curso('Curso Base B');
 
         $linhaA = $this->linhaDe('cursos', 'id_curso', $a->id);
@@ -158,18 +158,18 @@ final class DadosGerenciaisAdminTest extends TestCase
         $c2 = $this->curso('Curso Concluido Com Cert');
         $c3 = $this->curso('Curso Concluido Sem Cert');
         $aluno = $this->makeStudent('Aluno Matriculas Base');
-        $matricula = StudentEnrollment::query()->create([
-            'id' => 'mat-'.uniqid(), 'userId' => $aluno['id'], 'studentName' => $aluno['name'],
-            'enrolledCourseId' => $c1->id, 'enrolledAt' => '2026-01-10T12:00:00+00:00',
-            'completedCourseIds' => [$c2->id, $c3->id], 'extraCourseIds' => [], 'canMultiEnroll' => false,
+        $matricula = Matricula::query()->create([
+            'id' => 'mat-'.uniqid(), 'usuario_id' => $aluno['id'], 'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => $c1->id, 'matriculado_em_texto' => '2026-01-10T12:00:00+00:00',
+            'cursos_concluidos_ids' => [$c2->id, $c3->id], 'cursos_extras_ids' => [], 'pode_multimatricula' => false,
         ]);
-        StudentProgress::query()->create([
-            'id' => (string) Str::uuid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'], 'courseId' => $c1->id,
-            'completedLessons' => ['l1', 'l2'], 'attendedLiveSessions' => [],
+        ProgressoAluno::query()->create([
+            'id' => (string) Str::uuid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'], 'curso_id' => $c1->id,
+            'aulas_concluidas' => ['l1', 'l2'], 'sessoes_ao_vivo_assistidas' => [],
         ]);
-        Certificate::query()->create([
-            'id' => 'cert-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'], 'courseId' => $c2->id,
-            'courseTitle' => $c2->title, 'issueDate' => '2026-08-01', 'attendancePercent' => 100, 'verificationHash' => Str::random(20),
+        Certificado::query()->create([
+            'id' => 'cert-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'], 'curso_id' => $c2->id,
+            'titulo_curso' => $c2->titulo, 'data_emissao' => '2026-08-01', 'percentual_frequencia' => 100, 'hash_verificacao' => Str::random(20),
         ]);
 
         $linhas = array_values(array_filter($this->servico()->linhas('matriculas'), static fn (array $l): bool => $l['id_aluno'] === $aluno['id']));
@@ -196,9 +196,9 @@ final class DadosGerenciaisAdminTest extends TestCase
     {
         $extra = $this->curso('Curso So Concorrente');
         $aluno = $this->makeStudent('Aluno So Concorrente Base');
-        StudentEnrollment::query()->create([
-            'id' => 'mat-'.uniqid(), 'userId' => $aluno['id'], 'studentName' => $aluno['name'],
-            'enrolledCourseId' => null, 'completedCourseIds' => [], 'extraCourseIds' => [$extra->id], 'canMultiEnroll' => true,
+        Matricula::query()->create([
+            'id' => 'mat-'.uniqid(), 'usuario_id' => $aluno['id'], 'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => null, 'cursos_concluidos_ids' => [], 'cursos_extras_ids' => [$extra->id], 'pode_multimatricula' => true,
         ]);
 
         $linhas = array_filter($this->servico()->linhas('matriculas'), static fn (array $l): bool => $l['id_aluno'] === $aluno['id']);
@@ -215,20 +215,20 @@ final class DadosGerenciaisAdminTest extends TestCase
     public function test_progresso_por_aula_lista_as_aulas_do_curso_na_ordem_e_ignora_curso_fora_do_catalogo(): void
     {
         $curso = $this->curso('Curso Progresso Base');
-        Lesson::query()->create(['id' => $curso->id.'-b', 'courseId' => $curso->id, 'title' => 'Segunda', 'content' => 'x', 'duration' => '10', 'lesson_order' => 2]);
-        Lesson::query()->create(['id' => $curso->id.'-a', 'courseId' => $curso->id, 'title' => 'Primeira', 'content' => 'x', 'duration' => '10', 'lesson_order' => 1]);
+        Aula::query()->create(['id' => $curso->id.'-b', 'curso_id' => $curso->id, 'titulo' => 'Segunda', 'conteudo' => 'x', 'duracao' => '10', 'ordem' => 2]);
+        Aula::query()->create(['id' => $curso->id.'-a', 'curso_id' => $curso->id, 'titulo' => 'Primeira', 'conteudo' => 'x', 'duracao' => '10', 'ordem' => 1]);
         $aluno = $this->makeStudent('Aluno Progresso Base');
-        $matricula = StudentEnrollment::query()->create([
-            'id' => 'mat-'.uniqid(), 'userId' => $aluno['id'], 'studentName' => $aluno['name'],
-            'enrolledCourseId' => $curso->id, 'completedCourseIds' => [], 'extraCourseIds' => [], 'canMultiEnroll' => false,
+        $matricula = Matricula::query()->create([
+            'id' => 'mat-'.uniqid(), 'usuario_id' => $aluno['id'], 'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => $curso->id, 'cursos_concluidos_ids' => [], 'cursos_extras_ids' => [], 'pode_multimatricula' => false,
         ]);
-        $progresso = StudentProgress::query()->create([
-            'id' => 'prg-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'], 'courseId' => $curso->id,
-            'completedLessons' => [$curso->id.'-a'], 'attendedLiveSessions' => [], 'enrollmentId' => $matricula->id,
+        $progresso = ProgressoAluno::query()->create([
+            'id' => 'prg-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'], 'curso_id' => $curso->id,
+            'aulas_concluidas' => [$curso->id.'-a'], 'sessoes_ao_vivo_assistidas' => [], 'matricula_id' => $matricula->id,
         ]);
-        StudentProgress::query()->create([
-            'id' => 'prg-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'], 'courseId' => 'curso-que-nao-existe-mais',
-            'completedLessons' => [], 'attendedLiveSessions' => [],
+        ProgressoAluno::query()->create([
+            'id' => 'prg-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'], 'curso_id' => 'curso-que-nao-existe-mais',
+            'aulas_concluidas' => [], 'sessoes_ao_vivo_assistidas' => [],
         ]);
 
         $linhas = array_values(array_filter($this->servico()->linhas('progresso'), static fn (array $l): bool => $l['id_aluno'] === $aluno['id']));
@@ -245,15 +245,15 @@ final class DadosGerenciaisAdminTest extends TestCase
 
     public function test_certificados_usam_o_nome_quando_nao_ha_aluno_e_trazem_a_carga_horaria(): void
     {
-        $curso = $this->curso('Curso Certificado Base', ['cargaHoraria' => 60]);
+        $curso = $this->curso('Curso Certificado Base', ['carga_horaria' => 60]);
         $aluno = $this->makeStudent('Aluno Certificado Base');
-        Certificate::query()->create([
-            'id' => 'cert-com-'.uniqid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'], 'courseId' => $curso->id,
-            'courseTitle' => $curso->title, 'issueDate' => '2026-08-01', 'attendancePercent' => 87.5, 'verificationHash' => 'AVA-COM',
+        Certificado::query()->create([
+            'id' => 'cert-com-'.uniqid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'], 'curso_id' => $curso->id,
+            'titulo_curso' => $curso->titulo, 'data_emissao' => '2026-08-01', 'percentual_frequencia' => 87.5, 'hash_verificacao' => 'AVA-COM',
         ]);
-        Certificate::query()->create([
-            'id' => 'cert-sem-'.uniqid(), 'studentName' => 'Pessoa Antiga Sem Conta', 'userId' => null, 'courseId' => $curso->id,
-            'courseTitle' => $curso->title, 'issueDate' => '2026-08-02', 'attendancePercent' => 100, 'verificationHash' => 'AVA-SEM',
+        Certificado::query()->create([
+            'id' => 'cert-sem-'.uniqid(), 'nome_aluno' => 'Pessoa Antiga Sem Conta', 'usuario_id' => null, 'curso_id' => $curso->id,
+            'titulo_curso' => $curso->titulo, 'data_emissao' => '2026-08-02', 'percentual_frequencia' => 100, 'hash_verificacao' => 'AVA-SEM',
         ]);
 
         $com = $this->linhaDe('certificados', 'codigo_validacao', 'AVA-COM');
@@ -272,7 +272,7 @@ final class DadosGerenciaisAdminTest extends TestCase
 
         foreach (array_keys(BasesGerenciais::BASES) as $base) {
             $csv = (string) $this->servico()->csv($this->servico()->linhas($base));
-            $this->assertStringNotContainsString('passwordHash', $csv, $base);
+            $this->assertStringNotContainsString('senha_hash', $csv, $base);
             $this->assertStringNotContainsString('$2y$', $csv, $base);
         }
     }
@@ -281,8 +281,8 @@ final class DadosGerenciaisAdminTest extends TestCase
     public function test_so_o_admin_chega_e_baixa(): void
     {
         $aluno = $this->makeStudent('Aluno Dados Acesso');
-        $gestor = User::query()->where('role', 'instructor')->firstOrFail();
-        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->name, 'instructor');
+        $gestor = Usuario::query()->where('papel', 'instructor')->firstOrFail();
+        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->nome, 'instructor');
 
         // O visitante vem primeiro: o cookie de `como()` persiste no cliente de teste.
         $this->get('/admin/dados-gerenciais')->assertRedirect('/entrar');
@@ -341,9 +341,9 @@ final class DadosGerenciaisAdminTest extends TestCase
 
         $corpo = (string) $resposta->getContent();
         $this->assertStringStartsWith("\u{FEFF}id_aluno;nome;email;status_conta;", $corpo);
-        $this->assertStringContainsString($aluno['id'].';'.$aluno['name'].';', $corpo);
+        $this->assertStringContainsString($aluno['id'].';'.$aluno['nome'].';', $corpo);
 
-        $this->assertTrue(DB::table('SecurityLog')->where('action', 'Exportação de Dados Gerenciais')->where('details', 'like', '%"alunos"%')->exists());
+        $this->assertTrue(DB::table('log_seguranca')->where('acao', 'Exportação de Dados Gerenciais')->where('detalhes', 'like', '%"alunos"%')->exists());
     }
 
     public function test_cada_base_tem_o_nome_de_arquivo_de_sempre(): void
@@ -363,7 +363,7 @@ final class DadosGerenciaisAdminTest extends TestCase
     {
         // Sem matrícula alguma a base de Matrículas fica vazia. Inativa as existentes (nada se apaga, ADR 12),
         // dentro da transação do teste.
-        StudentEnrollment::query()->get()->each->delete();
+        Matricula::query()->get()->each->delete();
         $token = $this->admin();
 
         $this->como($token)->get('/admin/dados-gerenciais/baixar/matriculas')

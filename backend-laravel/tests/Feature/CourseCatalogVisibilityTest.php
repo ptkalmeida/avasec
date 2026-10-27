@@ -12,11 +12,11 @@ use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
 
 /**
- * Visibilidade do catálogo (GET /api/courses).
+ * Visibilidade do catálogo (GET /api/cursos).
  *
  * A rota é PÚBLICA por escopo declarado (01-visao-geral.md: "catálogo público de
  * cursos") e continua assim. O que era falha é o payload: devolvia o texto de estudo
- * de cada aula, videoUrl, documentos e o link do Meet para qualquer visitante sem
+ * de cada aula, url_video, documentos e o link do Meet para qualquer visitante sem
  * login — confirmado ao vivo por curl durante a auditoria de 31/08/2026.
  *
  * Estes testes travam as duas metades: a vitrine sempre visível, e o material só
@@ -45,36 +45,36 @@ final class CourseCatalogVisibilityTest extends TestCase
      */
     private function courseIdWithContent(): string
     {
-        $id = DB::table('Lesson')
-            ->whereNotNull('content')
-            ->where('content', '!=', '')
-            ->value('courseId');
+        $id = DB::table('aula')
+            ->whereNotNull('conteudo')
+            ->where('conteudo', '!=', '')
+            ->value('curso_id');
         $this->assertNotNull($id, 'Seed sem aula com conteúdo — popular o MySQL de dev.');
 
         return $id;
     }
 
     /** @param array<int, mixed> $catalogo @return array<string, mixed> */
-    private function curso(array $catalogo, string $courseId): array
+    private function curso(array $catalogo, string $curso_id): array
     {
         foreach ($catalogo as $curso) {
-            if (is_array($curso) && ($curso['id'] ?? null) === $courseId) {
+            if (is_array($curso) && ($curso['id'] ?? null) === $curso_id) {
                 return $curso;
             }
         }
-        $this->fail("Curso {$courseId} ausente do catálogo.");
+        $this->fail("Curso {$curso_id} ausente do catálogo.");
     }
 
     /** @param array<string, mixed> $curso */
     private function assertSemMaterial(array $curso): void
     {
-        foreach ((array) ($curso['lessons'] ?? []) as $aula) {
-            $this->assertSame('', $aula['content'] ?? null, 'Texto de estudo vazou no catálogo.');
-            $this->assertNull($aula['videoUrl'] ?? null, 'videoUrl vazou no catálogo.');
-            $this->assertSame([], $aula['documents'] ?? null, 'Documentos vazaram no catálogo.');
+        foreach ((array) ($curso['aulas'] ?? []) as $aula) {
+            $this->assertSame('', $aula['conteudo'] ?? null, 'Texto de estudo vazou no catálogo.');
+            $this->assertNull($aula['url_video'] ?? null, 'url_video vazou no catálogo.');
+            $this->assertSame([], $aula['documentos'] ?? null, 'Documentos vazaram no catálogo.');
         }
-        foreach ((array) ($curso['liveSessions'] ?? []) as $sessao) {
-            $this->assertSame('', $sessao['meetingLink'] ?? null, 'Link da sala ao vivo vazou no catálogo.');
+        foreach ((array) ($curso['sessoes_ao_vivo'] ?? []) as $sessao) {
+            $this->assertSame('', $sessao['link_reuniao'] ?? null, 'Link da sala ao vivo vazou no catálogo.');
         }
     }
 
@@ -82,8 +82,8 @@ final class CourseCatalogVisibilityTest extends TestCase
     private function assertComMaterial(array $curso): void
     {
         $conteudos = array_map(
-            static fn (mixed $a): string => is_array($a) ? (string) ($a['content'] ?? '') : '',
-            (array) ($curso['lessons'] ?? [])
+            static fn (mixed $a): string => is_array($a) ? (string) ($a['conteudo'] ?? '') : '',
+            (array) ($curso['aulas'] ?? [])
         );
         $this->assertNotEmpty(
             array_filter($conteudos, static fn (string $c): bool => $c !== ''),
@@ -94,54 +94,54 @@ final class CourseCatalogVisibilityTest extends TestCase
     public function test_catalog_stays_public(): void
     {
         // O catálogo aberto é escopo declarado; fechar a rota seria remover escopo.
-        $this->getJson('/api/courses')->assertOk();
+        $this->getJson('/api/cursos')->assertOk();
     }
 
     public function test_anonymous_visitor_gets_showcase_without_study_material(): void
     {
-        $courseId = $this->courseIdWithContent();
-        $catalogo = $this->getJson('/api/courses')->assertOk()->json();
+        $curso_id = $this->courseIdWithContent();
+        $catalogo = $this->getJson('/api/cursos')->assertOk()->json();
 
-        $curso = $this->curso($catalogo, $courseId);
+        $curso = $this->curso($catalogo, $curso_id);
 
         // A vitrine continua completa: é o que sustenta a decisão de se matricular.
-        $this->assertNotEmpty($curso['title'] ?? '');
-        $this->assertNotEmpty($curso['description'] ?? '');
-        $this->assertNotEmpty($curso['lessons'] ?? [], 'O programa do curso deve continuar visível.');
-        $this->assertNotEmpty($curso['lessons'][0]['title'] ?? '');
+        $this->assertNotEmpty($curso['titulo'] ?? '');
+        $this->assertNotEmpty($curso['descricao'] ?? '');
+        $this->assertNotEmpty($curso['aulas'] ?? [], 'O programa do curso deve continuar visível.');
+        $this->assertNotEmpty($curso['aulas'][0]['titulo'] ?? '');
 
         $this->assertSemMaterial($curso);
     }
 
     public function test_student_without_enrollment_gets_no_material(): void
     {
-        $courseId = $this->courseIdWithContent();
+        $curso_id = $this->courseIdWithContent();
         $aluno = $this->makeStudent();
 
-        $catalogo = $this->getJson('/api/courses', $this->auth($aluno['token']))->assertOk()->json();
+        $catalogo = $this->getJson('/api/cursos', $this->auth($aluno['token']))->assertOk()->json();
 
         // Estar logado não basta: o acesso é por vínculo com o curso.
-        $this->assertSemMaterial($this->curso($catalogo, $courseId));
+        $this->assertSemMaterial($this->curso($catalogo, $curso_id));
     }
 
     public function test_enrolled_student_gets_material_of_own_course_only(): void
     {
-        $courseId = $this->courseIdWithContent();
-        $outroId = $this->anotherSeededCourseId($courseId);
+        $curso_id = $this->courseIdWithContent();
+        $outroId = $this->anotherSeededCourseId($curso_id);
         $aluno = $this->makeStudent();
 
         $this->withHeaders($this->auth($aluno['token']))
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseId])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => $curso_id])
             ->assertOk();
 
-        $catalogo = $this->getJson('/api/courses', $this->auth($aluno['token']))->assertOk()->json();
+        $catalogo = $this->getJson('/api/cursos', $this->auth($aluno['token']))->assertOk()->json();
 
-        $this->assertComMaterial($this->curso($catalogo, $courseId));
+        $this->assertComMaterial($this->curso($catalogo, $curso_id));
         $this->assertSemMaterial($this->curso($catalogo, $outroId));
     }
 
     /**
-     * Matrícula múltipla: o segundo curso vai para `extraCourseIds`, e o painel do
+     * Matrícula múltipla: o segundo curso vai para `cursos_extras_ids`, e o painel do
      * aluno o abre como matrícula. CourseAccess não lia esse campo, então o curso
      * extra chegava pela vitrine — aula em branco e nenhum anexo, com o documento
      * íntegro no banco. Relatado em 23/09/2026 no curso de Portfólio.
@@ -156,21 +156,21 @@ final class CourseCatalogVisibilityTest extends TestCase
         // banco de desenvolvimento tem um vencido. Este teste mede o MATERIAL
         // do curso extra, não a vigência.
         $hoje = Fuso::agora()->format('Y-m-d');
-        $noPrazo = static fn ($q) => $q->whereNull('vigenciaAte')->orWhere('vigenciaAte', '>=', $hoje);
+        $noPrazo = static fn ($q) => $q->whereNull('vigencia_ate')->orWhere('vigencia_ate', '>=', $hoje);
 
-        $extraId = DB::table('Course')
-            ->whereNull('inativadoEm')->where('status', 1)
+        $extraId = DB::table('curso')
+            ->whereNull('inativado_em')->where('status', 1)
             ->where($noPrazo)
-            ->whereIn('id', DB::table('Lesson')
-                ->whereNull('inativadoEm')
-                ->whereNotNull('content')->where('content', '!=', '')
-                ->whereIn('id', DB::table('LessonDocument')->whereNull('inativadoEm')->where('status', 1)->select('lessonId'))
-                ->select('courseId'))
+            ->whereIn('id', DB::table('aula')
+                ->whereNull('inativado_em')
+                ->whereNotNull('conteudo')->where('conteudo', '!=', '')
+                ->whereIn('id', DB::table('documento_aula')->whereNull('inativado_em')->where('status', 1)->select('aula_id'))
+                ->select('curso_id'))
             ->value('id');
         $this->assertNotNull($extraId, 'Seed sem curso com aula de conteúdo e documento — popular o MySQL de dev.');
 
-        $principalId = DB::table('Course')
-            ->whereNull('inativadoEm')->where('status', 1)
+        $principalId = DB::table('curso')
+            ->whereNull('inativado_em')->where('status', 1)
             ->where($noPrazo)
             ->where('id', '!=', $extraId)
             ->value('id');
@@ -180,50 +180,50 @@ final class CourseCatalogVisibilityTest extends TestCase
         $auth = $this->auth($aluno['token']);
 
         $this->withHeaders($this->auth($this->staffToken('admin')))
-            ->putJson('/api/enrollments/'.$aluno['id'], ['canMultiEnroll' => true])
+            ->putJson('/api/matriculas/'.$aluno['id'], ['pode_multimatricula' => true])
             ->assertOk();
         $this->withHeaders($auth)
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => $principalId])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => $principalId])
             ->assertOk();
         $this->withHeaders($auth)
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => $extraId])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => $extraId])
             ->assertOk()
-            ->assertJsonPath('enrollment.extraCourseIds', [$extraId]);
+            ->assertJsonPath('enrollment.cursos_extras_ids', [$extraId]);
 
         $curso = $this->curso(
-            $this->getJson('/api/courses', $auth)->assertOk()->json(),
+            $this->getJson('/api/cursos', $auth)->assertOk()->json(),
             $extraId
         );
 
         $this->assertComMaterial($curso);
         $documentos = array_merge(...array_map(
-            static fn (mixed $a): array => is_array($a) ? (array) ($a['documents'] ?? []) : [],
-            (array) ($curso['lessons'] ?? [])
+            static fn (mixed $a): array => is_array($a) ? (array) ($a['documentos'] ?? []) : [],
+            (array) ($curso['aulas'] ?? [])
         ));
         $this->assertNotEmpty($documentos, 'Aluno do curso extra ficou sem os documentos anexados.');
     }
 
     public function test_admin_gets_everything(): void
     {
-        $courseId = $this->courseIdWithContent();
-        $catalogo = $this->getJson('/api/courses', $this->auth($this->staffToken('admin')))->assertOk()->json();
+        $curso_id = $this->courseIdWithContent();
+        $catalogo = $this->getJson('/api/cursos', $this->auth($this->staffToken('admin')))->assertOk()->json();
 
-        $this->assertComMaterial($this->curso($catalogo, $courseId));
+        $this->assertComMaterial($this->curso($catalogo, $curso_id));
     }
 
     public function test_instructor_gets_material_of_courses_they_teach(): void
     {
-        $instructorId = DB::table('User')->where('role', 'instructor')->where('status', 'active')->value('id');
-        $this->assertNotNull($instructorId, 'Seed sem instrutor ativo.');
+        $instrutor_id = DB::table('usuario')->where('papel', 'instructor')->where('status', 'active')->value('id');
+        $this->assertNotNull($instrutor_id, 'Seed sem instrutor ativo.');
 
-        $proprio = DB::table('Course')->where('instructorId', $instructorId)
-            ->whereIn('id', DB::table('Lesson')->whereNotNull('content')->where('content', '!=', '')->select('courseId'))
+        $proprio = DB::table('curso')->where('instrutor_id', $instrutor_id)
+            ->whereIn('id', DB::table('aula')->whereNotNull('conteudo')->where('conteudo', '!=', '')->select('curso_id'))
             ->value('id');
         if ($proprio === null) {
             $this->markTestSkipped('Seed sem curso com conteúdo atribuído ao instrutor.');
         }
 
-        $catalogo = $this->getJson('/api/courses', $this->auth($this->staffToken('instructor')))->assertOk()->json();
+        $catalogo = $this->getJson('/api/cursos', $this->auth($this->staffToken('instructor')))->assertOk()->json();
 
         $this->assertComMaterial($this->curso($catalogo, $proprio));
     }
@@ -232,7 +232,7 @@ final class CourseCatalogVisibilityTest extends TestCase
     {
         // jwt.optional: token quebrado não derruba o catálogo público, só não libera
         // material. Se isso virasse 401, um cookie expirado esconderia a vitrine.
-        $this->getJson('/api/courses', ['Authorization' => 'Bearer token-invalido'])
+        $this->getJson('/api/cursos', ['Authorization' => 'Bearer token-invalido'])
             ->assertOk();
     }
 }

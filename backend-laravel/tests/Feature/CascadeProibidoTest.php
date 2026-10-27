@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\User;
+use App\Models\Usuario;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
@@ -70,12 +70,12 @@ final class CascadeProibidoTest extends TestCase
             $this->markTestSkipped('A regra vale no MySQL.');
         }
 
-        $matricula = DB::table('StudentEnrollment')->first(['userId']);
+        $matricula = DB::table('matricula')->first(['usuario_id']);
         $this->assertNotNull($matricula, 'Seed sem matrícula: o teste não teria o que provar.');
 
         $this->expectException(QueryException::class);
 
-        DB::table('User')->where('id', $matricula->userId)->delete();
+        DB::table('usuario')->where('id', $matricula->usuario_id)->delete();
     }
 
     public function test_banco_recusa_apagar_curso_que_tem_aula(): void
@@ -84,12 +84,12 @@ final class CascadeProibidoTest extends TestCase
             $this->markTestSkipped('A regra vale no MySQL.');
         }
 
-        $aula = DB::table('Lesson')->whereNotNull('courseId')->first(['courseId']);
+        $aula = DB::table('aula')->whereNotNull('curso_id')->first(['curso_id']);
         $this->assertNotNull($aula, 'Seed sem aula vinculada a curso.');
 
         $this->expectException(QueryException::class);
 
-        DB::table('Course')->where('id', $aula->courseId)->delete();
+        DB::table('curso')->where('id', $aula->curso_id)->delete();
     }
 
     /**
@@ -99,16 +99,16 @@ final class CascadeProibidoTest extends TestCase
      */
     public function test_inativar_usuario_continua_funcionando(): void
     {
-        $matricula = DB::table('StudentEnrollment')->first(['userId']);
+        $matricula = DB::table('matricula')->first(['usuario_id']);
         $this->assertNotNull($matricula);
 
-        $usuario = User::withTrashed()->find($matricula->userId);
+        $usuario = Usuario::withTrashed()->find($matricula->usuario_id);
         $this->assertNotNull($usuario);
 
-        $usuario->inativar($matricula->userId, 'teste automatizado');
+        $usuario->inativar($matricula->usuario_id, 'teste automatizado');
 
         $this->assertTrue(
-            User::withTrashed()->find($matricula->userId)->estaInativo(),
+            Usuario::withTrashed()->find($matricula->usuario_id)->estaInativo(),
             'Inativação deixou de funcionar depois da troca para RESTRICT.',
         );
     }

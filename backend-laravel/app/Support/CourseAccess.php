@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use App\Models\AdmissionRequest;
-use App\Models\StudentEnrollment;
+use App\Models\SolicitacaoIngresso;
+use App\Models\Matricula;
 
 /**
  * Quais cursos um requester pode acessar como MEMBRO (para leitura de conteúdo de
@@ -15,35 +15,35 @@ use App\Models\StudentEnrollment;
  *  - aluno: curso em que está matriculado (principal ou extra, na matrícula
  *    múltipla), que já concluiu, ou com admissão aprovada.
  *
- * $requester = ['sub'=>id, 'name'=>..., 'role'=>...].
+ * $requester = ['sub'=>id, 'nome'=>..., 'papel'=>...].
  */
 final class CourseAccess
 {
     /**
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      */
-    public static function canAccess(array $requester, string $courseId): bool
+    public static function canAccess(array $requester, string $curso_id): bool
     {
-        if ($requester['role'] === 'admin') {
+        if ($requester['papel'] === 'admin') {
             return true;
         }
-        if ($requester['role'] === 'instructor') {
-            return in_array($courseId, InstructorScope::courseIds($requester), true);
+        if ($requester['papel'] === 'instructor') {
+            return in_array($curso_id, InstructorScope::courseIds($requester), true);
         }
 
-        return in_array($courseId, self::studentCourseIds($requester['sub']), true);
+        return in_array($curso_id, self::studentCourseIds($requester['sub']), true);
     }
 
     /**
      * IDs de cursos acessíveis ao requester NÃO-admin (instrutor: leciona; aluno:
      * pertence). O chamador trata admin como irrestrito antes de invocar.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return list<string>
      */
     public static function accessibleCourseIds(array $requester): array
     {
-        if ($requester['role'] === 'instructor') {
+        if ($requester['papel'] === 'instructor') {
             return InstructorScope::courseIds($requester);
         }
 
@@ -56,39 +56,39 @@ final class CourseAccess
      *
      * @return list<string>
      */
-    private static function studentCourseIds(string $userId): array
+    private static function studentCourseIds(string $usuario_id): array
     {
         $ids = [];
 
-        $enrollment = StudentEnrollment::query()->where('userId', $userId)->first();
+        $enrollment = Matricula::query()->where('usuario_id', $usuario_id)->first();
         if ($enrollment !== null) {
-            if (is_string($enrollment->enrolledCourseId) && $enrollment->enrolledCourseId !== '') {
-                $ids[] = $enrollment->enrolledCourseId;
+            if (is_string($enrollment->curso_matriculado_id) && $enrollment->curso_matriculado_id !== '') {
+                $ids[] = $enrollment->curso_matriculado_id;
             }
-            foreach ((array) ($enrollment->completedCourseIds ?? []) as $courseId) {
-                if (is_string($courseId) && $courseId !== '') {
-                    $ids[] = $courseId;
+            foreach ((array) ($enrollment->cursos_concluidos_ids ?? []) as $curso_id) {
+                if (is_string($curso_id) && $curso_id !== '') {
+                    $ids[] = $curso_id;
                 }
             }
             // Matrícula múltipla: o EnrollmentService grava o segundo curso aqui e o
             // painel do aluno o trata como matrícula. Sem esta leitura, o aluno abria
             // o curso extra e recebia a versão sem material (semMaterial) — aula em
             // branco, sem anexos — e ficava barrado em avaliação, fórum e chat.
-            foreach ((array) ($enrollment->extraCourseIds ?? []) as $courseId) {
-                if (is_string($courseId) && $courseId !== '') {
-                    $ids[] = $courseId;
+            foreach ((array) ($enrollment->cursos_extras_ids ?? []) as $curso_id) {
+                if (is_string($curso_id) && $curso_id !== '') {
+                    $ids[] = $curso_id;
                 }
             }
         }
 
-        $approved = AdmissionRequest::query()
-            ->where('userId', $userId)
+        $approved = SolicitacaoIngresso::query()
+            ->where('usuario_id', $usuario_id)
             ->where('status', 'approved')
-            ->pluck('courseId')
+            ->pluck('curso_id')
             ->all();
-        foreach ($approved as $courseId) {
-            if (is_string($courseId) && $courseId !== '') {
-                $ids[] = $courseId;
+        foreach ($approved as $curso_id) {
+            if (is_string($curso_id) && $curso_id !== '') {
+                $ids[] = $curso_id;
             }
         }
 

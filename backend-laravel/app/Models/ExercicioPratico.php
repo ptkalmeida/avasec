@@ -7,11 +7,11 @@ namespace App\Models;
 use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
-final class PracticalExercise extends Model
+final class ExercicioPratico extends Model
 {
     use Inativavel;
 
-    protected $table = 'PracticalExercise';
+    protected $table = 'exercicio_pratico';
 
     protected $keyType = 'string';
 
@@ -19,12 +19,12 @@ final class PracticalExercise extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'courseId', 'title', 'description', 'instructions', 'maxPoints', 'dueDate', 'prazoEm'];
+    protected $fillable = ['id', 'curso_id', 'titulo', 'descricao', 'instrucoes', 'pontuacao_maxima', 'prazo_texto', 'prazo_em'];
 
     protected $casts = [
-        'maxPoints' => 'integer',
+        'pontuacao_maxima' => 'integer',
         /*
-         * Dia real de entrega, ao lado do texto `dueDate` (Norma C.2.4). O
+         * Dia real de entrega, ao lado do texto `prazo_texto` (Norma C.2.4). O
          * texto NAO muda: continua sendo o que a tela mostra e o que a API
          * entrega hoje.
          *
@@ -32,6 +32,6 @@ final class PracticalExercise extends Model
          * `Fuso` documenta a armadilha — meia-noite UTC e 21h do dia ANTERIOR em
          * Brasilia, e o dia do prazo mudaria ao ser formatado.
          */
-        'prazoEm' => 'date:Y-m-d',
+        'prazo_em' => 'date:Y-m-d',
     ];
 }

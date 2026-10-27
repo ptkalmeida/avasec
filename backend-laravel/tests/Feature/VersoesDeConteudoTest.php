@@ -6,9 +6,9 @@ namespace Tests\Feature;
 
 use App\Exceptions\ApiException;
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Usuario;
 use App\Models\VersaoDeConteudo;
 use App\Services\DocumentTemplateService;
 use App\Services\SitePageContentService;
@@ -38,9 +38,9 @@ final class VersoesDeConteudoTest extends TestCase
     /** @return array{sub:string,name:string,role:string} */
     private function admin(): array
     {
-        $admin = User::query()->where('role', 'admin')->firstOrFail();
+        $admin = Usuario::query()->where('papel', 'admin')->firstOrFail();
 
-        return ['sub' => $admin->id, 'name' => $admin->name, 'role' => 'admin'];
+        return ['sub' => $admin->id, 'nome' => $admin->nome, 'papel' => 'admin'];
     }
 
     private function versoes(): VersoesDeConteudo
@@ -56,17 +56,17 @@ final class VersoesDeConteudoTest extends TestCase
         $fabrica = $servico->conteudoDaPagina('o-ava');
         $admin = $this->admin();
 
-        $servico->upsert('o-ava', array_merge($fabrica, ['title' => 'Primeiro título']), $admin);
-        $servico->upsert('o-ava', array_merge($fabrica, ['title' => 'Segundo título']), $admin);
+        $servico->upsert('o-ava', array_merge($fabrica, ['titulo' => 'Primeiro título']), $admin);
+        $servico->upsert('o-ava', array_merge($fabrica, ['titulo' => 'Segundo título']), $admin);
 
         $lista = $this->versoes()->listar(VersoesDeConteudo::PAGINA_DO_SITE, 'o-ava');
 
         $this->assertCount(2, $lista);
         // A mais recente primeiro: o que estava no ar antes do SEGUNDO salvamento.
-        $this->assertSame('Primeiro título', $lista[0]['conteudo']['title']);
+        $this->assertSame('Primeiro título', $lista[0]['conteudo']['titulo']);
         // E a outra é o texto de fábrica, que antes se perdia no primeiro salvamento.
-        $this->assertSame($fabrica['title'], $lista[1]['conteudo']['title']);
-        $this->assertSame($admin['name'], $lista[0]['porNome']);
+        $this->assertSame($fabrica['titulo'], $lista[1]['conteudo']['titulo']);
+        $this->assertSame($admin['nome'], $lista[0]['porNome']);
         $this->assertSame('edicao', $lista[0]['origem']);
     }
 
@@ -74,7 +74,7 @@ final class VersoesDeConteudoTest extends TestCase
     {
         $servico = app(SitePageContentService::class);
         $admin = $this->admin();
-        $servico->upsert('duvidas', array_merge($servico->conteudoDaPagina('duvidas'), ['title' => 'Estável']), $admin);
+        $servico->upsert('duvidas', array_merge($servico->conteudoDaPagina('duvidas'), ['titulo' => 'Estável']), $admin);
         $antes = VersaoDeConteudo::query()->where('referencia', 'duvidas')->count();
 
         $servico->upsert('duvidas', $servico->conteudoDaPagina('duvidas'), $admin);
@@ -88,16 +88,16 @@ final class VersoesDeConteudoTest extends TestCase
         $admin = $this->admin();
         $base = $servico->conteudoDaPagina('noticias');
 
-        $servico->upsert('noticias', array_merge($base, ['title' => 'Versão A']), $admin);
-        $servico->upsert('noticias', array_merge($base, ['title' => 'Versão B']), $admin);
+        $servico->upsert('noticias', array_merge($base, ['titulo' => 'Versão A']), $admin);
+        $servico->upsert('noticias', array_merge($base, ['titulo' => 'Versão B']), $admin);
         $versaoA = $this->versoes()->listar(VersoesDeConteudo::PAGINA_DO_SITE, 'noticias')[0];
-        $this->assertSame('Versão A', $versaoA['conteudo']['title']);
+        $this->assertSame('Versão A', $versaoA['conteudo']['titulo']);
 
         $servico->restaurarVersao('noticias', $versaoA['id'], $admin);
 
-        $this->assertSame('Versão A', $servico->get('noticias')['title']);
+        $this->assertSame('Versão A', $servico->get('noticias')['titulo']);
         $titulos = array_map(
-            static fn (array $v): mixed => $v['conteudo']['title'],
+            static fn (array $v): mixed => $v['conteudo']['titulo'],
             $this->versoes()->listar(VersoesDeConteudo::PAGINA_DO_SITE, 'noticias'),
         );
         // A "Versão B", que estava no ar na hora de restaurar, está no histórico: dá para desfazer.
@@ -108,8 +108,8 @@ final class VersoesDeConteudoTest extends TestCase
     {
         $servico = app(SitePageContentService::class);
         $admin = $this->admin();
-        $servico->upsert('o-ava', array_merge($servico->conteudoDaPagina('o-ava'), ['title' => 'Do O-AVA']), $admin);
-        $servico->upsert('o-ava', array_merge($servico->conteudoDaPagina('o-ava'), ['title' => 'Outro']), $admin);
+        $servico->upsert('o-ava', array_merge($servico->conteudoDaPagina('o-ava'), ['titulo' => 'Do O-AVA']), $admin);
+        $servico->upsert('o-ava', array_merge($servico->conteudoDaPagina('o-ava'), ['titulo' => 'Outro']), $admin);
         $deOAva = $this->versoes()->listar(VersoesDeConteudo::PAGINA_DO_SITE, 'o-ava')[0]['id'];
 
         $this->expectException(ApiException::class);
@@ -119,10 +119,10 @@ final class VersoesDeConteudoTest extends TestCase
     public function test_so_o_admin_restaura_pagina(): void
     {
         $servico = app(SitePageContentService::class);
-        $gestor = User::query()->where('role', 'instructor')->firstOrFail();
+        $gestor = Usuario::query()->where('papel', 'instructor')->firstOrFail();
 
         $this->expectException(ApiException::class);
-        $servico->restaurarVersao('o-ava', 'qualquer', ['sub' => $gestor->id, 'name' => $gestor->name, 'role' => 'instructor']);
+        $servico->restaurarVersao('o-ava', 'qualquer', ['sub' => $gestor->id, 'nome' => $gestor->nome, 'papel' => 'instructor']);
     }
 
     public function test_a_tela_lista_as_versoes_e_o_botao_restaura(): void
@@ -130,8 +130,8 @@ final class VersoesDeConteudoTest extends TestCase
         $servico = app(SitePageContentService::class);
         $admin = $this->admin();
         $token = $this->staffToken('admin');
-        $servico->upsert('orientacoes', array_merge($servico->conteudoDaPagina('orientacoes'), ['title' => 'Texto Antigo Na Tela']), $admin);
-        $servico->upsert('orientacoes', array_merge($servico->conteudoDaPagina('orientacoes'), ['title' => 'Texto Novo Na Tela']), $admin);
+        $servico->upsert('orientacoes', array_merge($servico->conteudoDaPagina('orientacoes'), ['titulo' => 'Texto Antigo Na Tela']), $admin);
+        $servico->upsert('orientacoes', array_merge($servico->conteudoDaPagina('orientacoes'), ['titulo' => 'Texto Novo Na Tela']), $admin);
         $versao = $this->versoes()->listar(VersoesDeConteudo::PAGINA_DO_SITE, 'orientacoes')[0]['id'];
 
         $tela = $this->como($token)->get('/admin/paginas-do-site?pagina=orientacoes');
@@ -143,26 +143,26 @@ final class VersoesDeConteudoTest extends TestCase
         $this->como($token)->post('/admin/paginas-do-site/orientacoes/versoes/'.$versao.'/restaurar')
             ->assertRedirect('/admin/paginas-do-site?pagina=orientacoes');
 
-        $this->assertSame('Texto Antigo Na Tela', $servico->get('orientacoes')['title']);
+        $this->assertSame('Texto Antigo Na Tela', $servico->get('orientacoes')['titulo']);
     }
 
     public function test_restaurar_por_http_exige_admin_e_versao_da_propria_pagina(): void
     {
         $servico = app(SitePageContentService::class);
         $admin = $this->admin();
-        $servico->upsert('orientacoes', array_merge($servico->conteudoDaPagina('orientacoes'), ['title' => 'A']), $admin);
-        $servico->upsert('orientacoes', array_merge($servico->conteudoDaPagina('orientacoes'), ['title' => 'B']), $admin);
+        $servico->upsert('orientacoes', array_merge($servico->conteudoDaPagina('orientacoes'), ['titulo' => 'A']), $admin);
+        $servico->upsert('orientacoes', array_merge($servico->conteudoDaPagina('orientacoes'), ['titulo' => 'B']), $admin);
         $versao = $this->versoes()->listar(VersoesDeConteudo::PAGINA_DO_SITE, 'orientacoes')[0]['id'];
         $aluno = $this->makeStudent('Aluno Restaura Pagina');
 
         // O visitante vem primeiro: o cookie de `como()` persiste no cliente de teste.
         $this->post('/admin/paginas-do-site/orientacoes/versoes/'.$versao.'/restaurar')->assertRedirect('/entrar');
         $this->como($aluno['token'])->post('/admin/paginas-do-site/orientacoes/versoes/'.$versao.'/restaurar')->assertRedirect('/aluno');
-        $this->assertSame('B', $servico->get('orientacoes')['title']);
+        $this->assertSame('B', $servico->get('orientacoes')['titulo']);
 
         // Versão da página errada: 404, e nada muda.
         $this->como($this->staffToken('admin'))->post('/admin/paginas-do-site/duvidas/versoes/'.$versao.'/restaurar')->assertNotFound();
-        $this->assertSame('B', $servico->get('orientacoes')['title']);
+        $this->assertSame('B', $servico->get('orientacoes')['titulo']);
     }
 
     // ---- modelos de documento --------------------------------------------------
@@ -172,17 +172,17 @@ final class VersoesDeConteudoTest extends TestCase
         $servico = app(DocumentTemplateService::class);
         $admin = $this->admin();
 
-        $servico->upsert('certificado', ['institutionName' => 'Instituição Um', 'footerText' => 'Rodapé um'], $admin);
-        $servico->upsert('certificado', ['institutionName' => 'Instituição Dois'], $admin);
+        $servico->upsert('certificado', ['nome_instituicao' => 'Instituição Um', 'texto_rodape' => 'Rodapé um'], $admin);
+        $servico->upsert('certificado', ['nome_instituicao' => 'Instituição Dois'], $admin);
 
         $lista = $this->versoes()->listar(VersoesDeConteudo::MODELO_DE_DOCUMENTO, 'certificado');
-        $this->assertSame('Instituição Um', $lista[0]['conteudo']['institutionName']);
+        $this->assertSame('Instituição Um', $lista[0]['conteudo']['nome_instituicao']);
 
         $servico->restaurarVersao('certificado', $lista[0]['id'], $admin);
 
-        $this->assertSame('Instituição Um', $servico->get('certificado')['institutionName']);
+        $this->assertSame('Instituição Um', $servico->get('certificado')['nome_instituicao']);
         $nomes = array_map(
-            static fn (array $v): mixed => $v['conteudo']['institutionName'] ?? null,
+            static fn (array $v): mixed => $v['conteudo']['nome_instituicao'] ?? null,
             $this->versoes()->listar(VersoesDeConteudo::MODELO_DE_DOCUMENTO, 'certificado'),
         );
         $this->assertContains('Instituição Dois', $nomes);
@@ -192,8 +192,8 @@ final class VersoesDeConteudoTest extends TestCase
     {
         $servico = app(DocumentTemplateService::class);
         $admin = $this->admin();
-        $servico->upsert('historico', ['institutionName' => 'Nome Antigo Do Modelo'], $admin);
-        $servico->upsert('historico', ['institutionName' => 'Nome Novo Do Modelo'], $admin);
+        $servico->upsert('historico', ['nome_instituicao' => 'Nome Antigo Do Modelo'], $admin);
+        $servico->upsert('historico', ['nome_instituicao' => 'Nome Novo Do Modelo'], $admin);
 
         $this->como($this->staffToken('admin'))->get('/admin/templates?tipo=historico')
             ->assertOk()
@@ -203,26 +203,26 @@ final class VersoesDeConteudoTest extends TestCase
 
     // ---- aulas -----------------------------------------------------------------
 
-    /** @return array{0:array{id:string,name:string,token:string},1:Course,2:Lesson} */
+    /** @return array{0:array{id:string,name:string,token:string},1:Curso,2:Aula} */
     private function aulaDeInstrutor(): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
-            'id' => $id, 'name' => 'Gestor Versoes', 'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT), 'role' => 'instructor',
+        Usuario::query()->create([
+            'id' => $id, 'nome' => 'Gestor Versoes', 'email' => Str::lower(Str::random(10)).'@example.com',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT), 'papel' => 'instructor',
         ]);
-        $curso = Course::query()->create([
-            'id' => 'course-versoes-'.uniqid(), 'title' => 'Curso Das Versoes',
-            'description' => 'Descrição longa o bastante para o validador aceitar.', 'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png', 'instructorId' => $id, 'instructorName' => 'Gestor Versoes',
+        $curso = Curso::query()->create([
+            'id' => 'course-versoes-'.uniqid(), 'titulo' => 'Curso Das Versoes',
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.', 'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png', 'instrutor_id' => $id, 'nome_instrutor' => 'Gestor Versoes',
         ]);
-        Course::query()->whereKey($curso->id)->update(['slug' => 'curso-das-versoes-'.Str::lower(Str::random(5)), 'status' => Visibilidade::PUBLICADO]);
-        $aula = Lesson::query()->create([
-            'id' => 'lesson-versoes-'.uniqid(), 'courseId' => $curso->id, 'title' => 'Aula Original',
-            'duration' => '30 min', 'content' => "## Seção original\n\nTexto original da aula.", 'lesson_order' => 1,
+        Curso::query()->whereKey($curso->id)->update(['slug' => 'curso-das-versoes-'.Str::lower(Str::random(5)), 'status' => Visibilidade::PUBLICADO]);
+        $aula = Aula::query()->create([
+            'id' => 'lesson-versoes-'.uniqid(), 'curso_id' => $curso->id, 'titulo' => 'Aula Original',
+            'duracao' => '30 min', 'conteudo' => "## Seção original\n\nTexto original da aula.", 'ordem' => 1,
         ]);
 
-        return [['id' => $id, 'name' => 'Gestor Versoes', 'token' => Jwt::issue($id, 'Gestor Versoes', 'instructor')], $curso->refresh(), $aula];
+        return [['id' => $id, 'nome' => 'Gestor Versoes', 'token' => Jwt::issue($id, 'Gestor Versoes', 'instructor')], $curso->refresh(), $aula];
     }
 
     public function test_alterar_a_aula_guarda_a_versao_anterior_com_autor(): void
@@ -235,9 +235,9 @@ final class VersoesDeConteudoTest extends TestCase
 
         $lista = $this->versoes()->listar(VersoesDeConteudo::AULA, $aula->id);
         $this->assertCount(1, $lista);
-        $this->assertSame('Aula Original', $lista[0]['conteudo']['title']);
-        $this->assertSame('30 min', $lista[0]['conteudo']['duration']);
-        $this->assertSame("## Seção original\n\nTexto original da aula.", $lista[0]['conteudo']['content']);
+        $this->assertSame('Aula Original', $lista[0]['conteudo']['titulo']);
+        $this->assertSame('30 min', $lista[0]['conteudo']['duracao']);
+        $this->assertSame("## Seção original\n\nTexto original da aula.", $lista[0]['conteudo']['conteudo']);
         $this->assertSame('Gestor Versoes', $lista[0]['porNome']);
     }
 
@@ -267,12 +267,12 @@ final class VersoesDeConteudoTest extends TestCase
 
         $this->como($eu['token'])->post($base.'/versoes/'.$versao.'/restaurar')->assertRedirect($base);
 
-        $depois = Lesson::query()->findOrFail($aula->id);
-        $this->assertSame('Aula Original', $depois->title);
-        $this->assertSame('30 min', $depois->duration);
+        $depois = Aula::query()->findOrFail($aula->id);
+        $this->assertSame('Aula Original', $depois->titulo);
+        $this->assertSame('30 min', $depois->duracao);
         // O que estava no ar na hora de restaurar também ficou guardado.
         $titulos = array_map(
-            static fn (array $v): mixed => $v['conteudo']['title'],
+            static fn (array $v): mixed => $v['conteudo']['titulo'],
             $this->versoes()->listar(VersoesDeConteudo::AULA, $aula->id),
         );
         $this->assertContains('Aula Renomeada', $titulos);
@@ -286,9 +286,9 @@ final class VersoesDeConteudoTest extends TestCase
         $versao = $this->versoes()->listar(VersoesDeConteudo::AULA, $aula->id)[0]['id'];
 
         $outroId = (string) Str::uuid();
-        User::query()->create([
-            'id' => $outroId, 'name' => 'Outro Gestor', 'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT), 'role' => 'instructor',
+        Usuario::query()->create([
+            'id' => $outroId, 'nome' => 'Outro Gestor', 'email' => Str::lower(Str::random(10)).'@example.com',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT), 'papel' => 'instructor',
         ]);
         $token = Jwt::issue($outroId, 'Outro Gestor', 'instructor');
 
@@ -296,7 +296,7 @@ final class VersoesDeConteudoTest extends TestCase
         $this->como($token)->post($base.'/versoes/'.$versao.'/restaurar')->assertNotFound();
         $this->como($token)->post($base.'/previa', ['indice' => 0, 'tipo' => 'paragrafo', 'texto' => 'x'])->assertNotFound();
 
-        $this->assertSame('Aula Renomeada', Lesson::query()->findOrFail($aula->id)->title);
+        $this->assertSame('Aula Renomeada', Aula::query()->findOrFail($aula->id)->titulo);
     }
 
     public function test_versao_de_outra_aula_nao_restaura_nesta(): void
@@ -306,15 +306,15 @@ final class VersoesDeConteudoTest extends TestCase
         $this->como($eu['token'])->post($base.'/identificacao', ['titulo' => 'Aula Renomeada', 'carga' => '45 min']);
         $versao = $this->versoes()->listar(VersoesDeConteudo::AULA, $aula->id)[0]['id'];
 
-        $segunda = Lesson::query()->create([
-            'id' => 'lesson-versoes-2-'.uniqid(), 'courseId' => $curso->id, 'title' => 'Segunda Aula',
-            'duration' => '10 min', 'content' => 'Texto da segunda.', 'lesson_order' => 2,
+        $segunda = Aula::query()->create([
+            'id' => 'lesson-versoes-2-'.uniqid(), 'curso_id' => $curso->id, 'titulo' => 'Segunda Aula',
+            'duracao' => '10 min', 'conteudo' => 'Texto da segunda.', 'ordem' => 2,
         ]);
 
         $this->como($eu['token'])
             ->post('/inst/curso/'.$curso->slug.'/aulas/'.$segunda->id.'/versoes/'.$versao.'/restaurar')
             ->assertNotFound();
-        $this->assertSame('Segunda Aula', Lesson::query()->findOrFail($segunda->id)->title);
+        $this->assertSame('Segunda Aula', Aula::query()->findOrFail($segunda->id)->titulo);
     }
 
     // ---- prévia ao vivo --------------------------------------------------------
@@ -323,7 +323,7 @@ final class VersoesDeConteudoTest extends TestCase
     {
         [$eu, $curso, $aula] = $this->aulaDeInstrutor();
         $base = '/inst/curso/'.$curso->slug.'/aulas/'.$aula->id;
-        $original = Lesson::query()->findOrFail($aula->id)->content;
+        $original = Aula::query()->findOrFail($aula->id)->conteudo;
 
         $resposta = $this->como($eu['token'])->post($base.'/previa', [
             'indice' => 1, 'tipo' => 'paragrafo', 'texto' => 'Texto com **destaque** novo.',
@@ -334,7 +334,7 @@ final class VersoesDeConteudoTest extends TestCase
         $resposta->assertSee('Texto com', false);
         $resposta->assertSee('<strong', false);
         $resposta->assertSee('destaque', false);
-        $this->assertSame($original, Lesson::query()->findOrFail($aula->id)->content);
+        $this->assertSame($original, Aula::query()->findOrFail($aula->id)->conteudo);
         $this->assertSame(0, VersaoDeConteudo::query()->where('tipo', 'aula')->where('referencia', $aula->id)->count());
     }
 

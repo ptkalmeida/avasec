@@ -37,10 +37,10 @@
                     <dt class="text-escult-ink-2">Nome</dt>
                     <dd class="font-semibold text-ava-tinta break-words">{{ $conta['nome'] }}</dd>
                 </div>
-                @if ($conta['nomeSocial'] !== null)
+                @if ($conta['nome_social'] !== null)
                     <div>
                         <dt class="text-escult-ink-2">Nome social</dt>
-                        <dd class="font-semibold text-ava-tinta break-words">{{ $conta['nomeSocial'] }}</dd>
+                        <dd class="font-semibold text-ava-tinta break-words">{{ $conta['nome_social'] }}</dd>
                     </div>
                 @endif
                 @if ($conta['cpf'] !== null)

@@ -15,13 +15,13 @@ use Illuminate\View\View;
  *
  * Grava as seis chaves que a API já aceita (`SettingsService::ALLOWED_KEYS`) e
  * nada além disso. A leitura é pública por desenho (o visitante monta o site
- * com `/api/system-settings`), então esta tela nunca grava segredo.
+ * com `/api/configuracoes-sistema`), então esta tela nunca grava segredo.
  *
  * ## O que o painel React tinha e NÃO veio
  *
  * - O **controle deslizante de presença mínima (50–90%)** era um `useState` que
  *   nenhum botão gravava: mexer nele não mudava nada, nem recarregando. A
- *   frequência mínima de verdade é por curso (`minAttendance`), e se edita em
+ *   frequência mínima de verdade é por curso (`frequencia_minima`), e se edita em
  *   Cursos.
  * - A **"Nota da Assessoria de T.I."**, que descrevia "bancos na memória do
  *   navegador" — o que deixou de ser verdade quando o banco passou a ser o

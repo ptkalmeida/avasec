@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
-use App\Models\User;
+use App\Models\Usuario;
 use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
@@ -50,16 +50,16 @@ final class PerfilDoAlunoController extends Controller
 
     public function mostrar(Request $request): View
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
-        $conta = User::query()->find($aluno['sub'], ['id', 'name', 'nomeSocial', 'email', 'cpf']);
+        $conta = Usuario::query()->find($aluno['sub'], ['id', 'nome', 'nome_social', 'email', 'cpf']);
         abort_if($conta === null, 404);
 
         return view('aluno.perfil', [
             'conta' => [
-                'nome' => (string) $conta->name,
-                'nomeSocial' => is_string($conta->nomeSocial) && trim($conta->nomeSocial) !== '' ? $conta->nomeSocial : null,
+                'nome' => (string) $conta->nome,
+                'nome_social' => is_string($conta->nome_social) && trim($conta->nome_social) !== '' ? $conta->nome_social : null,
                 'email' => is_string($conta->email) ? $conta->email : null,
                 'cpf' => self::cpfMascarado(is_string($conta->cpf) ? $conta->cpf : null),
             ],
@@ -76,7 +76,7 @@ final class PerfilDoAlunoController extends Controller
      */
     public function alterarNome(Request $request): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         $dados = $request->validateWithBag('nome', [
@@ -99,7 +99,7 @@ final class PerfilDoAlunoController extends Controller
 
     public function alterarSenha(Request $request): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $aluno */
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
         $aluno = $request->attributes->get('auth_user');
 
         $dados = $request->validateWithBag('senha', [

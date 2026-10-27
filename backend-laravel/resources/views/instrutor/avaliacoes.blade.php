@@ -12,14 +12,14 @@
 
     Retirar pede confirmação na página e diz o que acontece com as respostas.
 --}}
-<x-layouts.instrutor :titulo="'Avaliações — '.$curso['title']" ativo="avaliacoes" :cursoDoMenu="$curso">
+<x-layouts.instrutor :titulo="'Avaliações — '.$curso['titulo']" ativo="avaliacoes" :cursoDoMenu="$curso">
 
     <div class="mx-auto max-w-4xl space-y-6">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/inst" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Meus cursos</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['title'] }}</a>
+            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <span class="text-ava-tinta">Avaliações</span>
         </nav>
@@ -59,7 +59,7 @@
                 @foreach ($avaliacoes as $avaliacao)
                     <li class="rounded-2xl border border-ava-borda bg-white p-4 shadow-3xs md:p-5" x-data="{ removendo: false }">
                         <div class="space-y-1.5">
-                            <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $avaliacao['title'] }}</h2>
+                            <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $avaliacao['titulo'] }}</h2>
                             <p class="text-apoio text-escult-ink-2">
                                 {{ $avaliacao['questoes'] === 1 ? '1 questão' : $avaliacao['questoes'].' questões' }}
                                 · {{ $avaliacao['alunos'] === 1 ? '1 aluno respondeu' : $avaliacao['alunos'].' alunos responderam' }}
@@ -71,12 +71,12 @@
                             <a href="/inst/curso/{{ $ref }}/avaliacoes/{{ rawurlencode($avaliacao['id']) }}/editar"
                                class="inline-flex items-center rounded-[10px] border border-ava-borda bg-white px-4 py-2 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                                 Editar
-                                <span class="sr-only">{{ $avaliacao['title'] }}</span>
+                                <span class="sr-only">{{ $avaliacao['titulo'] }}</span>
                             </a>
                             <button type="button" @click="removendo = true"
                                     class="cursor-pointer rounded-[10px] border border-ava-borda bg-white px-4 py-2 text-rotulo font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
                                 Retirar
-                                <span class="sr-only">{{ $avaliacao['title'] }}</span>
+                                <span class="sr-only">{{ $avaliacao['titulo'] }}</span>
                             </button>
                         </div>
 
@@ -84,7 +84,7 @@
                               x-show="removendo" x-cloak
                               class="mt-3 space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
                             @csrf
-                            <p class="text-apoio font-semibold text-rose-900">Retirar “{{ $avaliacao['title'] }}”?</p>
+                            <p class="text-apoio font-semibold text-rose-900">Retirar “{{ $avaliacao['titulo'] }}”?</p>
                             <p class="text-apoio text-rose-900">
                                 Ela sai do ar para a turma e deixa de ser exigida para o certificado.
                                 @if ($avaliacao['tentativas'] > 0)

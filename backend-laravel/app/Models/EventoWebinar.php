@@ -8,14 +8,14 @@ use App\Models\Concerns\Inativavel;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Mapeia a tabela existente `WebinarEvent` (schema de propriedade do Prisma durante
+ * Mapeia a tabela existente `evento_webinar` (schema de propriedade do Prisma durante
  * a migração). PK string gerada pela aplicação, sem timestamps.
  */
-final class WebinarEvent extends Model
+final class EventoWebinar extends Model
 {
     use Inativavel;
 
-    protected $table = 'WebinarEvent';
+    protected $table = 'evento_webinar';
 
     protected $keyType = 'string';
 
@@ -23,7 +23,7 @@ final class WebinarEvent extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'title', 'date', 'dataEvento', 'time', 'description', 'link', 'image'];
+    protected $fillable = ['id', 'titulo', 'data_texto', 'data_evento', 'horario', 'descricao', 'link', 'imagem'];
 
     protected $casts = [
         /*
@@ -32,6 +32,6 @@ final class WebinarEvent extends Model
          * publica exibe. Com deslocamento de fuso: o horario do webinar e
          * hora de Brasilia, guardada em UTC como todo instante aqui.
          */
-        'dataEvento' => 'datetime:Y-m-d\TH:i:sP',
+        'data_evento' => 'datetime:Y-m-d\TH:i:sP',
     ];
 }

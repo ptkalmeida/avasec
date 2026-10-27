@@ -154,7 +154,7 @@ os herdados, e o conteúdo é de terceiros, na mesma origem do cookie.
 
 Pasta `uploads/` (`public/` e `private/`) num **volume** compartilhado entre `app` (escreve) e `web`
 (serve `public/` em `/uploads/`). Arquivos **privados** nunca saem estaticamente: só por
-`GET /api/files/{id}`, autorizado, pelo PHP. Quando o MinIO (F3) chegar, o volume sai e a troca é de
+`GET /api/arquivos/{id}`, autorizado, pelo PHP. Quando o MinIO (F3) chegar, o volume sai e a troca é de
 disco no Laravel Filesystem. Faça backup do volume (F.7).
 
 ## 7. Verificação pós-deploy

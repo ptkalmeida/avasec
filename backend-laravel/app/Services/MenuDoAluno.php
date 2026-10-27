@@ -25,13 +25,13 @@ final class MenuDoAluno
     ) {}
 
     /**
-     * @param  array{sub:string,name:string,role:string}  $aluno
-     * @return list<array{id:string,slug:string|null,title:string}>
+     * @param  array{sub:string,nome:string,papel:string}  $aluno
+     * @return list<array{id:string,slug:string|null,titulo:string}>
      */
     public function concluidos(array $aluno): array
     {
         $linha = $this->matriculas->getEnrollments($aluno)[$aluno['sub']] ?? [];
-        $ids = is_array($linha) && is_array($linha['completedCourseIds'] ?? null) ? $linha['completedCourseIds'] : [];
+        $ids = is_array($linha) && is_array($linha['cursos_concluidos_ids'] ?? null) ? $linha['cursos_concluidos_ids'] : [];
 
         if ($ids === []) {
             return [];
@@ -54,7 +54,7 @@ final class MenuDoAluno
             $lista[] = [
                 'id' => $id,
                 'slug' => is_string($curso['slug'] ?? null) && $curso['slug'] !== '' ? $curso['slug'] : null,
-                'title' => is_string($curso['title'] ?? null) ? $curso['title'] : '',
+                'titulo' => is_string($curso['titulo'] ?? null) ? $curso['titulo'] : '',
             ];
         }
 

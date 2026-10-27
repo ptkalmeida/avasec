@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\User;
+use App\Models\Usuario;
 use App\Support\Cpf;
 use Illuminate\Console\Command;
 
@@ -37,12 +37,12 @@ final class BackfillStudentCpf extends Command
 
     public function handle(): int
     {
-        $semCpf = User::query()
-            ->where('role', 'student')
+        $semCpf = Usuario::query()
+            ->where('papel', 'student')
             ->where(function ($q): void {
                 $q->whereNull('cpf')->orWhere('cpf', '');
             })
-            ->orderBy('name')
+            ->orderBy('nome')
             ->get();
 
         if ($semCpf->isEmpty()) {
@@ -66,8 +66,8 @@ final class BackfillStudentCpf extends Command
             $cpf = $this->cpfFicticioPara((string) $user->id);
 
             // Colisão é improvável, mas o índice é único: pular é melhor que abortar.
-            if (User::query()->where('cpf', $cpf)->exists()) {
-                $this->error("  - {$user->name}: CPF gerado já em uso, conta ignorada.");
+            if (Usuario::query()->where('cpf', $cpf)->exists()) {
+                $this->error("  - {$user->nome}: CPF gerado já em uso, conta ignorada.");
 
                 continue;
             }
@@ -77,7 +77,7 @@ final class BackfillStudentCpf extends Command
                 $user->save();
             }
 
-            $linhas[] = [$user->name, $user->email, Cpf::format($cpf)];
+            $linhas[] = [$user->nome, $user->email, Cpf::format($cpf)];
         }
 
         $this->newLine();

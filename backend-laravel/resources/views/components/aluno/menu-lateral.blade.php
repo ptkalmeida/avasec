@@ -128,7 +128,7 @@
                                     {{ ($aula['concluida'] ?? false) ? '✓' : $i + 1 }}
                                 </span>
                                 <span class="min-w-0 leading-snug">
-                                    {{ $aula['title'] }}
+                                    {{ $aula['titulo'] }}
                                     @if ($aula['concluida'] ?? false)
                                         <span class="sr-only">(aula concluída)</span>
                                     @endif
@@ -164,7 +164,7 @@
                     <li>
                         <a href="/aluno/curso/{{ $concluido['slug'] ?? $concluido['id'] }}"
                            class="block rounded-[10px] px-3 py-2 text-apoio leading-snug text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
-                            {{ $concluido['title'] }}
+                            {{ $concluido['titulo'] }}
                         </a>
                     </li>
                 @empty

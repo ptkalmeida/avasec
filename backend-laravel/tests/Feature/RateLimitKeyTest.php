@@ -43,25 +43,25 @@ final class RateLimitKeyTest extends TestCase
         // Desde a ADR 022 o bloqueio por rede age na 5ª tentativa, inclusive para CPF que não
         // existe; as cinco seguintes ainda contam no balde, mas respondem 429 ACCOUNT_LOCKED.
         for ($i = 0; $i < 5; $i++) {
-            $this->postJson('/api/auth/login', ['cpf' => $cpfEsgotado, 'password' => 'errada'])
+            $this->postJson('/api/autenticacao/entrar', ['cpf' => $cpfEsgotado, 'password' => 'errada'])
                 ->assertStatus(401);
         }
         for ($i = 0; $i < 5; $i++) {
-            $this->postJson('/api/auth/login', ['cpf' => $cpfEsgotado, 'password' => 'errada'])
+            $this->postJson('/api/autenticacao/entrar', ['cpf' => $cpfEsgotado, 'password' => 'errada'])
                 ->assertStatus(429)->assertJsonPath('code', 'ACCOUNT_LOCKED');
         }
 
         // 11ª tentativa daquele identificador: barrada.
-        $this->postJson('/api/auth/login', ['cpf' => $cpfEsgotado, 'password' => 'errada'])
+        $this->postJson('/api/autenticacao/entrar', ['cpf' => $cpfEsgotado, 'password' => 'errada'])
             ->assertStatus(429)
             ->assertJsonPath('code', 'RATE_LIMITED');
 
         // MESMO IP, outro aluno: continua entrando. Era isto que o limite por IP
         // quebrava — o 11º acesso do laboratório derrubava todo mundo.
-        $this->postJson('/api/auth/login', [
+        $this->postJson('/api/autenticacao/entrar', [
             'cpf' => $vitima['cpf'],
             'password' => self::SENHA_SEED,
-        ])->assertOk()->assertJsonPath('user.id', $vitima['id']);
+        ])->assertOk()->assertJsonPath('usuario.id', $vitima['id']);
     }
 
     public function test_authenticated_bucket_is_per_user_not_per_ip(): void
@@ -73,21 +73,21 @@ final class RateLimitKeyTest extends TestCase
         // errada (401), sem tocar na conta do B.
         for ($i = 0; $i < 5; $i++) {
             $this->withHeader('Authorization', "Bearer {$a['token']}")
-                ->putJson('/api/auth/password', [
+                ->putJson('/api/autenticacao/senha', [
                     'currentPassword' => 'errada',
                     'newPassword' => 'NovaSenha#2026',
                 ])->assertStatus(401);
         }
 
         $this->withHeader('Authorization', "Bearer {$a['token']}")
-            ->putJson('/api/auth/password', [
+            ->putJson('/api/autenticacao/senha', [
                 'currentPassword' => 'errada',
                 'newPassword' => 'NovaSenha#2026',
             ])->assertStatus(429)->assertJsonPath('code', 'RATE_LIMITED');
 
         // Aluno B, mesmo IP, balde intacto: a senha realmente troca.
         $this->withHeader('Authorization', "Bearer {$b['token']}")
-            ->putJson('/api/auth/password', [
+            ->putJson('/api/autenticacao/senha', [
                 'currentPassword' => self::SENHA_SEED,
                 'newPassword' => 'NovaSenha#2026',
             ])->assertOk();
@@ -99,13 +99,13 @@ final class RateLimitKeyTest extends TestCase
         // linhas com texto próprio até encher a tabela.
         $limite = 60;
         for ($i = 0; $i < $limite; $i++) {
-            $this->postJson('/api/telemetry', [
-                'action' => 'TESTE_LIMITE',
-                'details' => 'evento '.$i,
+            $this->postJson('/api/telemetria', [
+                'acao' => 'TESTE_LIMITE',
+                'detalhes' => 'evento '.$i,
             ])->assertStatus(201);
         }
 
-        $this->postJson('/api/telemetry', ['action' => 'TESTE_LIMITE', 'details' => 'estouro'])
+        $this->postJson('/api/telemetria', ['acao' => 'TESTE_LIMITE', 'detalhes' => 'estouro'])
             ->assertStatus(429)
             ->assertJsonPath('code', 'RATE_LIMITED');
     }
@@ -120,24 +120,24 @@ final class RateLimitKeyTest extends TestCase
         // pois é o proxy reverso local do deploy.
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])
             ->withHeader('X-Forwarded-For', '8.8.8.8')
-            ->postJson('/api/telemetry', [
-                'action' => 'TENTATIVA_DE_FORJA',
-                'details' => 'ip deve ser o real, não 8.8.8.8',
+            ->postJson('/api/telemetria', [
+                'acao' => 'TENTATIVA_DE_FORJA',
+                'detalhes' => 'ip deve ser o real, não 8.8.8.8',
             ])->assertStatus(201);
 
         $admin = $this->staffToken('admin');
         $eventos = $this->withHeader('Authorization', "Bearer $admin")
-            ->getJson('/api/telemetry')->assertOk()->json('items');
+            ->getJson('/api/telemetria')->assertOk()->json('items');
 
         $forjado = array_filter(
             is_array($eventos) ? $eventos : [],
-            static fn ($e) => ($e['action'] ?? null) === 'TENTATIVA_DE_FORJA'
+            static fn ($e) => ($e['acao'] ?? null) === 'TENTATIVA_DE_FORJA'
         );
 
         $this->assertNotEmpty($forjado, 'O evento deveria ter sido gravado.');
         foreach ($forjado as $evento) {
-            $this->assertNotSame('8.8.8.8', $evento['ipAddress'] ?? null);
-            $this->assertSame('203.0.113.10', $evento['ipAddress'] ?? null);
+            $this->assertNotSame('8.8.8.8', $evento['ip'] ?? null);
+            $this->assertSame('203.0.113.10', $evento['ip'] ?? null);
         }
     }
 }

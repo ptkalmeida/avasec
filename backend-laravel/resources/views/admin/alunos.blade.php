@@ -67,7 +67,7 @@
                 @csrf
                 <div>
                     <label for="n-nome" class="{{ $rotulo }}">Nome completo</label>
-                    <input id="n-nome" name="name" type="text" required maxlength="150" value="{{ old('name') }}" placeholder="Ex.: Clara Ribeiro" class="{{ $campo }}">
+                    <input id="n-nome" name="nome" type="text" required maxlength="150" value="{{ old('nome') }}" placeholder="Ex.: Clara Ribeiro" class="{{ $campo }}">
                 </div>
                 <div>
                     <label for="n-email" class="{{ $rotulo }}">E-mail acadêmico</label>
@@ -104,7 +104,7 @@
                 </div>
                 <div>
                     <label for="n-area" class="{{ $rotulo }}">Área de interesse</label>
-                    <input id="n-area" name="areaInteresse" type="text" maxlength="120" value="{{ old('areaInteresse') }}" placeholder="Ex.: Economia Criativa & IA" class="{{ $campo }}">
+                    <input id="n-area" name="area_interesse" type="text" maxlength="120" value="{{ old('area_interesse') }}" placeholder="Ex.: Economia Criativa & IA" class="{{ $campo }}">
                 </div>
                 <button type="submit" class="w-full rounded-md bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
                     Matricular aluno

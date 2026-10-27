@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Exceptions\ApiException;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Aula;
+use App\Models\Usuario;
 use App\Services\CourseService;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -19,7 +19,7 @@ use Tests\TestCase;
  * As três escritas de UMA aula: criar, atualizar a identificação/vídeo/texto, e
  * editar o texto com trava otimista.
  *
- * O que prendem: que cada uma escreve SÓ a aula tocada (o `PUT /api/courses/{id}`
+ * O que prendem: que cada uma escreve SÓ a aula tocada (o `PUT /api/cursos/{id}`
  * reenviava todas e uma aba velha desfazia o trabalho de outra pessoa), que a
  * posição da aula nova sai do servidor, e que a edição de bloco recusa agir sobre
  * um texto que já mudou.
@@ -41,39 +41,39 @@ final class AulaDoInstrutorServicoTest extends TestCase
     private function instrutor(string $nome = 'Gestor Aula'): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['sub' => $id, 'name' => $nome, 'role' => 'instructor'];
+        return ['sub' => $id, 'nome' => $nome, 'papel' => 'instructor'];
     }
 
     /** @param array{sub:string,name:string,role:string} $dono */
-    private function curso(array $dono, int $aulas = 2): Course
+    private function curso(array $dono, int $aulas = 2): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-aula-'.uniqid(),
-            'title' => 'Curso Da Aula Teste',
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $dono['sub'],
-            'instructorName' => $dono['name'],
+            'titulo' => 'Curso Da Aula Teste',
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $dono['sub'],
+            'nome_instrutor' => $dono['nome'],
         ]);
-        Course::query()->whereKey($curso->id)->update(['status' => Visibilidade::PUBLICADO]);
+        Curso::query()->whereKey($curso->id)->update(['status' => Visibilidade::PUBLICADO]);
 
         for ($i = 1; $i <= $aulas; $i++) {
-            Lesson::query()->create([
+            Aula::query()->create([
                 'id' => 'lesson-'.$curso->id.'-'.$i,
-                'courseId' => $curso->id,
-                'title' => "Aula {$i}",
-                'duration' => '30 min',
-                'content' => "Texto {$i}",
-                'lesson_order' => $i,
+                'curso_id' => $curso->id,
+                'titulo' => "Aula {$i}",
+                'duracao' => '30 min',
+                'conteudo' => "Texto {$i}",
+                'ordem' => $i,
             ]);
         }
 
@@ -87,14 +87,14 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $eu = $this->instrutor();
         $curso = $this->curso($eu, 2);
 
-        $id = $this->cursos->criarAula($curso->id, ['title' => '  Nova aula  ', 'duration' => '15 min', 'content' => 'Texto novo'], $eu);
+        $id = $this->cursos->criarAula($curso->id, ['titulo' => '  Nova aula  ', 'duracao' => '15 min', 'conteudo' => 'Texto novo'], $eu);
 
-        $aula = Lesson::query()->findOrFail($id);
-        $this->assertSame('Nova aula', $aula->title);
-        $this->assertSame('15 min', $aula->duration);
-        $this->assertSame('Texto novo', $aula->content);
-        $this->assertSame(3, $aula->order);
-        $this->assertNull($aula->videoUrl);
+        $aula = Aula::query()->findOrFail($id);
+        $this->assertSame('Nova aula', $aula->titulo);
+        $this->assertSame('15 min', $aula->duracao);
+        $this->assertSame('Texto novo', $aula->conteudo);
+        $this->assertSame(3, $aula->ordem);
+        $this->assertNull($aula->url_video);
         $this->assertStringStartsWith('lesson-'.$curso->id.'-', $id);
     }
 
@@ -103,9 +103,9 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $eu = $this->instrutor();
         $curso = $this->curso($eu, 0);
 
-        $id = $this->cursos->criarAula($curso->id, ['title' => 'Primeira', 'duration' => '10 min', 'content' => 'Texto'], $eu);
+        $id = $this->cursos->criarAula($curso->id, ['titulo' => 'Primeira', 'duracao' => '10 min', 'conteudo' => 'Texto'], $eu);
 
-        $this->assertSame(1, Lesson::query()->findOrFail($id)->order);
+        $this->assertSame(1, Aula::query()->findOrFail($id)->ordem);
     }
 
     public function test_o_video_e_gravado_na_forma_canonica(): void
@@ -114,26 +114,26 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $curso = $this->curso($eu, 0);
 
         $id = $this->cursos->criarAula($curso->id, [
-            'title' => 'Com vídeo', 'duration' => '10 min', 'content' => 'Texto', 'videoUrl' => 'https://youtu.be/dQw4w9WgXcQ',
+            'titulo' => 'Com vídeo', 'duracao' => '10 min', 'conteudo' => 'Texto', 'url_video' => 'https://youtu.be/dQw4w9WgXcQ',
         ], $eu);
 
-        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', Lesson::query()->findOrFail($id)->videoUrl);
+        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', Aula::query()->findOrFail($id)->url_video);
     }
 
     public function test_criar_recusa_o_que_o_painel_antigo_recusava(): void
     {
         $eu = $this->instrutor();
         $curso = $this->curso($eu, 1);
-        $base = ['title' => 'Aula', 'duration' => '10 min', 'content' => 'Texto'];
+        $base = ['titulo' => 'Aula', 'duracao' => '10 min', 'conteudo' => 'Texto'];
 
         foreach ([
-            'título em branco' => ['title' => '   '],
-            'título longo demais' => ['title' => str_repeat('a', 192)],
-            'carga em branco' => ['duration' => ''],
-            'carga longa demais' => ['duration' => str_repeat('1', 31)],
-            'sem texto' => ['content' => '   '],
-            'texto longo demais' => ['content' => str_repeat('a', 20001)],
-            'vídeo inválido' => ['videoUrl' => 'https://exemplo.com/nada'],
+            'título em branco' => ['titulo' => '   '],
+            'título longo demais' => ['titulo' => str_repeat('a', 192)],
+            'carga em branco' => ['duracao' => ''],
+            'carga longa demais' => ['duracao' => str_repeat('1', 31)],
+            'sem texto' => ['conteudo' => '   '],
+            'texto longo demais' => ['conteudo' => str_repeat('a', 20001)],
+            'vídeo inválido' => ['url_video' => 'https://exemplo.com/nada'],
         ] as $caso => $troca) {
             try {
                 $this->cursos->criarAula($curso->id, $troca + $base, $eu);
@@ -143,7 +143,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
             }
         }
 
-        $this->assertSame(1, Lesson::query()->where('courseId', $curso->id)->count());
+        $this->assertSame(1, Aula::query()->where('curso_id', $curso->id)->count());
     }
 
     public function test_so_o_dono_ou_o_admin_cria_aula(): void
@@ -155,9 +155,9 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $this->expectException(ApiException::class);
 
         try {
-            $this->cursos->criarAula($curso->id, ['title' => 'Invasora', 'duration' => '10 min', 'content' => 'Texto'], $outro);
+            $this->cursos->criarAula($curso->id, ['titulo' => 'Invasora', 'duracao' => '10 min', 'conteudo' => 'Texto'], $outro);
         } finally {
-            $this->assertSame(1, Lesson::query()->where('courseId', $curso->id)->count());
+            $this->assertSame(1, Aula::query()->where('curso_id', $curso->id)->count());
         }
     }
 
@@ -170,17 +170,17 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $primeira = 'lesson-'.$curso->id.'-1';
         $segunda = 'lesson-'.$curso->id.'-2';
 
-        $this->cursos->atualizarAula($curso->id, $primeira, ['title' => 'Título novo'], $eu);
+        $this->cursos->atualizarAula($curso->id, $primeira, ['titulo' => 'Título novo'], $eu);
 
-        $a = Lesson::query()->findOrFail($primeira);
-        $this->assertSame('Título novo', $a->title);
-        $this->assertSame('30 min', $a->duration);
-        $this->assertSame('Texto 1', $a->content);
+        $a = Aula::query()->findOrFail($primeira);
+        $this->assertSame('Título novo', $a->titulo);
+        $this->assertSame('30 min', $a->duracao);
+        $this->assertSame('Texto 1', $a->conteudo);
 
-        $b = Lesson::query()->findOrFail($segunda);
-        $this->assertSame('Aula 2', $b->title);
-        $this->assertSame('Texto 2', $b->content);
-        $this->assertSame(2, $b->order);
+        $b = Aula::query()->findOrFail($segunda);
+        $this->assertSame('Aula 2', $b->titulo);
+        $this->assertSame('Texto 2', $b->conteudo);
+        $this->assertSame(2, $b->ordem);
     }
 
     public function test_atualizar_a_identificacao_nao_toca_na_ordem(): void
@@ -189,9 +189,9 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $curso = $this->curso($eu, 3);
         $meio = 'lesson-'.$curso->id.'-2';
 
-        $this->cursos->atualizarAula($curso->id, $meio, ['title' => 'Meio', 'duration' => '99 min'], $eu);
+        $this->cursos->atualizarAula($curso->id, $meio, ['titulo' => 'Meio', 'duracao' => '99 min'], $eu);
 
-        $this->assertSame(2, Lesson::query()->findOrFail($meio)->order);
+        $this->assertSame(2, Aula::query()->findOrFail($meio)->ordem);
     }
 
     public function test_video_vazio_remove_o_video(): void
@@ -200,11 +200,11 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $curso = $this->curso($eu, 1);
         $id = 'lesson-'.$curso->id.'-1';
 
-        $this->cursos->atualizarAula($curso->id, $id, ['videoUrl' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'], $eu);
-        $this->assertNotNull(Lesson::query()->findOrFail($id)->videoUrl);
+        $this->cursos->atualizarAula($curso->id, $id, ['url_video' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'], $eu);
+        $this->assertNotNull(Aula::query()->findOrFail($id)->url_video);
 
-        $this->cursos->atualizarAula($curso->id, $id, ['videoUrl' => ''], $eu);
-        $this->assertNull(Lesson::query()->findOrFail($id)->videoUrl);
+        $this->cursos->atualizarAula($curso->id, $id, ['url_video' => ''], $eu);
+        $this->assertNull(Aula::query()->findOrFail($id)->url_video);
     }
 
     public function test_atualizar_recusa_titulo_vazio_e_video_invalido(): void
@@ -213,7 +213,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $curso = $this->curso($eu, 1);
         $id = 'lesson-'.$curso->id.'-1';
 
-        foreach ([['title' => ' '], ['videoUrl' => 'isto não é um link'], ['duration' => '']] as $campos) {
+        foreach ([['titulo' => ' '], ['url_video' => 'isto não é um link'], ['duracao' => '']] as $campos) {
             try {
                 $this->cursos->atualizarAula($curso->id, $id, $campos, $eu);
                 $this->fail('Aceitou '.json_encode($campos));
@@ -222,7 +222,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
             }
         }
 
-        $this->assertSame('Aula 1', Lesson::query()->findOrFail($id)->title);
+        $this->assertSame('Aula 1', Aula::query()->findOrFail($id)->titulo);
     }
 
     public function test_aula_de_outro_curso_ou_ja_retirada_nao_e_alcancada(): void
@@ -232,7 +232,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $outroCurso = $this->curso($eu, 1);
 
         try {
-            $this->cursos->atualizarAula($curso->id, 'lesson-'.$outroCurso->id.'-1', ['title' => 'Cruzada'], $eu);
+            $this->cursos->atualizarAula($curso->id, 'lesson-'.$outroCurso->id.'-1', ['titulo' => 'Cruzada'], $eu);
             $this->fail('Alcançou a aula de outro curso');
         } catch (ApiException) {
             $this->addToAssertionCount(1);
@@ -240,7 +240,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
 
         $this->cursos->inativarAula($curso->id, 'lesson-'.$curso->id.'-1', $eu);
         $this->expectException(ApiException::class);
-        $this->cursos->atualizarAula($curso->id, 'lesson-'.$curso->id.'-1', ['title' => 'Zumbi'], $eu);
+        $this->cursos->atualizarAula($curso->id, 'lesson-'.$curso->id.'-1', ['titulo' => 'Zumbi'], $eu);
     }
 
     public function test_instrutor_de_outro_curso_nao_atualiza(): void
@@ -250,13 +250,13 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $curso = $this->curso($dono, 1);
 
         try {
-            $this->cursos->atualizarAula($curso->id, 'lesson-'.$curso->id.'-1', ['title' => 'Invasor'], $outro);
+            $this->cursos->atualizarAula($curso->id, 'lesson-'.$curso->id.'-1', ['titulo' => 'Invasor'], $outro);
             $this->fail('Outro instrutor atualizou');
         } catch (ApiException) {
             $this->addToAssertionCount(1);
         }
 
-        $this->assertSame('Aula 1', Lesson::query()->findOrFail('lesson-'.$curso->id.'-1')->title);
+        $this->assertSame('Aula 1', Aula::query()->findOrFail('lesson-'.$curso->id.'-1')->titulo);
     }
 
     // ---- editar o texto com trava otimista ----------------------------------
@@ -276,7 +276,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
         );
 
         $this->assertSame("Texto 1\n\n## Seção nova", $novo);
-        $this->assertSame($novo, Lesson::query()->findOrFail($id)->content);
+        $this->assertSame($novo, Aula::query()->findOrFail($id)->conteudo);
     }
 
     public function test_recusa_a_edicao_sobre_um_texto_que_ja_mudou(): void
@@ -287,7 +287,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
         $versaoVelha = CourseService::versaoDoConteudo('Texto 1');
 
         // Outra pessoa salvou no meio.
-        $this->cursos->atualizarAula($curso->id, $id, ['content' => 'Texto da outra pessoa'], $eu);
+        $this->cursos->atualizarAula($curso->id, $id, ['conteudo' => 'Texto da outra pessoa'], $eu);
 
         try {
             $this->cursos->editarConteudoDaAula($curso->id, $id, $versaoVelha, static fn (string $a): string => 'Sobrescrito', $eu);
@@ -296,7 +296,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
             $this->assertStringContainsString('mudou', $e->getMessage());
         }
 
-        $this->assertSame('Texto da outra pessoa', Lesson::query()->findOrFail($id)->content);
+        $this->assertSame('Texto da outra pessoa', Aula::query()->findOrFail($id)->conteudo);
     }
 
     public function test_a_edicao_que_esvaziaria_a_aula_e_recusada(): void
@@ -310,7 +310,7 @@ final class AulaDoInstrutorServicoTest extends TestCase
         try {
             $this->cursos->editarConteudoDaAula($curso->id, $id, CourseService::versaoDoConteudo('Texto 1'), static fn (string $a): string => '', $eu);
         } finally {
-            $this->assertSame('Texto 1', Lesson::query()->findOrFail($id)->content);
+            $this->assertSame('Texto 1', Aula::query()->findOrFail($id)->conteudo);
         }
     }
 

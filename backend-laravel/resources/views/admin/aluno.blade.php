@@ -42,8 +42,8 @@
 
             <dl class="space-y-3">
                 <div><dt class="{{ $rotulo }}">Nome</dt><dd class="mt-0.5 text-slate-900">{{ $aluno['nome'] }}</dd></div>
-                @if ($aluno['nomeSocial'] !== null)
-                    <div><dt class="{{ $rotulo }}">Nome social</dt><dd class="mt-0.5 text-slate-900">{{ $aluno['nomeSocial'] }}</dd></div>
+                @if ($aluno['nome_social'] !== null)
+                    <div><dt class="{{ $rotulo }}">Nome social</dt><dd class="mt-0.5 text-slate-900">{{ $aluno['nome_social'] }}</dd></div>
                 @endif
                 <div><dt class="{{ $rotulo }}">E-mail</dt><dd class="mt-0.5 break-all text-slate-900">{{ $aluno['email'] ?? '—' }}</dd></div>
                 <div><dt class="{{ $rotulo }}">CPF</dt><dd class="mt-0.5 text-slate-900">{{ $aluno['cpf'] ?? '—' }}</dd></div>

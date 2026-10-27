@@ -41,7 +41,7 @@
         <x-admin.barra-superior
             :titulo="$cabecalho ?? ($titulo ?? 'Painel administrativo')"
             :contexto="$contexto ?? null"
-            :nome="$admin['name'] ?? ''" />
+            :nome="$admin['nome'] ?? ''" />
 
         <main id="conteudo" class="flex-1 p-4 lg:p-6">
             {{ $slot }}

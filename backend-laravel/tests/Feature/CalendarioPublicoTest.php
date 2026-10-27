@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Course;
-use App\Models\LiveSession;
+use App\Models\Curso;
+use App\Models\SessaoAoVivo;
 use App\Services\SitePageContentService;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -28,24 +28,24 @@ final class CalendarioPublicoTest extends TestCase
 {
     use DatabaseTransactions;
 
-    private function cursoPublicado(): Course
+    private function cursoPublicado(): Curso
     {
-        $curso = Course::query()->where('status', Visibilidade::PUBLICADO)->first();
+        $curso = Curso::query()->where('status', Visibilidade::PUBLICADO)->first();
         $this->assertNotNull($curso, 'Seed sem curso publicado.');
 
         return $curso;
     }
 
-    private function encontroEm(Course $curso, string $quando, string $titulo, string $sala = ''): LiveSession
+    private function encontroEm(Curso $curso, string $quando, string $titulo, string $sala = ''): SessaoAoVivo
     {
-        return LiveSession::query()->create([
+        return SessaoAoVivo::query()->create([
             'id' => 'live-cal-'.uniqid(),
-            'courseId' => $curso->id,
-            'title' => $titulo,
-            'scheduledAt' => $quando,
-            'durationMinutes' => 90,
-            'meetingLink' => $sala,
-            'isLive' => false,
+            'curso_id' => $curso->id,
+            'titulo' => $titulo,
+            'agendado_para_texto' => $quando,
+            'duracao_minutos' => 90,
+            'link_reuniao' => $sala,
+            'ao_vivo' => false,
         ]);
     }
 
@@ -57,7 +57,7 @@ final class CalendarioPublicoTest extends TestCase
 
         $resposta->assertOk();
         $resposta->assertDontSee('<div id="root">', false);
-        $resposta->assertSee(e((string) $pagina['title']), false);
+        $resposta->assertSee(e((string) $pagina['titulo']), false);
         $resposta->assertSee(e((string) $pagina['eyebrow']), false);
     }
 
@@ -71,7 +71,7 @@ final class CalendarioPublicoTest extends TestCase
 
         $resposta->assertOk();
         $resposta->assertSee('Mentoria de teste do calendário', escape: false);
-        $resposta->assertSee(e((string) $curso->title), false);
+        $resposta->assertSee(e((string) $curso->titulo), false);
         $resposta->assertSee('19:30', escape: false);
         $resposta->assertSee('amanhã', escape: false);
         $resposta->assertSee('Aula ao vivo', escape: false);
@@ -80,7 +80,7 @@ final class CalendarioPublicoTest extends TestCase
     }
 
     /**
-     * O `meetingLink` é a chave da sala de uma turma. O catálogo anônimo já vem
+     * O `link_reuniao` é a chave da sala de uma turma. O catálogo anônimo já vem
      * sem ele (ISO-01), e publicá-lo numa página aberta desfaria a correção:
      * qualquer um entraria na aula.
      */
@@ -151,8 +151,8 @@ final class CalendarioPublicoTest extends TestCase
          * passar, o que o ADR 12 veda mesmo dentro de uma transação. Quando
          * houver encontro marcado na janela, o caso que vale é o de cima.
          */
-        $temFuturo = LiveSession::query()
-            ->where('scheduledAt', '>=', now()->format('Y-m-d\TH:i'))
+        $temFuturo = SessaoAoVivo::query()
+            ->where('agendado_para_texto', '>=', now()->format('Y-m-d\TH:i'))
             ->exists();
 
         if ($temFuturo) {

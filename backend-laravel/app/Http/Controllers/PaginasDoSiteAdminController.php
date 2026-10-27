@@ -74,10 +74,10 @@ final class PaginasDoSiteAdminController extends Controller
             'topo' => $topo,
             'itens' => $itens,
             'quantosItens' => $resumo,
-            'atualizadoEm' => is_string($conteudo['updatedAt'] ?? null) ? $conteudo['updatedAt'] : null,
+            'atualizadoEm' => is_string($conteudo['atualizado_em'] ?? null) ? $conteudo['atualizado_em'] : null,
             'versoes' => $this->versoes->paraTela(VersoesDeConteudo::PAGINA_DO_SITE, $pedida, static function (array $v) use ($esquema, $pedida): string {
                 $chaves = array_column($esquema[$pedida]['header'], 'key');
-                $chave = in_array('title', $chaves, true) ? 'title' : ($chaves[0] ?? '');
+                $chave = in_array('titulo', $chaves, true) ? 'titulo' : ($chaves[0] ?? '');
                 $titulo = is_string($v[$chave] ?? null) ? trim($v[$chave]) : '';
                 $itens = is_array($v['items'] ?? null) ? count($v['items']) : 0;
 
@@ -92,7 +92,7 @@ final class PaginasDoSiteAdminController extends Controller
         abort_unless(config('features.gestaoConteudoSite') === true, 404);
         abort_unless(array_key_exists($pagina, $this->paginas->schema()), 404);
 
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
         $this->paginas->restaurarVersao($pagina, $versao, $admin);
@@ -110,7 +110,7 @@ final class PaginasDoSiteAdminController extends Controller
         abort_unless(array_key_exists($pagina, $esquema), 404);
         $definicao = $esquema[$pagina];
 
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
         $topo = [];
@@ -162,7 +162,7 @@ final class PaginasDoSiteAdminController extends Controller
      * Os itens do formulário (ou, sem formulário, os gravados), reduzidos aos
      * campos do schema.
      *
-     * @param  list<array{key:string,label:string,type:string,maxLength:int}>  $campos
+     * @param  list<array{key:string,label:string,tipo:string,maxLength:int}>  $campos
      * @return list<array<string,string>>
      */
     private function itens(mixed $enviados, mixed $gravados, array $campos): array

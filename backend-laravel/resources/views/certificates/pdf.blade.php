@@ -71,33 +71,33 @@
         <div class="corner corner-bl"></div>
         <div class="corner corner-br"></div>
 
-        <div class="institution">{{ $institutionName }}</div>
+        <div class="institution">{{ $nome_instituicao }}</div>
 
         <h1>Certificado de Conclusão</h1>
 
         <p class="lead">Certificamos para os devidos fins de direito que o(a) aluno(a) de excelência acadêmica</p>
 
-        <div class="student">{{ $studentName }}</div>
+        <div class="student">{{ $nome_aluno }}</div>
 
         <p class="lead">concluiu e obteve aprovação no programa de capacitação do curso livre da plataforma digital AVA</p>
 
-        <div class="course">{{ $courseTitle }}</div>
+        <div class="course">{{ $titulo_curso }}</div>
 
         <p class="detail">
-            @if ($cargaHoraria !== null)
-                com carga horária integralizada de <strong>{{ $cargaHoraria }} horas</strong> e
+            @if ($carga_horaria !== null)
+                com carga horária integralizada de <strong>{{ $carga_horaria }} horas</strong> e
             @else
                 com carga horária integralizada e
             @endif
             aproveitamento com frequência registrada de
-            <span class="highlight">{{ $attendancePercent }}%</span> de presença total
+            <span class="highlight">{{ $percentual_frequencia }}%</span> de presença total
             nas aulas teóricas e transmissões periódicas ao vivo.
         </p>
 
         <table class="signatures">
             <tr>
-                @foreach ($signatories as $signatory)
-                    <td style="width: {{ 100 / max(count($signatories), 1) }}%;">
+                @foreach ($signatarios as $signatory)
+                    <td style="width: {{ 100 / max(count($signatarios), 1) }}%;">
                         <div class="sig-script">{{ $signatory['name'] }}</div>
                         <div class="sig-line"></div>
                         <div class="sig-name">{{ $signatory['name'] }}</div>
@@ -113,15 +113,15 @@
                     <img src="{{ $qrDataUri }}" width="76" height="76" alt="QR de verificação">
                 </td>
                 <td class="verify-text">
-                    Código de Verificação: <strong>{{ $verificationHash }}</strong><br>
-                    Emitido digitalmente em {{ $issueDate }}<br>
+                    Código de Verificação: <strong>{{ $hash_verificacao }}</strong><br>
+                    Emitido digitalmente em {{ $data_emissao }}<br>
                     Valide em: {{ $verificationUrl }}
                 </td>
             </tr>
         </table>
 
         <div class="footnote">
-            * {{ $footerText }}
+            * {{ $texto_rodape }}
         </div>
     </div>
 </body>

@@ -78,13 +78,13 @@ new class extends Component
         $achados = [];
 
         foreach ($catalogo->cursaveis() as $curso) {
-            $alvo = $curso['title'].' '.$curso['description'];
+            $alvo = $curso['titulo'].' '.$curso['descricao'];
 
             if (mb_stripos($alvo, $termo) === false) {
                 continue;
             }
 
-            $achados[] = ['title' => $curso['title'], 'category' => $curso['category']];
+            $achados[] = ['titulo' => $curso['titulo'], 'categoria' => $curso['categoria']];
 
             if (count($achados) === self::LIMITE) {
                 break;
@@ -101,14 +101,14 @@ new class extends Component
         $achados = [];
 
         foreach ($itens as $item) {
-            $alvo = ($item['title'] ?? '').' '.($item['description'] ?? '').' '.($item['tag'] ?? '');
+            $alvo = ($item['titulo'] ?? '').' '.($item['descricao'] ?? '').' '.($item['tag'] ?? '');
 
             if (mb_stripos($alvo, $termo) === false) {
                 continue;
             }
 
             $achados[] = [
-                'title' => (string) ($item['title'] ?? ''),
+                'titulo' => (string) ($item['titulo'] ?? ''),
                 'tag' => isset($item['tag']) ? (string) $item['tag'] : null,
             ];
 
@@ -177,12 +177,12 @@ new class extends Component
                     <span class="block text-apoio font-semibold text-ava-acao">Cursos ({{ count($cursos) }})</span>
                     @foreach ($cursos as $curso)
                         <a wire:key="curso-{{ $loop->index }}"
-                           href="/cursos?curso={{ urlencode($curso['title']) }}"
+                           href="/cursos?curso={{ urlencode($curso['titulo']) }}"
                            class="flex items-center gap-2 rounded-[10px] p-2 transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                             <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ava-lilas-fundo text-xs font-bold text-ava-lilas" aria-hidden="true">C</span>
                             <span class="min-w-0">
-                                <span class="block truncate text-apoio font-semibold leading-snug text-ava-tinta">{{ $curso['title'] }}</span>
-                                <span class="block truncate text-apoio text-escult-ink-3">{{ $curso['category'] }}</span>
+                                <span class="block truncate text-apoio font-semibold leading-snug text-ava-tinta">{{ $curso['titulo'] }}</span>
+                                <span class="block truncate text-apoio text-escult-ink-3">{{ $curso['categoria'] }}</span>
                             </span>
                         </a>
                     @endforeach
@@ -196,11 +196,11 @@ new class extends Component
                         {{-- O termo vai junto: a página de notícias filtra por `?busca=`,
                              e sem ele o resultado clicado abriria a lista inteira. --}}
                         <a wire:key="noticia-{{ $loop->index }}"
-                           href="/noticias?busca={{ urlencode($noticia['title']) }}"
+                           href="/noticias?busca={{ urlencode($noticia['titulo']) }}"
                            class="flex items-center gap-2 rounded-[10px] p-2 transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                             <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ava-icone-fundo text-xs font-bold text-ava-acao" aria-hidden="true">N</span>
                             <span class="min-w-0">
-                                <span class="block truncate text-apoio font-semibold leading-snug text-ava-tinta">{{ $noticia['title'] }}</span>
+                                <span class="block truncate text-apoio font-semibold leading-snug text-ava-tinta">{{ $noticia['titulo'] }}</span>
                                 <span class="block truncate text-apoio text-escult-ink-3">{{ $noticia['tag'] }}</span>
                             </span>
                         </a>

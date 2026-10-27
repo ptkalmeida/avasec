@@ -6,6 +6,8 @@
   mesma regra do aluno", "ordem pode manter")
 - **Afeta:** ADR 017 (MPA em vez de SPA), ADR 018 (editor de aula), ADR 12 (nada é apagado)
 
+> **Nota (27/10/2026):** os nomes de tabela, coluna e rota citados aqui foram atualizados para os de depois da [ADR 024](024-nomes-em-portugues.md); o texto histórico segue como foi decidido.
+
 ## Contexto
 
 O painel do administrador era o último pedaço da aplicação em React: um componente
@@ -59,7 +61,7 @@ Regra seguida: "tirar do lugar sem tirar a função". Uma função que **não fu
 - **Trocar senha e Meu perfil** são funções **novas** (o painel React não tinha), e tocam
   autenticação: senha atual conferida no servidor, regra de força, limitador de 5 por
   15 min e auditoria — a mesma do aluno. Validado pelo responsável em 22/10.
-- **Matrícula passa a contar o curso principal e os concorrentes** (`extraCourseIds`), como
+- **Matrícula passa a contar o curso principal e os concorrentes** (`cursos_extras_ids`), como
   o painel do instrutor. O React olhava só o principal, e uma aluna matriculada apenas num
   curso concorrente aparecia com zero.
 - **Redefinir senha de aluno** herda o limitador `auth-password` da rota de API

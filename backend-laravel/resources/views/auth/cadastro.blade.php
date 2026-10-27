@@ -45,8 +45,8 @@
             @php
                 /* nome, rótulo, tipo, obrigatório, autocomplete, inputmode, dica */
                 $campos = [
-                    ['name', 'Nome completo', 'text', true, 'name', null, null],
-                    ['nomeSocial', 'Nome social (opcional)', 'text', false, 'nickname', null, 'Como você prefere ser chamado(a).'],
+                    ['nome', 'Nome completo', 'text', true, 'name', null, null],
+                    ['nome_social', 'Nome social (opcional)', 'text', false, 'nickname', null, 'Como você prefere ser chamado(a).'],
                     ['cpf', 'CPF', 'text', true, 'off', 'numeric', 'É com ele que você vai entrar na plataforma.'],
                     ['identidade', 'Identidade / RG (opcional)', 'text', false, 'off', null, null],
                     ['email', 'E-mail', 'email', true, 'email', null, null],

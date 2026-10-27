@@ -14,7 +14,7 @@ use App\Services\SettingsService;
  * No React a condição era `forum && mensagensDiretas && allowDirectMessages`,
  * e isso misturava duas funcionalidades. `forum` é o MURAL DO CURSO
  * (`/api/forum`: mensagens públicas da turma, com curtida e moderação). A
- * conversa com o gestor é outra coisa, e vive em `/api/dms`.
+ * conversa com o gestor é outra coisa, e vive em `/api/mensagens-diretas`.
  *
  * O preço dessa mistura foi concreto: de 19 a 20/10 o aluno não tinha como
  * pedir ajuda, porque a tela de ler mensagens dependia de uma flag que estava

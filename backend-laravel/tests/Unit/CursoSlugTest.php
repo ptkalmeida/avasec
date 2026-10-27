@@ -43,7 +43,7 @@ final class CursoSlugTest extends TestCase
     {
         /*
          * A armadilha que motivou a guarda: o roteador aceita id (link antigo) e
-         * slug. Um curso chamado "Course 1" geraria o slug `course-1`, que é o id
+         * slug. Um curso chamado "Curso 1" geraria o slug `course-1`, que é o id
          * de OUTRO curso — e o link abriria o curso errado, sem erro na tela.
          */
         $slug = CursoSlug::radical('Course 1');
