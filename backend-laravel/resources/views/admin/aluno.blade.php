@@ -130,6 +130,33 @@
                 @endforelse
             </section>
 
+            {{-- O histórico lista os cursos concluídos com certificado. Emitir acrescenta uma emissão nova e o aluno a vê na área dele. --}}
+            <section aria-labelledby="titulo-historico" class="space-y-3 rounded-[10px] border border-slate-200 bg-white p-5 shadow-card">
+                <h2 id="titulo-historico" class="text-[0.875rem] font-bold text-slate-900">Histórico escolar ({{ count($historicos) }})</h2>
+                @error('historico')
+                    <p role="alert" class="rounded-[10px] border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{{ $message }}</p>
+                @enderror
+                @forelse ($historicos as $h)
+                    <p class="flex items-center gap-2 text-slate-700">
+                        <i class="fa-solid fa-file-pdf text-primary" aria-hidden="true"></i>
+                        <a href="/admin/alunos/{{ $aluno['id'] }}/historico/{{ $h['id'] }}/pdf" target="_blank" rel="noopener" class="font-medium text-primary hover:underline">
+                            Emitido em {{ $h['emitido_em'] }}
+                        </a>
+                        <span class="text-xs text-slate-500">— {{ $h['cursos'] }} {{ $h['cursos'] === 1 ? 'curso' : 'cursos' }}</span>
+                    </p>
+                @empty
+                    <p class="text-slate-500">Nenhum histórico emitido para este aluno.</p>
+                @endforelse
+                <form method="POST" action="/admin/alunos/{{ $aluno['id'] }}/historico">
+                    @csrf
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                        <i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> Emitir histórico escolar
+                    </button>
+                    <p class="mt-1.5 text-xs text-slate-500">O aluno passa a ver o documento na área dele, em Certificados, para baixar.</p>
+                </form>
+            </section>
+
             <section aria-labelledby="titulo-acoes" class="space-y-5 rounded-[10px] border border-slate-200 bg-white p-5 shadow-card">
                 <h2 id="titulo-acoes" class="text-[0.875rem] font-bold text-slate-900">Ações sobre a conta</h2>
 

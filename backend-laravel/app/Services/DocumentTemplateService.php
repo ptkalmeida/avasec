@@ -20,6 +20,19 @@ final class DocumentTemplateService
 {
     public const TYPES = ['certificado', 'historico'];
 
+    /** Colunas da tabela do histórico (chave => nome de fábrica). */
+    public const ROTULOS_DO_HISTORICO = [
+        'curso' => 'Curso',
+        'carga_horaria' => 'Carga horária',
+        'frequencia' => 'Frequência',
+        'conclusao' => 'Conclusão',
+    ];
+
+    private const CHAVES_EDITAVEIS = [
+        'nome_instituicao', 'titulo', 'texto_corpo', 'rotulos_colunas', 'caminho_logo_instituicao',
+        'signatarios', 'texto_rodape', 'html_personalizado',
+    ];
+
     /**
      * Espelha o que já estava hardcoded em resources/views/certificates/pdf.blade.php
      * e src/components/CertificateTemplate.tsx antes desta área existir.
@@ -29,6 +42,9 @@ final class DocumentTemplateService
     private const DEFAULTS = [
         'certificado' => [
             'nome_instituicao' => 'República Federativa do Brasil • AVA LMS',
+            'titulo' => 'Certificado de Conclusão',
+            'texto_corpo' => "Certificamos para os devidos fins de direito que o(a) aluno(a) de excelência acadêmica\n\n{aluno}\n\nconcluiu e obteve aprovação no programa de capacitação do curso livre da plataforma digital AVA\n\n{curso}\n\ncom carga horária integralizada de {carga_horaria} e aproveitamento com frequência registrada de {frequencia} de presença total nas aulas teóricas e transmissões periódicas ao vivo.",
+            'rotulos_colunas' => null,
             'caminho_logo_instituicao' => null,
             'signatarios' => [
                 ['name' => 'Alessandro Pinto', 'role' => 'Diretor de Tecnologia & AVA'],
@@ -39,6 +55,9 @@ final class DocumentTemplateService
         ],
         'historico' => [
             'nome_instituicao' => 'República Federativa do Brasil • AVA LMS',
+            'titulo' => 'Histórico Escolar',
+            'texto_corpo' => 'Registro dos cursos concluídos por {aluno} na plataforma, emitido em {data}.',
+            'rotulos_colunas' => self::ROTULOS_DO_HISTORICO,
             'caminho_logo_instituicao' => null,
             'signatarios' => [
                 ['name' => 'Secretaria Acadêmica', 'role' => 'AVA LMS'],
@@ -65,6 +84,12 @@ final class DocumentTemplateService
         return [
             'tipo' => $type,
             'nome_instituicao' => $row->nome_instituicao ?? $defaults['nome_instituicao'],
+            'titulo' => $row->titulo ?? $defaults['titulo'],
+            'texto_corpo' => $row->texto_corpo ?? $defaults['texto_corpo'],
+            'rotulos_colunas' => array_merge(
+                is_array($defaults['rotulos_colunas']) ? $defaults['rotulos_colunas'] : [],
+                is_array($row->rotulos_colunas) ? $row->rotulos_colunas : [],
+            ) ?: null,
             'caminho_logo_instituicao' => $row->caminho_logo_instituicao,
             'signatarios' => $row->signatarios ?? $defaults['signatarios'],
             'texto_rodape' => $row->texto_rodape ?? $defaults['texto_rodape'],
@@ -94,7 +119,7 @@ final class DocumentTemplateService
 
             $row = ModeloDocumento::query()->find($type);
             $merged = array_merge(
-                $row?->only(['nome_instituicao', 'caminho_logo_instituicao', 'signatarios', 'texto_rodape', 'html_personalizado']) ?? [],
+                $row?->only(self::CHAVES_EDITAVEIS) ?? [],
                 $input,
             );
             $merged['atualizado_por_usuario_id'] = $requester['sub'];

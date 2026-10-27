@@ -86,6 +86,37 @@
             @endif
         </section>
 
+        {{-- Histórico escolar: emitido pela secretaria (admin); aparece aqui sozinho. --}}
+        @if ($historicos !== [])
+            <section aria-labelledby="titulo-historico" class="space-y-4">
+                <h2 id="titulo-historico" class="font-titulo text-cartao text-ava-tinta">Histórico escolar</h2>
+                <ul role="list" class="space-y-4">
+                    @foreach ($historicos as $h)
+                        <li class="flex flex-col justify-between gap-4 rounded-2xl border border-ava-borda bg-white p-5 shadow-3xs md:flex-row md:items-center">
+                            <div class="space-y-1">
+                                <h3 class="font-titulo text-lg leading-tight text-ava-tinta">Histórico escolar</h3>
+                                <p class="text-apoio text-escult-ink-2">
+                                    Emitido em <span class="font-semibold text-ava-tinta">{{ $h['emitido_em'] }}</span>
+                                    · {{ $h['cursos'] === 1 ? '1 curso' : $h['cursos'].' cursos' }}
+                                </p>
+                            </div>
+                            <div class="flex shrink-0 flex-col gap-2 sm:flex-row">
+                                <a href="/aluno/historico/{{ $h['id'] }}/pdf"
+                                   class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-ava-acao px-5 py-2.5 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
+                                    Baixar PDF
+                                </a>
+                                <a href="/aluno/historico/{{ $h['id'] }}/pdf?modo=ver" target="_blank" rel="noopener"
+                                   class="inline-flex items-center justify-center gap-2 rounded-[10px] border border-ava-borda bg-white px-5 py-2.5 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                                    Ver
+                                    <span class="sr-only">o histórico em nova aba</span>
+                                </a>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
+
         {{-- A caminho --}}
         @if ($emAndamento !== [])
             <section aria-labelledby="titulo-a-caminho" class="space-y-4">

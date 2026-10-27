@@ -141,6 +141,8 @@ Route::middleware('aluno.web')->group(function (): void {
     Route::get('/aluno/certificados', [AreaDoAlunoController::class, 'certificados'])->name('aluno.certificados');
     Route::get('/aluno/certificados/{certificadoId}/pdf', [AreaDoAlunoController::class, 'pdfDoCertificado'])
         ->name('aluno.certificados.pdf');
+    // Histórico escolar emitido pelo admin: aparece na lista de certificados e baixa aqui.
+    Route::get('/aluno/historico/{historicoId}/pdf', [AreaDoAlunoController::class, 'pdfDoHistorico'])->whereNumber('historicoId');
 
     Route::get('/aluno/biblioteca', [AreaDoAlunoController::class, 'biblioteca'])->name('aluno.biblioteca');
     Route::get('/aluno/duvidas', [AreaDoAlunoController::class, 'ajuda'])->name('aluno.ajuda');
@@ -347,6 +349,9 @@ Route::middleware('admin.web')->group(function (): void {
     Route::post('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'salvar']);
     Route::get('/admin/templates', [ModelosDoAdminController::class, 'mostrar'])->name('admin.templates');
     Route::post('/admin/templates/{tipo}', [ModelosDoAdminController::class, 'salvar']);
+    Route::post('/admin/templates/{tipo}/previa', [ModelosDoAdminController::class, 'previa']);
+    Route::post('/admin/templates/{tipo}/logo', [ModelosDoAdminController::class, 'enviarLogo']);
+    Route::post('/admin/templates/{tipo}/logo/tirar', [ModelosDoAdminController::class, 'tirarLogo']);
     Route::post('/admin/templates/{tipo}/versoes/{versao}/restaurar', [ModelosDoAdminController::class, 'restaurar']);
     Route::get('/admin/alunos', [AlunosDoAdminController::class, 'listar'])->name('admin.alunos');
     Route::get('/admin/alunos/{alunoId}', [AlunosDoAdminController::class, 'ficha'])->name('admin.aluno');
@@ -355,6 +360,8 @@ Route::middleware('admin.web')->group(function (): void {
     Route::post('/admin/alunos/{alunoId}/senha', [AlunosDoAdminController::class, 'redefinirSenha'])->middleware('throttle:auth-password');
     Route::post('/admin/alunos/{alunoId}/confirmar', [AlunosDoAdminController::class, 'confirmarCadastro']);
     Route::post('/admin/alunos/{alunoId}/matricula-multipla', [AlunosDoAdminController::class, 'matriculaMultipla']);
+    Route::post('/admin/alunos/{alunoId}/historico', [AlunosDoAdminController::class, 'emitirHistorico']);
+    Route::get('/admin/alunos/{alunoId}/historico/{historicoId}/pdf', [AlunosDoAdminController::class, 'pdfDoHistorico'])->whereNumber('historicoId');
     Route::post('/admin/alunos/{alunoId}/inativar', [AlunosDoAdminController::class, 'inativar']);
     Route::post('/admin/alunos/{alunoId}/reativar', [AlunosDoAdminController::class, 'reativar']);
     Route::get('/admin/cursos', [CursosDoAdminController::class, 'listar'])->name('admin.cursos');

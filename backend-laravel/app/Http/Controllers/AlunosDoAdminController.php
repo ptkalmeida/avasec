@@ -12,12 +12,15 @@ use App\Rules\StrongPasswordRule;
 use App\Services\AlunosDoAdmin;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
+use App\Services\CertificatePdfService;
 use App\Services\EnrollmentService;
+use App\Services\HistoricosEmitidos;
 use App\Services\RetiradosDoAdmin;
 use App\Support\SenhaInicial;
 use App\Support\VigenciaDoCurso;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\View\View;
@@ -46,6 +49,8 @@ final class AlunosDoAdminController extends Controller
         private readonly EnrollmentService $matriculas,
         private readonly RetiradosDoAdmin $retirados,
         private readonly AuditLogger $audit,
+        private readonly HistoricosEmitidos $historicos,
+        private readonly CertificatePdfService $pdf,
     ) {}
 
     public function listar(Request $request): View|RedirectResponse
@@ -84,6 +89,7 @@ final class AlunosDoAdminController extends Controller
 
         return view('admin.aluno', [
             'aluno' => $ficha,
+            'historicos' => $this->historicos->doAluno($alunoId),
             'senhaSugerida' => SenhaInicial::gerar(),
             'permiteMatriculaMultipla' => config('features.matriculasMultiplas') === true,
             'regraDaSenha' => 'Pelo menos '.StrongPasswordRule::MIN_LENGTH.' caracteres, com ao menos uma letra e um número.',
@@ -325,6 +331,36 @@ final class AlunosDoAdminController extends Controller
             'avisoDosAlunos',
             $aluno->nome.' voltou à plataforma. As matrículas, as notas e os certificados estão como estavam; a pessoa entra com um login novo.',
         );
+    }
+
+    /** Emite o histórico escolar do aluno: ele passa a aparecer na área dele para baixar. */
+    public function emitirHistorico(Request $request, string $alunoId): RedirectResponse
+    {
+        /** @var array{sub:string,nome:string,papel:string} $admin */
+        $admin = $request->attributes->get('auth_user');
+
+        try {
+            $this->historicos->emitir($alunoId, $admin);
+        } catch (ApiException $e) {
+            return redirect('/admin/alunos/'.$alunoId)->withErrors(['historico' => $e->getMessage()]);
+        }
+
+        $this->audit->log($request, 'Emissão de Histórico Escolar', 'Histórico escolar emitido para o aluno '.$alunoId.'.');
+
+        return redirect('/admin/alunos/'.$alunoId)->with('avisoDoAluno', 'Histórico escolar emitido. O aluno já pode baixá-lo na área dele.');
+    }
+
+    public function pdfDoHistorico(Request $request, string $alunoId, int $historicoId): Response
+    {
+        /** @var array{sub:string,nome:string,papel:string} $admin */
+        $admin = $request->attributes->get('auth_user');
+
+        $resultado = $this->pdf->renderHistoricoEmitido($historicoId, $admin);
+
+        return response($resultado['conteudo'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$resultado['filename'].'"',
+        ]);
     }
 
     private function aluno(string $alunoId): Usuario

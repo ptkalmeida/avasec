@@ -34,11 +34,11 @@ final class DocumentTemplateController extends Controller
      */
     public function preview(Request $request, string $type): Response
     {
-        if ($type !== 'certificado') {
-            throw ApiException::validation('Pré-visualização em PDF ainda não disponível para este tipo de documento.');
+        if (! in_array($type, DocumentTemplateService::TYPES, true)) {
+            throw ApiException::notFound('Tipo de documento desconhecido.');
         }
 
-        $result = $this->certificatePdf->renderPreviewPdf();
+        $result = $this->certificatePdf->renderPreviewPdf($type);
         $this->audit->log($request, 'Pré-visualização de Template', "Template \"{$type}\" pré-visualizado.");
 
         return response($result['conteudo'], 200, [
@@ -57,13 +57,22 @@ final class DocumentTemplateController extends Controller
             'signatarios.*.role' => ['required_with:signatarios', 'string', 'max:191'],
             'texto_rodape' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'html_personalizado' => ['sometimes', 'nullable', 'string', 'max:100000'],
+            'titulo' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'texto_corpo' => ['sometimes', 'nullable', 'string', 'max:3000'],
+            'rotulos_colunas' => ['sometimes', 'nullable', 'array'],
+            'rotulos_colunas.*' => ['nullable', 'string', 'max:60'],
         ]);
 
         $updates = [];
-        foreach (['nome_instituicao', 'caminho_logo_instituicao', 'texto_rodape', 'html_personalizado'] as $key) {
+        foreach (['nome_instituicao', 'caminho_logo_instituicao', 'texto_rodape', 'html_personalizado', 'titulo', 'texto_corpo'] as $key) {
             if (array_key_exists($key, $data)) {
                 $updates[$key] = $this->optionalString($data, $key);
             }
+        }
+        if (array_key_exists('rotulos_colunas', $data)) {
+            $updates['rotulos_colunas'] = is_array($data['rotulos_colunas'])
+                ? array_intersect_key(array_filter($data['rotulos_colunas'], 'is_string'), DocumentTemplateService::ROTULOS_DO_HISTORICO)
+                : null;
         }
         if (array_key_exists('signatarios', $data)) {
             $updates['signatarios'] = $this->signatoriesList($data);

@@ -109,13 +109,15 @@ final class DocumentTemplateTest extends TestCase
             ->assertStatus(403);
     }
 
-    public function test_historico_preview_not_yet_available(): void
+    public function test_admin_previews_historico_template_as_pdf(): void
     {
         $admin = $this->staffToken('admin');
 
-        $this->withHeader('Authorization', "Bearer {$admin}")
-            ->get('/api/modelos-documento/historico/previa')
-            ->assertStatus(400);
+        $response = $this->withHeader('Authorization', "Bearer {$admin}")
+            ->get('/api/modelos-documento/historico/previa');
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
     }
 
     public function test_certificate_pdf_reflects_saved_institution_name(): void

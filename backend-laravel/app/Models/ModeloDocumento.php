@@ -25,12 +25,13 @@ final class ModeloDocumento extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'tipo', 'nome_instituicao', 'caminho_logo_instituicao', 'signatarios',
+        'tipo', 'nome_instituicao', 'titulo', 'texto_corpo', 'rotulos_colunas', 'caminho_logo_instituicao', 'signatarios',
         'texto_rodape', 'html_personalizado', 'atualizado_por_usuario_id', 'atualizado_em',
     ];
 
     protected $casts = [
         'signatarios' => 'array',
+        'rotulos_colunas' => 'array',
         'atualizado_em' => 'datetime',
     ];
 }

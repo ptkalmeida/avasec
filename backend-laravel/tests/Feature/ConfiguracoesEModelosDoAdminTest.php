@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\ModeloDocumento;
 use App\Models\ConfiguracaoSistema;
+use App\Models\ModeloDocumento;
 use App\Models\Usuario;
 use App\Support\CanalDeMensagens;
 use App\Support\Jwt;
+use App\Support\TextoDoDocumento;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
@@ -167,16 +169,88 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $tela->assertSee('Histórico Escolar');
         $tela->assertSee('name="nome_instituicao"', false);
         $tela->assertSee('name="assinaturas[0][name]"', false);
-        $tela->assertSee('/api/modelos-documento/certificado/previa', false);
+        $tela->assertSee('/admin/templates/certificado/previa', false);
+        $tela->assertSee('name="titulo"', false);
+        $tela->assertSee('name="texto_corpo"', false);
+        $tela->assertSee('{aluno}');
         $tela->assertDontSee('html_personalizado');
     }
 
-    public function test_o_historico_avisa_que_ainda_nao_gera_documento(): void
+    public function test_o_historico_tem_previa_e_os_nomes_das_colunas(): void
     {
         $tela = $this->como($this->admin())->get('/admin/templates?tipo=historico');
 
-        $tela->assertSee('ainda não tem emissão de PDF própria');
-        $tela->assertDontSee('/api/modelos-documento/certificado/previa', false);
+        $tela->assertOk();
+        $tela->assertSee('/admin/templates/historico/previa', false);
+        $tela->assertSee('name="rotulos_colunas[carga_horaria]"', false);
+        $tela->assertDontSee('ainda não tem emissão de PDF própria');
+    }
+
+    public function test_salvar_grava_titulo_corpo_e_colunas_do_historico(): void
+    {
+        $this->como($this->admin())->post('/admin/templates/historico', [
+            'acao' => 'salvar',
+            'titulo' => 'Registro Acadêmico',
+            'texto_corpo' => 'Cursos de {aluno}.',
+            'rotulos_colunas' => ['curso' => 'Disciplina', 'frequencia' => '', 'inventada' => 'x'],
+        ])->assertSessionHasNoErrors();
+
+        $modelo = ModeloDocumento::query()->findOrFail('historico');
+        $this->assertSame('Registro Acadêmico', $modelo->titulo);
+        $this->assertSame('Cursos de {aluno}.', $modelo->texto_corpo);
+        // Só colunas que existem; em branco volta ao nome de fábrica (não é gravado).
+        $this->assertSame(['curso' => 'Disciplina'], $modelo->rotulos_colunas);
+    }
+
+    public function test_campo_automatico_desconhecido_e_erro_e_nao_grava(): void
+    {
+        $this->como($this->admin())->post('/admin/templates/certificado', [
+            'acao' => 'salvar',
+            'texto_corpo' => 'Olá {nota_final}',
+        ])->assertSessionHasErrors('texto_corpo');
+
+        $this->assertNull(ModeloDocumento::query()->find('certificado')?->texto_corpo);
+    }
+
+    public function test_previa_do_rascunho_gera_pdf_dos_dois_tipos_sem_gravar(): void
+    {
+        $token = $this->admin();
+
+        foreach (['certificado', 'historico'] as $tipo) {
+            $resposta = $this->como($token)->post('/admin/templates/'.$tipo.'/previa', [
+                'titulo' => 'Titulo So Na Previa',
+                'texto_corpo' => 'Texto de {aluno}',
+            ]);
+            $resposta->assertOk()->assertHeader('content-type', 'application/pdf');
+            $this->assertStringStartsWith('%PDF-', (string) $resposta->getContent());
+        }
+
+        $this->assertNull(ModeloDocumento::query()->find('certificado')?->titulo);
+    }
+
+    public function test_previa_do_certificado_cabe_numa_pagina_e_sem_qr(): void
+    {
+        $pdf = (string) $this->como($this->admin())->post('/admin/templates/certificado/previa', [])->getContent();
+
+        $this->assertSame(1, preg_match_all('#/Type\s*/Page[^s]#', $pdf));
+        $this->assertStringNotContainsString('PREVIEW-', $pdf);
+    }
+
+    public function test_logo_so_aceita_imagem(): void
+    {
+        $this->como($this->admin())->from('/admin/templates')
+            ->post('/admin/templates/certificado/logo', ['logo' => UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')])
+            ->assertSessionHasErrors('logo');
+    }
+
+    public function test_campos_automaticos_nao_viram_html(): void
+    {
+        $html = TextoDoDocumento::renderizar("Oi {aluno}\n\n<script>x</script>", ['aluno' => '<b>Ana</b>']);
+
+        $this->assertStringNotContainsString('<script>', $html);
+        $this->assertStringNotContainsString('<b>', $html);
+        $this->assertStringContainsString('&lt;b&gt;Ana&lt;/b&gt;', $html);
+        $this->assertSame(2, substr_count($html, '<p class="lead">'));
     }
 
     public function test_tipo_inventado_volta_para_o_certificado(): void

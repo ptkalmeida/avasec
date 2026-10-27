@@ -12,6 +12,7 @@ use App\Services\CertificatePdfService;
 use App\Services\CertificateService;
 use App\Services\CourseService;
 use App\Services\EnrollmentService;
+use App\Services\HistoricosEmitidos;
 use App\Services\LearningService;
 use App\Services\MessagingService;
 use App\Support\AssuntoDaAula;
@@ -140,6 +141,7 @@ final class AreaDoAlunoController extends Controller
         return view('aluno.certificados', [
             'concluidos' => $this->concluidos($matricula, $porId, $aluno),
             'emitidos' => $emitidos,
+            'historicos' => app(HistoricosEmitidos::class)->doAluno($aluno['sub']),
             'emAndamento' => $emAndamento,
             'cargaPorCurso' => array_map(
                 static fn (array $c): ?int => is_numeric($c['carga_horaria'] ?? null) ? (int) $c['carga_horaria'] : null,
@@ -208,6 +210,20 @@ final class AreaDoAlunoController extends Controller
      * Quem decide se esta pessoa pode é o serviço, que já recusa certificado de
      * outro aluno.
      */
+    public function pdfDoHistorico(Request $request, int $historicoId): Response
+    {
+        /** @var array{sub:string,nome:string,papel:string} $aluno */
+        $aluno = $request->attributes->get('auth_user');
+
+        $resultado = $this->pdf->renderHistoricoEmitido($historicoId, $aluno);
+        $inline = $request->query('modo') === 'ver';
+
+        return response($resultado['conteudo'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($inline ? 'inline' : 'attachment').'; filename="'.$resultado['filename'].'"',
+        ]);
+    }
+
     public function pdfDoCertificado(Request $request, string $certificadoId): Response
     {
         /** @var array{sub:string,nome:string,papel:string} $aluno */
