@@ -14,12 +14,12 @@
     pessoa revê tudo antes de enviar, e o leitor de tela anda pelas questões
     como por qualquer formulário.
 --}}
-<x-layouts.aluno titulo="{{ $prova['titulo'] }}" ativo="curso" :cursoDoMenu="$curso">
+<x-layouts.aluno titulo="{{ $prova['titulo'] }}" ativo="avaliacoes" :cursoDoMenu="$curso">
 
     <div class="mx-auto max-w-3xl space-y-8">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
-            <a href="/aluno" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Painel</a>
+            <a href="/aluno" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Início</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <a href="/aluno/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>

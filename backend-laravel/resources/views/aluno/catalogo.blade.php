@@ -7,12 +7,12 @@
     Mostra só o que o aluno ainda NÃO tem. Listar um curso em que ele já está
     seria um cartão prometendo uma matrícula que o servidor recusaria.
 --}}
-<x-layouts.aluno titulo="Catálogo" ativo="catalogo" :concluidosDoMenu="$concluidos">
+<x-layouts.aluno titulo="Descobrir cursos" ativo="catalogo" :concluidosDoMenu="$concluidos">
 
     <div class="mx-auto max-w-5xl space-y-6">
 
         <div class="space-y-2">
-            <h1 class="font-titulo text-3xl tracking-tight text-ava-tinta">Catálogo</h1>
+            <h1 class="font-titulo text-3xl tracking-tight text-ava-tinta">Descobrir cursos</h1>
             <p class="text-apoio leading-relaxed text-escult-ink-2">
                 {{ count($cursos) === 1 ? '1 curso disponível' : count($cursos).' cursos disponíveis' }} para matrícula.
             </p>

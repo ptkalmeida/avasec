@@ -33,7 +33,7 @@
         <div class="flex flex-col gap-3 sm:flex-row">
             <a href="/aluno"
                class="inline-flex items-center justify-center rounded-[10px] bg-ava-acao px-5 py-2.5 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
-                Voltar ao painel
+                Voltar ao início
             </a>
             @if (config('features.mensagensDiretas') === true)
                 <a href="/aluno/suporte"

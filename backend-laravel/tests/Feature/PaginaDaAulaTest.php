@@ -189,7 +189,8 @@ final class PaginaDaAulaTest extends TestCase
 
         $resposta = $this->como($aluno)->get($this->endereco($curso, $aulas[0]));
 
-        $resposta->assertSee('Suporte pedagógico', escape: false);
+        // "Ajuda e suporte" é um item só (ADR 026); dentro da aula ele abre na conversa, com a aula junto.
+        $resposta->assertSee('Ajuda e suporte', escape: false);
         $resposta->assertSee('href="/aluno/suporte?aula='.urlencode((string) $aulas[0]->id).'"', escape: false);
     }
 

@@ -17,7 +17,7 @@
     porque ali ele é a forma de a barra ser lida, não uma segunda exibição.
 --}}
 <x-layouts.aluno
-    titulo="Painel"
+    titulo="Início"
     ativo="painel"
     :cursoDoMenu="$emAndamento[0] ?? null"
     :concluidosDoMenu="$concluidos">
@@ -79,7 +79,7 @@
                 <p class="text-corpo text-escult-ink-2">Você ainda não tem curso em andamento.</p>
                 <a href="/aluno/catalogo"
                    class="mt-4 inline-block rounded-[10px] bg-ava-acao px-6 py-3 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
-                    Ver o catálogo
+                    Descobrir cursos
                 </a>
             </div>
         @endforelse

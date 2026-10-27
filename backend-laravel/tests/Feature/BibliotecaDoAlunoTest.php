@@ -162,6 +162,9 @@ final class BibliotecaDoAlunoTest extends TestCase
         $resposta = $this->como($aluno['token'])->get('/aluno/biblioteca');
 
         $resposta->assertDontSee('href="/aluno/mensagens"', escape: false);
-        $resposta->assertSee('href="/aluno/suporte"', escape: false);
+        // "Ajuda e suporte" é um item só (ADR 026): fora de uma aula ele abre nas dúvidas, e o
+        // suporte é a aba ao lado — o caminho até ele é conferido em MenuDoAlunoTest.
+        $resposta->assertSee('href="/aluno/duvidas"', escape: false);
+        $resposta->assertSee('Ajuda e suporte', escape: false);
     }
 }

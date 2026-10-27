@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Exceptions\ApiException;
 use App\Http\Middleware\JwtAuthenticate;
+use App\Services\MenuDoAluno;
 use App\Support\Jwt;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -17,7 +18,9 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        // O menu do aluno é desenhado duas vezes na mesma tela (largo e estreito): um por
+        // requisição, para a matrícula, os cursos e o progresso serem buscados uma vez só.
+        $this->app->scoped(MenuDoAluno::class);
     }
 
     public function boot(): void

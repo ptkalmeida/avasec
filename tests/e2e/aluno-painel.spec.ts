@@ -67,7 +67,7 @@ test.describe('Painel do aluno em Blade', () => {
     await entrarComoAluno(page);
 
     const recolher = page.getByRole('button', { name: /Recolher o menu|Expandir o menu/ });
-    await expect(page.getByRole('link', { name: 'Painel', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Início', exact: true })).toBeVisible();
 
     await recolher.click();
     await expect(recolher).toHaveAttribute('aria-expanded', 'false');

@@ -15,7 +15,7 @@
     <div class="mx-auto max-w-4xl space-y-6">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
-            <a href="/aluno/catalogo" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Catálogo</a>
+            <a href="/aluno/catalogo" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Descobrir cursos</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <span class="text-ava-tinta">{{ $curso['titulo'] }}</span>
         </nav>

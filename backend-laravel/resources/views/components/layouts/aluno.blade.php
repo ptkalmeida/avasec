@@ -39,7 +39,7 @@
         </div>
 
         <div class="flex min-w-0 flex-1 flex-col">
-            <x-aluno.barra-estreita :nome="$aluno['nome'] ?? ''" />
+            <x-aluno.barra-estreita :nome="$aluno['nome'] ?? ''" :curso="$cursoDoMenu ?? null" :aulaAtual="$aulaAtual ?? null" />
 
             <main id="conteudo" class="flex-1 px-4 py-6 md:px-8 md:py-8">
                 {{ $slot }}

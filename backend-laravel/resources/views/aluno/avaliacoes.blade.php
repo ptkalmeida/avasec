@@ -5,7 +5,7 @@
     basta uma tentativa aprovada (LearningService::avaliacoesDoCursoParaAluno).
     A nota mostrada é a da tentativa mais recente.
 --}}
-<x-layouts.aluno titulo="Avaliações — {{ $curso['titulo'] }}" ativo="curso" :cursoDoMenu="$curso">
+<x-layouts.aluno titulo="Avaliações — {{ $curso['titulo'] }}" ativo="avaliacoes" :cursoDoMenu="$curso">
 
     @php
         $aprovadas = count(array_filter($avaliacoes, static fn (array $a): bool => $a['aprovada']));
@@ -14,7 +14,7 @@
     <div class="mx-auto max-w-3xl space-y-8">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
-            <a href="/aluno" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Painel</a>
+            <a href="/aluno" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Início</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <a href="/aluno/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>

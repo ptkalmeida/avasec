@@ -133,7 +133,8 @@ test.describe('Página da aula em Blade', () => {
      * tela de LER mensagens, que está fechada para o aluno e respondia "seção
      * não disponível". Agora ele clica e exige o formulário do outro lado.
      */
-    const suporte = page.getByRole('link', { name: /suporte pedagógico/i });
+    // "Ajuda e suporte" é um item só (ADR 026); dentro de uma aula ele já abre na conversa, com a aula junto.
+    const suporte = page.getByRole('link', { name: /ajuda e suporte/i });
     await expect(suporte).toBeVisible();
     await suporte.click();
 

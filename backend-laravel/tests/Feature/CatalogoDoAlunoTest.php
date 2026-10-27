@@ -46,7 +46,7 @@ final class CatalogoDoAlunoTest extends TestCase
         $resposta = $this->como($aluno['id'], $aluno['nome'])->get('/aluno/catalogo');
 
         $resposta->assertOk();
-        $resposta->assertSee('Catálogo', escape: false);
+        $resposta->assertSee('Descobrir cursos', escape: false);
         $resposta->assertSee('Ver e escolher', escape: false);
     }
 

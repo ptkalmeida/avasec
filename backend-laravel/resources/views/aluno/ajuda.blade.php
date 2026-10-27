@@ -12,6 +12,8 @@
 
     <div class="mx-auto max-w-3xl space-y-8">
 
+        <x-aluno.abas-de-ajuda ativa="duvidas" />
+
         <div class="space-y-2">
             <h1 class="font-titulo text-3xl tracking-tight text-ava-tinta">Ajuda</h1>
             <p class="text-apoio leading-relaxed text-escult-ink-2">Respostas para as dúvidas mais comuns sobre o ambiente de estudos.</p>
