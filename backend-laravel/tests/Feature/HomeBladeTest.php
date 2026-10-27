@@ -39,8 +39,19 @@ final class HomeBladeTest extends TestCase
         $resposta->assertSee('Patrimônio Vivo', escape: false);
         $resposta->assertSee('Fazer Artístico Decolonial', escape: false);
 
-        foreach (['188K', '300K', '66K', '4M+'] as $numero) {
-            $resposta->assertSee($numero, escape: false);
+    }
+
+    /**
+     * Os quatro cartões de números (188K, 300K, 66K, 4M+) saíram por decisão do
+     * responsável em 26/10: eram texto fixo, sem consulta por trás. Só um teste
+     * impede que voltem.
+     */
+    public function test_nao_traz_os_cartoes_de_numeros(): void
+    {
+        $resposta = $this->get('/');
+
+        foreach (['188K', '300K', '66K', '4M+', 'Estudantes cadastrados', 'Visitas à plataforma'] as $antigo) {
+            $resposta->assertDontSee($antigo, escape: false);
         }
     }
 
