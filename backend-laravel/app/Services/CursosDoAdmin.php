@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Curso;
 use App\Models\Aula;
 use App\Models\Avaliacao;
+use App\Models\Curso;
 use App\Models\Matricula;
 use App\Models\Usuario;
 use App\Support\VigenciaDoCurso;

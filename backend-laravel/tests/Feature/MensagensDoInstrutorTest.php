@@ -6,8 +6,8 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
 use App\Models\Curso;
-use App\Models\MensagemDireta;
 use App\Models\Matricula;
+use App\Models\MensagemDireta;
 use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;

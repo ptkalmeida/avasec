@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Curso;
-use App\Support\Visibilidade;
 use App\Support\VigenciaDoCurso;
+use App\Support\Visibilidade;
 
 /**
  * Vitrine do portal público: os cursos que alguém pode cursar agora.

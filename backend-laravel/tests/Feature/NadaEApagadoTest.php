@@ -6,8 +6,8 @@ namespace Tests\Feature;
 
 use App\Models\Certificado;
 use App\Models\Curso;
-use App\Models\TentativaAvaliacao;
 use App\Models\ProgressoAluno;
+use App\Models\TentativaAvaliacao;
 use App\Models\Usuario;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;

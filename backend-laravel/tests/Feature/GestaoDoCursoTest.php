@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Curso;
 use App\Models\Avaliacao;
+use App\Models\Curso;
 use App\Models\Usuario;
 use App\Support\Fuso;
 use App\Support\Jwt;

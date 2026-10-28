@@ -6,8 +6,8 @@ namespace Tests\Feature;
 
 use App\Exceptions\ApiException;
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Curso;
 use App\Models\Aula;
+use App\Models\Curso;
 use App\Models\DocumentoAula;
 use App\Models\Usuario;
 use App\Services\CourseService;

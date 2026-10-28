@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\EntregaExercicio;
-use App\Models\MensagemForum;
-use App\Models\ExercicioPratico;
 use App\Models\Avaliacao;
+use App\Models\EntregaExercicio;
+use App\Models\ExercicioPratico;
+use App\Models\MensagemForum;
 use App\Models\QuestaoAvaliacao;
 use App\Models\TentativaAvaliacao;
 use App\Support\BusinessRules;

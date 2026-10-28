@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\Curso;
 use App\Models\Aula;
+use App\Models\Curso;
 use App\Models\DocumentoAula;
-use App\Models\SessaoAoVivo;
 use App\Models\ProgressoAluno;
+use App\Models\SessaoAoVivo;
 use App\Models\Usuario;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;

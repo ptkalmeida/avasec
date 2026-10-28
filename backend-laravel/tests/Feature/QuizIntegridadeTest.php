@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Curso;
 use App\Models\Avaliacao;
+use App\Models\Curso;
 use App\Models\QuestaoAvaliacao;
 use App\Models\Usuario;
 use App\Support\Jwt;

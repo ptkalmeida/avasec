@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\ItemBiblioteca;
 use App\Models\EventoWebinar;
+use App\Models\ItemBiblioteca;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\Support\SeedsIdentity;

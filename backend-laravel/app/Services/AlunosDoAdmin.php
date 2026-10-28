@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Aula;
 use App\Models\Certificado;
 use App\Models\Curso;
-use App\Models\Aula;
 use App\Models\Matricula;
 use App\Models\ProgressoAluno;
 use App\Models\Usuario;

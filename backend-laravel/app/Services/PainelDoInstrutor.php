@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\SolicitacaoIngresso;
-use App\Models\Certificado;
-use App\Models\Curso;
 use App\Models\Aula;
 use App\Models\Avaliacao;
-use App\Models\TentativaAvaliacao;
+use App\Models\Certificado;
+use App\Models\Curso;
 use App\Models\Matricula;
 use App\Models\ProgressoAluno;
+use App\Models\SolicitacaoIngresso;
+use App\Models\TentativaAvaliacao;
 use App\Models\Usuario;
 use App\Support\BusinessRules;
 use App\Support\CanalDeMensagens;

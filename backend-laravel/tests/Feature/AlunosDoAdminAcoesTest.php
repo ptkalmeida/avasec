@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\SolicitacaoIngresso;
 use App\Models\Curso;
 use App\Models\Matricula;
+use App\Models\SolicitacaoIngresso;
 use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\SenhaInicial;

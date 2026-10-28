@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-use App\Models\SolicitacaoIngresso;
 use App\Models\Matricula;
+use App\Models\SolicitacaoIngresso;
 
 /**
  * Quais cursos um requester pode acessar como MEMBRO (para leitura de conteúdo de

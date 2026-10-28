@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Exceptions\ApiException;
-use App\Models\Curso;
 use App\Models\Aula;
+use App\Models\Curso;
 use App\Models\Usuario;
 use App\Services\CourseService;
 use App\Support\Visibilidade;

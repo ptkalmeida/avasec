@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\MensagemDireta;
 use App\Models\Aula;
 use App\Models\Matricula;
+use App\Models\MensagemDireta;
 use App\Models\Usuario;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Str;

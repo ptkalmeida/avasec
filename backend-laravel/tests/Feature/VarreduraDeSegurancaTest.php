@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Models\Aula;
 use App\Models\Certificado;
 use App\Models\Curso;
-use App\Models\MensagemForum;
-use App\Models\Aula;
-use App\Models\SessaoAoVivo;
 use App\Models\ExercicioPratico;
 use App\Models\Matricula;
+use App\Models\MensagemForum;
+use App\Models\SessaoAoVivo;
 use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;

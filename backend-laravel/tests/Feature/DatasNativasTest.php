@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\MensagemChat;
 use App\Models\Curso;
 use App\Models\LogSeguranca;
+use App\Models\MensagemChat;
 use App\Services\AuditLogger;
 use App\Services\AuditLogService;
 use App\Services\CourseService;
