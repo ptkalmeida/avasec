@@ -48,7 +48,10 @@
 
     <nav aria-label="Navegação da área do instrutor" class="sticky top-0 flex h-screen flex-col gap-1 overflow-y-auto p-3">
 
-        <div class="mb-2 flex items-center justify-between gap-2 px-1 pt-1">
+        {{-- Recolhido, o menu tem 72px (48 de largura útil): o símbolo e o botão não cabem lado a lado
+             e se sobrepunham. Empilhados, cada um fica no seu lugar (mesma regra do menu do aluno). --}}
+        <div class="mb-2 flex items-center gap-2 px-1 pt-1"
+             :class="recolhido ? 'flex-col justify-center' : 'justify-between'">
             <a href="/" class="flex min-w-0 items-center gap-2 rounded-[10px] focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao"
                title="Voltar ao portal inicial">
                 <x-publico.simbolo-da-escola classe="h-8 w-8" />
