@@ -9,6 +9,7 @@ use App\Http\Controllers\Concerns\ApiRequestHelpers;
 use App\Services\UploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -56,7 +57,7 @@ final class UploadController extends Controller
      * do Symfony já responde a Range requests, necessário para o <video> nativo buscar
      * (seek) no arquivo.
      */
-    public function servePublic(Request $request, string $filename): BinaryFileResponse
+    public function servePublic(Request $request, string $filename): BinaryFileResponse|StreamedResponse
     {
         // Rota fora de /api/* — o handler global só serializa ApiException como JSON
         // para caminhos api/*, então aqui convertemos direto para o status HTTP puro.
@@ -73,10 +74,23 @@ final class UploadController extends Controller
         // revalidava a toda hora, e cada revalidação sobe o PHP inteiro para devolver um
         // PNG. Sem ETag de propósito: gerá-lo exige ler o arquivo inteiro a cada
         // request, caro nos vídeos — o Last-Modified basta para revalidar.
-        $response = response()->file($resolved['path'], [
+        $cabecalhos = [
             'Content-Type' => $resolved['mime'],
             'Cache-Control' => 'public, max-age=31536000, immutable',
-        ]);
+        ];
+
+        if ($resolved['path'] === null) {
+            // S3/MinIO: sem caminho no disco local, o app lê pelo disco e repassa. Não há
+            // Range aqui (só o disco local o tem) — vale para imagem e documento; um vídeo
+            // próprio longo deve sair pela entrega da mídia (ADR 023), não por esta rota.
+            $response = $resolved['disco']->response($resolved['chave'], null, $cabecalhos);
+            $response->setLastModified(Carbon::createFromTimestamp($resolved['disco']->lastModified($resolved['chave'])));
+            $response->isNotModified($request);
+
+            return $response;
+        }
+
+        $response = response()->file($resolved['path'], $cabecalhos);
 
         // O Laravel não checa If-Modified-Since sozinho: sem esta chamada, uma
         // revalidação (recarga forçada, cache expirado) reenviava o arquivo inteiro em

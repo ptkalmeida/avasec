@@ -15,6 +15,7 @@ use App\Support\TextoDoDocumento;
 use Barryvdh\DomPDF\Facade\Pdf;
 use chillerlan\QRCode\QRCode;
 use RuntimeException;
+use Throwable;
 
 /**
  * Geração do PDF de certificado (dompdf) — separado do CertificateService para
@@ -213,9 +214,14 @@ final class CertificatePdfService
         if (! in_array($arquivo['mime'], ['image/png', 'image/jpeg'], true)) {
             return null;
         }
-        $bytes = @file_get_contents($arquivo['path']);
+        // Pelo disco, não pelo caminho: vale igual para o disco local e para o S3/MinIO.
+        try {
+            $bytes = $arquivo['disco']->get($arquivo['chave']);
+        } catch (Throwable) {
+            $bytes = null;
+        }
 
-        return $bytes === false ? null : 'data:'.$arquivo['mime'].';base64,'.base64_encode($bytes);
+        return $bytes === null ? null : 'data:'.$arquivo['mime'].';base64,'.base64_encode($bytes);
     }
 
     /**

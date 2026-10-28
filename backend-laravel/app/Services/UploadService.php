@@ -13,6 +13,7 @@ use finfo;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 
 /**
  * Upload de arquivos — espelha src/server/upload.ts. Valida a extensão e confere os
@@ -160,7 +161,11 @@ final class UploadService
      * dono/ArquivoArmazenado — arquivos públicos, incluindo os colocados manualmente na pasta
      * (ex.: vídeo de teste), são acessíveis por qualquer um, como no comportamento antigo.
      *
-     * @return array{path:string, mime:string}
+     * `path` só existe com disco local: é o que mantém o Range (o <video> avança no
+     * arquivo) e o 304 do cache. Com o S3/MinIO ele é null e quem serve lê pelo disco
+     * (`disco` + `chave`) — muda a forma de servir, não a regra (plano 11, item F3).
+     *
+     * @return array{disco:FilesystemAdapter, chave:string, path:?string, mime:string}
      */
     public function resolvePublicFile(string $filename): array
     {
@@ -168,22 +173,18 @@ final class UploadService
             throw ApiException::notFound('Arquivo não encontrado.');
         }
 
-        /*
-         * O público continua sendo servido pelo CAMINHO do disco local: é o que
-         * mantém o Range (o <video> avança no arquivo) e o 304 do cache. Com o
-         * MinIO, arquivo público passa a sair do próprio storage ou por URL
-         * temporária — muda a forma de servir, não a regra (plano 11, item F3).
-         */
         $disco = $this->disco('public');
         if (! $disco->fileExists($filename)) {
             throw ApiException::notFound('Arquivo não encontrado.');
         }
-        $path = $disco->path($filename);
+        $path = $disco->getAdapter() instanceof LocalFilesystemAdapter ? $disco->path($filename) : null;
 
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
         $mime = config("uploads.mime_by_ext.$ext", 'application/octet-stream');
 
         return [
+            'disco' => $disco,
+            'chave' => $filename,
             'path' => $path,
             'mime' => is_string($mime) ? $mime : 'application/octet-stream',
         ];

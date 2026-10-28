@@ -199,6 +199,17 @@ anterior costuma rodar sobre o schema novo, mas confirme caso a caso.
 - **Redis, MinIO, Loki/Prometheus, ProxySQL** (F1, F3, F7, F11): dependem da TI; a aplicação está
   pronta para cada um por configuração. Com mais de uma instância, o contador de erros de login em
   cache de banco/arquivo deixa de ser compartilhado — Redis resolve.
+- **Uploads no S3/MinIO (fotos e documentos), independente do vídeo.** `UPLOADS_DISK_DRIVER=s3` leva
+  os discos `publico` e `privado` para um bucket só (`UPLOADS_BUCKET`), sob os prefixos `publico/` e
+  `privado/`; o padrão é `local` (volume). A URL pública segue `/uploads/<nome>`, servida pelo app — com
+  o S3, o Nginx **não** serve mais `/uploads/` do volume, e a rota passa pelo PHP (sem Range; vídeo
+  próprio longo não deve sair por ela, ver ADR 023). `MEDIA_DRIVER=youtube` continua valendo ao lado.
+  Quem usa o S3 precisa do pacote `league/flysystem-aws-s3-v3` (já no `composer.json`). Verificado em dev
+  com `docker-compose.minio.yml`; **nunca contra o MinIO da TI**.
+- **Imagens oficiais do MinIO não existem mais** (a MinIO Inc. arquivou o projeto e retirou
+  `minio/minio` e `quay.io/minio/*`; última versão 15/10/2025). O dev usa o Silo (`pgsty/minio`), fork
+  da comunidade, só para teste. Vale perguntar à TI **qual servidor S3 ela vai entregar**: o contrato
+  é S3 (Documento C, C.5), e o código não depende do MinIO em si.
 - **Queue e scheduler**: os containers existem pela norma (F.4.4), mas hoje nada usa fila nem agenda
   tarefa.
 - **Fontes hospedadas no servidor** e **Alpine em build CSP**: melhorias de segurança da seção 5.
