@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use Firebase\JWT\JWT;
+use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -34,13 +34,9 @@ final class CatalogPilotTest extends TestCase
         $user = DB::table('usuario')->where('papel', $role)->where('status', 'active')->first(['id', 'nome', 'papel']);
         $this->assertNotNull($user, "Seed sem usuário ativo com role '$role'.");
 
-        // Assina do mesmo jeito que o Node (HS256, mesmo segredo) — espelha o tokenFor()
-        // dos testes do Node, sem passar pelo login real.
-        return JWT::encode(
-            ['sub' => $user->id, 'nome' => $user->nome, 'papel' => $user->papel, 'iat' => 1700000000, 'exp' => 1900000000],
-            (string) config('app.jwt_secret'),
-            'HS256',
-        );
+        // Pelo emissor real: o token precisa levar a versão da sessão e o jti (ADR 022), e
+        // um JWT montado à mão sem eles é recusado com 401, como deve ser.
+        return Jwt::issue($user->id, $user->nome, $user->papel);
     }
 
     /** @return array<string, string> */

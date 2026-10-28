@@ -27,6 +27,7 @@ final class PracticalExerciseTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->ativarCursosDeSeed();
         $this->withoutMiddleware(ThrottleRequests::class);
         config(['features.atividadesPraticasAvancadas' => true]);
     }

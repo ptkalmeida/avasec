@@ -26,6 +26,7 @@ final class LearningScopeTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->ativarCursosDeSeed();
         $this->withoutMiddleware(ThrottleRequests::class);
 
         // Flag é chave de liga/desliga, não controle de acesso: o escopo tem de valer

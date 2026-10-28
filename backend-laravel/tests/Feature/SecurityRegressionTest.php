@@ -20,6 +20,12 @@ final class SecurityRegressionTest extends TestCase
     use DatabaseTransactions;
     use SeedsIdentity;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ativarCursosDeSeed();
+    }
+
     /** @return array<string, string> */
     private function auth(string $token): array
     {

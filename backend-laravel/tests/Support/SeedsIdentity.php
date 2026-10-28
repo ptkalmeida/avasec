@@ -99,4 +99,24 @@ trait SeedsIdentity
 
         return $id;
     }
+
+    /**
+     * Os testes foram escritos sobre os cursos de seed (`course-1`, `course-2`, `course-3`),
+     * mas o MySQL de dev é mantido à mão: em 27/10/2026 os três foram inativados pela tela do
+     * admin (e continuam assim, de propósito — a vitrine mostra só o que é real). Em vez de
+     * exigir que o dev volte ao estado de seed, o teste DECLARA o pré-requisito: reativa os
+     * três, mas só dentro da transação do próprio teste, que o DatabaseTransactions reverte.
+     * O dado real não muda. Recusa rodar sem transação aberta, para nunca gravar no banco de
+     * verdade se alguém esquecer o trait.
+     */
+    protected function ativarCursosDeSeed(): void
+    {
+        $this->assertGreaterThan(0, DB::transactionLevel(), 'ativarCursosDeSeed() exige DatabaseTransactions: sem transação ele gravaria no banco de dev.');
+
+        DB::table('curso')->whereIn('id', ['course-1', 'course-2', 'course-3'])->update([
+            'inativado_em' => null,
+            'inativado_por' => null,
+            'motivo_inativacao' => null,
+        ]);
+    }
 }

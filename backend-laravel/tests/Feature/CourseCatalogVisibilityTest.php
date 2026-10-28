@@ -30,6 +30,7 @@ final class CourseCatalogVisibilityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->ativarCursosDeSeed();
         $this->withoutMiddleware(ThrottleRequests::class);
     }
 

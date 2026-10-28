@@ -18,6 +18,12 @@ final class EnrollmentTest extends TestCase
     use DatabaseTransactions;
     use SeedsIdentity;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ativarCursosDeSeed();
+    }
+
     public function test_student_cannot_read_another_students_progress(): void
     {
         $student = $this->makeStudent('Aluno Enrollment');

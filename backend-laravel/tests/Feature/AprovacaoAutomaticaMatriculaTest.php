@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\SolicitacaoIngresso;
 use App\Models\Matricula;
+use App\Models\SolicitacaoIngresso;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Str;
 use Tests\Support\SeedsIdentity;
@@ -32,6 +32,12 @@ final class AprovacaoAutomaticaMatriculaTest extends TestCase
 {
     use DatabaseTransactions;
     use SeedsIdentity;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ativarCursosDeSeed();
+    }
 
     public function test_com_a_flag_ligada_a_solicitacao_ja_nasce_aprovada_e_matricula(): void
     {
