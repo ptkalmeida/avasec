@@ -39,15 +39,15 @@ final class AgendaAoVivoTest extends TestCase
     {
         return [
             'id' => $id,
-            'title' => $titulo,
-            'liveSessions' => array_map(static fn (array $s): array => [
+            'titulo' => $titulo,
+            'sessoes_ao_vivo' => array_map(static fn (array $s): array => [
                 'id' => $s[0],
-                'courseId' => $id,
-                'title' => $s[1],
-                'scheduledAt' => $s[2],
-                'durationMinutes' => 60,
-                'meetingLink' => '',
-                'isLive' => false,
+                'curso_id' => $id,
+                'titulo' => $s[1],
+                'agendado_para_texto' => $s[2],
+                'duracao_minutos' => 60,
+                'link_reuniao' => '',
+                'ao_vivo' => false,
             ], $sessoes),
         ];
     }
@@ -55,7 +55,7 @@ final class AgendaAoVivoTest extends TestCase
     /** @return array<string, mixed> */
     private function webinar(string $id, string $titulo, string $data, string $hora): array
     {
-        return ['id' => $id, 'title' => $titulo, 'date' => $data, 'time' => $hora, 'link' => '#'];
+        return ['id' => $id, 'titulo' => $titulo, 'data_texto' => $data, 'horario' => $hora, 'link' => '#'];
     }
 
     public function test_le_iso_local_com_e_sem_segundos(): void
@@ -187,7 +187,7 @@ final class AgendaAoVivoTest extends TestCase
     public function test_aula_nunca_leva_link_de_sala_e_webinar_leva(): void
     {
         $cursos = [$this->curso('c3', 'Com sala', [['s9', 'Com link gravado', '2026-09-15T19:30']])];
-        $cursos[0]['liveSessions'][0]['meetingLink'] = 'https://meet.example/sala-secreta';
+        $cursos[0]['sessoes_ao_vivo'][0]['link_reuniao'] = 'https://meet.example/sala-secreta';
 
         $agenda = AgendaAoVivo::montar($cursos, $this->webinarsDoCenario(), $this->agora());
 

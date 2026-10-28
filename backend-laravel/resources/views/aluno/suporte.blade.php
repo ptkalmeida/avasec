@@ -12,6 +12,8 @@
 
     <div class="mx-auto max-w-2xl space-y-6">
 
+        <x-aluno.abas-de-ajuda ativa="suporte" />
+
         <div class="space-y-2">
             <h1 class="font-titulo text-3xl tracking-tight text-ava-tinta">Suporte pedagógico</h1>
             <p class="text-apoio leading-relaxed text-escult-ink-2">
@@ -68,7 +70,7 @@
                 @if ($aula !== null)
                     <input type="hidden" name="aula" value="{{ $aula['id'] }}">
                     <p class="text-apoio text-escult-ink-2">
-                        Sobre a aula <strong class="text-ava-tinta">{{ $aula['title'] }}</strong>
+                        Sobre a aula <strong class="text-ava-tinta">{{ $aula['titulo'] }}</strong>
                         — o gestor recebe o nome da aula junto com a sua mensagem.
                     </p>
                 @endif

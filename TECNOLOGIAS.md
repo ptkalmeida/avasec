@@ -49,7 +49,7 @@ FK-first, `BusinessRules`, `Jwt`).
 | Rate limiting | Por rota sensível (login 10/15min, registro, upload, export, matrícula...) |
 | Upload | Validação de magic-bytes (`finfo`), nome gerado no servidor, split público/privado com download autorizado |
 | Headers | `SecurityHeaders` middleware na API + CSP/HSTS no Nginx (produção) |
-| Auditoria | `SecurityLog` gravado só pelo servidor; telemetria (`ClientEvent`) separada |
+| Auditoria | `LogSeguranca` gravado só pelo servidor; telemetria (`EventoCliente`) separada |
 | Validação | Regras do Laravel Validator em todas as rotas de escrita, erro padronizado `{error, code, message}` |
 
 ## Qualidade e ferramentas de desenvolvimento

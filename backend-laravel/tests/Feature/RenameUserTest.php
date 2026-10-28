@@ -10,8 +10,8 @@ use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
 
 /**
- * Rename seguro (ADR 10): com identidade por userId, renomear só atualiza o
- * User e os snapshots de exibição — nenhum dado órfão, nenhuma duplicação.
+ * Rename seguro (ADR 10): com identidade por usuario_id, renomear só atualiza o
+ * Usuario e os snapshots de exibição — nenhum dado órfão, nenhuma duplicação.
  */
 final class RenameUserTest extends TestCase
 {
@@ -21,21 +21,21 @@ final class RenameUserTest extends TestCase
     public function test_student_renames_self_and_enrollment_survives(): void
     {
         $student = $this->makeStudent('Aluno Rename');
-        $courseId = $this->anySeededCourseId();
+        $curso_id = $this->anySeededCourseId();
 
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => $courseId])->assertOk();
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => $curso_id])->assertOk();
 
         $newName = 'Nome Novo '.uniqid();
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->putJson('/api/auth/users/'.$student['id'].'/name', ['name' => $newName])
+            ->putJson('/api/autenticacao/usuarios/'.$student['id'].'/nome', ['nome' => $newName])
             ->assertOk()
-            ->assertJsonPath('name', $newName);
+            ->assertJsonPath('nome', $newName);
 
         // A matrícula continua a MESMA (keyed por id) e o display acompanhou.
-        $map = $this->withHeader('Authorization', "Bearer {$student['token']}")->getJson('/api/enrollments')->json();
-        $this->assertSame($courseId, $map[$student['id']]['enrolledCourseId']);
-        $this->assertSame($newName, $map[$student['id']]['studentName']);
+        $map = $this->withHeader('Authorization', "Bearer {$student['token']}")->getJson('/api/matriculas')->json();
+        $this->assertSame($curso_id, $map[$student['id']]['curso_matriculado_id']);
+        $this->assertSame($newName, $map[$student['id']]['nome_aluno']);
     }
 
     public function test_student_cannot_rename_another_user(): void
@@ -44,7 +44,7 @@ final class RenameUserTest extends TestCase
         $other = $this->makeStudent('Outro Aluno');
 
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->putJson('/api/auth/users/'.$other['id'].'/name', ['name' => 'Invasor'])
+            ->putJson('/api/autenticacao/usuarios/'.$other['id'].'/nome', ['nome' => 'Invasor'])
             ->assertStatus(403);
     }
 
@@ -53,33 +53,33 @@ final class RenameUserTest extends TestCase
         $student = $this->makeStudent('Aluno Rename Cert');
 
         // Curso de 1 aula com 100% para emitir o certificado.
-        $courseId = 'course-ren-'.uniqid();
-        $lessonId = 'lesson-ren-'.uniqid();
-        DB::table('Course')->insert([
-            'id' => $courseId, 'title' => 'Curso Rename', 'description' => 'desc', 'category' => 'x',
-            'thumbnail' => 't', 'instructorName' => 'Gestor de Conteúdos',
+        $curso_id = 'course-ren-'.uniqid();
+        $aula_id = 'lesson-ren-'.uniqid();
+        DB::table('curso')->insert([
+            'id' => $curso_id, 'titulo' => 'Curso Rename', 'descricao' => 'desc', 'categoria' => 'x',
+            'miniatura' => 't', 'nome_instrutor' => 'Gestor de Conteúdos',
         ]);
-        DB::table('Lesson')->insert([
-            'id' => $lessonId, 'courseId' => $courseId, 'title' => 'A1', 'duration' => '5min', 'lesson_order' => 0,
+        DB::table('aula')->insert([
+            'id' => $aula_id, 'curso_id' => $curso_id, 'titulo' => 'A1', 'duracao' => '5min', 'ordem' => 0,
         ]);
-        $this->matricular($student, $courseId);
-        DB::table('StudentProgress')->insert([
-            'id' => 'prog-ren-'.uniqid(), 'studentName' => $student['name'], 'userId' => $student['id'], 'courseId' => $courseId,
-            'completedLessons' => json_encode([$lessonId]), 'attendedLiveSessions' => json_encode([]),
+        $this->matricular($student, $curso_id);
+        DB::table('progresso_aluno')->insert([
+            'id' => 'prog-ren-'.uniqid(), 'nome_aluno' => $student['nome'], 'usuario_id' => $student['id'], 'curso_id' => $curso_id,
+            'aulas_concluidas' => json_encode([$aula_id]), 'sessoes_ao_vivo_assistidas' => json_encode([]),
         ]);
         $issued = $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->postJson('/api/certificates', ['courseId' => $courseId]);
+            ->postJson('/api/certificados', ['curso_id' => $curso_id]);
         $issued->assertStatus(201);
-        $originalName = $student['name'];
+        $nome_original = $student['nome'];
 
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->putJson('/api/auth/users/'.$student['id'].'/name', ['name' => 'Renomeado '.uniqid()])
+            ->putJson('/api/autenticacao/usuarios/'.$student['id'].'/nome', ['nome' => 'Renomeado '.uniqid()])
             ->assertOk();
 
         // Certificado é documento histórico: mantém o nome impresso na emissão.
-        $this->assertDatabaseHas('Certificate', [
+        $this->assertDatabaseHas('certificado', [
             'id' => $issued->json('id'),
-            'studentName' => $originalName,
+            'nome_aluno' => $nome_original,
         ]);
     }
 
@@ -90,8 +90,8 @@ final class RenameUserTest extends TestCase
 
         $newName = 'Renomeado pelo Admin '.uniqid();
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->putJson('/api/auth/users/'.$student['id'].'/name', ['name' => $newName])
+            ->putJson('/api/autenticacao/usuarios/'.$student['id'].'/nome', ['nome' => $newName])
             ->assertOk()
-            ->assertJsonPath('name', $newName);
+            ->assertJsonPath('nome', $newName);
     }
 }

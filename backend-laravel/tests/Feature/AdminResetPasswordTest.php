@@ -12,7 +12,7 @@ use Tests\Support\GeneratesCpf;
 use Tests\TestCase;
 
 /**
- * Redefinição de senha pela coordenação (PUT /api/auth/users/{id}/password).
+ * Redefinição de senha pela coordenação (PUT /api/autenticacao/usuarios/{id}/senha).
  *
  * A tela de gestão oferecia "Redefinir Senha" sem endpoint algum: só alterava estado
  * local do React, então a coordenação via a confirmação e a senha antiga continuava
@@ -34,29 +34,29 @@ final class AdminResetPasswordTest extends TestCase
 
     private function tokenForRole(string $role): string
     {
-        $user = DB::table('User')->where('role', $role)->where('status', 'active')->first(['id', 'name', 'role']);
+        $user = DB::table('usuario')->where('papel', $role)->where('status', 'active')->first(['id', 'nome', 'papel']);
         $this->assertNotNull($user, "Seed sem usuário ativo com role '$role'.");
 
-        return Jwt::issue($user->id, $user->name, $user->role);
+        return Jwt::issue($user->id, $user->nome, $user->papel);
     }
 
     /** @return array{id: string, email: string} */
     private function createStudent(): array
     {
         $email = 'reset-'.uniqid().'@example.com';
-        $response = $this->postJson('/api/auth/register', [
-            'name' => 'Aluno Reset '.uniqid(),
+        $response = $this->postJson('/api/autenticacao/cadastro', [
+            'nome' => 'Aluno Reset '.uniqid(),
             'email' => $email,
             'password' => 'senhaAntiga1',
             'cpf' => $this->makeCpf(),
         ]);
         $response->assertStatus(201);
 
-        $id = $response->json('user.id');
+        $id = $response->json('usuario.id');
         $this->assertIsString($id);
 
         // Conta nasce pendente de homologação; ativa para poder testar o login.
-        DB::table('User')->where('id', $id)->update(['status' => 'active']);
+        DB::table('usuario')->where('id', $id)->update(['status' => 'active']);
 
         return ['id' => $id, 'email' => $email];
     }
@@ -66,16 +66,16 @@ final class AdminResetPasswordTest extends TestCase
         $aluno = $this->createStudent();
 
         $this->withToken($this->tokenForRole('admin'))
-            ->putJson("/api/auth/users/{$aluno['id']}/password", ['newPassword' => 'senhaNova123'])
+            ->putJson("/api/autenticacao/usuarios/{$aluno['id']}/senha", ['newPassword' => 'senhaNova123'])
             ->assertOk()
             ->assertJson(['success' => true]);
 
-        $this->postJson('/api/auth/login', ['email' => $aluno['email'], 'password' => 'senhaNova123'])
+        $this->postJson('/api/autenticacao/entrar', ['email' => $aluno['email'], 'password' => 'senhaNova123'])
             ->assertOk();
 
         // A metade que importa: redefinir REVOGA a anterior. Sem o endpoint, este
         // caso passava a impressão de sucesso e a senha velha continuava válida.
-        $this->postJson('/api/auth/login', ['email' => $aluno['email'], 'password' => 'senhaAntiga1'])
+        $this->postJson('/api/autenticacao/entrar', ['email' => $aluno['email'], 'password' => 'senhaAntiga1'])
             ->assertStatus(401);
     }
 
@@ -85,7 +85,7 @@ final class AdminResetPasswordTest extends TestCase
 
         // O admin não conhece a senha do aluno — exigi-la tornaria o fluxo impossível.
         $this->withToken($this->tokenForRole('admin'))
-            ->putJson("/api/auth/users/{$aluno['id']}/password", ['newPassword' => 'outraSenha99'])
+            ->putJson("/api/autenticacao/usuarios/{$aluno['id']}/senha", ['newPassword' => 'outraSenha99'])
             ->assertOk();
     }
 
@@ -97,15 +97,15 @@ final class AdminResetPasswordTest extends TestCase
         // O PIN de 4 dígitos do MVP não passa mais (ADR 11): a política é a mesma
         // do autosserviço, sem exceção para redefinição administrativa.
         $this->withToken($token)
-            ->putJson("/api/auth/users/{$aluno['id']}/password", ['newPassword' => '5678'])
+            ->putJson("/api/autenticacao/usuarios/{$aluno['id']}/senha", ['newPassword' => '5678'])
             ->assertStatus(400);
 
         $this->withToken($token)
-            ->putJson("/api/auth/users/{$aluno['id']}/password", ['newPassword' => 'somenteletras'])
+            ->putJson("/api/autenticacao/usuarios/{$aluno['id']}/senha", ['newPassword' => 'somenteletras'])
             ->assertStatus(400);
 
         // A senha original segue valendo: validação recusada não altera nada.
-        $this->postJson('/api/auth/login', ['email' => $aluno['email'], 'password' => 'senhaAntiga1'])
+        $this->postJson('/api/autenticacao/entrar', ['email' => $aluno['email'], 'password' => 'senhaAntiga1'])
             ->assertOk();
     }
 
@@ -114,10 +114,10 @@ final class AdminResetPasswordTest extends TestCase
         $aluno = $this->createStudent();
 
         $this->withToken($this->tokenForRole('instructor'))
-            ->putJson("/api/auth/users/{$aluno['id']}/password", ['newPassword' => 'invasao1234'])
+            ->putJson("/api/autenticacao/usuarios/{$aluno['id']}/senha", ['newPassword' => 'invasao1234'])
             ->assertStatus(403);
 
-        $this->postJson('/api/auth/login', ['email' => $aluno['email'], 'password' => 'senhaAntiga1'])
+        $this->postJson('/api/autenticacao/entrar', ['email' => $aluno['email'], 'password' => 'senhaAntiga1'])
             ->assertOk();
     }
 
@@ -128,10 +128,10 @@ final class AdminResetPasswordTest extends TestCase
         $tokenOutro = Jwt::issue($outro['id'], 'Aluno Reset', 'student');
 
         $this->withToken($tokenOutro)
-            ->putJson("/api/auth/users/{$alvo['id']}/password", ['newPassword' => 'invasao1234'])
+            ->putJson("/api/autenticacao/usuarios/{$alvo['id']}/senha", ['newPassword' => 'invasao1234'])
             ->assertStatus(403);
 
-        $this->postJson('/api/auth/login', ['email' => $alvo['email'], 'password' => 'senhaAntiga1'])
+        $this->postJson('/api/autenticacao/entrar', ['email' => $alvo['email'], 'password' => 'senhaAntiga1'])
             ->assertOk();
     }
 
@@ -139,14 +139,14 @@ final class AdminResetPasswordTest extends TestCase
     {
         $aluno = $this->createStudent();
 
-        $this->putJson("/api/auth/users/{$aluno['id']}/password", ['newPassword' => 'invasao1234'])
+        $this->putJson("/api/autenticacao/usuarios/{$aluno['id']}/senha", ['newPassword' => 'invasao1234'])
             ->assertStatus(401);
     }
 
     public function test_reset_on_unknown_user_is_404(): void
     {
         $this->withToken($this->tokenForRole('admin'))
-            ->putJson('/api/auth/users/id-que-nao-existe/password', ['newPassword' => 'senhaNova123'])
+            ->putJson('/api/autenticacao/usuarios/id-que-nao-existe/senha', ['newPassword' => 'senhaNova123'])
             ->assertStatus(404);
     }
 }

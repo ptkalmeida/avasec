@@ -89,7 +89,7 @@ final class DataTextoTest extends TestCase
 
     public function test_dia_e_hora_em_colunas_separadas_viram_um_instante(): void
     {
-        // WebinarEvent guarda '15/06/2026' em `date` e '19:00' em `time`.
+        // EventoWebinar guarda '15/06/2026' em `date` e '19:00' em `time`.
         $i = DataTexto::instante('15/06/2026', '19:00');
 
         $this->assertNotNull($i);

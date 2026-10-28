@@ -62,10 +62,10 @@
                             @endif
 
                             <div class="min-w-0 space-y-1">
-                                @if ($curso['category'] !== null)
-                                    <p class="text-sobretitulo uppercase text-escult-ink-3">{{ $curso['category'] }}</p>
+                                @if ($curso['categoria'] !== null)
+                                    <p class="text-sobretitulo uppercase text-escult-ink-3">{{ $curso['categoria'] }}</p>
                                 @endif
-                                <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $curso['title'] }}</h2>
+                                <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $curso['titulo'] }}</h2>
                             </div>
 
                             <dl class="flex flex-wrap gap-x-6 gap-y-1 text-apoio text-escult-ink-2">
@@ -77,10 +77,10 @@
                                     <dt class="inline">Alunos</dt>
                                     <dd class="inline font-semibold text-ava-tinta">{{ $curso['alunos'] }}</dd>
                                 </div>
-                                @if ($curso['vigenciaAte'] !== null)
+                                @if ($curso['vigencia_ate'] !== null)
                                     <div>
                                         <dt class="inline">{{ $curso['vigenciaVencida'] ? 'Venceu em' : 'Vigência até' }}</dt>
-                                        <dd class="inline font-semibold text-ava-tinta">{{ $curso['vigenciaAte'] }}</dd>
+                                        <dd class="inline font-semibold text-ava-tinta">{{ $curso['vigencia_ate'] }}</dd>
                                     </div>
                                 @endif
                             </dl>

@@ -53,24 +53,24 @@ final class BusinessRules
     }
 
     /**
-     * A transmissão agendada para `$scheduledAt` já passou da janela de
+     * A transmissão agendada para `$agendado_para_texto` já passou da janela de
      * encerramento automático.
      *
-     * `$scheduledAt` é ISO local sem fuso (`2026-09-15T19:30`) — o que o
+     * `$agendado_para_texto` é ISO local sem fuso (`2026-09-15T19:30`) — o que o
      * `<input type="datetime-local">` produz e o que o banco guarda. Data em
      * outro formato (texto livre do modelo antigo, "Próxima Segunda, às 20:00")
      * devolve false: não há de onde contar, e chutar encerraria um encontro que
      * talvez ainda vá acontecer.
      */
-    public static function liveSessionExpired(?string $scheduledAt, ?CarbonImmutable $agora = null): bool
+    public static function liveSessionExpired(?string $agendado_para_texto, ?CarbonImmutable $agora = null): bool
     {
-        if (! is_string($scheduledAt)
-            || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/', trim($scheduledAt)) !== 1) {
+        if (! is_string($agendado_para_texto)
+            || preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/', trim($agendado_para_texto)) !== 1) {
             return false;
         }
 
         try {
-            $quando = CarbonImmutable::parse(trim($scheduledAt));
+            $quando = CarbonImmutable::parse(trim($agendado_para_texto));
         } catch (\Throwable) {
             return false;
         }

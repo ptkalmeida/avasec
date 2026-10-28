@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\LibraryItem;
+use App\Models\ItemBiblioteca;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\Support\SeedsIdentity;
@@ -40,14 +40,14 @@ final class BibliotecaDoAlunoTest extends TestCase
     }
 
     /** @param array<string, mixed> $campos */
-    private function item(string $titulo, array $campos = []): LibraryItem
+    private function item(string $titulo, array $campos = []): ItemBiblioteca
     {
-        $item = LibraryItem::query()->create(array_merge([
+        $item = ItemBiblioteca::query()->create(array_merge([
             'id' => 'lib-teste-'.uniqid(),
-            'title' => $titulo,
-            'type' => 'pdf',
-            'category' => 'Teste',
-            'description' => 'Descrição de '.$titulo,
+            'titulo' => $titulo,
+            'tipo' => 'pdf',
+            'categoria' => 'Teste',
+            'descricao' => 'Descrição de '.$titulo,
             'url' => '/uploads/material-'.uniqid().'.pdf',
         ], $campos));
 
@@ -79,8 +79,8 @@ final class BibliotecaDoAlunoTest extends TestCase
         $aluno = $this->makeStudent('Aluno Biblioteca Escada');
         $restrito = $this->item('Material Restrito de Teste');
         $rascunho = $this->item('Material Rascunho de Teste');
-        LibraryItem::query()->whereKey($restrito->id)->update(['status' => Visibilidade::RESTRITO]);
-        LibraryItem::query()->whereKey($rascunho->id)->update(['status' => Visibilidade::RASCUNHO]);
+        ItemBiblioteca::query()->whereKey($restrito->id)->update(['status' => Visibilidade::RESTRITO]);
+        ItemBiblioteca::query()->whereKey($rascunho->id)->update(['status' => Visibilidade::RASCUNHO]);
 
         $this->como($aluno['token'])->get('/aluno/biblioteca')
             ->assertDontSee('Material Restrito de Teste', escape: false)
@@ -162,6 +162,9 @@ final class BibliotecaDoAlunoTest extends TestCase
         $resposta = $this->como($aluno['token'])->get('/aluno/biblioteca');
 
         $resposta->assertDontSee('href="/aluno/mensagens"', escape: false);
-        $resposta->assertSee('href="/aluno/suporte"', escape: false);
+        // "Ajuda e suporte" é um item só (ADR 026): fora de uma aula ele abre nas dúvidas, e o
+        // suporte é a aba ao lado — o caminho até ele é conferido em MenuDoAlunoTest.
+        $resposta->assertSee('href="/aluno/duvidas"', escape: false);
+        $resposta->assertSee('Ajuda e suporte', escape: false);
     }
 }

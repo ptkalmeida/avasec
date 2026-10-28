@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Certificate;
-use App\Models\Course;
+use App\Models\Certificado;
+use App\Models\Curso;
 use App\Services\SitePageContentService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Middleware\ThrottleRequests;
@@ -39,23 +39,23 @@ final class CertificadosPublicosBladeTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
     }
 
-    private function certificadoEmitido(string $nome): Certificate
+    private function certificadoEmitido(string $nome): Certificado
     {
-        $instructorId = DB::table('User')->where('role', 'instructor')->where('status', 'active')->value('id');
-        $curso = Course::query()->where('instructorId', $instructorId)->first();
+        $instrutor_id = DB::table('usuario')->where('papel', 'instructor')->where('status', 'active')->value('id');
+        $curso = Curso::query()->where('instrutor_id', $instrutor_id)->first();
         $this->assertNotNull($curso, 'Seed sem curso do instrutor.');
 
         $aluno = $this->makeStudent($nome);
 
-        return Certificate::query()->create([
+        return Certificado::query()->create([
             'id' => 'cert-blade-'.uniqid(),
-            'studentName' => $aluno['name'],
-            'userId' => $aluno['id'],
-            'courseId' => $curso->id,
-            'courseTitle' => $curso->title,
-            'issueDate' => now(),
-            'attendancePercent' => 92,
-            'verificationHash' => 'AVA-BLADE-'.strtoupper(uniqid()),
+            'nome_aluno' => $aluno['nome'],
+            'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id,
+            'titulo_curso' => $curso->titulo,
+            'data_emissao' => now(),
+            'percentual_frequencia' => 92,
+            'hash_verificacao' => 'AVA-BLADE-'.strtoupper(uniqid()),
         ]);
     }
 
@@ -72,7 +72,7 @@ final class CertificadosPublicosBladeTest extends TestCase
         $resposta->assertSee(e((string) $pagina['noticeText']), false);
 
         foreach ($pagina['items'] as $criterio) {
-            $resposta->assertSee(e((string) $criterio['title']), false);
+            $resposta->assertSee(e((string) $criterio['titulo']), false);
         }
     }
 
@@ -89,13 +89,13 @@ final class CertificadosPublicosBladeTest extends TestCase
     {
         $cert = $this->certificadoEmitido('Aluno Blade Valido');
 
-        $resposta = $this->get('/certificados?verify='.$cert->verificationHash);
+        $resposta = $this->get('/certificados?verify='.$cert->hash_verificacao);
 
         $resposta->assertOk();
         $resposta->assertSee('Certificado válido e homologado', escape: false);
-        $resposta->assertSee(e((string) $cert->studentName), false);
-        $resposta->assertSee(e((string) $cert->courseTitle), false);
-        $resposta->assertSee((string) $cert->verificationHash, escape: false);
+        $resposta->assertSee(e((string) $cert->nome_aluno), false);
+        $resposta->assertSee(e((string) $cert->titulo_curso), false);
+        $resposta->assertSee((string) $cert->hash_verificacao, escape: false);
         $resposta->assertSee('92%', escape: false);
     }
 
@@ -106,10 +106,10 @@ final class CertificadosPublicosBladeTest extends TestCase
     public function test_certificado_revogado_aparece_dizendo_que_nao_vale(): void
     {
         $cert = $this->certificadoEmitido('Aluno Blade Revogado');
-        $adminId = DB::table('User')->where('role', 'admin')->value('id');
+        $adminId = DB::table('usuario')->where('papel', 'admin')->value('id');
         $cert->inativar((string) $adminId, 'Frequência lançada em duplicidade.');
 
-        $resposta = $this->get('/certificados?verify='.$cert->verificationHash);
+        $resposta = $this->get('/certificados?verify='.$cert->hash_verificacao);
 
         $resposta->assertOk();
         $resposta->assertSee('Certificado revogado', escape: false);
@@ -117,7 +117,7 @@ final class CertificadosPublicosBladeTest extends TestCase
         $resposta->assertDontSee('Certificado válido e homologado', escape: false);
         // Os dados do documento continuam visíveis: é com eles que se confere o
         // papel que está na mão.
-        $resposta->assertSee(e((string) $cert->studentName), false);
+        $resposta->assertSee(e((string) $cert->nome_aluno), false);
     }
 
     public function test_termo_sem_correspondencia_diz_que_nao_encontrou_e_repete_o_termo(): void
@@ -147,11 +147,11 @@ final class CertificadosPublicosBladeTest extends TestCase
     {
         $cert = $this->certificadoEmitido('Aluno Blade QR');
 
-        $this->get('/?verify='.$cert->verificationHash)
-            ->assertRedirect('/certificados?verify='.urlencode((string) $cert->verificationHash));
+        $this->get('/?verify='.$cert->hash_verificacao)
+            ->assertRedirect('/certificados?verify='.urlencode((string) $cert->hash_verificacao));
 
         $this->followingRedirects()
-            ->get('/?verify='.$cert->verificationHash)
+            ->get('/?verify='.$cert->hash_verificacao)
             ->assertSee('Certificado válido e homologado', escape: false);
     }
 

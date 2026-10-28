@@ -20,7 +20,7 @@ final class LibraryController extends Controller
     {
         // Contrato do Node: array JSON puro (sem envelope { data: ... }). O papel vem da sessão,
         // se houver (`jwt.optional`): o visitante só recebe o que está publicado.
-        return response()->json($this->catalog->listLibraryItems($this->optionalRequester($request)['role'] ?? null));
+        return response()->json($this->catalog->listLibraryItems($this->optionalRequester($request)['papel'] ?? null));
     }
 
     public function store(Request $request): JsonResponse
@@ -36,10 +36,10 @@ final class LibraryController extends Controller
         // Espelha libraryItemSchema (Zod) do Node — mesmos limites e enum.
         return $this->validateInput($request, [
             'id' => ['sometimes', 'string', 'max:191'],
-            'title' => ['required', 'string', 'max:200'],
-            'type' => ['required', 'in:pdf,video,link'],
-            'category' => ['required', 'string', 'max:120'],
-            'description' => ['nullable', 'string', 'max:2000'],
+            'titulo' => ['required', 'string', 'max:200'],
+            'tipo' => ['required', 'in:pdf,video,link'],
+            'categoria' => ['required', 'string', 'max:120'],
+            'descricao' => ['nullable', 'string', 'max:2000'],
             'url' => ['required', 'string', 'max:2000', new SafeUrlRule],
         ]);
 

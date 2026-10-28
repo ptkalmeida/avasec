@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Course;
-use App\Models\Lesson;
+use App\Models\Aula;
+use App\Models\Curso;
 use DateTimeInterface;
 
 /**
@@ -22,7 +22,7 @@ use DateTimeInterface;
  * ## Duas decisões registradas
  *
  * - **A base de Matrículas lê o curso principal, os concorrentes e os concluídos.**
- *   Até 22/10/2026 os cursos concorrentes (`extraCourseIds`) ficavam de fora, como
+ *   Até 22/10/2026 os cursos concorrentes (`cursos_extras_ids`) ficavam de fora, como
  *   no painel React; em 23/10 o responsável decidiu incluí-los (a planilha ainda
  *   não tinha consumidor). Cada concorrente vira uma linha `Ativa` com id
  *   `<matrícula>-E<n>`, ao lado das `-C<n>` dos concluídos.
@@ -126,13 +126,13 @@ final class BasesGerenciais
     {
         return array_values(array_map(fn (array $u): array => [
             'id_aluno' => $u['id'] ?? null,
-            'nome' => $u['name'] ?? null,
+            'nome' => $u['nome'] ?? null,
             'email' => $u['email'] ?? null,
             'status_conta' => $u['status'] ?? null,
             'municipio' => $u['municipio'] ?? '',
             'uf' => $u['uf'] ?? '',
-            'area_de_interesse' => $u['areaInteresse'] ?? '',
-            'data_de_cadastro' => $u['dataCadastro'] ?? '',
+            'area_de_interesse' => $u['area_interesse'] ?? '',
+            'data_de_cadastro' => $u['data_cadastro_texto'] ?? '',
         ], $alunos));
     }
 
@@ -144,16 +144,16 @@ final class BasesGerenciais
     {
         return array_values(array_map(fn (array $c): array => [
             'id_curso' => $c['id'] ?? null,
-            'titulo' => $c['title'] ?? null,
-            'categoria' => $c['category'] ?? null,
-            'area_tematica' => $c['areaTematica'] ?? '',
-            'carga_horaria' => $c['cargaHoraria'] ?? '',
+            'titulo' => $c['titulo'] ?? null,
+            'categoria' => $c['categoria'] ?? null,
+            'area_tematica' => $c['area_tematica'] ?? '',
+            'carga_horaria' => $c['carga_horaria'] ?? '',
             'modalidade' => $c['modalidade'] ?? '',
             'nivel' => $c['nivel'] ?? '',
-            'professor_responsavel' => $c['instructorName'] ?? null,
-            'emite_certificado' => ($c['emiteCertificado'] ?? null) !== false ? 'Sim' : 'Não',
-            'percentual_minimo' => $c['minAttendance'] ?? self::FREQUENCIA_PADRAO,
-            'status_do_curso' => $c['statusCurso'] ?? '',
+            'professor_responsavel' => $c['nome_instrutor'] ?? null,
+            'emite_certificado' => ($c['emite_certificado'] ?? null) !== false ? 'Sim' : 'Não',
+            'percentual_minimo' => $c['frequencia_minima'] ?? self::FREQUENCIA_PADRAO,
+            'status_do_curso' => $c['status_curso'] ?? '',
         ], $cursos));
     }
 
@@ -168,52 +168,52 @@ final class BasesGerenciais
         $linhas = [];
 
         foreach ($matriculas as $e) {
-            $idDaMatricula = $e['id'] ?? $e['userId'] ?? null;
-            $principal = $e['enrolledCourseId'] ?? null;
+            $idDaMatricula = $e['id'] ?? $e['usuario_id'] ?? null;
+            $principal = $e['curso_matriculado_id'] ?? null;
 
             if (is_string($principal) && $principal !== '') {
-                $prog = $this->primeiro($progresso, static fn (array $p): bool => ($p['courseId'] ?? null) === $principal && ($p['userId'] ?? null) === ($e['userId'] ?? null));
-                $temCertificado = $this->primeiro($certificados, static fn (array $c): bool => ($c['courseId'] ?? null) === $principal && ($c['userId'] ?? null) === ($e['userId'] ?? null)) !== null;
+                $prog = $this->primeiro($progresso, static fn (array $p): bool => ($p['curso_id'] ?? null) === $principal && ($p['usuario_id'] ?? null) === ($e['usuario_id'] ?? null));
+                $temCertificado = $this->primeiro($certificados, static fn (array $c): bool => ($c['curso_id'] ?? null) === $principal && ($c['usuario_id'] ?? null) === ($e['usuario_id'] ?? null)) !== null;
 
                 $linhas[] = [
                     'id_matricula' => $idDaMatricula,
-                    'id_aluno' => $e['userId'] ?? null,
+                    'id_aluno' => $e['usuario_id'] ?? null,
                     'id_curso' => $principal,
-                    'data_matricula' => $this->dia($e['enrolledAt'] ?? null),
+                    'data_matricula' => $this->dia($e['matriculado_em_texto'] ?? null),
                     'status_matricula' => 'Ativa',
-                    'modulos_concluidos' => is_array($prog['completedLessons'] ?? null) ? count($prog['completedLessons']) : 0,
+                    'modulos_concluidos' => is_array($prog['aulas_concluidas'] ?? null) ? count($prog['aulas_concluidas']) : 0,
                     'certificado_liberado' => $temCertificado ? 'Sim' : 'Não',
                 ];
             }
 
-            $extras = is_array($e['extraCourseIds'] ?? null) ? array_values($e['extraCourseIds']) : [];
+            $extras = is_array($e['cursos_extras_ids'] ?? null) ? array_values($e['cursos_extras_ids']) : [];
             foreach ($extras as $i => $cursoId) {
                 if (! is_string($cursoId) || $cursoId === '' || $cursoId === $principal) {
                     continue;
                 }
 
-                $prog = $this->primeiro($progresso, static fn (array $p): bool => ($p['courseId'] ?? null) === $cursoId && ($p['userId'] ?? null) === ($e['userId'] ?? null));
-                $temCertificado = $this->primeiro($certificados, static fn (array $c): bool => ($c['courseId'] ?? null) === $cursoId && ($c['userId'] ?? null) === ($e['userId'] ?? null)) !== null;
+                $prog = $this->primeiro($progresso, static fn (array $p): bool => ($p['curso_id'] ?? null) === $cursoId && ($p['usuario_id'] ?? null) === ($e['usuario_id'] ?? null));
+                $temCertificado = $this->primeiro($certificados, static fn (array $c): bool => ($c['curso_id'] ?? null) === $cursoId && ($c['usuario_id'] ?? null) === ($e['usuario_id'] ?? null)) !== null;
 
                 $linhas[] = [
                     'id_matricula' => $this->texto($idDaMatricula).'-E'.($i + 1),
-                    'id_aluno' => $e['userId'] ?? null,
+                    'id_aluno' => $e['usuario_id'] ?? null,
                     'id_curso' => $cursoId,
                     // Só a matrícula principal guarda a data; o concorrente não tem a sua.
                     'data_matricula' => '',
                     'status_matricula' => 'Ativa',
-                    'modulos_concluidos' => is_array($prog['completedLessons'] ?? null) ? count($prog['completedLessons']) : 0,
+                    'modulos_concluidos' => is_array($prog['aulas_concluidas'] ?? null) ? count($prog['aulas_concluidas']) : 0,
                     'certificado_liberado' => $temCertificado ? 'Sim' : 'Não',
                 ];
             }
 
-            $concluidos = is_array($e['completedCourseIds'] ?? null) ? array_values($e['completedCourseIds']) : [];
+            $concluidos = is_array($e['cursos_concluidos_ids'] ?? null) ? array_values($e['cursos_concluidos_ids']) : [];
             foreach ($concluidos as $i => $cursoId) {
-                $cert = $this->primeiro($certificados, static fn (array $c): bool => ($c['courseId'] ?? null) === $cursoId && ($c['userId'] ?? null) === ($e['userId'] ?? null));
+                $cert = $this->primeiro($certificados, static fn (array $c): bool => ($c['curso_id'] ?? null) === $cursoId && ($c['usuario_id'] ?? null) === ($e['usuario_id'] ?? null));
 
                 $linhas[] = [
                     'id_matricula' => $this->texto($idDaMatricula).'-C'.($i + 1),
-                    'id_aluno' => $e['userId'] ?? null,
+                    'id_aluno' => $e['usuario_id'] ?? null,
                     'id_curso' => $cursoId,
                     'data_matricula' => '',
                     'status_matricula' => 'Concluída',
@@ -230,7 +230,7 @@ final class BasesGerenciais
      * Progresso por AULA (o nome antigo dizia "módulo", que não existe no banco).
      *
      * @param  array<int, array<string,mixed>>  $progresso
-     * @param  array<string, list<array{id:string,title:string}>>  $catalogo  aulas de cada curso
+     * @param  array<string, list<array{id:string,titulo:string}>>  $catalogo  aulas de cada curso
      * @return list<array<string,mixed>>
      */
     private function progresso(array $progresso, array $catalogo): array
@@ -238,20 +238,20 @@ final class BasesGerenciais
         $linhas = [];
 
         foreach ($progresso as $p) {
-            $cursoId = $p['courseId'] ?? null;
+            $cursoId = $p['curso_id'] ?? null;
             if (! is_string($cursoId) || ! array_key_exists($cursoId, $catalogo)) {
                 continue;
             }
-            $feitas = is_array($p['completedLessons'] ?? null) ? $p['completedLessons'] : [];
+            $feitas = is_array($p['aulas_concluidas'] ?? null) ? $p['aulas_concluidas'] : [];
 
             foreach ($catalogo[$cursoId] as $aula) {
                 $linhas[] = [
                     'id_progresso' => $this->texto($p['id'] ?? null).'-'.$aula['id'],
-                    'id_matricula' => $p['enrollmentId'] ?? '',
-                    'id_aluno' => $p['userId'] ?? null,
+                    'id_matricula' => $p['matricula_id'] ?? '',
+                    'id_aluno' => $p['usuario_id'] ?? null,
                     'id_curso' => $cursoId,
                     'id_aula' => $aula['id'],
-                    'titulo_aula' => $aula['title'],
+                    'titulo_aula' => $aula['titulo'],
                     'status_aula' => in_array($aula['id'], $feitas, true) ? 'Concluído' : 'Não Iniciado',
                 ];
             }
@@ -270,33 +270,33 @@ final class BasesGerenciais
 
         return array_values(array_map(fn (array $c): array => [
             'id_certificado' => $c['id'] ?? null,
-            'id_matricula' => $c['enrollmentId'] ?? '',
-            'id_aluno' => $c['userId'] ?? $c['studentName'] ?? null,
-            'id_curso' => $c['courseId'] ?? null,
-            'codigo_validacao' => $c['verificationHash'] ?? null,
-            'data_emissao' => $c['issueDate'] ?? null,
-            'percentual_frequencia' => $c['attendancePercent'] ?? null,
-            'carga_horaria_certificada' => is_string($c['courseId'] ?? null) ? ($cargas[$c['courseId']] ?? '') : '',
+            'id_matricula' => $c['matricula_id'] ?? '',
+            'id_aluno' => $c['usuario_id'] ?? $c['nome_aluno'] ?? null,
+            'id_curso' => $c['curso_id'] ?? null,
+            'codigo_validacao' => $c['hash_verificacao'] ?? null,
+            'data_emissao' => $c['data_emissao'] ?? null,
+            'percentual_frequencia' => $c['percentual_frequencia'] ?? null,
+            'carga_horaria_certificada' => is_string($c['curso_id'] ?? null) ? ($cargas[$c['curso_id']] ?? '') : '',
         ], $certificados));
     }
 
     /**
      * As aulas de cada curso do catálogo, na ordem da grade — o que o painel
-     * antigo lia de `/api/courses`.
+     * antigo lia de `/api/cursos`.
      *
-     * @return array<string, list<array{id:string,title:string}>>
+     * @return array<string, list<array{id:string,titulo:string}>>
      */
     private function catalogo(): array
     {
         $mapa = [];
-        foreach (Course::query()->get(['id']) as $curso) {
+        foreach (Curso::query()->get(['id']) as $curso) {
             $mapa[(string) $curso->id] = [];
         }
 
-        foreach (Lesson::query()->orderBy('lesson_order')->orderBy('id')->get(['id', 'courseId', 'title']) as $aula) {
-            $cursoId = (string) $aula->courseId;
+        foreach (Aula::query()->orderBy('ordem')->orderBy('id')->get(['id', 'curso_id', 'titulo']) as $aula) {
+            $cursoId = (string) $aula->curso_id;
             if (array_key_exists($cursoId, $mapa)) {
-                $mapa[$cursoId][] = ['id' => (string) $aula->id, 'title' => (string) $aula->title];
+                $mapa[$cursoId][] = ['id' => (string) $aula->id, 'titulo' => (string) $aula->titulo];
             }
         }
 
@@ -307,8 +307,8 @@ final class BasesGerenciais
     private function cargasHorarias(): array
     {
         $mapa = [];
-        foreach (Course::query()->get(['id', 'cargaHoraria']) as $curso) {
-            $carga = $curso->cargaHoraria;
+        foreach (Curso::query()->get(['id', 'carga_horaria']) as $curso) {
+            $carga = $curso->carga_horaria;
             $mapa[(string) $curso->id] = is_numeric($carga) ? (int) $carga : '';
         }
 
@@ -331,7 +331,7 @@ final class BasesGerenciais
         return null;
     }
 
-    /** `String(e.enrolledAt).split('T')[0]`, ou vazio. */
+    /** `String(e.matriculado_em_texto).split('T')[0]`, ou vazio. */
     private function dia(mixed $instante): string
     {
         if ($instante instanceof DateTimeInterface) {

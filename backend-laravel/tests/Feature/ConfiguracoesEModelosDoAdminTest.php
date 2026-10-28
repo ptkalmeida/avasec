@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\DocumentTemplate;
-use App\Models\SystemSettings;
-use App\Models\User;
+use App\Models\ConfiguracaoSistema;
+use App\Models\ModeloDocumento;
+use App\Models\Usuario;
 use App\Support\CanalDeMensagens;
 use App\Support\Jwt;
+use App\Support\TextoDoDocumento;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
@@ -39,17 +41,17 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
     /** @return array<string, mixed> */
     private function gravadas(): array
     {
-        $linha = SystemSettings::query()->find('singleton');
+        $linha = ConfiguracaoSistema::query()->find('singleton');
 
-        return is_array($linha?->data) ? $linha->data : [];
+        return is_array($linha?->dados) ? $linha->dados : [];
     }
 
     // ---- acesso ---------------------------------------------------------------
     public function test_so_o_admin_chega_e_escreve(): void
     {
         $aluno = $this->makeStudent('Aluno Config Acesso');
-        $gestor = User::query()->where('role', 'instructor')->firstOrFail();
-        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->name, 'instructor');
+        $gestor = Usuario::query()->where('papel', 'instructor')->firstOrFail();
+        $tokenDoGestor = Jwt::issue($gestor->id, $gestor->nome, 'instructor');
 
         // O visitante vem primeiro: o cookie de `como()` persiste no cliente de teste.
         foreach (['/admin/configuracoes', '/admin/templates'] as $caminho) {
@@ -60,13 +62,13 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
             $this->como($aluno['token'])->get($caminho)->assertRedirect('/aluno');
             $this->como($tokenDoGestor)->get($caminho)->assertRedirect('/inst');
         }
-        $this->como($tokenDoGestor)->post('/admin/templates/certificado', ['institutionName' => 'X'])->assertRedirect('/inst');
+        $this->como($tokenDoGestor)->post('/admin/templates/certificado', ['nome_instituicao' => 'X'])->assertRedirect('/inst');
     }
 
     // ---- configurações --------------------------------------------------------
     public function test_a_tela_mostra_o_que_esta_valendo(): void
     {
-        SystemSettings::query()->updateOrCreate(['id' => 'singleton'], ['data' => [
+        ConfiguracaoSistema::query()->updateOrCreate(['id' => 'singleton'], ['dados' => [
             'allowDirectMessages' => true, 'allowGlobalChat' => false, 'openEnrollment' => true,
             'autoCertify' => false, 'liveClassRecording' => true, 'autoArchiveDuration' => '3_meses',
         ]]);
@@ -104,7 +106,7 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $this->assertSame('nunca', $gravado['autoArchiveDuration']);
         $this->assertArrayNotHasKey('chaveInventada', $gravado);
 
-        $this->assertTrue(DB::table('SecurityLog')->where('action', 'Alteração de Configurações do Sistema')->exists());
+        $this->assertTrue(DB::table('log_seguranca')->where('acao', 'Alteração de Configurações do Sistema')->exists());
     }
 
     public function test_mensagens_diretas_ligadas_abrem_o_canal(): void
@@ -130,7 +132,7 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
     /** A base de hoje tem "12 meses", que não está na lista: salvar não pode trocá-lo sem aviso. */
     public function test_valor_antigo_de_arquivamento_continua_ofertado_e_valido(): void
     {
-        SystemSettings::query()->updateOrCreate(['id' => 'singleton'], ['data' => ['autoArchiveDuration' => '12 meses']]);
+        ConfiguracaoSistema::query()->updateOrCreate(['id' => 'singleton'], ['dados' => ['autoArchiveDuration' => '12 meses']]);
         $token = $this->admin();
 
         $this->como($token)->get('/admin/configuracoes')->assertSee('12 meses (valor atual)');
@@ -165,24 +167,96 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $tela->assertDontSee('<div id="root">', false);
         $tela->assertSee('Certificado de Conclusão');
         $tela->assertSee('Histórico Escolar');
-        $tela->assertSee('name="institutionName"', false);
+        $tela->assertSee('name="nome_instituicao"', false);
         $tela->assertSee('name="assinaturas[0][name]"', false);
-        $tela->assertSee('/api/document-templates/certificado/preview', false);
-        $tela->assertDontSee('customHtml');
+        $tela->assertSee('/admin/templates/certificado/previa', false);
+        $tela->assertSee('name="titulo"', false);
+        $tela->assertSee('name="texto_corpo"', false);
+        $tela->assertSee('{aluno}');
+        $tela->assertDontSee('html_personalizado');
     }
 
-    public function test_o_historico_avisa_que_ainda_nao_gera_documento(): void
+    public function test_o_historico_tem_previa_e_os_nomes_das_colunas(): void
     {
         $tela = $this->como($this->admin())->get('/admin/templates?tipo=historico');
 
-        $tela->assertSee('ainda não tem emissão de PDF própria');
-        $tela->assertDontSee('/api/document-templates/certificado/preview', false);
+        $tela->assertOk();
+        $tela->assertSee('/admin/templates/historico/previa', false);
+        $tela->assertSee('name="rotulos_colunas[carga_horaria]"', false);
+        $tela->assertDontSee('ainda não tem emissão de PDF própria');
+    }
+
+    public function test_salvar_grava_titulo_corpo_e_colunas_do_historico(): void
+    {
+        $this->como($this->admin())->post('/admin/templates/historico', [
+            'acao' => 'salvar',
+            'titulo' => 'Registro Acadêmico',
+            'texto_corpo' => 'Cursos de {aluno}.',
+            'rotulos_colunas' => ['curso' => 'Disciplina', 'frequencia' => '', 'inventada' => 'x'],
+        ])->assertSessionHasNoErrors();
+
+        $modelo = ModeloDocumento::query()->findOrFail('historico');
+        $this->assertSame('Registro Acadêmico', $modelo->titulo);
+        $this->assertSame('Cursos de {aluno}.', $modelo->texto_corpo);
+        // Só colunas que existem; em branco volta ao nome de fábrica (não é gravado).
+        $this->assertSame(['curso' => 'Disciplina'], $modelo->rotulos_colunas);
+    }
+
+    public function test_campo_automatico_desconhecido_e_erro_e_nao_grava(): void
+    {
+        $this->como($this->admin())->post('/admin/templates/certificado', [
+            'acao' => 'salvar',
+            'texto_corpo' => 'Olá {nota_final}',
+        ])->assertSessionHasErrors('texto_corpo');
+
+        $this->assertNull(ModeloDocumento::query()->find('certificado')?->texto_corpo);
+    }
+
+    public function test_previa_do_rascunho_gera_pdf_dos_dois_tipos_sem_gravar(): void
+    {
+        $token = $this->admin();
+
+        foreach (['certificado', 'historico'] as $tipo) {
+            $resposta = $this->como($token)->post('/admin/templates/'.$tipo.'/previa', [
+                'titulo' => 'Titulo So Na Previa',
+                'texto_corpo' => 'Texto de {aluno}',
+            ]);
+            $resposta->assertOk()->assertHeader('content-type', 'application/pdf');
+            $this->assertStringStartsWith('%PDF-', (string) $resposta->getContent());
+        }
+
+        $this->assertNull(ModeloDocumento::query()->find('certificado')?->titulo);
+    }
+
+    public function test_previa_do_certificado_cabe_numa_pagina_e_sem_qr(): void
+    {
+        $pdf = (string) $this->como($this->admin())->post('/admin/templates/certificado/previa', [])->getContent();
+
+        $this->assertSame(1, preg_match_all('#/Type\s*/Page[^s]#', $pdf));
+        $this->assertStringNotContainsString('PREVIEW-', $pdf);
+    }
+
+    public function test_logo_so_aceita_imagem(): void
+    {
+        $this->como($this->admin())->from('/admin/templates')
+            ->post('/admin/templates/certificado/logo', ['logo' => UploadedFile::fake()->create('x.pdf', 10, 'application/pdf')])
+            ->assertSessionHasErrors('logo');
+    }
+
+    public function test_campos_automaticos_nao_viram_html(): void
+    {
+        $html = TextoDoDocumento::renderizar("Oi {aluno}\n\n<script>x</script>", ['aluno' => '<b>Ana</b>']);
+
+        $this->assertStringNotContainsString('<script>', $html);
+        $this->assertStringNotContainsString('<b>', $html);
+        $this->assertStringContainsString('&lt;b&gt;Ana&lt;/b&gt;', $html);
+        $this->assertSame(2, substr_count($html, '<p class="lead">'));
     }
 
     public function test_tipo_inventado_volta_para_o_certificado(): void
     {
         $this->como($this->admin())->get('/admin/templates?tipo=diploma')->assertRedirect('/admin/templates');
-        $this->como($this->admin())->post('/admin/templates/diploma', ['institutionName' => 'X'])->assertNotFound();
+        $this->como($this->admin())->post('/admin/templates/diploma', ['nome_instituicao' => 'X'])->assertNotFound();
     }
 
     public function test_salvar_o_modelo_grava_instituicao_rodape_e_assinaturas(): void
@@ -191,8 +265,8 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
 
         $this->como($token)->post('/admin/templates/certificado', [
             'acao' => 'salvar',
-            'institutionName' => 'Escola Estadual da Cultura RJ',
-            'footerText' => 'Rodapé novo do certificado.',
+            'nome_instituicao' => 'Escola Estadual da Cultura RJ',
+            'texto_rodape' => 'Rodapé novo do certificado.',
             'assinaturas' => [
                 ['name' => 'Fulana de Tal', 'role' => 'Diretora'],
                 ['name' => '', 'role' => ''],
@@ -200,32 +274,32 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
             ],
         ])->assertRedirect('/admin/templates?tipo=certificado')->assertSessionHas('avisoDeModelo');
 
-        $modelo = DocumentTemplate::query()->findOrFail('certificado');
-        $this->assertSame('Escola Estadual da Cultura RJ', $modelo->institutionName);
-        $this->assertSame('Rodapé novo do certificado.', $modelo->footerText);
+        $modelo = ModeloDocumento::query()->findOrFail('certificado');
+        $this->assertSame('Escola Estadual da Cultura RJ', $modelo->nome_instituicao);
+        $this->assertSame('Rodapé novo do certificado.', $modelo->texto_rodape);
         // A linha em branco é espaço de preenchimento: não vira assinatura.
         $this->assertSame([
             ['name' => 'Fulana de Tal', 'role' => 'Diretora'],
             ['name' => 'Beltrano Silva', 'role' => 'Secretário'],
-        ], $modelo->signatories);
+        ], $modelo->signatarios);
         // O HTML livre nunca é tocado por esta tela.
-        $this->assertNull($modelo->customHtml);
+        $this->assertNull($modelo->html_personalizado);
 
         $this->como($token)->get('/admin/templates')->assertSee('Fulana de Tal')->assertSee('Rodapé novo do certificado.');
-        $this->assertTrue(DB::table('SecurityLog')->where('action', 'Edição de Template de Documento')->exists());
+        $this->assertTrue(DB::table('log_seguranca')->where('acao', 'Edição de Template de Documento')->exists());
     }
 
     public function test_assinatura_pela_metade_e_um_erro_visivel_e_nao_grava(): void
     {
-        $antes = DocumentTemplate::query()->find('certificado')?->institutionName;
+        $antes = ModeloDocumento::query()->find('certificado')?->nome_instituicao;
 
         $this->como($this->admin())->post('/admin/templates/certificado', [
             'acao' => 'salvar',
-            'institutionName' => 'Nome Que Nao Deve Gravar',
+            'nome_instituicao' => 'Nome Que Nao Deve Gravar',
             'assinaturas' => [['name' => 'Só o nome', 'role' => '']],
         ])->assertRedirect('/admin/templates?tipo=certificado')->assertSessionHasErrors('assinaturas');
 
-        $this->assertSame($antes, DocumentTemplate::query()->find('certificado')?->institutionName);
+        $this->assertSame($antes, ModeloDocumento::query()->find('certificado')?->nome_instituicao);
 
         // E a tela volta com o que a pessoa digitou.
         $this->como($this->admin())->get('/admin/templates')->assertSee('Só o nome');
@@ -234,11 +308,11 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
     public function test_adicionar_e_remover_assinatura_mexem_so_no_rascunho(): void
     {
         $token = $this->admin();
-        $antes = DocumentTemplate::query()->find('historico')?->signatories;
+        $antes = ModeloDocumento::query()->find('historico')?->signatarios;
 
         $this->como($token)->post('/admin/templates/historico', [
             'acao' => 'adicionar',
-            'institutionName' => 'Rascunho',
+            'nome_instituicao' => 'Rascunho',
             'assinaturas' => [['name' => 'Primeira', 'role' => 'Cargo 1']],
         ])->assertRedirect('/admin/templates?tipo=historico');
 
@@ -247,7 +321,7 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $tela->assertSee('Primeira');
 
         // Nada foi gravado.
-        $this->assertSame($antes, DocumentTemplate::query()->find('historico')?->signatories);
+        $this->assertSame($antes, ModeloDocumento::query()->find('historico')?->signatarios);
 
         $this->como($token)->post('/admin/templates/historico', [
             'acao' => 'remover:0',
@@ -256,7 +330,7 @@ final class ConfiguracoesEModelosDoAdminTest extends TestCase
         $depois = $this->como($token)->get('/admin/templates?tipo=historico');
         $depois->assertDontSee('Primeira');
         $depois->assertSee('Segunda');
-        $this->assertSame($antes, DocumentTemplate::query()->find('historico')?->signatories);
+        $this->assertSame($antes, ModeloDocumento::query()->find('historico')?->signatarios);
     }
 
     public function test_limite_de_dez_assinaturas(): void

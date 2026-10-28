@@ -1,4 +1,4 @@
-@props(['rota', 'rotulo', 'ativo' => false, 'contagem' => null])
+@props(['rota', 'rotulo', 'ativo' => false, 'contagem' => null, 'detalhe' => null])
 
 {{--
     Um item de menu lateral — a moldura, sem o ícone.
@@ -28,8 +28,15 @@
         {{ $slot }}
     </span>
 
-    <span class="min-w-0 flex-1" x-show="!recolhido">{{ $rotulo }}</span>
-    <span class="sr-only" x-show="recolhido" x-cloak>{{ $rotulo }}</span>
+    {{-- `detalhe` é a linha de apoio sob o rótulo (por exemplo, o título da aula em "Continuar
+         estudando"). Recolhido, o rótulo e o detalhe seguem para o leitor de tela. --}}
+    <span class="min-w-0 flex-1" x-show="!recolhido">
+        {{ $rotulo }}
+        @if ($detalhe !== null && $detalhe !== '')
+            <span class="block truncate text-nota font-normal text-escult-ink-3">{{ $detalhe }}</span>
+        @endif
+    </span>
+    <span class="sr-only" x-show="recolhido" x-cloak>{{ $rotulo }}@if ($detalhe !== null && $detalhe !== ''): {{ $detalhe }}@endif</span>
 
     @if ($contagem !== null && $contagem > 0)
         <span x-show="!recolhido"

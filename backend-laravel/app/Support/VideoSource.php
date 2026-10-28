@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Support;
 
 /**
- * Fonte de vídeo de uma aula, derivada por parsing de Lesson.videoUrl —
+ * Fonte de vídeo de uma aula, derivada por parsing de Aula.url_video —
  * o provider é função pura da URL, sem coluna extra no schema (ADR 08).
  * Espelhado em src/utils/videoSource.ts; casos de teste devem manter paridade.
  */

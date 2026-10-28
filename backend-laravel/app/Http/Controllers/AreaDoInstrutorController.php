@@ -9,6 +9,7 @@ use App\Services\AuditLogger;
 use App\Services\CaixaDeMensagens;
 use App\Services\CourseService;
 use App\Services\EnrollmentService;
+use App\Services\GestoresDoCurso;
 use App\Services\LearningService;
 use App\Services\MessagingService;
 use App\Services\PainelDoInstrutor;
@@ -63,7 +64,7 @@ final class AreaDoInstrutorController extends Controller
      */
     public function escolha(Request $request): View
     {
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         return view('instrutor.escolha', [
@@ -85,7 +86,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(CanalDeMensagens::abertoParaInstrutor(), 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $conversas = $this->caixa->conversas($instrutor);
@@ -119,7 +120,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(CanalDeMensagens::abertoParaInstrutor(), 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $dados = $request->validate([
@@ -131,8 +132,8 @@ final class AreaDoInstrutorController extends Controller
 
         try {
             $this->mensagens->createDirectMessage([
-                'studentUserId' => (string) $dados['aluno'],
-                'text' => trim((string) $dados['texto']),
+                'aluno_usuario_id' => (string) $dados['aluno'],
+                'texto' => trim((string) $dados['texto']),
             ], $instrutor);
         } catch (ApiException $e) {
             return redirect($destino)->withInput()->withErrors(['texto' => $e->getMessage()]);
@@ -154,7 +155,7 @@ final class AreaDoInstrutorController extends Controller
      */
     public function curso(Request $request, string $cursoRef): View|RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -170,21 +171,21 @@ final class AreaDoInstrutorController extends Controller
     /**
      * O curso que este instrutor gerencia, resolvido pelo endereço.
      *
-     * A posse vem do `CourseService` (FK `instructorId`, ADR 10) e é a mesma
+     * A posse vem do `CourseService` (FK `instrutor_id`, ADR 10) e é a mesma
      * que a API aplica — `updateCourse` a reconfere antes de gravar, então uma
      * falha aqui não vira escrita indevida; o que ela evitaria é a tela de um
      * curso alheio.
      *
-     * @param  array{sub:string,name:string,role:string}  $instrutor
+     * @param  array{sub:string,nome:string,papel:string}  $instrutor
      * @return array{curso:array<string, mixed>,id:string,ref:string}|RedirectResponse
      */
     private function meuCurso(array $instrutor, string $cursoRef, string $resto = ''): array|RedirectResponse
     {
-        $resolvido = $this->cursos->resolverCurso($cursoRef, $instrutor['role']);
+        $resolvido = $this->cursos->resolverCurso($cursoRef, $instrutor['papel']);
 
         $curso = $this->cursos->getCourseById($resolvido['id']);
-        $souDono = ($curso['instructorId'] ?? null) === $instrutor['sub'];
-        abort_unless($instrutor['role'] === 'admin' || $souDono, 404);
+        $souDono = (new GestoresDoCurso)->gerencia($resolvido['id'], $instrutor['sub']);
+        abort_unless($instrutor['papel'] === 'admin' || $souDono, 404);
 
         if (! $resolvido['canonico'] && $resolvido['slug'] !== '') {
             return redirect('/inst/curso/'.$resolvido['slug'].$resto);
@@ -208,7 +209,7 @@ final class AreaDoInstrutorController extends Controller
      */
     public function salvarPropriedades(Request $request, string $cursoRef): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -219,53 +220,53 @@ final class AreaDoInstrutorController extends Controller
         // Os mesmos limites do `CourseController::validated`, porque é o mesmo
         // serviço atrás: dois conjuntos de regras divergiriam.
         $dados = $request->validate([
-            'title' => ['required', 'string', 'min:3', 'max:200'],
-            'description' => ['required', 'string', 'min:10', 'max:5000'],
-            'category' => ['required', 'string', 'min:1', 'max:120'],
-            'cargaHoraria' => ['nullable', 'integer', 'min:1', 'max:2000'],
+            'titulo' => ['required', 'string', 'min:3', 'max:200'],
+            'descricao' => ['required', 'string', 'min:10', 'max:5000'],
+            'categoria' => ['required', 'string', 'min:1', 'max:120'],
+            'carga_horaria' => ['nullable', 'integer', 'min:1', 'max:2000'],
             'modalidade' => ['nullable', 'string', 'max:60'],
             'nivel' => ['nullable', 'string', 'max:60'],
-            'areaTematica' => ['nullable', 'string', 'max:150'],
-            'minAttendance' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'emiteCertificado' => ['nullable', 'boolean'],
+            'area_tematica' => ['nullable', 'string', 'max:150'],
+            'frequencia_minima' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'emite_certificado' => ['nullable', 'boolean'],
         ], [], [
-            'title' => 'título',
-            'description' => 'descrição',
-            'category' => 'categoria',
-            'cargaHoraria' => 'carga horária',
-            'minAttendance' => 'frequência mínima',
+            'titulo' => 'título',
+            'descricao' => 'descrição',
+            'categoria' => 'categoria',
+            'carga_horaria' => 'carga horária',
+            'frequencia_minima' => 'frequência mínima',
         ]);
 
         $atualizacao = [
-            'title' => trim((string) $dados['title']),
-            'description' => trim((string) $dados['description']),
-            'category' => trim((string) $dados['category']),
-            'cargaHoraria' => $dados['cargaHoraria'] ?? null,
+            'titulo' => trim((string) $dados['titulo']),
+            'descricao' => trim((string) $dados['descricao']),
+            'categoria' => trim((string) $dados['categoria']),
+            'carga_horaria' => $dados['carga_horaria'] ?? null,
             'modalidade' => self::vazioVirouNulo($dados['modalidade'] ?? null),
             'nivel' => self::vazioVirouNulo($dados['nivel'] ?? null),
-            'areaTematica' => self::vazioVirouNulo($dados['areaTematica'] ?? null),
-            'minAttendance' => $dados['minAttendance'] ?? null,
-            'emiteCertificado' => $request->boolean('emiteCertificado'),
+            'area_tematica' => self::vazioVirouNulo($dados['area_tematica'] ?? null),
+            'frequencia_minima' => $dados['frequencia_minima'] ?? null,
+            'emite_certificado' => $request->boolean('emite_certificado'),
         ];
 
         /*
-         * `cargaHoraria` nula é recusada pelo serviço (`integer|min:1`), então
+         * `carga_horaria` nula é recusada pelo serviço (`integer|min:1`), então
          * campo em branco significa "não mexer", e não "zerar".
          */
-        if ($atualizacao['cargaHoraria'] === null) {
-            unset($atualizacao['cargaHoraria']);
+        if ($atualizacao['carga_horaria'] === null) {
+            unset($atualizacao['carga_horaria']);
         }
-        if ($atualizacao['minAttendance'] === null) {
-            unset($atualizacao['minAttendance']);
+        if ($atualizacao['frequencia_minima'] === null) {
+            unset($atualizacao['frequencia_minima']);
         }
 
         try {
             $this->cursos->updateCourse($meu['id'], $atualizacao, $instrutor);
         } catch (ApiException $e) {
-            return back()->withInput()->withErrors(['title' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['titulo' => $e->getMessage()]);
         }
 
-        $this->audit->log($request, 'Alteração de Curso', 'Curso "'.$atualizacao['title'].'" ('.$meu['id'].') atualizado pela tela de gestão.');
+        $this->audit->log($request, 'Alteração de Curso', 'Curso "'.$atualizacao['titulo'].'" ('.$meu['id'].') atualizado pela tela de gestão.');
 
         // O título muda o slug: o endereço de hoje pode ser outro.
         $novo = $this->cursos->getCourseById($meu['id']);
@@ -288,7 +289,7 @@ final class AreaDoInstrutorController extends Controller
      */
     public function salvarVigencia(Request $request, string $cursoRef): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -311,13 +312,13 @@ final class AreaDoInstrutorController extends Controller
             '1-ano' => $hoje->addYear()->format('Y-m-d'),
             'data' => (string) $dados['ate'],
             // Permanente é a AUSÊNCIA de prazo, e `null` é o que o serviço
-            // entende: ele deriva `vigenciaAte` do texto, e texto vazio vira
+            // entende: ele deriva `vigencia_ate` do texto, e texto vazio vira
             // uma data nula.
             default => null,
         };
 
         try {
-            $this->cursos->updateCourse($meu['id'], ['contractExpirationDate' => $nova], $instrutor);
+            $this->cursos->updateCourse($meu['id'], ['vencimento_contrato_texto' => $nova], $instrutor);
         } catch (ApiException $e) {
             return back()->withErrors(['prazo' => $e->getMessage()]);
         }
@@ -330,7 +331,7 @@ final class AreaDoInstrutorController extends Controller
 
         return redirect('/inst/curso/'.$meu['ref'])->with(
             'avisoDoCurso',
-            $nova === null ? 'Vigência agora é permanente.' : 'Vigência renovada até '.VigenciaDoCurso::diaParaPessoa(['vigenciaAte' => $nova]).'.',
+            $nova === null ? 'Vigência agora é permanente.' : 'Vigência renovada até '.VigenciaDoCurso::diaParaPessoa(['vigencia_ate' => $nova]).'.',
         );
     }
 
@@ -346,7 +347,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef, '/grade-curricular');
@@ -354,20 +355,20 @@ final class AreaDoInstrutorController extends Controller
             return $meu;
         }
 
-        $aulas = is_array($meu['curso']['lessons'] ?? null) ? array_values($meu['curso']['lessons']) : [];
+        $aulas = is_array($meu['curso']['aulas'] ?? null) ? array_values($meu['curso']['aulas']) : [];
 
         return view('instrutor.grade', [
             'curso' => $meu['curso'],
             'ref' => $meu['ref'],
             'aulas' => array_map(static function (mixed $aula): array {
                 $a = is_array($aula) ? $aula : [];
-                $documentos = is_array($a['documents'] ?? null) ? $a['documents'] : [];
+                $documentos = is_array($a['documentos'] ?? null) ? $a['documentos'] : [];
 
                 return [
                     'id' => is_string($a['id'] ?? null) ? $a['id'] : '',
-                    'title' => is_string($a['title'] ?? null) ? $a['title'] : '',
-                    'duration' => is_string($a['duration'] ?? null) && $a['duration'] !== '' ? $a['duration'] : null,
-                    'temVideo' => is_string($a['videoUrl'] ?? null) && $a['videoUrl'] !== '',
+                    'titulo' => is_string($a['titulo'] ?? null) ? $a['titulo'] : '',
+                    'duracao' => is_string($a['duracao'] ?? null) && $a['duracao'] !== '' ? $a['duracao'] : null,
+                    'temVideo' => is_string($a['url_video'] ?? null) && $a['url_video'] !== '',
                     'documentos' => count($documentos),
                 ];
             }, $aulas),
@@ -376,7 +377,7 @@ final class AreaDoInstrutorController extends Controller
                 $aulas,
             )),
             'vigenciaVencida' => VigenciaDoCurso::vencida($meu['curso']),
-            'vigenciaAte' => VigenciaDoCurso::diaParaPessoa($meu['curso']),
+            'vigencia_ate' => VigenciaDoCurso::diaParaPessoa($meu['curso']),
         ]);
     }
 
@@ -385,14 +386,14 @@ final class AreaDoInstrutorController extends Controller
      *
      * Quem grava é o `CourseService::moverAula`, que troca a aula com a vizinha
      * e renumera — e que só mexe na ORDEM. O React reenviava o curso inteiro
-     * (`PUT /api/courses/{id}` com todas as aulas), e dois instrutores
+     * (`PUT /api/cursos/{id}` com todas as aulas), e dois instrutores
      * editando o mesmo curso se sobrescreviam sem aviso.
      */
     public function moverAula(Request $request, string $cursoRef, string $aulaId): RedirectResponse
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -423,7 +424,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -432,9 +433,9 @@ final class AreaDoInstrutorController extends Controller
         }
 
         $titulo = '';
-        foreach (is_array($meu['curso']['lessons'] ?? null) ? $meu['curso']['lessons'] : [] as $aula) {
-            if (is_array($aula) && ($aula['id'] ?? null) === $aulaId && is_string($aula['title'] ?? null)) {
-                $titulo = $aula['title'];
+        foreach (is_array($meu['curso']['aulas'] ?? null) ? $meu['curso']['aulas'] : [] as $aula) {
+            if (is_array($aula) && ($aula['id'] ?? null) === $aulaId && is_string($aula['titulo'] ?? null)) {
+                $titulo = $aula['titulo'];
             }
         }
 
@@ -466,7 +467,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef, '/aulas/nova');
@@ -482,7 +483,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -499,10 +500,10 @@ final class AreaDoInstrutorController extends Controller
 
         try {
             $id = $this->cursos->criarAula($meu['id'], [
-                'title' => $dados['titulo'] ?? '',
-                'duration' => $dados['carga'] ?? '',
-                'videoUrl' => $dados['video'] ?? null,
-                'content' => $dados['texto'] ?? '',
+                'titulo' => $dados['titulo'] ?? '',
+                'duracao' => $dados['carga'] ?? '',
+                'url_video' => $dados['video'] ?? null,
+                'conteudo' => $dados['texto'] ?? '',
             ], $instrutor);
         } catch (ApiException $e) {
             return redirect('/inst/curso/'.$meu['ref'].'/aulas/nova')->withErrors(['aula' => $e->getMessage()])->withInput();
@@ -526,7 +527,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef, '/aulas/'.rawurlencode($aulaId));
@@ -542,7 +543,7 @@ final class AreaDoInstrutorController extends Controller
         }
 
         $editar = $request->query('editar');
-        $conteudo = is_string($achada['aula']['content'] ?? null) ? $achada['aula']['content'] : '';
+        $conteudo = is_string($achada['aula']['conteudo'] ?? null) ? $achada['aula']['conteudo'] : '';
 
         return view('instrutor.aula', [
             'curso' => $meu['curso'],
@@ -550,7 +551,7 @@ final class AreaDoInstrutorController extends Controller
             'aula' => $achada['aula'],
             'posicao' => $achada['posicao'],
             'total' => $achada['total'],
-            'documentos' => is_array($achada['aula']['documents'] ?? null) ? array_values($achada['aula']['documents']) : [],
+            'documentos' => is_array($achada['aula']['documentos'] ?? null) ? array_values($achada['aula']['documentos']) : [],
             'blocos' => ConteudoDaAula::analisar($conteudo),
             'conteudo' => $conteudo,
             'versao' => CourseService::versaoDoConteudo($conteudo),
@@ -577,12 +578,12 @@ final class AreaDoInstrutorController extends Controller
     {
         $saida = [];
         foreach ($this->versoes->listar(VersoesDeConteudo::AULA, $aulaId) as $v) {
-            $titulo = is_string($v['conteudo']['title'] ?? null) ? $v['conteudo']['title'] : '';
-            $texto = is_string($v['conteudo']['content'] ?? null) ? $v['conteudo']['content'] : '';
+            $titulo = is_string($v['conteudo']['titulo'] ?? null) ? $v['conteudo']['titulo'] : '';
+            $texto = is_string($v['conteudo']['conteudo'] ?? null) ? $v['conteudo']['conteudo'] : '';
 
             $saida[] = [
                 'id' => $v['id'],
-                'quando' => Fuso::de($v['criadoEm'])->format('d/m/Y H:i'),
+                'quando' => Fuso::de($v['criado_em'])->format('d/m/Y H:i'),
                 'porNome' => $v['porNome'],
                 'resumo' => ($titulo !== '' ? mb_strimwidth($titulo, 0, 90, '…') : 'Sem título').' · '.mb_strlen($texto).' caracteres de texto',
                 'blocos' => ConteudoDaAula::analisar($texto)['blocos'],
@@ -602,7 +603,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -618,10 +619,10 @@ final class AreaDoInstrutorController extends Controller
 
         try {
             $this->cursos->atualizarAula($meu['id'], $aulaId, [
-                'title' => is_string($anterior['title'] ?? null) ? $anterior['title'] : '',
-                'duration' => is_string($anterior['duration'] ?? null) ? $anterior['duration'] : '',
-                'videoUrl' => is_string($anterior['videoUrl'] ?? null) ? $anterior['videoUrl'] : null,
-                'content' => is_string($anterior['content'] ?? null) ? $anterior['content'] : null,
+                'titulo' => is_string($anterior['titulo'] ?? null) ? $anterior['titulo'] : '',
+                'duracao' => is_string($anterior['duracao'] ?? null) ? $anterior['duracao'] : '',
+                'url_video' => is_string($anterior['url_video'] ?? null) ? $anterior['url_video'] : null,
+                'conteudo' => is_string($anterior['conteudo'] ?? null) ? $anterior['conteudo'] : null,
             ], $instrutor);
         } catch (ApiException $e) {
             return redirect($pagina.'#historico')->withErrors(['aula' => $e->getMessage()]);
@@ -645,7 +646,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -655,7 +656,7 @@ final class AreaDoInstrutorController extends Controller
         abort_if($achada === null, 404);
 
         $indice = max(0, $request->integer('indice'));
-        $atual = is_string($achada['aula']['content'] ?? null) ? $achada['aula']['content'] : '';
+        $atual = is_string($achada['aula']['conteudo'] ?? null) ? $achada['aula']['conteudo'] : '';
 
         $campos = [];
         foreach (['tipo', 'texto', 'tamanho', 'alinhamento', 'linguagem', 'legenda', 'codigo', 'url', 'descricao'] as $chave) {
@@ -699,8 +700,8 @@ final class AreaDoInstrutorController extends Controller
         $dados = $request->validate(['titulo' => ['nullable', 'string'], 'carga' => ['nullable', 'string']]);
 
         return $this->gravarAula($request, $cursoRef, $aulaId, 'identificacao', [
-            'title' => $dados['titulo'] ?? '',
-            'duration' => $dados['carga'] ?? '',
+            'titulo' => $dados['titulo'] ?? '',
+            'duracao' => $dados['carga'] ?? '',
         ], 'Identificação da aula atualizada.');
     }
 
@@ -710,7 +711,7 @@ final class AreaDoInstrutorController extends Controller
         $dados = $request->validate(['video' => ['nullable', 'string']]);
         $video = trim($dados['video'] ?? '');
 
-        return $this->gravarAula($request, $cursoRef, $aulaId, 'video', ['videoUrl' => $video], $video === '' ? 'Vídeo removido da aula.' : 'Vídeo da aula atualizado.');
+        return $this->gravarAula($request, $cursoRef, $aulaId, 'video', ['url_video' => $video], $video === '' ? 'Vídeo removido da aula.' : 'Vídeo da aula atualizado.');
     }
 
     /**
@@ -724,7 +725,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -735,7 +736,7 @@ final class AreaDoInstrutorController extends Controller
         $pagina = '/inst/curso/'.$meu['ref'].'/aulas/'.rawurlencode($aulaId);
 
         try {
-            /** @var array{title?:string,duration?:string,videoUrl?:?string,content?:?string} $campos */
+            /** @var array{titulo?:string,duracao?:string,url_video?:?string,conteudo?:?string} $campos */
             $this->cursos->atualizarAula($meu['id'], $aulaId, $campos, $instrutor);
         } catch (ApiException $e) {
             return redirect($pagina.'?editar='.$zona.'#'.$zona)->withErrors([$zona => $e->getMessage()])->withInput();
@@ -764,7 +765,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -796,7 +797,7 @@ final class AreaDoInstrutorController extends Controller
         $tipoPedido = $campos['tipo'] ?? '';
 
         $aula = $this->aulaDoCurso($meu['curso'], $aulaId);
-        $videoPrincipal = is_string($aula['aula']['videoUrl'] ?? null) ? $aula['aula']['videoUrl'] : null;
+        $videoPrincipal = is_string($aula['aula']['url_video'] ?? null) ? $aula['aula']['url_video'] : null;
         $removido = null;
         $avisos = [];
 
@@ -940,7 +941,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -973,18 +974,18 @@ final class AreaDoInstrutorController extends Controller
 
                 $enviado = $this->uploads->store($arquivo, 'public', $instrutor['sub']);
                 $url = $enviado['url'];
-                $tamanho = $tamanho !== '' ? $tamanho : $enviado['size'];
-                $titulo = $titulo !== '' ? $titulo : self::tituloDoArquivo($enviado['fileName']);
-                $tipo = $tipo === 'auto' ? self::tipoDoArquivo($enviado['fileName']) : $tipo;
+                $tamanho = $tamanho !== '' ? $tamanho : $enviado['tamanho'];
+                $titulo = $titulo !== '' ? $titulo : self::tituloDoArquivo($enviado['nome_arquivo']);
+                $tipo = $tipo === 'auto' ? self::tipoDoArquivo($enviado['nome_arquivo']) : $tipo;
             } elseif ($tipo === 'auto') {
                 $tipo = preg_match('~^https?://(?:docs|drive)\.google\.com/~i', $url) === 1 ? 'drive' : 'url';
             }
 
             $this->cursos->anexarDocumento($meu['id'], $aulaId, [
-                'title' => $titulo,
-                'type' => $tipo,
+                'titulo' => $titulo,
+                'tipo' => $tipo,
                 'url' => $url,
-                'size' => $tamanho,
+                'tamanho' => $tamanho,
             ], $instrutor);
         } catch (ApiException $e) {
             return redirect($pagina.'?editar=anexos#anexos')
@@ -1002,7 +1003,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.modulosAulas') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -1049,7 +1050,7 @@ final class AreaDoInstrutorController extends Controller
      */
     private function aulaDoCurso(array $curso, string $aulaId): ?array
     {
-        $aulas = is_array($curso['lessons'] ?? null) ? array_values($curso['lessons']) : [];
+        $aulas = is_array($curso['aulas'] ?? null) ? array_values($curso['aulas']) : [];
 
         foreach ($aulas as $i => $aula) {
             if (is_array($aula) && ($aula['id'] ?? null) === $aulaId) {
@@ -1071,7 +1072,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.quizSimples') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef, '/avaliacoes');
@@ -1082,7 +1083,7 @@ final class AreaDoInstrutorController extends Controller
         return view('instrutor.avaliacoes', [
             'curso' => $meu['curso'],
             'ref' => $meu['ref'],
-            'avaliacoes' => $this->aprendizagem->avaliacoesDoCurso($meu['id'], $instrutor['role']),
+            'avaliacoes' => $this->aprendizagem->avaliacoesDoCurso($meu['id'], $instrutor['papel']),
             'minimo' => BusinessRules::quizPassThreshold(),
         ]);
     }
@@ -1090,25 +1091,25 @@ final class AreaDoInstrutorController extends Controller
     /**
      * O formulário de uma avaliação — a mesma tela cria e edita.
      *
-     * `$quizId` nulo é prova nova. O curso vem SEMPRE do endereço: o formulário
+     * `$avaliacao_id` nulo é prova nova. O curso vem SEMPRE do endereço: o formulário
      * não tem campo de curso, e por isso uma prova não muda de curso por edição.
-     * (O editor React tinha o seletor, e a API aceita `courseId` no corpo.)
+     * (O editor React tinha o seletor, e a API aceita `curso_id` no corpo.)
      */
-    public function formularioDeAvaliacao(Request $request, string $cursoRef, ?string $quizId = null): View|RedirectResponse
+    public function formularioDeAvaliacao(Request $request, string $cursoRef, ?string $avaliacao_id = null): View|RedirectResponse
     {
         abort_unless(config('features.quizSimples') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
-        $meu = $this->meuCurso($instrutor, $cursoRef, $quizId === null ? '/avaliacoes/nova' : '/avaliacoes/'.rawurlencode($quizId).'/editar');
+        $meu = $this->meuCurso($instrutor, $cursoRef, $avaliacao_id === null ? '/avaliacoes/nova' : '/avaliacoes/'.rawurlencode($avaliacao_id).'/editar');
         if ($meu instanceof RedirectResponse) {
             return $meu;
         }
 
         $prova = null;
-        if ($quizId !== null) {
-            $prova = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $quizId);
+        if ($avaliacao_id !== null) {
+            $prova = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $avaliacao_id);
             abort_if($prova === null, 404);
         }
 
@@ -1126,7 +1127,7 @@ final class AreaDoInstrutorController extends Controller
      * O que o formulário mostra ao abrir: o que a pessoa acabou de digitar (se
      * a gravação falhou), a prova que se edita, ou uma questão em branco.
      *
-     * @param  array{id:string,title:string,questions:list<array{id:string,questionText:string,options:list<string>,correctOptionIndex:int,explanation:string|null,reviewMessage:string|null,recommendedModule:string|null,allowRetry:bool}>}|null  $prova
+     * @param  array{id:string,titulo:string,questoes:list<array{id:string,texto_questao:string,opcoes:list<string>,indice_opcao_correta:int,explicacao:string|null,mensagem_revisao:string|null,modulo_recomendado:string|null,permite_nova_tentativa:bool}>}|null  $prova
      * @return list<array{id:string,enunciado:string,alternativas:list<string>,correta:int,explicacao:string,revisao:string,modulo:string}>
      */
     private function questoesIniciais(?array $prova): array
@@ -1151,16 +1152,16 @@ final class AreaDoInstrutorController extends Controller
             return $lista;
         }
 
-        if ($prova !== null && $prova['questions'] !== []) {
+        if ($prova !== null && $prova['questoes'] !== []) {
             return array_map(static fn (array $q): array => [
                 'id' => $q['id'],
-                'enunciado' => $q['questionText'],
-                'alternativas' => $q['options'],
-                'correta' => $q['correctOptionIndex'],
-                'explicacao' => $q['explanation'] ?? '',
-                'revisao' => $q['reviewMessage'] ?? '',
-                'modulo' => $q['recommendedModule'] ?? '',
-            ], $prova['questions']);
+                'enunciado' => $q['texto_questao'],
+                'alternativas' => $q['opcoes'],
+                'correta' => $q['indice_opcao_correta'],
+                'explicacao' => $q['explicacao'] ?? '',
+                'revisao' => $q['mensagem_revisao'] ?? '',
+                'modulo' => $q['modulo_recomendado'] ?? '',
+            ], $prova['questoes']);
         }
 
         return [['id' => '', 'enunciado' => '', 'alternativas' => ['', '', '', ''], 'correta' => 0, 'explicacao' => '', 'revisao' => '', 'modulo' => '']];
@@ -1176,11 +1177,11 @@ final class AreaDoInstrutorController extends Controller
      *
      * O curso é o do ENDEREÇO. O id da prova só vale se ela é deste curso.
      */
-    public function salvarAvaliacao(Request $request, string $cursoRef, ?string $quizId = null): RedirectResponse
+    public function salvarAvaliacao(Request $request, string $cursoRef, ?string $avaliacao_id = null): RedirectResponse
     {
         abort_unless(config('features.quizSimples') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -1189,8 +1190,8 @@ final class AreaDoInstrutorController extends Controller
         }
 
         $existente = null;
-        if ($quizId !== null) {
-            $existente = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $quizId);
+        if ($avaliacao_id !== null) {
+            $existente = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $avaliacao_id);
             abort_if($existente === null, 404);
         }
 
@@ -1209,12 +1210,12 @@ final class AreaDoInstrutorController extends Controller
             $erros['questoes'] = 'No máximo 100 questões por avaliação.';
         }
 
-        // O que a questão tinha de `allowRetry` antes: a prova do aluno é
+        // O que a questão tinha de `permite_nova_tentativa` antes: a prova do aluno é
         // corrigida no fim e o campo deixou de ser usado, mas o que já estava
         // gravado não é jogado fora por quem edita outra coisa.
         $reentrada = [];
-        foreach ($existente['questions'] ?? [] as $antiga) {
-            $reentrada[$antiga['id']] = $antiga['allowRetry'];
+        foreach ($existente['questoes'] ?? [] as $antiga) {
+            $reentrada[$antiga['id']] = $antiga['permite_nova_tentativa'];
         }
 
         $questoes = [];
@@ -1250,13 +1251,13 @@ final class AreaDoInstrutorController extends Controller
 
             $questoes[] = array_filter([
                 'id' => $idPedido,
-                'questionText' => $enunciado,
-                'options' => array_map(static fn (string $a): string => trim($a), $alternativas),
-                'correctOptionIndex' => $correta,
-                'explanation' => $texto($bruta['explicacao'] ?? null),
-                'reviewMessage' => $texto($bruta['revisao'] ?? null),
-                'recommendedModule' => $texto($bruta['modulo'] ?? null),
-                'allowRetry' => $idPedido !== null ? ($reentrada[$idPedido] ?? true) : true,
+                'texto_questao' => $enunciado,
+                'opcoes' => array_map(static fn (string $a): string => trim($a), $alternativas),
+                'indice_opcao_correta' => $correta,
+                'explicacao' => $texto($bruta['explicacao'] ?? null),
+                'mensagem_revisao' => $texto($bruta['revisao'] ?? null),
+                'modulo_recomendado' => $texto($bruta['modulo'] ?? null),
+                'permite_nova_tentativa' => $idPedido !== null ? ($reentrada[$idPedido] ?? true) : true,
             ], static fn (mixed $v): bool => $v !== null);
         }
 
@@ -1267,9 +1268,9 @@ final class AreaDoInstrutorController extends Controller
         try {
             $salva = $this->aprendizagem->createQuiz(array_filter([
                 'id' => $existente['id'] ?? null,
-                'courseId' => $meu['id'],
-                'title' => $titulo,
-                'questions' => $questoes,
+                'curso_id' => $meu['id'],
+                'titulo' => $titulo,
+                'questoes' => $questoes,
             ], static fn (mixed $v): bool => $v !== null), $instrutor);
         } catch (ApiException $e) {
             return back()->withInput()->withErrors(['questoes' => $e->getMessage()]);
@@ -1292,11 +1293,11 @@ final class AreaDoInstrutorController extends Controller
      * Tira a avaliação do ar. As respostas dos alunos continuam registradas
      * (ADR 12) — `LearningService::deleteQuiz` inativa só a prova.
      */
-    public function removerAvaliacao(Request $request, string $cursoRef, string $quizId): RedirectResponse
+    public function removerAvaliacao(Request $request, string $cursoRef, string $avaliacao_id): RedirectResponse
     {
         abort_unless(config('features.quizSimples') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -1306,11 +1307,11 @@ final class AreaDoInstrutorController extends Controller
 
         // A prova tem de ser DESTE curso: o `deleteQuiz` da API confere o dono
         // do curso da prova, mas o endereço também tem de dizer a verdade.
-        $prova = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $quizId);
+        $prova = $this->aprendizagem->avaliacaoParaEditar($meu['id'], $avaliacao_id);
         abort_if($prova === null, 404);
 
         try {
-            $this->aprendizagem->deleteQuiz($quizId, $instrutor, 'Retirada pelo instrutor.');
+            $this->aprendizagem->deleteQuiz($avaliacao_id, $instrutor, 'Retirada pelo instrutor.');
         } catch (ApiException $e) {
             return redirect('/inst/curso/'.$meu['ref'].'/avaliacoes')->withErrors(['avaliacoes' => $e->getMessage()]);
         }
@@ -1318,7 +1319,7 @@ final class AreaDoInstrutorController extends Controller
         $this->audit->log(
             $request,
             'Inativação de Avaliação',
-            'Avaliação "'.$prova['title'].'" ('.$quizId.') do curso '.$meu['id'].' retirada (respostas preservadas).',
+            'Avaliação "'.$prova['titulo'].'" ('.$avaliacao_id.') do curso '.$meu['id'].' retirada (respostas preservadas).',
             'WARNING',
         );
 
@@ -1337,7 +1338,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_if(config('features.'.$flag) === true, 501);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);
@@ -1365,7 +1366,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.dadosGerenciais') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef, '/alunos');
@@ -1397,7 +1398,7 @@ final class AreaDoInstrutorController extends Controller
     {
         abort_unless(config('features.dadosGerenciais') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $instrutor */
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
         $instrutor = $request->attributes->get('auth_user');
 
         $meu = $this->meuCurso($instrutor, $cursoRef);

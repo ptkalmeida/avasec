@@ -46,7 +46,7 @@ final class CourseController extends Controller
         $requester = $this->optionalRequester($request);
 
         return response()->json(
-            $this->courses->resolverCurso($valor, $requester['role'] ?? null)
+            $this->courses->resolverCurso($valor, $requester['papel'] ?? null)
         );
     }
 
@@ -54,7 +54,7 @@ final class CourseController extends Controller
     {
         $data = $this->validated($request, false);
         $course = $this->courses->createCourse($data, $this->requester($request));
-        $title = $this->optionalString($course, 'title') ?? '';
+        $title = $this->optionalString($course, 'titulo') ?? '';
         $this->audit->log($request, 'Criação de Curso', "Curso \"{$title}\" criado.");
 
         return response()->json($course, 201);
@@ -64,7 +64,7 @@ final class CourseController extends Controller
     {
         $data = $this->validated($request, true);
         $course = $this->courses->updateCourse($id, $data, $this->requester($request));
-        $title = $this->optionalString($course, 'title') ?? '';
+        $title = $this->optionalString($course, 'titulo') ?? '';
         $this->audit->log($request, 'Alteração de Curso', "Curso \"{$title}\" ({$id}) atualizado.");
 
         return response()->json($course);
@@ -96,54 +96,54 @@ final class CourseController extends Controller
             // dos alunos, e um id como `%` ampliava o escopo de alunos do instrutor (achado da varredura
             // de segurança de 23/10/2026).
             'id' => ['sometimes', 'string', 'max:191', 'regex:/^[A-Za-z0-9_-]+$/'],
-            'title' => [$req, 'string', 'min:3', 'max:200'],
-            'description' => [$req, 'string', 'min:10', 'max:5000'],
-            'category' => [$req, 'string', 'min:1', 'max:120'],
-            'thumbnail' => [$req, 'string', 'min:1', 'max:2000', new SafeUrlRule],
-            // ADR 10: autoria por instructorId (admin); instructorName é aceito
-            // apenas por compat de payload e IGNORADO — display deriva do User.
-            'instructorId' => ['sometimes', 'nullable', 'string', 'max:191'],
-            'instructorName' => ['sometimes', 'nullable', 'string', 'max:150'],
-            'coverImage' => ['sometimes', 'nullable', 'string', 'max:2000', new SafeUrlRule],
-            'courseType' => ['sometimes', 'in:fixo,ao_vivo'],
-            'hasChat' => ['sometimes', 'boolean'],
-            'minAttendance' => ['sometimes', 'numeric', 'min:0', 'max:100'],
-            'contractExpirationDate' => ['sometimes', 'nullable', 'string', 'max:60'],
-            'areaTematica' => ['sometimes', 'nullable', 'string', 'max:150'],
-            'cargaHoraria' => ['sometimes', 'integer', 'min:1', 'max:2000'],
+            'titulo' => [$req, 'string', 'min:3', 'max:200'],
+            'descricao' => [$req, 'string', 'min:10', 'max:5000'],
+            'categoria' => [$req, 'string', 'min:1', 'max:120'],
+            'miniatura' => [$req, 'string', 'min:1', 'max:2000', new SafeUrlRule],
+            // ADR 10: autoria por instrutor_id (admin); nome_instrutor é aceito
+            // apenas por compat de payload e IGNORADO — display deriva do Usuario.
+            'instrutor_id' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'nome_instrutor' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'imagem_capa' => ['sometimes', 'nullable', 'string', 'max:2000', new SafeUrlRule],
+            'tipo_curso' => ['sometimes', 'in:fixo,ao_vivo'],
+            'tem_chat' => ['sometimes', 'boolean'],
+            'frequencia_minima' => ['sometimes', 'numeric', 'min:0', 'max:100'],
+            'vencimento_contrato_texto' => ['sometimes', 'nullable', 'string', 'max:60'],
+            'area_tematica' => ['sometimes', 'nullable', 'string', 'max:150'],
+            'carga_horaria' => ['sometimes', 'integer', 'min:1', 'max:2000'],
             'modalidade' => ['sometimes', 'nullable', 'string', 'max:60'],
             'nivel' => ['sometimes', 'nullable', 'string', 'max:60'],
-            'emiteCertificado' => ['sometimes', 'boolean'],
-            'statusCurso' => ['sometimes', 'nullable', 'string', 'max:60'],
+            'emite_certificado' => ['sometimes', 'boolean'],
+            'status_curso' => ['sometimes', 'nullable', 'string', 'max:60'],
             // Aulas aninhadas
-            'lessons' => ['sometimes', 'array'],
-            'lessons.*.id' => ['sometimes', 'string', 'max:191'],
-            'lessons.*.title' => ['required_with:lessons', 'string', 'min:1', 'max:200'],
-            'lessons.*.duration' => ['required_with:lessons', 'string', 'min:1', 'max:30'],
-            'lessons.*.videoUrl' => ['sometimes', 'nullable', 'string', 'max:2000', new VideoUrlRule],
-            'lessons.*.content' => ['sometimes', 'nullable', 'string', 'max:20000'],
-            'lessons.*.order' => ['required_with:lessons', 'integer', 'min:0'],
-            'lessons.*.documents' => ['sometimes', 'array'],
-            'lessons.*.documents.*.title' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:200'],
-            'lessons.*.documents.*.type' => ['required_with:lessons.*.documents', 'in:pdf,doc,url,drive,outro'],
-            'lessons.*.documents.*.url' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:2000', new SafeUrlRule],
-            'lessons.*.documents.*.size' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'aulas' => ['sometimes', 'array'],
+            'aulas.*.id' => ['sometimes', 'string', 'max:191'],
+            'aulas.*.titulo' => ['required_with:lessons', 'string', 'min:1', 'max:200'],
+            'aulas.*.duracao' => ['required_with:lessons', 'string', 'min:1', 'max:30'],
+            'aulas.*.url_video' => ['sometimes', 'nullable', 'string', 'max:2000', new VideoUrlRule],
+            'aulas.*.conteudo' => ['sometimes', 'nullable', 'string', 'max:20000'],
+            'aulas.*.ordem' => ['required_with:lessons', 'integer', 'min:0'],
+            'aulas.*.documentos' => ['sometimes', 'array'],
+            'aulas.*.documentos.*.titulo' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:200'],
+            'aulas.*.documentos.*.tipo' => ['required_with:lessons.*.documents', 'in:pdf,doc,url,drive,outro'],
+            'aulas.*.documentos.*.url' => ['required_with:lessons.*.documents', 'string', 'min:1', 'max:2000', new SafeUrlRule],
+            'aulas.*.documentos.*.tamanho' => ['sometimes', 'nullable', 'string', 'max:30'],
             // Sessões ao vivo aninhadas
-            'liveSessions' => ['sometimes', 'array'],
-            'liveSessions.*.id' => ['sometimes', 'string', 'max:191'],
-            'liveSessions.*.title' => ['required_with:liveSessions', 'string', 'min:1', 'max:200'],
+            'sessoes_ao_vivo' => ['sometimes', 'array'],
+            'sessoes_ao_vivo.*.id' => ['sometimes', 'string', 'max:191'],
+            'sessoes_ao_vivo.*.titulo' => ['required_with:liveSessions', 'string', 'min:1', 'max:200'],
             // Data real, no formato do <input type="datetime-local"> (ISO local, sem fuso).
             // Antes era texto livre e chegavam valores como "Hoje, as 19:30" ou "Proxima
             // Segunda, as 20:00" — impossivel de ordenar ou filtrar, o que impedia a
             // agenda dos proximos 30 dias na aba Calendario. Fuso literal e deliberado:
             // a escola opera num unico fuso (ver src/utils/liveSchedule.ts).
-            'liveSessions.*.scheduledAt' => [
+            'sessoes_ao_vivo.*.agendado_para_texto' => [
                 'required_with:liveSessions', 'string', 'max:100',
                 'date_format:Y-m-d\TH:i,Y-m-d\TH:i:s',
             ],
-            'liveSessions.*.durationMinutes' => ['required_with:liveSessions', 'integer', 'min:1', 'max:600'],
-            'liveSessions.*.meetingLink' => ['required_with:liveSessions', 'string', 'min:1', 'max:2000', new SafeUrlRule],
-            'liveSessions.*.isLive' => ['sometimes', 'boolean'],
+            'sessoes_ao_vivo.*.duracao_minutos' => ['required_with:liveSessions', 'integer', 'min:1', 'max:600'],
+            'sessoes_ao_vivo.*.link_reuniao' => ['required_with:liveSessions', 'string', 'min:1', 'max:2000', new SafeUrlRule],
+            'sessoes_ao_vivo.*.ao_vivo' => ['sometimes', 'boolean'],
         ];
 
         return $this->validateKeepingAll($request, $rules);

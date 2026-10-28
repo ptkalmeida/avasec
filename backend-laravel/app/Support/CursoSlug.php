@@ -20,7 +20,7 @@ use Illuminate\Support\Str;
  *
  * 1. `Str::slug` sozinho **engole a barra**: "UX/UI Design" vira `uxui-design`,
  *    não `ux-ui-design`. Por isso os separadores viram espaço ANTES.
- * 2. Um curso chamado "Course 1" geraria o slug `course-1`, que é o **id de
+ * 2. Um curso chamado "Curso 1" geraria o slug `course-1`, que é o **id de
  *    outro curso**. Como o roteador aceita id (links antigos) e slug, o link
  *    abriria o curso errado — silenciosamente. `ehFormaDeId()` bloqueia isso.
  * 3. Título só com pontuação ou vazio geraria slug vazio, e slug vazio some do

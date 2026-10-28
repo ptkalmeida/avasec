@@ -6,10 +6,10 @@ namespace Tests\Feature;
 
 use App\Exceptions\ApiException;
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\LessonDocument;
-use App\Models\User;
+use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\DocumentoAula;
+use App\Models\Usuario;
 use App\Services\CourseService;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
@@ -42,50 +42,50 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    /** @return array{0:Course,1:Lesson,2:Lesson} */
-    private function cursoComDuasAulas(string $instructorId, string $titulo = 'Curso Dos Anexos'): array
+    /** @return array{0:Curso,1:Aula,2:Aula} */
+    private function cursoComDuasAulas(string $instrutor_id, string $titulo = 'Curso Dos Anexos'): array
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-anexo-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ]);
 
         $aulas = [];
         foreach ([1, 2] as $i) {
-            $aulas[] = Lesson::query()->create([
+            $aulas[] = Aula::query()->create([
                 'id' => 'lesson-anexo-'.$curso->id.'-'.$i,
-                'courseId' => $curso->id,
-                'title' => "Aula {$i}",
-                'duration' => '30 min',
-                'content' => "Texto {$i}",
-                'lesson_order' => $i,
+                'curso_id' => $curso->id,
+                'titulo' => "Aula {$i}",
+                'duracao' => '30 min',
+                'conteudo' => "Texto {$i}",
+                'ordem' => $i,
             ]);
         }
 
         return [$curso->refresh(), $aulas[0], $aulas[1]];
     }
 
-    private function endereco(Course $curso, Lesson $aula, string $resto = ''): string
+    private function endereco(Curso $curso, Aula $aula, string $resto = ''): string
     {
         return '/inst/curso/'.$curso->slug.'/aulas/'.$aula->id.$resto;
     }
@@ -113,11 +113,11 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
             ->assertRedirect($this->endereco($curso, $aula).'#anexos')
             ->assertSessionHas('avisoDoCurso');
 
-        $doc = LessonDocument::query()->where('lessonId', $aula->id)->firstOrFail();
-        $this->assertSame('Leitura complementar', $doc->title);
-        $this->assertSame('url', $doc->type);
+        $doc = DocumentoAula::query()->where('aula_id', $aula->id)->firstOrFail();
+        $this->assertSame('Leitura complementar', $doc->titulo);
+        $this->assertSame('url', $doc->tipo);
         $this->assertSame('https://exemplo.com/leitura', $doc->url);
-        $this->assertNull($doc->size);
+        $this->assertNull($doc->tamanho);
 
         $this->como($eu['token'])->get($this->endereco($curso, $aula))
             ->assertOk()->assertSee('Material de apoio (1)')->assertSee('Leitura complementar');
@@ -135,7 +135,7 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
             'titulo' => 'Site', 'tipo' => 'auto', 'url' => 'https://exemplo.com',
         ]);
 
-        $tipos = LessonDocument::query()->where('lessonId', $aula->id)->orderBy('title')->pluck('type', 'title')->all();
+        $tipos = DocumentoAula::query()->where('aula_id', $aula->id)->orderBy('titulo')->pluck('tipo', 'titulo')->all();
         $this->assertSame(['Planilha' => 'drive', 'Site' => 'url'], $tipos);
     }
 
@@ -143,12 +143,12 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Isolado');
         [$curso, $aula, $outra] = $this->cursoComDuasAulas($eu['id']);
-        LessonDocument::query()->create(['id' => 'doc-previo', 'lessonId' => $outra->id, 'title' => 'Da outra', 'type' => 'url', 'url' => 'https://exemplo.com/a']);
+        DocumentoAula::query()->create(['id' => 'doc-previo', 'aula_id' => $outra->id, 'titulo' => 'Da outra', 'tipo' => 'url', 'url' => 'https://exemplo.com/a']);
 
         $this->como($eu['token'])->post($this->endereco($curso, $aula, '/anexos'), ['titulo' => 'Novo', 'tipo' => 'url', 'url' => 'https://exemplo.com/b']);
 
-        $this->assertSame(1, LessonDocument::query()->where('lessonId', $aula->id)->count());
-        $this->assertSame(['Da outra'], LessonDocument::query()->where('lessonId', $outra->id)->pluck('title')->all());
+        $this->assertSame(1, DocumentoAula::query()->where('aula_id', $aula->id)->count());
+        $this->assertSame(['Da outra'], DocumentoAula::query()->where('aula_id', $outra->id)->pluck('titulo')->all());
     }
 
     public function test_recusa_o_que_o_painel_antigo_recusava_e_reabre_a_zona(): void
@@ -167,7 +167,7 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
                 ->post($this->endereco($curso, $aula, '/anexos'), $campos)
                 ->assertRedirect($this->endereco($curso, $aula).'?editar=anexos#anexos')
                 ->assertSessionHasErrors('anexos');
-            $this->assertSame(0, LessonDocument::query()->where('lessonId', $aula->id)->count(), $caso);
+            $this->assertSame(0, DocumentoAula::query()->where('aula_id', $aula->id)->count(), $caso);
         }
     }
 
@@ -183,11 +183,11 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
             ->post($this->endereco($curso, $aula, '/anexos'), ['arquivo' => $this->png('slides_da-aula.png'), 'tipo' => 'auto'])
             ->assertRedirect($this->endereco($curso, $aula).'#anexos');
 
-        $doc = LessonDocument::query()->where('lessonId', $aula->id)->firstOrFail();
-        $this->assertSame('Slides Da Aula', $doc->title);
-        $this->assertSame('outro', $doc->type);
+        $doc = DocumentoAula::query()->where('aula_id', $aula->id)->firstOrFail();
+        $this->assertSame('Slides Da Aula', $doc->titulo);
+        $this->assertSame('outro', $doc->tipo);
         $this->assertStringStartsWith('/uploads/', $doc->url);
-        $this->assertStringEndsWith(' MB', (string) $doc->size);
+        $this->assertStringEndsWith(' MB', (string) $doc->tamanho);
         Storage::disk('publico')->assertExists(basename($doc->url));
     }
 
@@ -202,7 +202,7 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
             ->assertRedirect($this->endereco($curso, $aula).'?editar=anexos#anexos')
             ->assertSessionHasErrors('anexos');
 
-        $this->assertSame(0, LessonDocument::query()->where('lessonId', $aula->id)->count());
+        $this->assertSame(0, DocumentoAula::query()->where('aula_id', $aula->id)->count());
     }
 
     public function test_com_o_envio_de_arquivos_desligado_o_arquivo_e_recusado_e_o_link_segue(): void
@@ -220,7 +220,7 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
 
         $this->como($eu['token'])->post($this->endereco($curso, $aula, '/anexos'), ['titulo' => 'Link', 'tipo' => 'url', 'url' => 'https://exemplo.com'])
             ->assertSessionHasNoErrors();
-        $this->assertSame(1, LessonDocument::query()->where('lessonId', $aula->id)->count());
+        $this->assertSame(1, DocumentoAula::query()->where('aula_id', $aula->id)->count());
     }
 
     // ---- desvincular ------------------------------------------------------------
@@ -229,33 +229,33 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Desvincula');
         [$curso, $aula] = $this->cursoComDuasAulas($eu['id']);
-        LessonDocument::query()->create(['id' => 'doc-x', 'lessonId' => $aula->id, 'title' => 'Sai', 'type' => 'url', 'url' => 'https://exemplo.com/sai']);
-        LessonDocument::query()->create(['id' => 'doc-y', 'lessonId' => $aula->id, 'title' => 'Fica', 'type' => 'url', 'url' => 'https://exemplo.com/fica']);
+        DocumentoAula::query()->create(['id' => 'doc-x', 'aula_id' => $aula->id, 'titulo' => 'Sai', 'tipo' => 'url', 'url' => 'https://exemplo.com/sai']);
+        DocumentoAula::query()->create(['id' => 'doc-y', 'aula_id' => $aula->id, 'titulo' => 'Fica', 'tipo' => 'url', 'url' => 'https://exemplo.com/fica']);
 
         $this->como($eu['token'])
             ->post($this->endereco($curso, $aula, '/anexos/doc-x/remover'))
             ->assertRedirect($this->endereco($curso, $aula).'?editar=anexos#anexos')
             ->assertSessionHas('avisoDoCurso');
 
-        $this->assertSame(['Fica'], LessonDocument::query()->where('lessonId', $aula->id)->pluck('title')->all());
+        $this->assertSame(['Fica'], DocumentoAula::query()->where('aula_id', $aula->id)->pluck('titulo')->all());
 
-        $guardado = LessonDocument::query()->withTrashed()->findOrFail('doc-x');
+        $guardado = DocumentoAula::query()->withTrashed()->findOrFail('doc-x');
         $this->assertTrue($guardado->estaInativo());
-        $this->assertSame($eu['id'], $guardado->inativadoPor);
-        $this->assertNotNull($guardado->motivoInativacao);
+        $this->assertSame($eu['id'], $guardado->inativado_por);
+        $this->assertNotNull($guardado->motivo_inativacao);
     }
 
     public function test_documento_de_outra_aula_nao_e_alcancado_pelo_endereco_desta(): void
     {
         $eu = $this->instrutor('Gestor Cruzado');
         [$curso, $aula, $outra] = $this->cursoComDuasAulas($eu['id']);
-        LessonDocument::query()->create(['id' => 'doc-da-outra', 'lessonId' => $outra->id, 'title' => 'Da outra', 'type' => 'url', 'url' => 'https://exemplo.com/o']);
+        DocumentoAula::query()->create(['id' => 'doc-da-outra', 'aula_id' => $outra->id, 'titulo' => 'Da outra', 'tipo' => 'url', 'url' => 'https://exemplo.com/o']);
 
         $this->como($eu['token'])
             ->post($this->endereco($curso, $aula, '/anexos/doc-da-outra/remover'))
             ->assertSessionHasErrors('anexos');
 
-        $this->assertFalse(LessonDocument::query()->withTrashed()->findOrFail('doc-da-outra')->estaInativo());
+        $this->assertFalse(DocumentoAula::query()->withTrashed()->findOrFail('doc-da-outra')->estaInativo());
     }
 
     // ---- acesso -----------------------------------------------------------------
@@ -268,12 +268,12 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
         $eu = $this->instrutor('Gestor Um Anexo');
         $outro = $this->instrutor('Gestor Dois Anexo');
         [$alheio, $aula] = $this->cursoComDuasAulas($outro['id'], 'Curso Alheio Dos Anexos');
-        LessonDocument::query()->create(['id' => 'doc-alheio', 'lessonId' => $aula->id, 'title' => 'Alheio', 'type' => 'url', 'url' => 'https://exemplo.com/z']);
+        DocumentoAula::query()->create(['id' => 'doc-alheio', 'aula_id' => $aula->id, 'titulo' => 'Alheio', 'tipo' => 'url', 'url' => 'https://exemplo.com/z']);
 
         $this->como($eu['token'])->post($this->endereco($alheio, $aula, '/anexos'), ['titulo' => 'I', 'tipo' => 'url', 'url' => 'https://exemplo.com'])->assertNotFound();
         $this->como($eu['token'])->post($this->endereco($alheio, $aula, '/anexos/doc-alheio/remover'))->assertNotFound();
 
-        $this->assertSame(1, LessonDocument::query()->where('lessonId', $aula->id)->count());
+        $this->assertSame(1, DocumentoAula::query()->where('aula_id', $aula->id)->count());
     }
 
     // ---- a zona ---------------------------------------------------------------
@@ -282,7 +282,7 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Zona');
         [$curso, $aula] = $this->cursoComDuasAulas($eu['id']);
-        LessonDocument::query()->create(['id' => 'doc-z', 'lessonId' => $aula->id, 'title' => 'Apostila', 'type' => 'pdf', 'url' => 'https://exemplo.com/a.pdf', 'size' => '2 MB']);
+        DocumentoAula::query()->create(['id' => 'doc-z', 'aula_id' => $aula->id, 'titulo' => 'Apostila', 'tipo' => 'pdf', 'url' => 'https://exemplo.com/a.pdf', 'tamanho' => '2 MB']);
 
         $this->como($eu['token'])->get($this->endereco($curso, $aula))
             ->assertOk()->assertSee('Apostila')->assertDontSee('Vincular documento');
@@ -305,8 +305,8 @@ final class AnexosDaAulaDoInstrutorTest extends TestCase
         app(CourseService::class)->anexarDocumento(
             $curso->id,
             $aulaDeOutroCurso->id,
-            ['title' => 'Cruzado', 'type' => 'url', 'url' => 'https://exemplo.com'],
-            ['sub' => $eu['id'], 'name' => $eu['name'], 'role' => 'instructor'],
+            ['titulo' => 'Cruzado', 'tipo' => 'url', 'url' => 'https://exemplo.com'],
+            ['sub' => $eu['id'], 'nome' => $eu['nome'], 'papel' => 'instructor'],
         );
     }
 }

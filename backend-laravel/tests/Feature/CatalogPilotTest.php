@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use Firebase\JWT\JWT;
+use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -23,7 +23,7 @@ final class CatalogPilotTest extends TestCase
 
     private function userIdByRole(string $role): string
     {
-        $user = DB::table('User')->where('role', $role)->where('status', 'active')->first(['id', 'name', 'role']);
+        $user = DB::table('usuario')->where('papel', $role)->where('status', 'active')->first(['id', 'nome', 'papel']);
         $this->assertNotNull($user, "Seed sem usuário ativo com role '$role' — rode npm run db:seed.");
 
         return $user->id;
@@ -31,16 +31,12 @@ final class CatalogPilotTest extends TestCase
 
     private function tokenForRole(string $role): string
     {
-        $user = DB::table('User')->where('role', $role)->where('status', 'active')->first(['id', 'name', 'role']);
+        $user = DB::table('usuario')->where('papel', $role)->where('status', 'active')->first(['id', 'nome', 'papel']);
         $this->assertNotNull($user, "Seed sem usuário ativo com role '$role'.");
 
-        // Assina do mesmo jeito que o Node (HS256, mesmo segredo) — espelha o tokenFor()
-        // dos testes do Node, sem passar pelo login real.
-        return JWT::encode(
-            ['sub' => $user->id, 'name' => $user->name, 'role' => $user->role, 'iat' => 1700000000, 'exp' => 1900000000],
-            (string) config('app.jwt_secret'),
-            'HS256',
-        );
+        // Pelo emissor real: o token precisa levar a versão da sessão e o jti (ADR 022), e
+        // um JWT montado à mão sem eles é recusado com 401, como deve ser.
+        return Jwt::issue($user->id, $user->nome, $user->papel);
     }
 
     /** @return array<string, string> */
@@ -51,7 +47,7 @@ final class CatalogPilotTest extends TestCase
 
     public function test_get_library_is_public_and_returns_json_array(): void
     {
-        $response = $this->getJson('/api/library');
+        $response = $this->getJson('/api/biblioteca');
 
         $response->assertOk();
         $this->assertIsArray($response->json());
@@ -59,10 +55,10 @@ final class CatalogPilotTest extends TestCase
 
     public function test_post_library_without_token_is_rejected(): void
     {
-        $response = $this->postJson('/api/library', [
-            'title' => 'Material X',
-            'type' => 'pdf',
-            'category' => 'Design',
+        $response = $this->postJson('/api/biblioteca', [
+            'titulo' => 'Material X',
+            'tipo' => 'pdf',
+            'categoria' => 'Design',
             'url' => 'https://example.com/x.pdf',
         ]);
 
@@ -74,10 +70,10 @@ final class CatalogPilotTest extends TestCase
     {
         $token = $this->tokenForRole('student');
 
-        $response = $this->withHeader('Authorization', "Bearer $token")->postJson('/api/library', [
-            'title' => 'Material X',
-            'type' => 'pdf',
-            'category' => 'Design',
+        $response = $this->withHeader('Authorization', "Bearer $token")->postJson('/api/biblioteca', [
+            'titulo' => 'Material X',
+            'tipo' => 'pdf',
+            'categoria' => 'Design',
             'url' => 'https://example.com/x.pdf',
         ]);
 
@@ -90,28 +86,28 @@ final class CatalogPilotTest extends TestCase
         $token = $this->tokenForRole('admin');
         $id = 'lib-test-'.uniqid();
 
-        $response = $this->withHeader('Authorization', "Bearer $token")->postJson('/api/library', [
+        $response = $this->withHeader('Authorization', "Bearer $token")->postJson('/api/biblioteca', [
             'id' => $id,
-            'title' => 'Material de Teste',
-            'type' => 'link',
-            'category' => 'Testes',
-            'description' => 'criado pelo teste automatizado',
+            'titulo' => 'Material de Teste',
+            'tipo' => 'link',
+            'categoria' => 'Testes',
+            'descricao' => 'criado pelo teste automatizado',
             'url' => 'https://example.com',
         ]);
 
         $response->assertStatus(201)
-            ->assertJson(['id' => $id, 'title' => 'Material de Teste', 'type' => 'link']);
-        $this->assertDatabaseHas('LibraryItem', ['id' => $id]);
+            ->assertJson(['id' => $id, 'titulo' => 'Material de Teste', 'tipo' => 'link']);
+        $this->assertDatabaseHas('item_biblioteca', ['id' => $id]);
     }
 
     public function test_post_library_with_invalid_type_returns_validation_error(): void
     {
         $token = $this->tokenForRole('admin');
 
-        $response = $this->withHeader('Authorization', "Bearer $token")->postJson('/api/library', [
-            'title' => 'X',
-            'type' => 'exe', // não permitido: só pdf|video|link
-            'category' => 'Y',
+        $response = $this->withHeader('Authorization', "Bearer $token")->postJson('/api/biblioteca', [
+            'titulo' => 'X',
+            'tipo' => 'exe', // não permitido: só pdf|video|link
+            'categoria' => 'Y',
             'url' => 'z',
         ]);
 
@@ -151,10 +147,10 @@ final class CatalogPilotTest extends TestCase
         $token = $this->tokenForRole('instructor');
 
         $this->postJson('/api/webinars', [
-            'title' => 'Masterclass de Fotografia',
-            'date' => '15/09/2026',
-            'time' => '19:00',
-            'description' => '',
+            'titulo' => 'Masterclass de Fotografia',
+            'data_texto' => '15/09/2026',
+            'horario' => '19:00',
+            'descricao' => '',
             'link' => 'https://meet.google.com/abc-defg-hij',
         ], $this->auth($token))->assertStatus(400);
     }
@@ -167,23 +163,23 @@ final class CatalogPilotTest extends TestCase
 
         $this->postJson('/api/webinars', [
             'id' => $id,
-            'title' => 'Masterclass de Fotografia',
-            'date' => '15/09/2026',
-            'time' => '19:00',
-            'description' => 'Composição e luz natural para registro cultural.',
+            'titulo' => 'Masterclass de Fotografia',
+            'data_texto' => '15/09/2026',
+            'horario' => '19:00',
+            'descricao' => 'Composição e luz natural para registro cultural.',
             'link' => 'https://meet.google.com/abc-defg-hij',
-        ], $this->auth($token))->assertStatus(201)->assertJsonPath('date', '15/09/2026');
+        ], $this->auth($token))->assertStatus(201)->assertJsonPath('data_texto', '15/09/2026');
 
-        $this->assertDatabaseHas('WebinarEvent', ['id' => $id]);
+        $this->assertDatabaseHas('evento_webinar', ['id' => $id]);
 
         // Exclusão existe para a área de gestão poder desmarcar: antes só havia criar
         // e listar, e um webinar agendado por engano ficava na agenda para sempre.
         $this->deleteJson("/api/webinars/{$id}", [], $this->auth($token))->assertOk();
         // ADR 12: o webinar desmarcado NÃO sai do banco — sai do ar. A
         // asserção antiga (`assertDatabaseMissing`) exigia o contrário.
-        $this->assertDatabaseHas('WebinarEvent', ['id' => $id]);
+        $this->assertDatabaseHas('evento_webinar', ['id' => $id]);
         $this->assertNotNull(
-            DB::table('WebinarEvent')->where('id', $id)->value('inativadoEm'),
+            DB::table('evento_webinar')->where('id', $id)->value('inativado_em'),
             'Webinar removido tem de ficar registrado como inativado.'
         );
     }
@@ -194,10 +190,10 @@ final class CatalogPilotTest extends TestCase
 
         // O link vai para um href no botao "Acessar sala" da aba Calendario.
         $this->postJson('/api/webinars', [
-            'title' => 'Webinar XSS',
-            'date' => '15/09/2026',
-            'time' => '19:00',
-            'description' => 'Descricao.',
+            'titulo' => 'Webinar XSS',
+            'data_texto' => '15/09/2026',
+            'horario' => '19:00',
+            'descricao' => 'Descricao.',
             'link' => 'javascript:alert(1)',
         ], $this->auth($this->tokenForRole('instructor')))->assertStatus(400);
     }
@@ -208,6 +204,6 @@ final class CatalogPilotTest extends TestCase
 
         $this->deleteJson('/api/webinars/web-1', [], $this->auth($this->tokenForRole('student')))
             ->assertStatus(403);
-        $this->assertDatabaseHas('WebinarEvent', ['id' => 'web-1']);
+        $this->assertDatabaseHas('evento_webinar', ['id' => 'web-1']);
     }
 }

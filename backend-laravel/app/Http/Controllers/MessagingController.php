@@ -17,43 +17,43 @@ final class MessagingController extends Controller
 
     public function listChatMessages(Request $request): JsonResponse
     {
-        $sessionId = $request->query('sessionId');
-        $sessionId = is_string($sessionId) ? $sessionId : null;
+        $sessao_id = $request->query('sessao_id');
+        $sessao_id = is_string($sessao_id) ? $sessao_id : null;
 
-        return response()->json($this->messaging->listChatMessages($sessionId, $this->requester($request)));
+        return response()->json($this->messaging->listChatMessages($sessao_id, $this->requester($request)));
     }
 
     public function createChatMessage(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'sessionId' => ['required', 'string', 'max:191'],
-            'text' => ['required', 'string', 'min:1', 'max:2000'],
+            'sessao_id' => ['required', 'string', 'max:191'],
+            'texto' => ['required', 'string', 'min:1', 'max:2000'],
         ]);
 
         return response()->json($this->messaging->createChatMessage([
-            'sessionId' => $this->stringField($data, 'sessionId'),
-            'text' => $this->stringField($data, 'text'),
+            'sessao_id' => $this->stringField($data, 'sessao_id'),
+            'texto' => $this->stringField($data, 'texto'),
         ], $this->requester($request)), 201);
     }
 
     public function listDirectMessages(Request $request): JsonResponse
     {
-        $studentUserId = $request->query('studentUserId');
-        $studentUserId = is_string($studentUserId) ? $studentUserId : null;
+        $aluno_usuario_id = $request->query('aluno_usuario_id');
+        $aluno_usuario_id = is_string($aluno_usuario_id) ? $aluno_usuario_id : null;
 
-        return response()->json($this->messaging->listDirectMessages($this->requester($request), $studentUserId));
+        return response()->json($this->messaging->listDirectMessages($this->requester($request), $aluno_usuario_id));
     }
 
     public function createDirectMessage(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'studentUserId' => ['sometimes', 'nullable', 'string', 'max:191'],
-            'text' => ['required', 'string', 'min:1', 'max:2000'],
+            'aluno_usuario_id' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'texto' => ['required', 'string', 'min:1', 'max:2000'],
         ]);
 
         return response()->json($this->messaging->createDirectMessage([
-            'studentUserId' => $this->optionalString($data, 'studentUserId'),
-            'text' => $this->stringField($data, 'text'),
+            'aluno_usuario_id' => $this->optionalString($data, 'aluno_usuario_id'),
+            'texto' => $this->stringField($data, 'texto'),
         ], $this->requester($request)), 201);
     }
 }

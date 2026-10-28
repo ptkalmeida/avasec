@@ -9,8 +9,8 @@ use Carbon\CarbonInterface;
 /**
  * A vigência de exibição de um curso acabou?
  *
- * `Course` guarda a data em duas colunas: `contractExpirationDate` (texto, o
- * que a tela mostra) e `vigenciaAte` (data nativa, Norma C.2.4). Esta classe
+ * `curso` guarda a data em duas colunas: `vencimento_contrato_texto` (texto, o
+ * que a tela mostra) e `vigencia_ate` (data nativa, Norma C.2.4). Esta classe
  * responde por ambas, e é a ÚNICA resposta — a pergunta aparece no catálogo do
  * aluno, na matrícula e no painel do instrutor, e três respostas parecidas
  * acabariam discordando.
@@ -30,7 +30,7 @@ use Carbon\CarbonInterface;
  *
  * ## A comparação é entre datas, não entre instantes
  *
- * O dia do vencimento vale inteiro. `vigenciaAte` é data pura e o Carbon a lê
+ * O dia do vencimento vale inteiro. `vigencia_ate` é data pura e o Carbon a lê
  * como meia-noite UTC — 21h do dia anterior em Brasília —, então comparar
  * instantes reprova o curso que vence hoje. A comparação é entre textos
  * `Y-m-d`, que ordenam corretamente.
@@ -53,7 +53,7 @@ final class VigenciaDoCurso
      */
     public static function dia(array $curso): ?string
     {
-        $nativa = $curso['vigenciaAte'] ?? null;
+        $nativa = $curso['vigencia_ate'] ?? null;
         if ($nativa instanceof CarbonInterface) {
             return $nativa->format('Y-m-d');
         }
@@ -63,7 +63,7 @@ final class VigenciaDoCurso
 
         // Só o texto antigo: pode estar em `Y-m-d` ou `d/m/Y`, e é o que havia
         // antes de a coluna nativa existir.
-        $texto = $curso['contractExpirationDate'] ?? null;
+        $texto = $curso['vencimento_contrato_texto'] ?? null;
         if (! is_string($texto) || trim($texto) === '') {
             return null;
         }

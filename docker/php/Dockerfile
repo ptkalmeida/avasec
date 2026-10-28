@@ -14,7 +14,8 @@
 #
 # Fica a divergência a resolver: `composer.json` ainda anuncia ^8.3, que o lock
 # não permite. Mudar a declaração é mexer no stack e precisa de decisão humana.
-FROM php:8.5-fpm-alpine
+# Versão fixa: >= 8.5.12 corrige CVE-2026-109618 e CVE-2026-109619 (PHP2Shell, RCE).
+FROM php:8.5.12-fpm-alpine
 
 # Bibliotecas de EXECUÇÃO: ficam na imagem. As de compilação vão num pacote
 # virtual e são removidas depois.
@@ -50,6 +51,7 @@ RUN { \
       echo 'post_max_size = 21M'; \
       echo 'memory_limit = 256M'; \
       echo 'expose_php = Off'; \
+      echo 'session.upload_progress.enabled = 0'; \
     } > /usr/local/etc/php/conf.d/avasec.ini
 
 WORKDIR /var/www/avasec/backend-laravel

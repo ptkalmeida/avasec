@@ -71,7 +71,7 @@
             @foreach ($definicao['header'] as $campo)
                 <div>
                     <label for="topo-{{ $campo['key'] }}" class="{{ $rotulo }}">{{ $campo['label'] }}</label>
-                    @if ($campo['type'] === 'textarea')
+                    @if ($campo['tipo'] === 'textarea')
                         <textarea id="topo-{{ $campo['key'] }}" name="topo[{{ $campo['key'] }}]" rows="3" maxlength="{{ $campo['maxLength'] }}" class="{{ $campoCurto }}">{{ $topo[$campo['key']] }}</textarea>
                     @else
                         <input id="topo-{{ $campo['key'] }}" name="topo[{{ $campo['key'] }}]" type="text" maxlength="{{ $campo['maxLength'] }}" value="{{ $topo[$campo['key']] }}" class="{{ $campoCurto }}">
@@ -115,7 +115,7 @@
                     @foreach ($definicao['item'] as $campo)
                         <div>
                             <label for="item-{{ $i }}-{{ $campo['key'] }}" class="{{ $rotulo }}">{{ $campo['label'] }}</label>
-                            @if ($campo['type'] === 'textarea')
+                            @if ($campo['tipo'] === 'textarea')
                                 <textarea id="item-{{ $i }}-{{ $campo['key'] }}" name="itens[{{ $i }}][{{ $campo['key'] }}]" rows="3" maxlength="{{ $campo['maxLength'] }}" class="{{ $campoCurto }}">{{ $item[$campo['key']] }}</textarea>
                             @else
                                 <input id="item-{{ $i }}-{{ $campo['key'] }}" name="itens[{{ $i }}][{{ $campo['key'] }}]" type="text" maxlength="{{ $campo['maxLength'] }}" value="{{ $item[$campo['key']] }}" class="{{ $campoCurto }}">

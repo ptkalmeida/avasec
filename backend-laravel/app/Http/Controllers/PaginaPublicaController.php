@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\WebinarEvent;
+use App\Models\EventoWebinar;
+use App\Services\CatalogoPublico;
 use App\Services\CertificateService;
 use App\Services\CourseService;
 use App\Services\SitePageContentService;
@@ -131,7 +132,7 @@ final class PaginaPublicaController extends Controller
 
         $encontradas = $busca === '' ? $itens : array_values(array_filter(
             $itens,
-            static fn (array $n): bool => mb_stripos(($n['title'] ?? '').' '.($n['description'] ?? ''), $busca) !== false,
+            static fn (array $n): bool => mb_stripos(($n['titulo'] ?? '').' '.($n['descricao'] ?? ''), $busca) !== false,
         ));
 
         return view('publico.noticias', [
@@ -162,7 +163,7 @@ final class PaginaPublicaController extends Controller
     public function calendario(): View
     {
         $webinars = config('features.eventosWebinars') === true
-            ? array_values(WebinarEvent::query()->get()->map(static fn (WebinarEvent $w): array => $w->toArray())->all())
+            ? array_values(EventoWebinar::query()->get()->map(static fn (EventoWebinar $w): array => $w->toArray())->all())
             : [];
 
         $agora = Fuso::agora();
@@ -181,22 +182,18 @@ final class PaginaPublicaController extends Controller
     }
 
     /**
-     * Catálogo público — quatro cursos, sem busca e sem filtros.
+     * Catálogo público — até quatro cursos, sem busca e sem filtros.
      *
-     * A fonte é `config/catalogo_publico.php`, e não a tabela `Course`: a
-     * vitrine do portal nunca leu o banco, e trocar isso aqui mudaria o que a
-     * tela mostra (invariante 1 do plano 16). O arquivo de configuração traz o
-     * levantamento completo e a pendência.
+     * A fonte é a plataforma: os cursos que estão ativos agora para serem
+     * cursados (`CatalogoPublico`). A vitrine fixa do React, que mostrava
+     * cursos inexistentes, saiu.
      *
      * Quatro é decisão da skill `redesenhar-ava-lms`, aprovada em 19/10/2026.
-     * São os quatro primeiros, e a tela não afirma que são os mais recentes —
-     * não há data de publicação na vitrine para sustentar a afirmação.
+     * A tela não afirma que são os mais recentes — não há data de publicação
+     * para sustentar a afirmação.
      */
-    public function cursos(): View
+    public function cursos(CatalogoPublico $catalogo): View
     {
-        /** @var list<array<string, string>> $vitrine */
-        $vitrine = config('catalogo_publico');
-
-        return view('publico.cursos', ['cursos' => array_slice($vitrine, 0, self::CURSOS_EM_DESTAQUE)]);
+        return view('publico.cursos', ['cursos' => array_slice($catalogo->cursaveis(), 0, self::CURSOS_EM_DESTAQUE)]);
     }
 }

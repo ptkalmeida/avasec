@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
-use App\Models\User;
+use App\Models\Usuario;
 use App\Rules\StrongPasswordRule;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
@@ -38,15 +38,15 @@ final class PerfilDoAdminController extends Controller
 
     public function perfil(Request $request): View
     {
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
-        $conta = User::query()->find($admin['sub'], ['id', 'name', 'email']);
+        $conta = Usuario::query()->find($admin['sub'], ['id', 'nome', 'email']);
         abort_if($conta === null, 404);
 
         return view('admin.perfil', [
             'conta' => [
-                'nome' => (string) $conta->name,
+                'nome' => (string) $conta->nome,
                 'email' => is_string($conta->email) ? $conta->email : null,
             ],
         ]);
@@ -61,7 +61,7 @@ final class PerfilDoAdminController extends Controller
 
     public function alterarSenha(Request $request): RedirectResponse
     {
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
         $dados = $request->validateWithBag('senha', [

@@ -42,8 +42,8 @@
 
             <dl class="space-y-3">
                 <div><dt class="{{ $rotulo }}">Nome</dt><dd class="mt-0.5 text-slate-900">{{ $aluno['nome'] }}</dd></div>
-                @if ($aluno['nomeSocial'] !== null)
-                    <div><dt class="{{ $rotulo }}">Nome social</dt><dd class="mt-0.5 text-slate-900">{{ $aluno['nomeSocial'] }}</dd></div>
+                @if ($aluno['nome_social'] !== null)
+                    <div><dt class="{{ $rotulo }}">Nome social</dt><dd class="mt-0.5 text-slate-900">{{ $aluno['nome_social'] }}</dd></div>
                 @endif
                 <div><dt class="{{ $rotulo }}">E-mail</dt><dd class="mt-0.5 break-all text-slate-900">{{ $aluno['email'] ?? '—' }}</dd></div>
                 <div><dt class="{{ $rotulo }}">CPF</dt><dd class="mt-0.5 text-slate-900">{{ $aluno['cpf'] ?? '—' }}</dd></div>
@@ -130,6 +130,33 @@
                 @endforelse
             </section>
 
+            {{-- O histórico lista os cursos concluídos com certificado. Emitir acrescenta uma emissão nova e o aluno a vê na área dele. --}}
+            <section aria-labelledby="titulo-historico" class="space-y-3 rounded-[10px] border border-slate-200 bg-white p-5 shadow-card">
+                <h2 id="titulo-historico" class="text-[0.875rem] font-bold text-slate-900">Histórico escolar ({{ count($historicos) }})</h2>
+                @error('historico')
+                    <p role="alert" class="rounded-[10px] border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{{ $message }}</p>
+                @enderror
+                @forelse ($historicos as $h)
+                    <p class="flex items-center gap-2 text-slate-700">
+                        <i class="fa-solid fa-file-pdf text-primary" aria-hidden="true"></i>
+                        <a href="/admin/alunos/{{ $aluno['id'] }}/historico/{{ $h['id'] }}/pdf" target="_blank" rel="noopener" class="font-medium text-primary hover:underline">
+                            Emitido em {{ $h['emitido_em'] }}
+                        </a>
+                        <span class="text-xs text-slate-500">— {{ $h['cursos'] }} {{ $h['cursos'] === 1 ? 'curso' : 'cursos' }}</span>
+                    </p>
+                @empty
+                    <p class="text-slate-500">Nenhum histórico emitido para este aluno.</p>
+                @endforelse
+                <form method="POST" action="/admin/alunos/{{ $aluno['id'] }}/historico">
+                    @csrf
+                    <button type="submit"
+                            class="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                        <i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> Emitir histórico escolar
+                    </button>
+                    <p class="mt-1.5 text-xs text-slate-500">O aluno passa a ver o documento na área dele, em Certificados, para baixar.</p>
+                </form>
+            </section>
+
             <section aria-labelledby="titulo-acoes" class="space-y-5 rounded-[10px] border border-slate-200 bg-white p-5 shadow-card">
                 <h2 id="titulo-acoes" class="text-[0.875rem] font-bold text-slate-900">Ações sobre a conta</h2>
 
@@ -141,6 +168,25 @@
                             @endforeach
                         </ul>
                     </div>
+                @endif
+
+                {{--
+                    Confirmar o cadastro: só aparece enquanto a conta aguarda a coordenação.
+                    O botão é só o gatilho — o servidor recusa qualquer outra origem
+                    (ver AlunosDoAdminController::confirmarCadastro).
+                --}}
+                @if ($aluno['conta'] === 'pending_confirmation')
+                    <form method="POST" action="/admin/alunos/{{ $aluno['id'] }}/confirmar" class="space-y-2 rounded-[10px] border border-emerald-100 bg-emerald-50 p-3.5">
+                        @csrf
+                        <p class="text-[0.8rem] font-bold text-slate-800">Cadastro aguardando confirmação</p>
+                        <p class="text-xs text-slate-600">
+                            {{ $aluno['nome'] }} se cadastrou pelo site e ainda não consegue entrar. Ao confirmar, a conta fica ativa
+                            e o acesso à plataforma é liberado.
+                        </p>
+                        <button type="submit" class="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2">
+                            <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Confirmar cadastro
+                        </button>
+                    </form>
                 @endif
 
                 {{-- Redefinir a senha --}}

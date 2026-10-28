@@ -68,11 +68,11 @@ final class CpfLoginTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->postJson('/api/auth/register', [
-                'name' => 'Aluno Sem CPF',
+            ->postJson('/api/autenticacao/cadastro', [
+                'nome' => 'Aluno Sem CPF',
                 'email' => 'semcpf-'.uniqid().'@example.com',
                 'password' => 'senha123456',
-                'role' => 'student',
+                'papel' => 'student',
             ])
             ->assertStatus(400)
             ->assertJsonPath('code', 'VALIDATION_ERROR');
@@ -80,11 +80,11 @@ final class CpfLoginTest extends TestCase
         $this->flushHeaders();
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->postJson('/api/auth/register', [
-                'name' => 'Aluno CPF Falso',
+            ->postJson('/api/autenticacao/cadastro', [
+                'nome' => 'Aluno CPF Falso',
                 'email' => 'cpffalso-'.uniqid().'@example.com',
                 'password' => 'senha123456',
-                'role' => 'student',
+                'papel' => 'student',
                 'cpf' => '11111111111',
             ])
             ->assertStatus(400);
@@ -96,28 +96,28 @@ final class CpfLoginTest extends TestCase
         $cpf = $this->makeCpf();
 
         $res = $this->withHeader('Authorization', "Bearer {$admin}")
-            ->postJson('/api/auth/register', [
-                'name' => 'Aluna Completa',
+            ->postJson('/api/autenticacao/cadastro', [
+                'nome' => 'Aluna Completa',
                 'email' => 'completa-'.uniqid().'@example.com',
                 'password' => 'senha123456',
-                'role' => 'student',
+                'papel' => 'student',
                 'cpf' => Cpf::format($cpf),
                 'celular' => '(21) 99999-1234',
                 'cep' => '20031-170',
                 'endereco' => 'Rua da Cultura, 100 — Centro',
-                'nomeSocial' => 'Aluna C.',
+                'nome_social' => 'Aluna C.',
                 'identidade' => 'MG-12.345.678',
             ])
             ->assertStatus(201);
 
-        $row = DB::table('User')->where('id', $res->json('user.id'))->first();
+        $row = DB::table('usuario')->where('id', $res->json('usuario.id'))->first();
         $this->assertNotNull($row);
         // CPF e CEP são gravados só em dígitos — é o que torna o unique e a
         // busca do login confiáveis.
         $this->assertSame($cpf, $row->cpf);
         $this->assertSame('20031170', $row->cep);
         $this->assertSame('Rua da Cultura, 100 — Centro', $row->endereco);
-        $this->assertSame('Aluna C.', $row->nomeSocial);
+        $this->assertSame('Aluna C.', $row->nome_social);
         $this->assertSame('MG-12.345.678', $row->identidade);
     }
 
@@ -127,11 +127,11 @@ final class CpfLoginTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->postJson('/api/auth/register', [
-                'name' => 'Outro Aluno',
+            ->postJson('/api/autenticacao/cadastro', [
+                'nome' => 'Outro Aluno',
                 'email' => 'outro-'.uniqid().'@example.com',
                 'password' => 'senha123456',
-                'role' => 'student',
+                'papel' => 'student',
                 'cpf' => $aluno['cpf'],
             ])
             ->assertStatus(409)
@@ -143,14 +143,14 @@ final class CpfLoginTest extends TestCase
         $admin = $this->staffToken('admin');
 
         $this->withHeader('Authorization', "Bearer {$admin}")
-            ->postJson('/api/auth/register', [
-                'name' => 'Gestor Sem CPF',
+            ->postJson('/api/autenticacao/cadastro', [
+                'nome' => 'Gestor Sem CPF',
                 'email' => 'gestor-'.uniqid().'@example.com',
                 'password' => 'senha123456',
-                'role' => 'instructor',
+                'papel' => 'instructor',
             ])
             ->assertStatus(201)
-            ->assertJsonPath('user.role', 'instructor');
+            ->assertJsonPath('usuario.papel', 'instructor');
     }
 
     // ---------- Política de senha ----------
@@ -162,11 +162,11 @@ final class CpfLoginTest extends TestCase
         foreach (['1234', 'senha1', '12345678', 'senhasenha'] as $fraca) {
             $this->flushHeaders();
             $this->withHeader('Authorization', "Bearer {$admin}")
-                ->postJson('/api/auth/register', [
-                    'name' => 'Aluno Senha Fraca',
+                ->postJson('/api/autenticacao/cadastro', [
+                    'nome' => 'Aluno Senha Fraca',
                     'email' => 'fraca-'.uniqid().'@example.com',
                     'password' => $fraca,
-                    'role' => 'student',
+                    'papel' => 'student',
                     'cpf' => $this->makeCpf(),
                 ])
                 ->assertStatus(400, "Senha \"{$fraca}\" deveria ser rejeitada.");
@@ -181,13 +181,13 @@ final class CpfLoginTest extends TestCase
         // Cadastro por admin nasce 'active', então o login é permitido.
         $this->flushHeaders();
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson('/api/autenticacao/entrar', [
             'cpf' => $aluno['cpf'],
             'password' => 'senha123456',
         ])
             ->assertOk()
-            ->assertJsonPath('user.id', $aluno['id'])
-            ->assertJsonStructure(['token', 'user' => ['id', 'name', 'role']]);
+            ->assertJsonPath('usuario.id', $aluno['id'])
+            ->assertJsonStructure(['token', 'usuario' => ['id', 'nome', 'papel']]);
     }
 
     public function test_student_logs_in_with_punctuated_cpf(): void
@@ -195,10 +195,10 @@ final class CpfLoginTest extends TestCase
         $aluno = $this->makeStudent('Aluno CPF Pontuado');
         $this->flushHeaders();
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson('/api/autenticacao/entrar', [
             'cpf' => Cpf::format($aluno['cpf']),
             'password' => 'senha123456',
-        ])->assertOk()->assertJsonPath('user.id', $aluno['id']);
+        ])->assertOk()->assertJsonPath('usuario.id', $aluno['id']);
     }
 
     public function test_login_with_wrong_password_on_valid_cpf_is_generic_401(): void
@@ -206,7 +206,7 @@ final class CpfLoginTest extends TestCase
         $aluno = $this->makeStudent('Aluno Senha Errada');
         $this->flushHeaders();
 
-        $this->postJson('/api/auth/login', [
+        $this->postJson('/api/autenticacao/entrar', [
             'cpf' => $aluno['cpf'],
             'password' => 'senhaerrada999',
         ])
@@ -221,7 +221,7 @@ final class CpfLoginTest extends TestCase
         // público que pode estar cadastrado no banco de dev, e aí a resposta viraria
         // 401 por senha errada (ou 429 se a conta acumulou tentativas) em vez de
         // "CPF não existe" — o teste passaria a medir outra coisa.
-        $this->postJson('/api/auth/login', [
+        $this->postJson('/api/autenticacao/entrar', [
             'cpf' => $this->makeCpf(),
             'password' => 'senha123456',
         ])
@@ -231,7 +231,7 @@ final class CpfLoginTest extends TestCase
 
     public function test_login_without_any_identifier_is_400(): void
     {
-        $this->postJson('/api/auth/login', ['password' => 'senha123456'])
+        $this->postJson('/api/autenticacao/entrar', ['password' => 'senha123456'])
             ->assertStatus(400)
             ->assertJsonPath('code', 'VALIDATION_ERROR');
     }
@@ -239,12 +239,12 @@ final class CpfLoginTest extends TestCase
     public function test_staff_still_logs_in_with_email(): void
     {
         // Admin e gestor entram por e-mail (ADR 11) — o CPF não os substitui.
-        $admin = DB::table('User')->where('role', 'admin')->where('status', 'active')->first(['email']);
+        $admin = DB::table('usuario')->where('papel', 'admin')->where('status', 'active')->first(['email']);
         $this->assertNotNull($admin);
 
         // Senha desconhecida aqui, então basta provar que a busca por e-mail
         // encontra a conta: erro é 401 de senha, não "identificador ausente".
-        $this->postJson('/api/auth/login', [
+        $this->postJson('/api/autenticacao/entrar', [
             'email' => $admin->email,
             'password' => 'senha-que-nao-e-a-dele-123',
         ])->assertStatus(401);

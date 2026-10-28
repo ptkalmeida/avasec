@@ -34,12 +34,12 @@ final class SitePageContentController extends Controller
         ]);
     }
 
-    public function show(string $pageKey): JsonResponse
+    public function show(string $chave_pagina): JsonResponse
     {
-        return response()->json($this->pages->get($pageKey));
+        return response()->json($this->pages->get($chave_pagina));
     }
 
-    public function update(Request $request, string $pageKey): JsonResponse
+    public function update(Request $request, string $chave_pagina): JsonResponse
     {
         // O shape exato de cada página é validado no service, contra o SCHEMA:
         // aqui só garantimos os tipos de topo antes de repassar.
@@ -47,8 +47,8 @@ final class SitePageContentController extends Controller
             'items' => ['sometimes', 'array', 'max:60'],
         ]);
 
-        $updated = $this->pages->upsert($pageKey, $request->all(), $this->requester($request));
-        $this->audit->log($request, 'Edição de Conteúdo do Site', "Página \"{$pageKey}\" foi atualizada.");
+        $updated = $this->pages->upsert($chave_pagina, $request->all(), $this->requester($request));
+        $this->audit->log($request, 'Edição de Conteúdo do Site', "Página \"{$chave_pagina}\" foi atualizada.");
 
         return response()->json($updated);
     }

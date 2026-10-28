@@ -8,7 +8,7 @@ namespace App\Support;
  * Contas de progresso de um aluno num curso.
  *
  * Traduz `src/utils/courseProgress.ts`, e existe pelo mesmo defeito real que
- * motivou aquele arquivo: `StudentProgress.completedLessons` guarda ids de
+ * motivou aquele arquivo: `ProgressoAluno.aulas_concluidas` guarda ids de
  * aula, e quando uma aula é APAGADA do curso o id continua lá. A conta ingênua
  * `count(concluidas) / count(aulas)` passava a dividir 2 por 1, e o Perfil
  * exibia "113% de progresso médio".
@@ -33,7 +33,7 @@ final class ProgressoDoAluno
     /**
      * Quantas das aulas marcadas como concluídas ainda existem no curso.
      *
-     * @param  list<mixed>  $concluidas  ids vindos de `completedLessons`
+     * @param  list<mixed>  $concluidas  ids vindos de `aulas_concluidas`
      * @param  list<mixed>  $aulasDoCurso  ids das aulas que o curso tem hoje
      */
     public static function contarValidas(array $concluidas, array $aulasDoCurso): int

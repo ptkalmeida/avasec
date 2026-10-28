@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\User;
+use App\Models\Usuario;
 use App\Models\VersaoDeConteudo;
 use App\Support\Fuso;
 use Illuminate\Support\Carbon;
@@ -44,8 +44,8 @@ final class VersoesDeConteudo
             'referencia' => $referencia,
             'conteudo' => json_encode($conteudo, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
             'origem' => $origem,
-            'criadoPorUserId' => $porUserId,
-            'criadoEm' => Carbon::now(),
+            'criado_por_usuario_id' => $porUserId,
+            'criado_em' => Carbon::now(),
         ]);
     }
 
@@ -53,32 +53,32 @@ final class VersoesDeConteudo
      * As versões mais recentes primeiro.
      *
      * `porNome` é quem fez a alteração que SUBSTITUIU esta versão — ou seja, quem
-     * a tirou do ar. Vem de `User` com `withTrashed`: a conta pode ter sido
+     * a tirou do ar. Vem de `usuario` com `withTrashed`: a conta pode ter sido
      * inativada depois, e o histórico não pode perder o nome por isso.
      *
-     * @return list<array{id:string,criadoEm:Carbon,origem:string,porNome:?string,conteudo:array<string, mixed>}>
+     * @return list<array{id:string,criado_em:Carbon,origem:string,porNome:?string,conteudo:array<string, mixed>}>
      */
     public function listar(string $tipo, string $referencia, int $limite = self::LIMITE_NA_TELA): array
     {
         $linhas = VersaoDeConteudo::query()
             ->where('tipo', $tipo)
             ->where('referencia', $referencia)
-            ->orderByDesc('criadoEm')
+            ->orderByDesc('criado_em')
             ->orderByDesc('id')
             ->limit($limite)
             ->get();
 
-        $ids = $linhas->pluck('criadoPorUserId')->filter(static fn (mixed $v): bool => is_string($v))->unique()->values()->all();
+        $ids = $linhas->pluck('criado_por_usuario_id')->filter(static fn (mixed $v): bool => is_string($v))->unique()->values()->all();
         /** @var array<string, string> $nomes */
-        $nomes = $ids === [] ? [] : User::query()->withTrashed()->whereIn('id', $ids)->pluck('name', 'id')->all();
+        $nomes = $ids === [] ? [] : Usuario::query()->withTrashed()->whereIn('id', $ids)->pluck('nome', 'id')->all();
 
         $saida = [];
         foreach ($linhas as $linha) {
             $saida[] = [
                 'id' => $linha->id,
-                'criadoEm' => $linha->criadoEm ?? Carbon::now(),
+                'criado_em' => $linha->criado_em ?? Carbon::now(),
                 'origem' => $linha->origem,
-                'porNome' => $linha->criadoPorUserId !== null ? ($nomes[$linha->criadoPorUserId] ?? null) : null,
+                'porNome' => $linha->criado_por_usuario_id !== null ? ($nomes[$linha->criado_por_usuario_id] ?? null) : null,
                 'conteudo' => self::decodificar($linha->conteudo),
             ];
         }
@@ -99,7 +99,7 @@ final class VersoesDeConteudo
         foreach ($this->listar($tipo, $referencia) as $v) {
             $saida[] = [
                 'id' => $v['id'],
-                'quando' => Fuso::de($v['criadoEm'])->format('d/m/Y H:i'),
+                'quando' => Fuso::de($v['criado_em'])->format('d/m/Y H:i'),
                 'porNome' => $v['porNome'],
                 'origem' => $v['origem'],
                 'resumo' => $resumo($v['conteudo']),

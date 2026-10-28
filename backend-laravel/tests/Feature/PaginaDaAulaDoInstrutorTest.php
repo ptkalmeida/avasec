@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\User;
+use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -38,50 +38,50 @@ final class PaginaDaAulaDoInstrutorTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    /** @return array{0:Course,1:list<Lesson>} */
-    private function cursoComAulas(string $instructorId, string $titulo = 'Curso Da Pagina Da Aula'): array
+    /** @return array{0:Curso,1:list<Aula>} */
+    private function cursoComAulas(string $instrutor_id, string $titulo = 'Curso Da Pagina Da Aula'): array
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-pagina-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ]);
 
         $aulas = [];
         for ($i = 1; $i <= 3; $i++) {
-            $aulas[] = Lesson::query()->create([
+            $aulas[] = Aula::query()->create([
                 'id' => 'lesson-pagina-'.$curso->id.'-'.$i,
-                'courseId' => $curso->id,
-                'title' => "Aula numero {$i}",
-                'duration' => '30 min',
-                'content' => "## Seção {$i}\n\nTexto da aula {$i}.",
-                'lesson_order' => $i,
+                'curso_id' => $curso->id,
+                'titulo' => "Aula numero {$i}",
+                'duracao' => '30 min',
+                'conteudo' => "## Seção {$i}\n\nTexto da aula {$i}.",
+                'ordem' => $i,
             ]);
         }
 
         return [$curso->refresh(), $aulas];
     }
 
-    private function pagina(Course $curso, Lesson $aula, string $resto = ''): string
+    private function pagina(Curso $curso, Aula $aula, string $resto = ''): string
     {
         return '/inst/curso/'.$curso->slug.'/aulas/'.$aula->id.$resto;
     }
@@ -110,8 +110,8 @@ final class PaginaDaAulaDoInstrutorTest extends TestCase
         $this->como($eu['token'])->post($this->pagina($alheio, $aulas[0], '/video'), ['video' => ''])->assertNotFound();
         $this->como($eu['token'])->post('/inst/curso/'.$alheio->slug.'/aulas', ['titulo' => 'Invasora', 'carga' => '1 min', 'texto' => 'x'])->assertNotFound();
 
-        $this->assertSame(3, Lesson::query()->where('courseId', $alheio->id)->count());
-        $this->assertSame('Aula numero 1', Lesson::query()->findOrFail($aulas[0]->id)->title);
+        $this->assertSame(3, Aula::query()->where('curso_id', $alheio->id)->count());
+        $this->assertSame('Aula numero 1', Aula::query()->findOrFail($aulas[0]->id)->titulo);
     }
 
     public function test_com_o_modulo_de_aulas_desligado_nada_responde(): void
@@ -191,16 +191,16 @@ final class PaginaDaAulaDoInstrutorTest extends TestCase
             ->assertRedirect($this->pagina($curso, $aulas[0]).'#identificacao')
             ->assertSessionHas('avisoDoCurso');
 
-        $a = Lesson::query()->findOrFail($aulas[0]->id);
-        $this->assertSame('Título corrigido', $a->title);
-        $this->assertSame('45 min', $a->duration);
-        $this->assertSame("## Seção 1\n\nTexto da aula 1.", $a->content);
-        $this->assertSame(1, $a->order);
+        $a = Aula::query()->findOrFail($aulas[0]->id);
+        $this->assertSame('Título corrigido', $a->titulo);
+        $this->assertSame('45 min', $a->duracao);
+        $this->assertSame("## Seção 1\n\nTexto da aula 1.", $a->conteudo);
+        $this->assertSame(1, $a->ordem);
 
         // As outras aulas não foram tocadas.
-        $b = Lesson::query()->findOrFail($aulas[1]->id);
-        $this->assertSame('Aula numero 2', $b->title);
-        $this->assertSame('30 min', $b->duration);
+        $b = Aula::query()->findOrFail($aulas[1]->id);
+        $this->assertSame('Aula numero 2', $b->titulo);
+        $this->assertSame('30 min', $b->duracao);
     }
 
     public function test_titulo_vazio_reabre_a_zona_com_o_erro_e_o_que_foi_digitado(): void
@@ -215,7 +215,7 @@ final class PaginaDaAulaDoInstrutorTest extends TestCase
             ->assertSessionHasErrors('identificacao')
             ->assertSessionHasInput('carga', '99 min');
 
-        $this->assertSame('Aula numero 1', Lesson::query()->findOrFail($aulas[0]->id)->title);
+        $this->assertSame('Aula numero 1', Aula::query()->findOrFail($aulas[0]->id)->titulo);
     }
 
     // ---- vídeo ------------------------------------------------------------------
@@ -229,7 +229,7 @@ final class PaginaDaAulaDoInstrutorTest extends TestCase
             ->post($this->pagina($curso, $aulas[0], '/video'), ['video' => 'https://youtu.be/dQw4w9WgXcQ'])
             ->assertRedirect($this->pagina($curso, $aulas[0]).'#video');
 
-        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', Lesson::query()->findOrFail($aulas[0]->id)->videoUrl);
+        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', Aula::query()->findOrFail($aulas[0]->id)->url_video);
 
         $this->como($eu['token'])->get($this->pagina($curso, $aulas[0]))
             ->assertOk()
@@ -241,25 +241,25 @@ final class PaginaDaAulaDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Sem Video');
         [$curso, $aulas] = $this->cursoComAulas($eu['id']);
-        Lesson::query()->whereKey($aulas[0]->id)->update(['videoUrl' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ']);
+        Aula::query()->whereKey($aulas[0]->id)->update(['url_video' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ']);
 
         $this->como($eu['token'])->post($this->pagina($curso, $aulas[0], '/video'), ['video' => ''])->assertRedirect();
 
-        $this->assertNull(Lesson::query()->findOrFail($aulas[0]->id)->videoUrl);
+        $this->assertNull(Aula::query()->findOrFail($aulas[0]->id)->url_video);
     }
 
     public function test_link_que_nao_e_video_e_recusado_e_o_video_atual_fica(): void
     {
         $eu = $this->instrutor('Gestor Video Ruim');
         [$curso, $aulas] = $this->cursoComAulas($eu['id']);
-        Lesson::query()->whereKey($aulas[0]->id)->update(['videoUrl' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ']);
+        Aula::query()->whereKey($aulas[0]->id)->update(['url_video' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ']);
 
         $this->como($eu['token'])
             ->post($this->pagina($curso, $aulas[0], '/video'), ['video' => 'https://exemplo.com/nao-e-video'])
             ->assertRedirect($this->pagina($curso, $aulas[0]).'?editar=video#video')
             ->assertSessionHasErrors('video');
 
-        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', Lesson::query()->findOrFail($aulas[0]->id)->videoUrl);
+        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', Aula::query()->findOrFail($aulas[0]->id)->url_video);
     }
 
     // ---- aula nova --------------------------------------------------------------
@@ -288,12 +288,12 @@ final class PaginaDaAulaDoInstrutorTest extends TestCase
             'texto' => "## Começo\n\nPrimeiro parágrafo.",
         ]);
 
-        $nova = Lesson::query()->where('courseId', $curso->id)->where('title', 'Aula criada pela tela')->firstOrFail();
+        $nova = Aula::query()->where('curso_id', $curso->id)->where('titulo', 'Aula criada pela tela')->firstOrFail();
         $resposta->assertRedirect('/inst/curso/'.$curso->slug.'/aulas/'.$nova->id)->assertSessionHas('avisoDoCurso');
-        $this->assertSame(4, $nova->order);
-        $this->assertSame("## Começo\n\nPrimeiro parágrafo.", $nova->content);
-        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', $nova->videoUrl);
-        $this->assertSame(4, Lesson::query()->where('courseId', $curso->id)->count());
+        $this->assertSame(4, $nova->ordem);
+        $this->assertSame("## Começo\n\nPrimeiro parágrafo.", $nova->conteudo);
+        $this->assertSame('https://www.youtube.com/watch?v=dQw4w9WgXcQ', $nova->url_video);
+        $this->assertSame(4, Aula::query()->where('curso_id', $curso->id)->count());
     }
 
     public function test_aula_nova_incompleta_volta_ao_formulario_com_o_que_foi_digitado(): void
@@ -307,7 +307,7 @@ final class PaginaDaAulaDoInstrutorTest extends TestCase
             ->assertSessionHasErrors('aula')
             ->assertSessionHasInput('titulo', 'Sem texto');
 
-        $this->assertSame(3, Lesson::query()->where('courseId', $curso->id)->count());
+        $this->assertSame(3, Aula::query()->where('curso_id', $curso->id)->count());
     }
 
     public function test_a_grade_continua_servida_e_a_aula_criada_aparece_nela(): void

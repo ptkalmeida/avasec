@@ -8,7 +8,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="utf-8">
-    <title>Certificado de Conclusão</title>
+    <title>{{ $titulo }}</title>
     <style>
         @page { margin: 24px; }
         body {
@@ -22,7 +22,8 @@
             padding: 36px 48px;
             text-align: center;
             position: relative;
-            height: 96%;
+            /* Altura fixa em px: 96% + borda e padding passava da folha e abria uma segunda página em branco. */
+            height: 640px;
         }
         .corner { position: absolute; width: 56px; height: 56px; }
         .corner-tl { top: 8px; left: 8px; border-top: 4px solid #b4886b; border-left: 4px solid #b4886b; }
@@ -39,18 +40,16 @@
         }
         h1 { font-size: 34px; color: #451a03; margin: 0 0 18px 0; }
         .lead { font-size: 13px; color: #334155; margin: 0 auto 6px auto; max-width: 620px; }
-        .student {
+        .logo { max-height: 56px; max-width: 220px; margin-bottom: 8px; }
+        .campo-aluno {
             font-size: 28px;
             font-weight: bold;
             color: #78350f;
-            margin: 14px 0;
             border-bottom: 2px solid #d9b38c;
-            display: inline-block;
             padding: 0 24px 4px 24px;
         }
-        .course { font-size: 18px; font-weight: bold; color: #0f172a; margin: 10px 0; }
-        .detail { font-size: 11.5px; color: #475569; margin: 2px auto; max-width: 620px; }
-        .highlight { color: #047857; font-weight: bold; }
+        .campo-curso { font-size: 18px; font-weight: bold; color: #0f172a; }
+        .campo-destaque { font-weight: bold; color: #047857; }
         .signatures { width: 100%; margin-top: 34px; border-top: 1px solid #e8ddce; padding-top: 22px; }
         .signatures td { width: 50%; text-align: center; vertical-align: top; }
         .sig-script { font-style: italic; color: #94a3b8; font-size: 13px; }
@@ -71,33 +70,20 @@
         <div class="corner corner-bl"></div>
         <div class="corner corner-br"></div>
 
-        <div class="institution">{{ $institutionName }}</div>
+        @if ($logoDataUri)
+            <img class="logo" src="{{ $logoDataUri }}" alt="">
+        @endif
+        <div class="institution">{{ $nome_instituicao }}</div>
 
-        <h1>Certificado de Conclusão</h1>
+        <h1>{{ $titulo }}</h1>
 
-        <p class="lead">Certificamos para os devidos fins de direito que o(a) aluno(a) de excelência acadêmica</p>
-
-        <div class="student">{{ $studentName }}</div>
-
-        <p class="lead">concluiu e obteve aprovação no programa de capacitação do curso livre da plataforma digital AVA</p>
-
-        <div class="course">{{ $courseTitle }}</div>
-
-        <p class="detail">
-            @if ($cargaHoraria !== null)
-                com carga horária integralizada de <strong>{{ $cargaHoraria }} horas</strong> e
-            @else
-                com carga horária integralizada e
-            @endif
-            aproveitamento com frequência registrada de
-            <span class="highlight">{{ $attendancePercent }}%</span> de presença total
-            nas aulas teóricas e transmissões periódicas ao vivo.
-        </p>
+        {{-- Texto do corpo escrito pelo admin: já escapado, com os campos automáticos trocados (App\Support\TextoDoDocumento). --}}
+        {!! $corpoHtml !!}
 
         <table class="signatures">
             <tr>
-                @foreach ($signatories as $signatory)
-                    <td style="width: {{ 100 / max(count($signatories), 1) }}%;">
+                @foreach ($signatarios as $signatory)
+                    <td style="width: {{ 100 / max(count($signatarios), 1) }}%;">
                         <div class="sig-script">{{ $signatory['name'] }}</div>
                         <div class="sig-line"></div>
                         <div class="sig-name">{{ $signatory['name'] }}</div>
@@ -107,21 +93,8 @@
             </tr>
         </table>
 
-        <table class="verify" align="center">
-            <tr>
-                <td style="padding-right: 12px;">
-                    <img src="{{ $qrDataUri }}" width="76" height="76" alt="QR de verificação">
-                </td>
-                <td class="verify-text">
-                    Código de Verificação: <strong>{{ $verificationHash }}</strong><br>
-                    Emitido digitalmente em {{ $issueDate }}<br>
-                    Valide em: {{ $verificationUrl }}
-                </td>
-            </tr>
-        </table>
-
         <div class="footnote">
-            * {{ $footerText }}
+            * {{ $texto_rodape }}
         </div>
     </div>
 </body>

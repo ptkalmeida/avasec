@@ -30,7 +30,7 @@
         @else
             <ul role="list" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ($itens as $item)
-                    @php($arquivo = $item['type'] === 'pdf')
+                    @php($arquivo = $item['tipo'] === 'pdf')
                     <li class="flex flex-col gap-3 rounded-2xl border border-ava-borda bg-white p-5 shadow-3xs">
                         <div class="flex items-start justify-between gap-3">
                             <span class="inline-flex items-center gap-1.5 text-sobretitulo uppercase text-escult-ink-2">
@@ -40,7 +40,7 @@
                                         <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
                                     </svg>
                                     PDF
-                                @elseif ($item['type'] === 'video')
+                                @elseif ($item['tipo'] === 'video')
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4 text-ava-acao" aria-hidden="true">
                                         <polygon points="6 3 20 12 6 21 6 3"/>
@@ -54,12 +54,12 @@
                                     Link
                                 @endif
                             </span>
-                            <span class="rounded border border-ava-borda bg-ava-faixa px-2 py-0.5 text-sobretitulo uppercase text-escult-ink-2 break-words">{{ $item['category'] }}</span>
+                            <span class="rounded border border-ava-borda bg-ava-faixa px-2 py-0.5 text-sobretitulo uppercase text-escult-ink-2 break-words">{{ $item['categoria'] }}</span>
                         </div>
 
-                        <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $item['title'] }}</h2>
-                        @if ($item['description'] !== null)
-                            <p class="text-apoio leading-relaxed text-escult-ink-2 break-words">{{ $item['description'] }}</p>
+                        <h2 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $item['titulo'] }}</h2>
+                        @if ($item['descricao'] !== null)
+                            <p class="text-apoio leading-relaxed text-escult-ink-2 break-words">{{ $item['descricao'] }}</p>
                         @endif
 
                         <div class="mt-auto pt-2">
@@ -67,7 +67,7 @@
                                 <a href="{{ $item['href'] }}" target="_blank" rel="noopener noreferrer"
                                    class="inline-flex w-full items-center justify-center gap-2 rounded-[10px] border border-ava-borda bg-white px-4 py-2.5 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                                     {{ $arquivo ? 'Baixar arquivo' : 'Abrir' }}
-                                    <span class="sr-only">{{ $item['title'] }} (abre em nova aba)</span>
+                                    <span class="sr-only">{{ $item['titulo'] }} (abre em nova aba)</span>
                                 </a>
                             @else
                                 <p class="rounded-[10px] bg-ava-faixa px-4 py-2.5 text-center text-apoio text-escult-ink-2">Arquivo ainda não disponível</p>

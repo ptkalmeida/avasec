@@ -47,15 +47,15 @@
 
                 <div>
                     <label for="novo-titulo" class="{{ $rotuloDoCampo }}">Título do curso</label>
-                    <input id="novo-titulo" name="title" type="text" required minlength="3" maxlength="200"
-                           value="{{ old('title') }}" placeholder="Ex.: Programação funcional" class="{{ $campo }}">
+                    <input id="novo-titulo" name="titulo" type="text" required minlength="3" maxlength="200"
+                           value="{{ old('titulo') }}" placeholder="Ex.: Programação funcional" class="{{ $campo }}">
                 </div>
 
                 <div>
                     <label for="nova-area" class="{{ $rotuloDoCampo }}">Área acadêmica / categoria</label>
                     {{-- Texto livre com sugestões: escrever uma área nova é "habilitar" a área. --}}
-                    <input id="nova-area" name="category" type="text" required maxlength="120" list="areas-existentes"
-                           value="{{ old('category') }}" class="{{ $campo }}">
+                    <input id="nova-area" name="categoria" type="text" required maxlength="120" list="areas-existentes"
+                           value="{{ old('categoria') }}" class="{{ $campo }}">
                     <datalist id="areas-existentes">
                         @foreach ($categorias as $area)
                             <option value="{{ $area }}"></option>
@@ -66,18 +66,18 @@
 
                 <div>
                     <label for="novo-responsavel" class="{{ $rotuloDoCampo }}">Professor responsável</label>
-                    <select id="novo-responsavel" name="instructorId" class="{{ $campo }}">
+                    <select id="novo-responsavel" name="instrutor_id" class="{{ $campo }}">
                         @foreach ($instrutores as $pessoa)
-                            <option value="{{ $pessoa['id'] }}" @selected(old('instructorId') === $pessoa['id'])>{{ $pessoa['nome'] }}</option>
+                            <option value="{{ $pessoa['id'] }}" @selected(old('instrutor_id') === $pessoa['id'])>{{ $pessoa['nome'] }}</option>
                         @endforeach
                     </select>
                 </div>
 
                 <div>
                     <label for="nova-ementa" class="{{ $rotuloDoCampo }}">Ementa / descrição curta (opcional)</label>
-                    <textarea id="nova-ementa" name="description" rows="3" maxlength="5000"
+                    <textarea id="nova-ementa" name="descricao" rows="3" maxlength="5000"
                               placeholder="Visão abrangente para orientar a admissão dos alunos..."
-                              class="{{ $campo }} resize-none">{{ old('description') }}</textarea>
+                              class="{{ $campo }} resize-none">{{ old('descricao') }}</textarea>
                 </div>
 
                 <div>
@@ -92,14 +92,14 @@
                 <div class="grid grid-cols-2 items-end gap-3">
                     <div>
                         <label for="novo-tipo" class="{{ $rotuloDoCampo }}">Tipo de curso</label>
-                        <select id="novo-tipo" name="courseType" class="{{ $campo }}">
-                            <option value="fixo" @selected(old('courseType', 'fixo') === 'fixo')>Gravado (fixo)</option>
-                            <option value="ao_vivo" @selected(old('courseType') === 'ao_vivo')>Síncrono (ao vivo)</option>
+                        <select id="novo-tipo" name="tipo_curso" class="{{ $campo }}">
+                            <option value="fixo" @selected(old('tipo_curso', 'fixo') === 'fixo')>Gravado (fixo)</option>
+                            <option value="ao_vivo" @selected(old('tipo_curso') === 'ao_vivo')>Síncrono (ao vivo)</option>
                         </select>
                     </div>
                     <label class="flex cursor-pointer items-center gap-2 pb-2">
-                        <input type="checkbox" name="hasChat" value="1" class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                               @checked(old('title') === null || old('hasChat'))>
+                        <input type="checkbox" name="tem_chat" value="1" class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                               @checked(old('titulo') === null || old('tem_chat'))>
                         <span class="text-[0.8rem] font-semibold text-slate-700">Ativar chat do curso</span>
                     </label>
                 </div>
@@ -169,7 +169,7 @@
                             @if ($c['vencida'])
                                 <x-admin.selo tom="ambar"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Expirado (arquivado)</x-admin.selo>
                             @else
-                                <x-admin.selo tom="azul">Ativo no AVA</x-admin.selo>
+                                <x-admin.selo tom="azul">Ativo</x-admin.selo>
                             @endif
                         </div>
                     </div>
@@ -210,7 +210,7 @@
                             <form method="POST" action="/admin/cursos/{{ $c['id'] }}/instrutor" class="space-y-2 rounded-md border border-slate-200 bg-white p-3">
                                 @csrf
                                 <label for="resp-{{ $c['id'] }}" class="{{ $rotuloDoCampo }}">Trocar professor</label>
-                                <select id="resp-{{ $c['id'] }}" name="instructorId" class="{{ $campo }}">
+                                <select id="resp-{{ $c['id'] }}" name="instrutor_id" class="{{ $campo }}">
                                     @foreach ($instrutores as $pessoa)
                                         <option value="{{ $pessoa['id'] }}" @selected($c['instrutorId'] === $pessoa['id'])>{{ $pessoa['nome'] }}</option>
                                     @endforeach
@@ -221,12 +221,12 @@
                             <form method="POST" action="/admin/cursos/{{ $c['id'] }}/propriedades" class="space-y-2 rounded-md border border-slate-200 bg-white p-3">
                                 @csrf
                                 <label for="tipo-{{ $c['id'] }}" class="{{ $rotuloDoCampo }}">Tipo</label>
-                                <select id="tipo-{{ $c['id'] }}" name="courseType" class="{{ $campo }}">
+                                <select id="tipo-{{ $c['id'] }}" name="tipo_curso" class="{{ $campo }}">
                                     <option value="fixo" @selected($c['tipo'] === 'fixo')>Gravado (fixo)</option>
                                     <option value="ao_vivo" @selected($c['tipo'] === 'ao_vivo')>Síncrono (ao vivo)</option>
                                 </select>
                                 <label class="flex cursor-pointer items-center gap-2">
-                                    <input type="checkbox" name="hasChat" value="1" @checked($c['chat']) class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary">
+                                    <input type="checkbox" name="tem_chat" value="1" @checked($c['chat']) class="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary">
                                     <span class="text-[0.8rem] font-semibold text-slate-700">Ativar chat</span>
                                 </label>
                                 <button type="submit" class="{{ $botao }}">Salvar tipo e chat</button>
@@ -299,5 +299,10 @@
                 </p>
             @endforelse
         </section>
+
+        {{-- O que saiu do ar continua guardado — e agora aparece, separado dos ativos. --}}
+        <x-admin.retirados id="titulo-retirados" titulo="Cursos retirados do ar" :itens="$retirados" acao="/admin/cursos"
+                           explicacao="Nada foi apagado: as aulas, as avaliações, as matrículas e o histórico estão guardados. Ao reativar, o curso volta ao ar de uma vez, para todos os gestores dele e para os alunos."
+                           vazio="Nenhum curso foi retirado do ar." />
     </div>
 </x-layouts.admin>

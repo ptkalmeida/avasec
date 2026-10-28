@@ -39,7 +39,7 @@ final class JwtAuthenticate
         return $next($request);
     }
 
-    /** @return array{sub:string,name:string,role:string}|null */
+    /** @return array{sub:string,nome:string,papel:string}|null */
     public static function decode(?string $token): ?array
     {
         if ($token === null || $token === '') {
@@ -65,7 +65,7 @@ final class JwtAuthenticate
             is_string($decoded->jti ?? null) && $decoded->jti !== '' ? $decoded->jti : null,
         );
 
-        return ['sub' => $sub, 'name' => $decoded->name ?? null, 'role' => $decoded->role ?? null];
+        return ['sub' => $sub, 'nome' => $decoded->nome ?? null, 'papel' => $decoded->papel ?? null];
     }
 
     public static function extractToken(Request $request): ?string

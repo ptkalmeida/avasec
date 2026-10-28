@@ -1,4 +1,6 @@
-@props(['nome' => ''])
+@props(['nome' => '', 'curso' => null, 'aulaAtual' => null])
+
+@php($m = app(\App\Services\MenuDoAluno::class)->montar(request()->attributes->get('auth_user'), $curso, $aulaAtual))
 
 {{--
     Topo da área do aluno.
@@ -52,24 +54,48 @@
     <div id="nav-estreita" x-show="navAberta" x-cloak class="border-t border-ava-borda px-2 py-2 lg:hidden">
         <nav aria-label="Navegação da área do aluno (telas estreitas)" class="grid grid-cols-2 gap-1">
             {{--
-                Os mesmos itens e as mesmas condições do menu lateral. O suporte
-                apontava aqui para `/aluno/mensagens` — a tela de LER, fechada ao
-                aluno — depois de o menu largo já ter sido corrigido: duas listas
-                para o mesmo menu divergem, e o teste confere as duas.
+                O mesmo menu do lateral, lido do mesmo serviço (App\Services\MenuDoAluno): quando eram
+                duas listas escritas à mão, elas divergiram — o suporte apontava aqui para
+                `/aluno/mensagens`, a tela de LER, fechada ao aluno, depois de o menu largo já ter sido
+                corrigido. Aqui, os cursos em andamento e as avaliações do curso em tela também entram:
+                sem eles, quem usa o celular perderia o caminho que o menu largo oferece.
             --}}
-            @foreach (array_values(array_filter([
-                ['/aluno', 'Painel'],
-                ['/aluno/catalogo', 'Catálogo'],
-                ['/aluno/certificados', 'Certificados'],
-                config('features.bibliotecaDigital') === true ? ['/aluno/biblioteca', 'Biblioteca'] : null,
-                config('features.mensagensDiretas') === true ? ['/aluno/suporte', 'Suporte pedagógico'] : null,
-                ['/aluno/duvidas', 'Ajuda'],
-                ['/aluno/perfil', 'Perfil'],
-            ])) as [$rota, $rotulo])
-                <a href="{{ $rota }}"
-                   class="rounded-[10px] px-3 py-2.5 text-rotulo font-semibold text-ava-tinta hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
-                    {{ $rotulo }}
-                </a>
+            @php($linkClasse = 'rounded-[10px] px-3 py-2.5 text-rotulo font-semibold text-ava-tinta hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao')
+
+            @foreach ($m['itens'] as $item)
+                @if ($item['grupo'] === 'principal')
+                    <a href="{{ $item['rota'] }}" class="{{ $linkClasse }}">{{ $item['rotulo'] }}</a>
+
+                    @if ($item['chave'] === 'painel')
+                        @php($mostraContinuar = $m['continuar'] !== null && ! ($aulaAtual !== null && str_ends_with($m['continuar']['rota'], '/aula/'.$aulaAtual)))
+                        @if ($mostraContinuar)
+                            <a href="{{ $m['continuar']['rota'] }}" class="{{ $linkClasse }}">
+                                Continuar estudando
+                                <span class="block truncate text-nota font-normal text-escult-ink-3">{{ $m['continuar']['aula'] }}</span>
+                            </a>
+                        @endif
+
+                        @foreach ($m['cursos'] as $c)
+                            @unless (count($m['cursos']) === 1 && $mostraContinuar)
+                            <a href="{{ $c['rota'] }}" class="{{ $linkClasse }}" @if ($c['atual']) aria-current="true" @endif>
+                                {{ $c['titulo'] }}
+                                @if ($c['progresso'] !== '')
+                                    <span class="block text-nota font-normal text-escult-ink-3">{{ $c['progresso'] }}</span>
+                                @endif
+                            </a>
+                            @endunless
+                            @if ($c['avaliacoes'] !== null)
+                                <a href="{{ $c['avaliacoes'] }}" class="{{ $linkClasse }}">Avaliações</a>
+                            @endif
+                        @endforeach
+                    @endif
+                @endif
+            @endforeach
+
+            @foreach ($m['itens'] as $item)
+                @if ($item['grupo'] === 'rodape')
+                    <a href="{{ $item['rota'] }}" class="{{ $linkClasse }}">{{ $item['rotulo'] }}</a>
+                @endif
             @endforeach
         </nav>
     </div>

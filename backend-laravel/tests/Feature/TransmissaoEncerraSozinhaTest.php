@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Course;
-use App\Models\LiveSession;
+use App\Models\Curso;
+use App\Models\SessaoAoVivo;
 use App\Support\BusinessRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -17,10 +17,10 @@ use Tests\TestCase;
 /**
  * Encerramento automático da transmissão 24h após o horário agendado.
  *
- * `LiveSession.isLive` é um interruptor MANUAL: quem dá aula clica "Iniciar" e
+ * `SessaoAoVivo.ao_vivo` é um interruptor MANUAL: quem dá aula clica "Iniciar" e
  * precisa clicar "Finalizar". Quando esquece, a sessão fica ao vivo para sempre.
  * Encontrado nos dados de dev em 03/09/2026: duas sessões de 01/09 ainda com
- * `isLive = 1`, oferecendo sala aberta com ninguém dentro.
+ * `ao_vivo = 1`, oferecendo sala aberta com ninguém dentro.
  *
  * A regra é derivada, não gravada: o valor no banco registra o que a pessoa
  * clicou, e a verdade servida pela API é ele + o tempo decorrido. Por isso os
@@ -43,45 +43,45 @@ final class TransmissaoEncerraSozinhaTest extends TestCase
         return ['Accept' => 'application/json', 'Authorization' => "Bearer {$token}"];
     }
 
-    private function cursoDoInstrutor(): Course
+    private function cursoDoInstrutor(): Curso
     {
-        $instructorId = DB::table('User')->where('role', 'instructor')->where('status', 'active')->value('id');
-        $curso = Course::query()->where('instructorId', $instructorId)->first();
+        $instrutor_id = DB::table('usuario')->where('papel', 'instructor')->where('status', 'active')->value('id');
+        $curso = Curso::query()->where('instrutor_id', $instrutor_id)->first();
         $this->assertNotNull($curso, 'Seed sem curso do instrutor.');
 
         return $curso;
     }
 
     /** Cria uma sessão marcada ao vivo, agendada há $horas horas. */
-    private function sessaoAoVivoHa(Course $curso, float $horas): LiveSession
+    private function sessaoAoVivoHa(Curso $curso, float $horas): SessaoAoVivo
     {
         $quando = CarbonImmutable::now()->subMinutes((int) round($horas * 60));
 
-        return LiveSession::query()->create([
+        return SessaoAoVivo::query()->create([
             'id' => 'live-teste-'.uniqid(),
-            'courseId' => $curso->id,
-            'title' => 'Encontro de teste',
+            'curso_id' => $curso->id,
+            'titulo' => 'Encontro de teste',
             // Formato do banco: ISO local sem fuso, o que o datetime-local produz.
-            'scheduledAt' => $quando->format('Y-m-d\TH:i'),
-            'durationMinutes' => 60,
-            'meetingLink' => 'https://meet.example/teste',
-            'isLive' => true,
+            'agendado_para_texto' => $quando->format('Y-m-d\TH:i'),
+            'duracao_minutos' => 60,
+            'link_reuniao' => 'https://meet.example/teste',
+            'ao_vivo' => true,
         ]);
     }
 
-    /** `isLive` que a API devolve para aquela sessão dentro do curso. */
-    private function isLiveNaApi(string $courseId, string $sessionId, string $token): ?bool
+    /** `ao_vivo` que a API devolve para aquela sessão dentro do curso. */
+    private function isLiveNaApi(string $curso_id, string $sessao_id, string $token): ?bool
     {
         // Não há GET /courses/{id}: a listagem é a rota que o app usa.
-        $cursos = $this->getJson('/api/courses', $this->auth($token))->assertOk()->json();
+        $cursos = $this->getJson('/api/cursos', $this->auth($token))->assertOk()->json();
         $lista = is_array($cursos['items'] ?? null) ? $cursos['items'] : $cursos;
         foreach ($lista as $curso) {
-            if (($curso['id'] ?? null) !== $courseId) {
+            if (($curso['id'] ?? null) !== $curso_id) {
                 continue;
             }
-            foreach ($curso['liveSessions'] ?? [] as $s) {
-                if (($s['id'] ?? null) === $sessionId) {
-                    return (bool) $s['isLive'];
+            foreach ($curso['sessoes_ao_vivo'] ?? [] as $s) {
+                if (($s['id'] ?? null) === $sessao_id) {
+                    return (bool) $s['ao_vivo'];
                 }
             }
         }
@@ -117,7 +117,7 @@ final class TransmissaoEncerraSozinhaTest extends TestCase
 
         // O valor gravado NÃO é reescrito: ele registra o clique de quem deu aula.
         // A verdade exibida é derivada dele + o tempo.
-        $this->assertTrue((bool) DB::table('LiveSession')->where('id', $sessao->id)->value('isLive'));
+        $this->assertTrue((bool) DB::table('sessao_ao_vivo')->where('id', $sessao->id)->value('ao_vivo'));
     }
 
     public function test_o_aluno_tambem_recebe_a_sessao_encerrada(): void
@@ -137,21 +137,21 @@ final class TransmissaoEncerraSozinhaTest extends TestCase
         $curso = $this->cursoDoInstrutor();
         $sessao = $this->sessaoAoVivoHa($curso, 72);
 
-        $this->putJson("/api/courses/{$curso->id}", [
-            'title' => $curso->title,
-            'description' => $curso->description,
-            'category' => $curso->category,
-            'liveSessions' => [[
+        $this->putJson("/api/cursos/{$curso->id}", [
+            'titulo' => $curso->titulo,
+            'descricao' => $curso->descricao,
+            'categoria' => $curso->categoria,
+            'sessoes_ao_vivo' => [[
                 'id' => $sessao->id,
-                'title' => $sessao->title,
-                'scheduledAt' => $sessao->scheduledAt,
-                'durationMinutes' => 60,
-                'meetingLink' => 'https://meet.example/teste',
-                'isLive' => true,
+                'titulo' => $sessao->titulo,
+                'agendado_para_texto' => $sessao->agendado_para_texto,
+                'duracao_minutos' => 60,
+                'link_reuniao' => 'https://meet.example/teste',
+                'ao_vivo' => true,
             ]],
         ], $this->auth($this->staffToken('instructor')))->assertOk();
 
-        $this->assertFalse((bool) DB::table('LiveSession')->where('id', $sessao->id)->value('isLive'));
+        $this->assertFalse((bool) DB::table('sessao_ao_vivo')->where('id', $sessao->id)->value('ao_vivo'));
     }
 
     public function test_data_em_formato_antigo_nao_encerra_por_tempo(): void

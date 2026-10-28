@@ -57,6 +57,7 @@ services:
       # O arquivo compartilhado com produção. Montado separado para deixar
       # visível que é o mesmo conteúdo dos dois lados.
       - ./docker/nginx/avasec-locations.conf:/etc/nginx/avasec-locations.conf:ro
+      - ./docker/nginx/avasec-cabecalhos.conf:/etc/nginx/avasec-cabecalhos.conf:ro
       - ./docker/nginx/upstream-espelho.conf:/etc/nginx/avasec-upstream.conf:ro
     depends_on:
       - php

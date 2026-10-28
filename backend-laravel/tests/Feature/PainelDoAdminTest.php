@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\StudentEnrollment;
-use App\Models\StudentProgress;
-use App\Models\User;
+use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\Matricula;
+use App\Models\ProgressoAluno;
+use App\Models\Usuario;
 use App\Services\RelatoriosDoAdmin;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
@@ -42,17 +42,17 @@ final class PainelDoAdminTest extends TestCase
         return $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $token);
     }
 
-    private function curso(string $titulo, int $status = Visibilidade::PUBLICADO): Course
+    private function curso(string $titulo, int $status = Visibilidade::PUBLICADO): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-adm-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'd',
-            'category' => 'Teste Admin',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'd',
+            'categoria' => 'Teste Admin',
+            'miniatura' => 'sem-imagem.png',
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => $status,
         ]);
@@ -64,16 +64,16 @@ final class PainelDoAdminTest extends TestCase
      * @param  list<string>  $extras
      * @param  list<string>  $concluidos
      */
-    private function matricular(string $userId, string $nome, ?string $principal, array $extras = [], array $concluidos = []): void
+    private function matricular(string $usuario_id, string $nome, ?string $principal, array $extras = [], array $concluidos = []): void
     {
-        StudentEnrollment::query()->updateOrCreate(['userId' => $userId], [
+        Matricula::query()->updateOrCreate(['usuario_id' => $usuario_id], [
             'id' => (string) Str::uuid(),
-            'studentName' => $nome,
-            'enrolledCourseId' => $principal,
-            'enrolledAt' => $principal === null ? null : now()->toIso8601String(),
-            'completedCourseIds' => $concluidos,
-            'extraCourseIds' => $extras,
-            'canMultiEnroll' => $extras !== [],
+            'nome_aluno' => $nome,
+            'curso_matriculado_id' => $principal,
+            'matriculado_em_texto' => $principal === null ? null : now()->toIso8601String(),
+            'cursos_concluidos_ids' => $concluidos,
+            'cursos_extras_ids' => $extras,
+            'pode_multimatricula' => $extras !== [],
         ]);
     }
 
@@ -82,9 +82,9 @@ final class PainelDoAdminTest extends TestCase
         $this->get('/admin')->assertRedirect('/entrar');
         $this->get('/admin/relatorio/alunos')->assertRedirect('/entrar');
 
-        $instrutor = DB::table('User')->where('role', 'instructor')->where('status', 'active')->first(['id', 'name']);
+        $instrutor = DB::table('usuario')->where('papel', 'instructor')->where('status', 'active')->first(['id', 'nome']);
         $this->assertNotNull($instrutor);
-        $token = Jwt::issue($instrutor->id, $instrutor->name, 'instructor');
+        $token = Jwt::issue($instrutor->id, $instrutor->nome, 'instructor');
 
         $this->como($token)->get('/admin')->assertRedirect('/inst');
     }
@@ -129,10 +129,10 @@ final class PainelDoAdminTest extends TestCase
     {
         $resumo = app(RelatoriosDoAdmin::class)->visaoGeral();
 
-        $this->assertSame(User::query()->where('role', 'student')->count(), $resumo['alunos']);
-        $this->assertSame(Course::query()->count(), $resumo['cursos']);
-        $this->assertSame(Course::query()->where('status', Visibilidade::PUBLICADO)->count(), $resumo['cursosPublicados']);
-        $this->assertSame(User::query()->where('role', 'instructor')->count(), $resumo['equipe']);
+        $this->assertSame(Usuario::query()->where('papel', 'student')->count(), $resumo['alunos']);
+        $this->assertSame(Curso::query()->count(), $resumo['cursos']);
+        $this->assertSame(Curso::query()->where('status', Visibilidade::PUBLICADO)->count(), $resumo['cursosPublicados']);
+        $this->assertSame(Usuario::query()->where('papel', 'instructor')->count(), $resumo['equipe']);
 
         $tela = $this->como($this->admin())->get('/admin');
         $tela->assertSee('Alunos cadastrados');
@@ -144,7 +144,7 @@ final class PainelDoAdminTest extends TestCase
      * O React olhava só o curso principal: quem estava matriculada só num curso
      * concorrente aparecia com zero. A contagem agora é a do painel do
      * instrutor — principal mais concorrentes — e é a que o banco real exige
-     * (uma aluna existente está só em `extraCourseIds`).
+     * (uma aluna existente está só em `cursos_extras_ids`).
      */
     public function test_matricula_conta_o_curso_principal_e_os_concorrentes(): void
     {
@@ -156,13 +156,13 @@ final class PainelDoAdminTest extends TestCase
         $b = $this->curso('Curso B Admin');
         $c = $this->curso('Curso C Admin');
 
-        $this->matricular($aluno['id'], $aluno['name'], $a->id, [$b->id, $c->id]);
+        $this->matricular($aluno['id'], $aluno['nome'], $a->id, [$b->id, $c->id]);
 
         $this->assertSame($antes + 3, $servico->visaoGeral()['matriculas']);
 
         // Só concorrente, sem principal: ainda conta.
         $outro = $this->makeStudent('Aluno So Concorrente');
-        $this->matricular($outro['id'], $outro['name'], null, [$a->id]);
+        $this->matricular($outro['id'], $outro['nome'], null, [$a->id]);
 
         $this->assertSame($antes + 4, $servico->visaoGeral()['matriculas']);
     }
@@ -171,20 +171,20 @@ final class PainelDoAdminTest extends TestCase
     {
         $curso = $this->curso('Curso Com Numeros');
         foreach (['aula-1', 'aula-2', 'aula-3', 'aula-4'] as $n) {
-            Lesson::query()->create([
-                'id' => $curso->id.'-'.$n, 'courseId' => $curso->id, 'title' => $n,
-                'content' => 'texto', 'duration' => '10', 'lesson_order' => 1,
+            Aula::query()->create([
+                'id' => $curso->id.'-'.$n, 'curso_id' => $curso->id, 'titulo' => $n,
+                'conteudo' => 'texto', 'duracao' => '10', 'ordem' => 1,
             ]);
         }
 
         $aluno = $this->makeStudent('Aluno Numeros');
-        $this->matricular($aluno['id'], $aluno['name'], $curso->id);
-        StudentProgress::query()->create([
-            'id' => (string) Str::uuid(), 'studentName' => $aluno['name'], 'userId' => $aluno['id'],
-            'courseId' => $curso->id,
+        $this->matricular($aluno['id'], $aluno['nome'], $curso->id);
+        ProgressoAluno::query()->create([
+            'id' => (string) Str::uuid(), 'nome_aluno' => $aluno['nome'], 'usuario_id' => $aluno['id'],
+            'curso_id' => $curso->id,
             // Duas válidas e uma que não existe mais no curso: esta não conta.
-            'completedLessons' => [$curso->id.'-aula-1', $curso->id.'-aula-2', 'aula-que-sumiu'],
-            'attendedLiveSessions' => [],
+            'aulas_concluidas' => [$curso->id.'-aula-1', $curso->id.'-aula-2', 'aula-que-sumiu'],
+            'sessoes_ao_vivo_assistidas' => [],
         ]);
 
         $linha = collect(app(RelatoriosDoAdmin::class)->cursos())->firstWhere('titulo', 'Curso Com Numeros');
@@ -196,7 +196,7 @@ final class PainelDoAdminTest extends TestCase
         $this->assertSame(0, $linha['concluintes']);
 
         // Concluinte vem da coluna que registra a conclusão.
-        $this->matricular($aluno['id'], $aluno['name'], null, [], [$curso->id]);
+        $this->matricular($aluno['id'], $aluno['nome'], null, [], [$curso->id]);
         $depois = collect(app(RelatoriosDoAdmin::class)->cursos())->firstWhere('titulo', 'Curso Com Numeros');
         $this->assertSame(1, $depois['concluintes']);
         $this->assertSame(0, $depois['matriculados']);
@@ -218,7 +218,7 @@ final class PainelDoAdminTest extends TestCase
         $aluno = $this->makeStudent('Aluno A Inativar');
         $antes = $servico->visaoGeral()['alunos'];
 
-        User::query()->findOrFail($aluno['id'])->inativar($aluno['id'], 'teste');
+        Usuario::query()->findOrFail($aluno['id'])->inativar($aluno['id'], 'teste');
 
         $this->assertSame($antes - 1, $servico->visaoGeral()['alunos']);
     }
@@ -227,7 +227,7 @@ final class PainelDoAdminTest extends TestCase
     {
         $curso = $this->curso('Curso Lista Matriculas');
         $aluno = $this->makeStudent('Aluno Lista Matriculas');
-        $this->matricular($aluno['id'], $aluno['name'], $curso->id);
+        $this->matricular($aluno['id'], $aluno['nome'], $curso->id);
 
         $resultado = app(RelatoriosDoAdmin::class)->matriculas(1);
         $mostradas = $resultado['linhas'];
@@ -235,7 +235,7 @@ final class PainelDoAdminTest extends TestCase
         // Pode haver mais de uma página no banco de desenvolvimento: confere o
         // total, e a presença só se a linha cair na primeira página.
         $this->assertGreaterThanOrEqual(1, $resultado['total']);
-        $dele = collect($mostradas)->firstWhere('aluno', $aluno['name']);
+        $dele = collect($mostradas)->firstWhere('aluno', $aluno['nome']);
         if ($dele !== null) {
             $this->assertSame('Curso Lista Matriculas', $dele['curso']);
             $this->assertFalse($dele['certificado']);

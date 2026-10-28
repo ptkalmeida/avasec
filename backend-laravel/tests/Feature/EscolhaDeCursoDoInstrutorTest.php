@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -18,7 +18,7 @@ use Tests\TestCase;
  * `/inst` em Blade — a escolha de curso, primeira tela da área do instrutor.
  *
  * O que mais importa aqui é a posse: um instrutor não pode ver, nem alcançar,
- * curso que não é dele. A regra vem de `InstructorScope` (FK `instructorId`),
+ * curso que não é dele. A regra vem de `InstructorScope` (FK `instrutor_id`),
  * a mesma que a API usa — estes testes existem para que a tela nova não abra
  * uma segunda porta ao lado dela.
  */
@@ -36,29 +36,29 @@ final class EscolhaDeCursoDoInstrutorTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    private function curso(string $titulo, ?string $instructorId): Course
+    private function curso(string $titulo, ?string $instrutor_id): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-inst-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'd',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'd',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ]);
@@ -116,10 +116,10 @@ final class EscolhaDeCursoDoInstrutorTest extends TestCase
         $outro = $this->instrutor('Instrutor Do Admin');
         $this->curso('Curso Visto Pelo Admin', $outro['id']);
 
-        $admin = User::query()->where('role', 'admin')->first();
+        $admin = Usuario::query()->where('papel', 'admin')->first();
         $this->assertNotNull($admin);
 
-        $this->como(Jwt::issue((string) $admin->id, (string) $admin->name, 'admin'))->get('/inst')
+        $this->como(Jwt::issue((string) $admin->id, (string) $admin->nome, 'admin'))->get('/inst')
             ->assertOk()
             ->assertSee('Curso Visto Pelo Admin', escape: false);
     }
@@ -132,7 +132,7 @@ final class EscolhaDeCursoDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Instrutor Vigencia');
         $curso = $this->curso('Curso Com Vigencia Vencida', $eu['id']);
-        Course::query()->whereKey($curso->id)->update(['vigenciaAte' => now()->subDay()->format('Y-m-d')]);
+        Curso::query()->whereKey($curso->id)->update(['vigencia_ate' => now()->subDay()->format('Y-m-d')]);
 
         $this->como($eu['token'])->get('/inst')
             ->assertSee('Curso Com Vigencia Vencida', escape: false)
@@ -144,7 +144,7 @@ final class EscolhaDeCursoDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Instrutor Vence Hoje');
         $curso = $this->curso('Curso Que Vence Hoje', $eu['id']);
-        Course::query()->whereKey($curso->id)->update(['vigenciaAte' => now()->format('Y-m-d')]);
+        Curso::query()->whereKey($curso->id)->update(['vigencia_ate' => now()->format('Y-m-d')]);
 
         $this->como($eu['token'])->get('/inst')
             ->assertSee('Curso Que Vence Hoje', escape: false)
@@ -156,7 +156,7 @@ final class EscolhaDeCursoDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Instrutor Rascunho');
         $curso = $this->curso('Curso Em Rascunho Teste', $eu['id']);
-        Course::query()->whereKey($curso->id)->update(['status' => Visibilidade::RASCUNHO]);
+        Curso::query()->whereKey($curso->id)->update(['status' => Visibilidade::RASCUNHO]);
 
         $this->como($eu['token'])->get('/inst')
             ->assertSee('Curso Em Rascunho Teste', escape: false)

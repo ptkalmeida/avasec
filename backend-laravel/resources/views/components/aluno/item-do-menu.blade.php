@@ -1,4 +1,4 @@
-@props(['rota', 'rotulo', 'ativo' => false, 'icone' => null])
+@props(['rota', 'rotulo', 'ativo' => false, 'icone' => null, 'detalhe' => null])
 
 {{--
     Um item do menu lateral do ALUNO: a moldura compartilhada mais o ícone
@@ -10,7 +10,7 @@
     escolha do desenho, que é o que de fato muda entre as áreas.
 --}}
 
-<x-componentes.item-de-menu :rota="$rota" :rotulo="$rotulo" :ativo="$ativo">
+<x-componentes.item-de-menu :rota="$rota" :rotulo="$rotulo" :ativo="$ativo" :detalhe="$detalhe">
         @switch($icone)
             @case('painel')
                 <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 4.25A1.25 1.25 0 0 1 4.25 3h4A1.25 1.25 0 0 1 9.5 4.25v4A1.25 1.25 0 0 1 8.25 9.5h-4A1.25 1.25 0 0 1 3 8.25v-4Zm7.5 0A1.25 1.25 0 0 1 11.75 3h4A1.25 1.25 0 0 1 17 4.25v4a1.25 1.25 0 0 1-1.25 1.25h-4A1.25 1.25 0 0 1 10.5 8.25v-4ZM3 11.75A1.25 1.25 0 0 1 4.25 10.5h4a1.25 1.25 0 0 1 1.25 1.25v4A1.25 1.25 0 0 1 8.25 17h-4A1.25 1.25 0 0 1 3 15.75v-4Zm7.5 0a1.25 1.25 0 0 1 1.25-1.25h4A1.25 1.25 0 0 1 17 11.75v4A1.25 1.25 0 0 1 15.75 17h-4a1.25 1.25 0 0 1-1.25-1.25v-4Z"/></svg>
@@ -35,6 +35,12 @@
                 @break
             @case('perfil')
                 <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0 1.5c-3 0-5.5 1.7-5.5 3.8V17h11v-1.7c0-2.1-2.5-3.8-5.5-3.8Z"/></svg>
+                @break
+            @case('continuar')
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M6.3 3.7A1 1 0 0 0 4.8 4.6v10.8a1 1 0 0 0 1.5.9l9-5.4a1 1 0 0 0 0-1.7l-9-5.5Z"/></svg>
+                @break
+            @case('avaliacao')
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3.5A1.5 1.5 0 0 1 5.5 2h9A1.5 1.5 0 0 1 16 3.5v13a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 16.5v-13Zm8.2 4.7a.75.75 0 1 0-1.1-1L9 9.3 8 8.3a.75.75 0 0 0-1.1 1l1.5 1.5c.3.3.8.3 1.1 0l2.7-2.6Z" clip-rule="evenodd"/></svg>
                 @break
         @endswitch
 </x-componentes.item-de-menu>

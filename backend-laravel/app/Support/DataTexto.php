@@ -23,11 +23,11 @@ use Throwable;
  *
  * | Formato             | Onde                              | Linhas |
  * |---------------------|-----------------------------------|--------|
- * | `H:i:s d/m/Y`       | SecurityLog.timestamp             | 1710   |
- * | ISO 8601            | ChatMessage, DirectMessage        | 7      |
- * | `d/m/Y, H:i`        | ForumMessage.timestamp (semeado)  | 5      |
- * | `Y-m-d`             | Course.contractExpirationDate     | 7      |
- * | `d/m/Y`             | PracticalExercise, WebinarEvent   | 8      |
+ * | `H:i:s d/m/Y`       | LogSeguranca.timestamp             | 1710   |
+ * | ISO 8601            | MensagemChat, MensagemDireta        | 7      |
+ * | `d/m/Y, H:i`        | MensagemForum.timestamp (semeado)  | 5      |
+ * | `Y-m-d`             | Curso.vencimento_contrato_texto     | 7      |
+ * | `d/m/Y`             | ExercicioPratico, EventoWebinar   | 8      |
  *
  * `d/m/Y H:i` **sem vírgula** não aparece nos dados, mas é o que
  * `LearningService::createForumMessage` grava hoje — a vírgula veio do semeador
@@ -50,7 +50,7 @@ use Throwable;
  *
  * ## Data pura não passa por fuso
  *
- * `vigenciaAte` e `prazoEm` são `DATE`. `Fuso` descreve a armadilha: meia-noite
+ * `vigencia_ate` e `prazo_em` são `DATE`. `Fuso` descreve a armadilha: meia-noite
  * UTC vira 21h do dia ANTERIOR em Brasília, e o dia do vencimento mudaria. Por
  * isso `dia()` não converte nada — devolve o dia que o texto diz.
  */
@@ -66,7 +66,7 @@ final class DataTexto
      * Instante em UTC, pronto para gravar em coluna `DATETIME`, ou `null`.
      *
      * @param  string|null  $texto  o valor da coluna de texto
-     * @param  string|null  $hora  hora numa coluna separada (`WebinarEvent.time`),
+     * @param  string|null  $hora  hora numa coluna separada (`EventoWebinar.time`),
      *                             usada só quando `$texto` traz apenas o dia
      */
     public static function instante(?string $texto, ?string $hora = null): ?CarbonImmutable

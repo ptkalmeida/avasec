@@ -30,7 +30,7 @@ test.describe('Biblioteca e Ajuda do aluno — telas em Blade', () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoAluno(page);
 
-    await page.getByRole('link', { name: /^Ajuda$/ }).first().click();
+    await page.getByRole('link', { name: /^Ajuda e suporte$/ }).first().click();
 
     await expect(page).toHaveURL(/\/aluno\/duvidas$/);
     await expect(page.locator('#root')).toHaveCount(0);
@@ -52,14 +52,17 @@ test.describe('Biblioteca e Ajuda do aluno — telas em Blade', () => {
     await expect(page).toHaveURL(/\/aluno\/suporte$/);
   });
 
-  test('em tela estreita, o menu leva ao suporte, e não à tela de mensagens fechada', async ({ page }) => {
+  test('em tela estreita, o menu leva a Ajuda e suporte, e a aba leva ao suporte, e não à tela de mensagens fechada', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 800 });
     await entrarComoAluno(page);
-    await page.goto('/aluno/duvidas');
+    await page.goto('/aluno');
 
     await page.getByRole('button', { name: /Abrir a navegação/ }).first().click();
-    await page.getByRole('navigation', { name: /telas estreitas/ }).getByRole('link', { name: 'Suporte pedagógico' }).click();
+    await page.getByRole('navigation', { name: /telas estreitas/ }).getByRole('link', { name: 'Ajuda e suporte' }).click();
+    await expect(page).toHaveURL(/\/aluno\/duvidas$/);
 
+    // Ajuda e suporte é um item só, com duas abas: o suporte é a aba ao lado das dúvidas.
+    await page.getByRole('navigation', { name: 'Ajuda e suporte' }).getByRole('link', { name: 'Falar com o gestor', exact: true }).click();
     await expect(page).toHaveURL(/\/aluno\/suporte$/);
   });
 

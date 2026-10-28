@@ -1,0 +1,29 @@
+# Contexto de build da imagem de produção (docker/producao/Dockerfile): só o que a imagem precisa.
+# O que fica de fora não é só tamanho — `.env` e `uploads/` nunca podem entrar numa imagem
+# que vai para o Harbor, e `vendor/` e `node_modules/` locais não valem para o Alpine.
+.git
+.github
+.ai
+.claude
+AGENTS.md
+CLAUDE.md
+node_modules
+backend-laravel/vendor
+backend-laravel/.env
+backend-laravel/.env.*
+!backend-laravel/.env.example
+backend-laravel/storage/logs
+backend-laravel/storage/framework
+backend-laravel/test-results
+backend-laravel/tests
+backend-laravel/public/build
+backend-laravel/public/hot
+uploads
+test-results
+playwright-report
+tests
+docs
+db
+*.docx
+backend-laravel/bootstrap/cache/*.php
+!backend-laravel/bootstrap/cache/.gitignore

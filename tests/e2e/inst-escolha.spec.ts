@@ -166,14 +166,20 @@ test.describe('Escolha de curso e Gestão do Curso — telas em Blade', () => {
    * outros testes. A gravação é conferida no PHPUnit, em transação. Aqui, que
    * os formulários existem e abrem.
    */
-  test('os formulários de vigência e de propriedades abrem', async ({ page }) => {
+  test('os formulários de vigência e de informações do curso abrem', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await entrarComoInstrutor(page);
     await page.getByRole('link', { name: /Aulas/ }).first().click();
 
-    await page.getByText('Propriedades do curso').click();
+    // O texto do curso se lê e se edita no próprio Panorama: o botão troca a leitura pelo formulário.
+    await expect(page.getByLabel('Título')).toBeHidden();
+    await page.waitForLoadState('networkidle');
+    await page.getByRole('button', { name: 'Editar informações do curso' }).click();
     await expect(page.getByLabel('Título')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Salvar propriedades' })).toBeVisible();
+    await expect(page.getByLabel('Descrição')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Salvar alterações' })).toBeVisible();
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByLabel('Título')).toBeHidden();
 
     await page.getByText('Vigência de exibição').first().click();
     await expect(page.getByRole('button', { name: 'Salvar vigência' })).toBeVisible();

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\ChatMessage;
-use App\Models\DirectMessage;
-use App\Models\LiveSession;
+use App\Models\MensagemChat;
+use App\Models\MensagemDireta;
+use App\Models\SessaoAoVivo;
 use App\Support\CourseAccess;
 use App\Support\Identity;
 use App\Support\InstructorScope;
@@ -15,7 +15,7 @@ use Carbon\CarbonImmutable;
 
 /**
  * Chat de aulas ao vivo e mensagens diretas — espelha src/server/services/messagingService.ts.
- * senderName/senderRole sempre da identidade autenticada. Leitura de DMs do aluno usa FK-first
+ * nome_remetente/papel_remetente sempre da identidade autenticada. Leitura de DMs do aluno usa FK-first
  * com fallback por nome.
  */
 final class MessagingService
@@ -23,100 +23,100 @@ final class MessagingService
     /**
      * Chat de aula ao vivo escopado por curso (ADR 10): o requester só lê o chat de
      * sessões de cursos aos quais pertence. Antes, qualquer autenticado enumerava
-     * sessionId e lia/escrevia em turmas alheias.
+     * sessao_id e lia/escrevia em turmas alheias.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<int, array<string, mixed>>
      */
-    public function listChatMessages(?string $sessionId, array $requester): array
+    public function listChatMessages(?string $sessao_id, array $requester): array
     {
-        if ($sessionId !== null) {
-            $courseId = LiveSession::query()->whereKey($sessionId)->value('courseId');
-            if (! is_string($courseId) || ! CourseAccess::canAccess($requester, $courseId)) {
+        if ($sessao_id !== null) {
+            $curso_id = SessaoAoVivo::query()->whereKey($sessao_id)->value('curso_id');
+            if (! is_string($curso_id) || ! CourseAccess::canAccess($requester, $curso_id)) {
                 return [];
             }
 
             // Ordena pelo instante nativo, não pelo texto ISO. O `id` desempata
             // mensagens do mesmo segundo e mantém a ordem estável; linha sem
-            // `enviadaEm` (texto não reconhecível) é tratada como a mais antiga.
-            return ChatMessage::query()->where('sessionId', $sessionId)
-                ->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
+            // `enviada_em` (texto não reconhecível) é tratada como a mais antiga.
+            return MensagemChat::query()->where('sessao_id', $sessao_id)
+                ->orderBy('enviada_em')->orderBy('id')->get()->map->toArray()->all();
         }
 
-        // Sem sessionId: admin vê tudo; demais recebem só o chat das sessões de cursos
+        // Sem sessao_id: admin vê tudo; demais recebem só o chat das sessões de cursos
         // a que têm acesso (o frontend carrega o chat em massa e filtra por sessão).
-        $query = ChatMessage::query();
-        if ($requester['role'] !== 'admin') {
+        $query = MensagemChat::query();
+        if ($requester['papel'] !== 'admin') {
             $accessibleSessionIds = $this->accessibleSessionIds($requester);
-            $query->whereIn('sessionId', $accessibleSessionIds);
+            $query->whereIn('sessao_id', $accessibleSessionIds);
         }
 
-        return $query->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
+        return $query->orderBy('enviada_em')->orderBy('id')->get()->map->toArray()->all();
     }
 
     /**
-     * @param  array{sessionId:string,text:string}  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sessao_id:string,texto:string}  $input
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function createChatMessage(array $input, array $requester): array
     {
-        $courseId = LiveSession::query()->whereKey($input['sessionId'])->value('courseId');
-        if (! is_string($courseId) || ! CourseAccess::canAccess($requester, $courseId)) {
+        $curso_id = SessaoAoVivo::query()->whereKey($input['sessao_id'])->value('curso_id');
+        if (! is_string($curso_id) || ! CourseAccess::canAccess($requester, $curso_id)) {
             throw ApiException::forbidden('Você não participa desta turma.');
         }
 
-        return ChatMessage::query()->create([
+        return MensagemChat::query()->create([
             'id' => 'chat-'.$this->nowMs(),
-            'sessionId' => $input['sessionId'],
-            'senderName' => $requester['name'],
-            'senderUserId' => $requester['sub'],
-            'senderRole' => $requester['role'],
-            'text' => $input['text'],
-            'timestamp' => CarbonImmutable::now()->toIso8601String(),
+            'sessao_id' => $input['sessao_id'],
+            'nome_remetente' => $requester['nome'],
+            'remetente_usuario_id' => $requester['sub'],
+            'papel_remetente' => $requester['papel'],
+            'texto' => $input['texto'],
+            'registrado_em_texto' => CarbonImmutable::now()->toIso8601String(),
             // Mesmo instante em coluna nativa (Norma C.2.4). `timestamp` segue sendo
-            // o texto ISO que a API já entrega; `enviadaEm` é o eixo de ordenação,
+            // o texto ISO que a API já entrega; `enviada_em` é o eixo de ordenação,
             // que texto não dá de graça.
-            'enviadaEm' => CarbonImmutable::now()->utc(),
+            'enviada_em' => CarbonImmutable::now()->utc(),
         ])->toArray();
     }
 
     /**
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<int, array<string, mixed>>
      */
-    public function listDirectMessages(array $requester, ?string $studentUserId): array
+    public function listDirectMessages(array $requester, ?string $aluno_usuario_id): array
     {
-        if ($requester['role'] === 'student') {
-            return Identity::applyOwnRows(DirectMessage::query(), $requester, 'studentUserId')
-                ->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
+        if ($requester['papel'] === 'student') {
+            return Identity::applyOwnRows(MensagemDireta::query(), $requester, 'aluno_usuario_id')
+                ->orderBy('enviada_em')->orderBy('id')->get()->map->toArray()->all();
         }
 
         // Instrutor só lê DMs dos próprios alunos; admin, todas. Antes qualquer instrutor
         // fazia dump de toda a caixa de mensagens diretas da escola.
-        $query = DirectMessage::query();
-        if ($requester['role'] === 'instructor') {
+        $query = MensagemDireta::query();
+        if ($requester['papel'] === 'instructor') {
             $scoped = InstructorScope::studentIds($requester);
-            if ($studentUserId !== null) {
-                $scoped = in_array($studentUserId, $scoped, true) ? [$studentUserId] : [];
+            if ($aluno_usuario_id !== null) {
+                $scoped = in_array($aluno_usuario_id, $scoped, true) ? [$aluno_usuario_id] : [];
             }
-            $query->whereIn('studentUserId', $scoped);
-        } elseif ($studentUserId !== null) {
-            $query->where('studentUserId', $studentUserId);
+            $query->whereIn('aluno_usuario_id', $scoped);
+        } elseif ($aluno_usuario_id !== null) {
+            $query->where('aluno_usuario_id', $aluno_usuario_id);
         }
 
-        return $query->orderBy('enviadaEm')->orderBy('id')->get()->map->toArray()->all();
+        return $query->orderBy('enviada_em')->orderBy('id')->get()->map->toArray()->all();
     }
 
     /**
-     * @param  array{studentUserId?:string|null,text:string}  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{aluno_usuario_id?:string|null,texto:string}  $input
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function createDirectMessage(array $input, array $requester): array
     {
-        // Aluno só escreve no próprio canal; staff endereça o aluno por userId (ADR 10).
-        $studentUserId = Identity::resolveActorUserId($requester, $input['studentUserId'] ?? null);
+        // Aluno só escreve no próprio canal; staff endereça o aluno por usuario_id (ADR 10).
+        $aluno_usuario_id = Identity::resolveActorUserId($requester, $input['aluno_usuario_id'] ?? null);
 
         /*
          * O instrutor escreve para os alunos DELE — o mesmo escopo que a
@@ -131,29 +131,29 @@ final class MessagingService
          * É mudança de regra de autorização, e foi decidida com o responsável
          * em 21/10, junto com a tela de resposta (plano 18 §23).
          */
-        if ($requester['role'] === 'instructor'
-            && ! in_array($studentUserId, InstructorScope::studentIds($requester), true)) {
+        if ($requester['papel'] === 'instructor'
+            && ! in_array($aluno_usuario_id, InstructorScope::studentIds($requester), true)) {
             throw ApiException::forbidden('Você só pode escrever para alunos dos seus cursos.');
         }
 
-        return DirectMessage::query()->create([
+        return MensagemDireta::query()->create([
             'id' => 'dm-'.$this->nowMs(),
-            'studentName' => Identity::displayName($studentUserId, $requester),
-            'studentUserId' => $studentUserId,
-            'senderName' => $requester['name'],
-            'senderUserId' => $requester['sub'],
-            'senderRole' => $requester['role'],
-            'text' => $input['text'],
-            'timestamp' => CarbonImmutable::now()->toIso8601String(),
+            'nome_aluno' => Identity::displayName($aluno_usuario_id, $requester),
+            'aluno_usuario_id' => $aluno_usuario_id,
+            'nome_remetente' => $requester['nome'],
+            'remetente_usuario_id' => $requester['sub'],
+            'papel_remetente' => $requester['papel'],
+            'texto' => $input['texto'],
+            'registrado_em_texto' => CarbonImmutable::now()->toIso8601String(),
             // Ver a nota em createChatMessage: coluna nativa ao lado do texto.
-            'enviadaEm' => CarbonImmutable::now()->utc(),
+            'enviada_em' => CarbonImmutable::now()->utc(),
         ])->toArray();
     }
 
     /**
      * IDs das sessões ao vivo dos cursos acessíveis ao requester (não-admin).
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return list<string>
      */
     private function accessibleSessionIds(array $requester): array
@@ -164,7 +164,7 @@ final class MessagingService
         }
 
         return array_values(array_filter(
-            LiveSession::query()->whereIn('courseId', $courseIds)->pluck('id')->all(),
+            SessaoAoVivo::query()->whereIn('curso_id', $courseIds)->pluck('id')->all(),
             static fn ($id): bool => is_string($id),
         ));
     }

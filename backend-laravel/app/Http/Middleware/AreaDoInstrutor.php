@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Middleware;
 
-use App\Models\User;
+use App\Models\Usuario;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\View;
@@ -51,7 +51,7 @@ final class AreaDoInstrutor
 
         // `withTrashed` pela ADR 12: conta inativada some das consultas padrão
         // e cairia no ramo "não existe".
-        $usuario = User::query()->withTrashed()->find($identidade['sub'], ['id', 'name', 'role', 'status', 'inativadoEm']);
+        $usuario = Usuario::query()->withTrashed()->find($identidade['sub'], ['id', 'nome', 'papel', 'status', 'inativado_em']);
 
         if ($usuario === null || $usuario->estaInativo()) {
             return redirect(self::LOGIN);
@@ -66,18 +66,18 @@ final class AreaDoInstrutor
          * antigo; e o aluno que digitar `/inst` vai para a área dele, que é
          * onde ele tem o que fazer — não para uma página de erro.
          */
-        if ($usuario->role === 'student') {
+        if ($usuario->papel === 'student') {
             return redirect('/aluno');
         }
 
-        if ($usuario->role !== 'instructor' && $usuario->role !== 'admin') {
+        if ($usuario->papel !== 'instructor' && $usuario->papel !== 'admin') {
             return redirect('/');
         }
 
         $instrutor = [
             'sub' => (string) $usuario->id,
-            'name' => (string) $usuario->name,
-            'role' => (string) $usuario->role,
+            'nome' => (string) $usuario->nome,
+            'papel' => (string) $usuario->papel,
         ];
 
         $request->attributes->set('auth_user', $instrutor);

@@ -8,7 +8,7 @@
     O que muda, de propósito:
 
     - cada zona grava SÓ a aula que está aberta. O React reenviava o curso inteiro
-      (`PUT /api/courses/{id}` com todas as aulas) a cada salvamento, e uma aba
+      (`PUT /api/cursos/{id}` com todas as aulas) a cada salvamento, e uma aba
       velha desfazia em silêncio o trabalho de outra pessoa;
     - a zona aberta vem do endereço (`?editar=`), e não de estado no navegador;
     - o selo "Aula obrigatória/opcional" não veio: a coluna `isOptional` não
@@ -16,19 +16,19 @@
 --}}
 @php
     $base = '/inst/curso/'.$ref.'/aulas/'.rawurlencode($aula['id']);
-    $temVideo = \App\Support\VideoSource::tryParse($aula['videoUrl'] ?? null) !== null;
+    $temVideo = \App\Support\VideoSource::tryParse($aula['url_video'] ?? null) !== null;
     $secoes = count(array_filter($blocos['secoes'], static fn (array $s): bool => $s['nivel'] === 2));
     $campo = 'w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-corpo text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30';
     $salvar = 'cursor-pointer rounded-[10px] bg-ava-acao px-5 py-2.5 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2';
 @endphp
-<x-layouts.instrutor :titulo="$aula['title'].' — '.$curso['title']" ativo="grade" :cursoDoMenu="$curso">
+<x-layouts.instrutor :titulo="$aula['titulo'].' — '.$curso['titulo']" ativo="grade" :cursoDoMenu="$curso">
 
     <div class="mx-auto max-w-4xl space-y-6">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/inst" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Meus cursos</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['title'] }}</a>
+            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <a href="/inst/curso/{{ $ref }}/grade-curricular" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Grade curricular</a>
             <span aria-hidden="true" class="px-1.5">/</span>
@@ -48,8 +48,8 @@
         @endif
 
         <div class="space-y-1">
-            <h1 class="font-titulo text-3xl leading-tight tracking-tight text-ava-tinta break-words">{{ $aula['title'] }}</h1>
-            <p class="text-apoio text-escult-ink-2">{{ $curso['title'] }} · aula {{ $posicao }} de {{ $total }}</p>
+            <h1 class="font-titulo text-3xl leading-tight tracking-tight text-ava-tinta break-words">{{ $aula['titulo'] }}</h1>
+            <p class="text-apoio text-escult-ink-2">{{ $curso['titulo'] }} · aula {{ $posicao }} de {{ $total }}</p>
         </div>
 
         {{-- 1. Identificação --}}
@@ -64,12 +64,12 @@
                         <div class="min-w-0 space-y-1.5 sm:col-span-2">
                             <label for="titulo" class="block text-rotulo font-semibold text-ava-tinta">Título da aula</label>
                             <input id="titulo" name="titulo" type="text" required maxlength="191" class="{{ $campo }}"
-                                   value="{{ old('titulo', $aula['title']) }}">
+                                   value="{{ old('titulo', $aula['titulo']) }}">
                         </div>
                         <div class="min-w-0 space-y-1.5">
                             <label for="carga" class="block text-rotulo font-semibold text-ava-tinta">Carga</label>
                             <input id="carga" name="carga" type="text" required maxlength="30" placeholder="20 min" class="{{ $campo }}"
-                                   value="{{ old('carga', $aula['duration']) }}">
+                                   value="{{ old('carga', $aula['duracao']) }}">
                         </div>
                     </div>
                     <div class="flex justify-end">
@@ -77,9 +77,9 @@
                     </div>
                 </form>
             @else
-                <p class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $aula['title'] }}</p>
+                <p class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $aula['titulo'] }}</p>
                 <p class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-apoio text-escult-ink-2">
-                    <span>{{ ($aula['duration'] ?? '') !== '' ? $aula['duration'] : 'Sem carga definida' }}</span>
+                    <span>{{ ($aula['duracao'] ?? '') !== '' ? $aula['duracao'] : 'Sem carga definida' }}</span>
                     <span>{{ count($documentos) === 1 ? '1 documento' : count($documentos).' documentos' }}</span>
                 </p>
             @endif
@@ -103,7 +103,7 @@
                         </p>
                         <input id="video-url" name="video" type="text" inputmode="url" aria-describedby="dica-video"
                                placeholder="https://youtu.be/…" class="{{ $campo }}"
-                               value="{{ old('video', $aula['videoUrl'] ?? '') }}">
+                               value="{{ old('video', $aula['url_video'] ?? '') }}">
                     </div>
                     <div class="flex justify-end">
                         <button type="submit" class="{{ $salvar }}">Salvar vídeo</button>
@@ -111,7 +111,7 @@
                 </form>
             @elseif ($temVideo)
                 <div class="mx-auto max-w-2xl">
-                    <x-aluno.video :url="$aula['videoUrl']" :titulo="$aula['title']" />
+                    <x-aluno.video :url="$aula['url_video']" :titulo="$aula['titulo']" />
                 </div>
             @else
                 <div class="rounded-xl border border-dashed border-ava-borda bg-ava-faixa/50 p-6 text-center">
@@ -435,15 +435,15 @@
                         <li class="min-w-0 rounded-xl border border-ava-borda bg-ava-faixa/50 px-3 py-2.5"
                             x-data="{ desvinculando: false }">
                             <div class="flex min-w-0 items-center gap-2.5">
-                                <span class="shrink-0 rounded border border-ava-borda bg-white px-1.5 py-0.5 text-sobretitulo uppercase text-escult-ink-2">{{ $doc['type'] ?? '' }}</span>
+                                <span class="shrink-0 rounded border border-ava-borda bg-white px-1.5 py-0.5 text-sobretitulo uppercase text-escult-ink-2">{{ $doc['tipo'] ?? '' }}</span>
                                 <span class="min-w-0 flex-1">
-                                    <span class="block truncate text-apoio font-semibold text-ava-tinta">{{ $doc['title'] ?? '' }}</span>
+                                    <span class="block truncate text-apoio font-semibold text-ava-tinta">{{ $doc['titulo'] ?? '' }}</span>
                                     @if ($editar === 'anexos')
-                                        <span class="block truncate text-nota text-escult-ink-2">{{ ! empty($doc['size']) ? $doc['size'].' · ' : '' }}{{ $doc['url'] ?? '' }}</span>
+                                        <span class="block truncate text-nota text-escult-ink-2">{{ ! empty($doc['tamanho']) ? $doc['tamanho'].' · ' : '' }}{{ $doc['url'] ?? '' }}</span>
                                     @endif
                                 </span>
-                                @if ($editar !== 'anexos' && ! empty($doc['size']))
-                                    <span class="shrink-0 text-apoio text-escult-ink-2">{{ $doc['size'] }}</span>
+                                @if ($editar !== 'anexos' && ! empty($doc['tamanho']))
+                                    <span class="shrink-0 text-apoio text-escult-ink-2">{{ $doc['tamanho'] }}</span>
                                 @endif
                             </div>
 
@@ -452,12 +452,12 @@
                                     @if ($endereco !== null)
                                         <a href="{{ $endereco }}" target="_blank" rel="noopener noreferrer" referrerpolicy="no-referrer"
                                            class="inline-flex items-center rounded-[10px] border border-ava-borda bg-white px-3 py-1.5 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
-                                            Abrir<span class="sr-only"> {{ $doc['title'] ?? '' }} em outra aba</span>
+                                            Abrir<span class="sr-only"> {{ $doc['titulo'] ?? '' }} em outra aba</span>
                                         </a>
                                     @endif
                                     <button type="button" @click="desvinculando = true"
                                             class="cursor-pointer rounded-[10px] border border-ava-borda bg-white px-3 py-1.5 text-rotulo font-semibold text-rose-700 transition-colors hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500">
-                                        Desvincular<span class="sr-only"> {{ $doc['title'] ?? '' }}</span>
+                                        Desvincular<span class="sr-only"> {{ $doc['titulo'] ?? '' }}</span>
                                     </button>
                                 </div>
 
@@ -466,7 +466,7 @@
                                       class="mt-2 space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3">
                                     @csrf
                                     <p class="text-apoio text-rose-900">
-                                        Desvincular “{{ $doc['title'] ?? '' }}” da aula? Os alunos deixam de vê-lo. Nada é apagado:
+                                        Desvincular “{{ $doc['titulo'] ?? '' }}” da aula? Os alunos deixam de vê-lo. Nada é apagado:
                                         o registro continua guardado, com quem o desvinculou e quando.
                                     </p>
                                     <div class="flex flex-wrap gap-2">

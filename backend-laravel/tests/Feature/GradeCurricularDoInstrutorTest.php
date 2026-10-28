@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\StudentProgress;
-use App\Models\User;
+use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\ProgressoAluno;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -39,43 +39,43 @@ final class GradeCurricularDoInstrutorTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    /** @return array{0:Course,1:list<Lesson>} */
-    private function cursoComAulas(string $instructorId, int $quantas = 3, string $titulo = 'Curso Da Grade Teste'): array
+    /** @return array{0:Curso,1:list<Aula>} */
+    private function cursoComAulas(string $instrutor_id, int $quantas = 3, string $titulo = 'Curso Da Grade Teste'): array
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-grade-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ]);
 
         $aulas = [];
         for ($i = 1; $i <= $quantas; $i++) {
-            $aulas[] = Lesson::query()->create([
+            $aulas[] = Aula::query()->create([
                 'id' => 'lesson-grade-'.$curso->id.'-'.$i,
-                'courseId' => $curso->id,
-                'title' => "Aula numero {$i}",
-                'duration' => '30 min',
-                'content' => "Conteudo {$i}",
-                'lesson_order' => $i,
+                'curso_id' => $curso->id,
+                'titulo' => "Aula numero {$i}",
+                'duracao' => '30 min',
+                'conteudo' => "Conteudo {$i}",
+                'ordem' => $i,
             ]);
         }
 
@@ -83,10 +83,10 @@ final class GradeCurricularDoInstrutorTest extends TestCase
     }
 
     /** @return list<string> */
-    private function ordemAtual(Course $curso): array
+    private function ordemAtual(Curso $curso): array
     {
         /** @var list<string> $ids */
-        $ids = Lesson::query()->where('courseId', $curso->id)->orderBy('lesson_order')->orderBy('id')->pluck('id')->all();
+        $ids = Aula::query()->where('curso_id', $curso->id)->orderBy('ordem')->orderBy('id')->pluck('id')->all();
 
         return $ids;
     }
@@ -128,7 +128,7 @@ final class GradeCurricularDoInstrutorTest extends TestCase
             ->post('/inst/curso/'.$alheio->slug.'/aulas/'.$aulas[0]->id.'/remover')
             ->assertNotFound();
 
-        $this->assertSame(2, Lesson::query()->where('courseId', $alheio->id)->count());
+        $this->assertSame(2, Aula::query()->where('curso_id', $alheio->id)->count());
     }
 
     public function test_descer_troca_a_aula_com_a_vizinha_e_renumera(): void
@@ -141,7 +141,7 @@ final class GradeCurricularDoInstrutorTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame([$aulas[1]->id, $aulas[0]->id, $aulas[2]->id], $this->ordemAtual($curso));
-        $this->assertSame([1, 2, 3], Lesson::query()->where('courseId', $curso->id)->orderBy('lesson_order')->pluck('lesson_order')->map(fn ($n) => (int) $n)->all());
+        $this->assertSame([1, 2, 3], Aula::query()->where('curso_id', $curso->id)->orderBy('ordem')->pluck('ordem')->map(fn ($n) => (int) $n)->all());
     }
 
     public function test_subir_a_ultima_troca_com_a_penultima(): void
@@ -178,8 +178,8 @@ final class GradeCurricularDoInstrutorTest extends TestCase
         $this->como($eu['token'])
             ->post('/inst/curso/'.$curso->slug.'/aulas/'.$aulas[0]->id.'/mover', ['direcao' => 'down']);
 
-        $this->assertSame('Conteudo 1', Lesson::query()->whereKey($aulas[0]->id)->value('content'));
-        $this->assertSame('Aula numero 1', Lesson::query()->whereKey($aulas[0]->id)->value('title'));
+        $this->assertSame('Conteudo 1', Aula::query()->whereKey($aulas[0]->id)->value('conteudo'));
+        $this->assertSame('Aula numero 1', Aula::query()->whereKey($aulas[0]->id)->value('titulo'));
     }
 
     /** O banco pode ter posições repetidas; a ordem que a tela mostra é a que se move. */
@@ -187,12 +187,12 @@ final class GradeCurricularDoInstrutorTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Posicoes Repetidas');
         [$curso, $aulas] = $this->cursoComAulas($eu['id']);
-        Lesson::query()->where('courseId', $curso->id)->update(['lesson_order' => 5]);
+        Aula::query()->where('curso_id', $curso->id)->update(['ordem' => 5]);
 
         $this->como($eu['token'])
             ->post('/inst/curso/'.$curso->slug.'/aulas/'.$aulas[0]->id.'/mover', ['direcao' => 'up']);
 
-        $this->assertSame([1, 2, 3], Lesson::query()->where('courseId', $curso->id)->orderBy('lesson_order')->pluck('lesson_order')->map(fn ($n) => (int) $n)->all());
+        $this->assertSame([1, 2, 3], Aula::query()->where('curso_id', $curso->id)->orderBy('ordem')->pluck('ordem')->map(fn ($n) => (int) $n)->all());
     }
 
     public function test_direcao_invalida_e_recusada(): void
@@ -232,11 +232,11 @@ final class GradeCurricularDoInstrutorTest extends TestCase
         $this->assertSame([$aulas[0]->id, $aulas[2]->id], $this->ordemAtual($curso));
 
         // ...mas a linha continua no banco, com quem tirou.
-        $linha = DB::table('Lesson')->where('id', $aulas[1]->id)->first();
+        $linha = DB::table('aula')->where('id', $aulas[1]->id)->first();
         $this->assertNotNull($linha, 'A aula foi APAGADA do banco.');
-        $this->assertNotNull($linha->inativadoEm);
-        $this->assertSame($eu['id'], $linha->inativadoPor);
-        $this->assertSame('Conteudo 2', $linha->content);
+        $this->assertNotNull($linha->inativado_em);
+        $this->assertSame($eu['id'], $linha->inativado_por);
+        $this->assertSame('Conteudo 2', $linha->conteudo);
     }
 
     /**
@@ -263,33 +263,33 @@ final class GradeCurricularDoInstrutorTest extends TestCase
         $eu = $this->instrutor('Gestor Progresso');
         [$curso, $aulas] = $this->cursoComAulas($eu['id']);
         $aluno = $this->makeStudent('Aluno Progresso Grade');
-        StudentProgress::query()->create([
+        ProgressoAluno::query()->create([
             'id' => 'prog-'.uniqid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'courseId' => $curso->id,
-            'completedLessons' => [$aulas[0]->id, $aulas[1]->id],
-            'attendedLiveSessions' => [],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_id' => $curso->id,
+            'aulas_concluidas' => [$aulas[0]->id, $aulas[1]->id],
+            'sessoes_ao_vivo_assistidas' => [],
         ]);
 
         $this->como($eu['token'])
             ->post('/inst/curso/'.$curso->slug.'/aulas/'.$aulas[1]->id.'/remover');
 
-        $restante = StudentProgress::query()->where('userId', $aluno['id'])->where('courseId', $curso->id)->first();
+        $restante = ProgressoAluno::query()->where('usuario_id', $aluno['id'])->where('curso_id', $curso->id)->first();
         $this->assertNotNull($restante);
-        $this->assertSame([$aulas[0]->id], array_values($restante->completedLessons));
+        $this->assertSame([$aulas[0]->id], array_values($restante->aulas_concluidas));
     }
 
     public function test_as_duas_escritas_ficam_na_auditoria(): void
     {
         $eu = $this->instrutor('Gestor Auditoria Grade');
         [$curso, $aulas] = $this->cursoComAulas($eu['id']);
-        $antes = (int) DB::table('SecurityLog')->count();
+        $antes = (int) DB::table('log_seguranca')->count();
 
         $this->como($eu['token'])->post('/inst/curso/'.$curso->slug.'/aulas/'.$aulas[0]->id.'/mover', ['direcao' => 'down']);
         $this->como($eu['token'])->post('/inst/curso/'.$curso->slug.'/aulas/'.$aulas[2]->id.'/remover');
 
-        $this->assertGreaterThanOrEqual($antes + 2, (int) DB::table('SecurityLog')->count());
+        $this->assertGreaterThanOrEqual($antes + 2, (int) DB::table('log_seguranca')->count());
     }
 
     /** Sem aula nova nem selo de "Obrigatória": a coluna `isOptional` não existe. */
@@ -327,9 +327,9 @@ final class GradeCurricularDoInstrutorTest extends TestCase
     {
         $outro = $this->instrutor('Gestor Do Admin Grade');
         [$curso, $aulas] = $this->cursoComAulas($outro['id']);
-        $admin = User::query()->where('role', 'admin')->first();
+        $admin = Usuario::query()->where('papel', 'admin')->first();
         $this->assertNotNull($admin);
-        $token = Jwt::issue((string) $admin->id, (string) $admin->name, 'admin');
+        $token = Jwt::issue((string) $admin->id, (string) $admin->nome, 'admin');
 
         $this->como($token)->get('/inst/curso/'.$curso->slug.'/grade-curricular')->assertOk();
         $this->como($token)->post('/inst/curso/'.$curso->slug.'/aulas/'.$aulas[0]->id.'/mover', ['direcao' => 'down']);

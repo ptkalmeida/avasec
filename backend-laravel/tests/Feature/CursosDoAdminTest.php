@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\StudentEnrollment;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Matricula;
+use App\Models\Usuario;
 use App\Support\Fuso;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
@@ -41,29 +41,29 @@ final class CursosDoAdminTest extends TestCase
         return $this->withUnencryptedCookie(JwtAuthenticate::SESSION_COOKIE, $token);
     }
 
-    private function gestor(string $nome): User
+    private function gestor(string $nome): Usuario
     {
-        return User::query()->create([
+        return Usuario::query()->create([
             'id' => (string) Str::uuid(),
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
     }
 
-    private function curso(string $titulo, ?string $gestorId = null, int $status = Visibilidade::PUBLICADO): Course
+    private function curso(string $titulo, ?string $gestorId = null, int $status = Visibilidade::PUBLICADO): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-cadm-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição do curso para teste.',
-            'category' => 'Teste Admin',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $gestorId,
-            'instructorName' => 'Gestor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição do curso para teste.',
+            'categoria' => 'Teste Admin',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $gestorId,
+            'nome_instrutor' => 'Gestor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => $status,
         ]);
@@ -84,14 +84,14 @@ final class CursosDoAdminTest extends TestCase
         $curso = $this->curso('Curso Acesso Admin');
 
         $this->get('/admin/cursos')->assertRedirect('/entrar');
-        $this->post('/admin/cursos', ['title' => 'x'])->assertRedirect('/entrar');
+        $this->post('/admin/cursos', ['titulo' => 'x'])->assertRedirect('/entrar');
 
         $gestor = $this->gestor('Gestor Sem Acesso Admin');
-        $token = Jwt::issue($gestor->id, $gestor->name, 'instructor');
+        $token = Jwt::issue($gestor->id, $gestor->nome, 'instructor');
         $this->como($token)->get('/admin/cursos')->assertRedirect('/inst');
         $this->como($token)->post('/admin/cursos/'.$curso->id.'/retirar')->assertRedirect('/inst');
 
-        $this->assertNull(Course::query()->find($curso->id)?->inativadoEm);
+        $this->assertNull(Curso::query()->find($curso->id)?->inativado_em);
     }
 
     public function test_a_flag_do_catalogo_desligada_responde_404(): void
@@ -101,7 +101,7 @@ final class CursosDoAdminTest extends TestCase
 
         $this->como($this->admin())->get('/admin/cursos')->assertNotFound();
         $this->como($this->admin())->post('/admin/cursos/'.$curso->id.'/retirar')->assertNotFound();
-        $this->assertNull(Course::query()->find($curso->id)?->inativadoEm);
+        $this->assertNull(Curso::query()->find($curso->id)?->inativado_em);
     }
 
     // ---- ler ------------------------------------------------------------------
@@ -115,7 +115,9 @@ final class CursosDoAdminTest extends TestCase
         $resposta->assertOk();
         $resposta->assertDontSee('<div id="root">', false);
         $resposta->assertSee('Curso Que Aparece Na Lista');
-        $resposta->assertSee('Ativo no AVA');
+        // `>Ativo</span>` e não `Ativo` solto: a palavra aparece em outros textos da página.
+        $resposta->assertSee('>Ativo</span>', false);
+        $resposta->assertDontSee('Ativo no AVA');
         $resposta->assertSee('Publicado');
         $resposta->assertSee('Retirar do ar');
     }
@@ -123,11 +125,11 @@ final class CursosDoAdminTest extends TestCase
     public function test_a_busca_acha_pelo_titulo_ou_pelo_professor(): void
     {
         $gestor = $this->gestor('Professor Raríssimo Zxy');
-        $curso = Course::query()->create([
-            'id' => 'course-cadm-busca', 'title' => 'Curso Busca Titulo Qwv', 'description' => 'Descrição do curso.',
-            'category' => 'T', 'thumbnail' => 'x.png', 'instructorId' => $gestor->id, 'instructorName' => $gestor->name,
+        $curso = Curso::query()->create([
+            'id' => 'course-cadm-busca', 'titulo' => 'Curso Busca Titulo Qwv', 'descricao' => 'Descrição do curso.',
+            'categoria' => 'T', 'miniatura' => 'x.png', 'instrutor_id' => $gestor->id, 'nome_instrutor' => $gestor->nome,
         ]);
-        Course::query()->whereKey($curso->id)->update(['slug' => 'curso-busca-qwv', 'status' => 1]);
+        Curso::query()->whereKey($curso->id)->update(['slug' => 'curso-busca-qwv', 'status' => 1]);
         $token = $this->admin();
 
         $this->como($token)->get('/admin/cursos?busca=Titulo+Qwv')->assertSee('Curso Busca Titulo Qwv');
@@ -156,10 +158,10 @@ final class CursosDoAdminTest extends TestCase
             [$extra, $outro->id, [$curso->id], []],
             [$concluida, null, [], [$curso->id]],
         ] as [$aluno, $principalId, $extras, $concluidos]) {
-            StudentEnrollment::query()->create([
-                'id' => (string) Str::uuid(), 'userId' => $aluno['id'], 'studentName' => $aluno['name'],
-                'enrolledCourseId' => $principalId, 'completedCourseIds' => $concluidos,
-                'extraCourseIds' => $extras, 'canMultiEnroll' => $extras !== [],
+            Matricula::query()->create([
+                'id' => (string) Str::uuid(), 'usuario_id' => $aluno['id'], 'nome_aluno' => $aluno['nome'],
+                'curso_matriculado_id' => $principalId, 'cursos_concluidos_ids' => $concluidos,
+                'cursos_extras_ids' => $extras, 'pode_multimatricula' => $extras !== [],
             ]);
         }
 
@@ -169,7 +171,7 @@ final class CursosDoAdminTest extends TestCase
         $resposta->assertSee('Aluna Principal Real');
         $resposta->assertSee('Aluna Concorrente Real');
         $resposta->assertDontSee('Aluna Concluiu Real');
-        $resposta->assertDontSee($naoMatriculada['name']);
+        $resposta->assertDontSee($naoMatriculada['nome']);
     }
 
     public function test_curso_sem_aluno_diz_que_nao_ha_matriculados(): void
@@ -184,7 +186,7 @@ final class CursosDoAdminTest extends TestCase
     public function test_curso_vencido_aparece_como_expirado_e_o_inativado_some(): void
     {
         $vencido = $this->curso('Curso Vencido Admin Kjh');
-        Course::query()->whereKey($vencido->id)->update(['contractExpirationDate' => '2020-01-01', 'vigenciaAte' => '2020-01-01']);
+        Curso::query()->whereKey($vencido->id)->update(['vencimento_contrato_texto' => '2020-01-01', 'vigencia_ate' => '2020-01-01']);
         $inativo = $this->curso('Curso Inativo Admin Kjh');
         $inativo->inativar('x', 'teste');
 
@@ -193,7 +195,16 @@ final class CursosDoAdminTest extends TestCase
         $resposta->assertSee('Curso Vencido Admin Kjh');
         $resposta->assertSee('Expirado (arquivado)');
         $resposta->assertSee('Reativar curso');
-        $resposta->assertDontSee('Curso Inativo Admin Kjh');
+
+        // O retirado não é um curso ativo: fora do catálogo, mas — desde 26/10/2026 — presente
+        // na seção "Cursos retirados do ar", em vez de sumir da tela (o "limbo").
+        // `RetiradosDoAdminTest` cobre a reativação.
+        $html = $resposta->getContent();
+        $this->assertIsString($html);
+        $secao = strpos($html, 'Cursos retirados do ar (');
+        $this->assertNotFalse($secao, 'A seção de retirados precisa existir.');
+        $this->assertStringNotContainsString('Curso Inativo Admin Kjh', substr($html, 0, $secao), 'O retirado não pode estar entre os ativos.');
+        $this->assertStringContainsString('Curso Inativo Admin Kjh', substr($html, $secao), 'O retirado precisa estar na seção de retirados.');
     }
 
     // ---- prover ---------------------------------------------------------------
@@ -202,63 +213,63 @@ final class CursosDoAdminTest extends TestCase
         $gestor = $this->gestor('Gestor Que Recebe O Curso');
 
         $resposta = $this->como($this->admin())->post('/admin/cursos', [
-            'title' => 'Curso Provido Pelo Admin',
-            'category' => 'Área Inventada Agora',
-            'instructorId' => $gestor->id,
-            'description' => 'Uma ementa com mais de dez letras.',
+            'titulo' => 'Curso Provido Pelo Admin',
+            'categoria' => 'Área Inventada Agora',
+            'instrutor_id' => $gestor->id,
+            'descricao' => 'Uma ementa com mais de dez letras.',
             'vigencia' => '2031-05-20',
-            'courseType' => 'ao_vivo',
-            'hasChat' => '1',
+            'tipo_curso' => 'ao_vivo',
+            'tem_chat' => '1',
         ]);
 
-        $curso = Course::query()->where('title', 'Curso Provido Pelo Admin')->firstOrFail();
+        $curso = Curso::query()->where('titulo', 'Curso Provido Pelo Admin')->firstOrFail();
         $resposta->assertRedirect('/admin/cursos?curso='.$curso->id.'#curso-'.$curso->id);
 
-        $this->assertSame('Área Inventada Agora', $curso->category);
-        $this->assertSame($gestor->id, $curso->instructorId);
-        $this->assertSame($gestor->name, $curso->instructorName);
-        $this->assertSame('ao_vivo', $curso->courseType);
-        $this->assertTrue((bool) $curso->hasChat);
-        $this->assertSame('2031-05-20', substr((string) $curso->contractExpirationDate, 0, 10));
-        $this->assertSame('2031-05-20', substr((string) $curso->vigenciaAte, 0, 10));
+        $this->assertSame('Área Inventada Agora', $curso->categoria);
+        $this->assertSame($gestor->id, $curso->instrutor_id);
+        $this->assertSame($gestor->nome, $curso->nome_instrutor);
+        $this->assertSame('ao_vivo', $curso->tipo_curso);
+        $this->assertTrue((bool) $curso->tem_chat);
+        $this->assertSame('2031-05-20', substr((string) $curso->vencimento_contrato_texto, 0, 10));
+        $this->assertSame('2031-05-20', substr((string) $curso->vigencia_ate, 0, 10));
         $this->assertNotSame('', (string) $curso->slug);
-        $this->assertStringStartsWith('https://images.unsplash.com/', (string) $curso->thumbnail);
+        $this->assertStringStartsWith('https://images.unsplash.com/', (string) $curso->miniatura);
 
         // A área nova passa a ser oferecida.
         $this->como($this->admin())->get('/admin/cursos')->assertSee('Área Inventada Agora');
 
-        $this->assertTrue(DB::table('SecurityLog')->where('action', 'Criação de Curso')->where('details', 'like', '%Curso Provido Pelo Admin%')->exists());
+        $this->assertTrue(DB::table('log_seguranca')->where('acao', 'Criação de Curso')->where('detalhes', 'like', '%Curso Provido Pelo Admin%')->exists());
     }
 
     public function test_curso_sem_ementa_ganha_a_descricao_padrao_e_sem_chat_marcado_fica_sem_chat(): void
     {
         $this->como($this->admin())->post('/admin/cursos', [
-            'title' => 'Curso Sem Ementa Admin',
-            'category' => 'Qualquer',
-            'courseType' => 'fixo',
+            'titulo' => 'Curso Sem Ementa Admin',
+            'categoria' => 'Qualquer',
+            'tipo_curso' => 'fixo',
         ])->assertRedirect();
 
-        $curso = Course::query()->where('title', 'Curso Sem Ementa Admin')->firstOrFail();
-        $this->assertStringContainsString('recém-provido', (string) $curso->description);
-        $this->assertFalse((bool) $curso->hasChat);
-        $this->assertNull($curso->contractExpirationDate);
+        $curso = Curso::query()->where('titulo', 'Curso Sem Ementa Admin')->firstOrFail();
+        $this->assertStringContainsString('recém-provido', (string) $curso->descricao);
+        $this->assertFalse((bool) $curso->tem_chat);
+        $this->assertNull($curso->vencimento_contrato_texto);
     }
 
     public function test_titulo_curto_e_responsavel_inexistente_sao_recusados(): void
     {
         $token = $this->admin();
-        $antes = Course::query()->count();
+        $antes = Curso::query()->count();
 
         $this->como($token)->from('/admin/cursos')->post('/admin/cursos', [
-            'title' => 'ab', 'category' => 'X', 'courseType' => 'fixo',
-        ])->assertSessionHasErrors('title');
+            'titulo' => 'ab', 'categoria' => 'X', 'tipo_curso' => 'fixo',
+        ])->assertSessionHasErrors('titulo');
 
         $this->como($token)->from('/admin/cursos')->post('/admin/cursos', [
-            'title' => 'Curso Responsavel Falso', 'category' => 'X', 'courseType' => 'fixo',
-            'instructorId' => 'nao-existe-esse-id',
-        ])->assertSessionHasErrors('instructorId');
+            'titulo' => 'Curso Responsavel Falso', 'categoria' => 'X', 'tipo_curso' => 'fixo',
+            'instrutor_id' => 'nao-existe-esse-id',
+        ])->assertSessionHasErrors('instrutor_id');
 
-        $this->assertSame($antes, Course::query()->count());
+        $this->assertSame($antes, Curso::query()->count());
     }
 
     // ---- cuidar ---------------------------------------------------------------
@@ -270,37 +281,37 @@ final class CursosDoAdminTest extends TestCase
         $aluno = $this->makeStudent('Aluno Que Nao E Gestor');
         $token = $this->admin();
 
-        $this->como($token)->post('/admin/cursos/'.$curso->id.'/instrutor', ['instructorId' => $para->id])
+        $this->como($token)->post('/admin/cursos/'.$curso->id.'/instrutor', ['instrutor_id' => $para->id])
             ->assertRedirect('/admin/cursos?curso='.$curso->id.'#curso-'.$curso->id);
         $curso->refresh();
-        $this->assertSame($para->id, $curso->instructorId);
-        $this->assertSame($para->name, $curso->instructorName);
+        $this->assertSame($para->id, $curso->instrutor_id);
+        $this->assertSame($para->nome, $curso->nome_instrutor);
 
         // Aluno não vira responsável.
-        $this->como($token)->from('/admin/cursos')->post('/admin/cursos/'.$curso->id.'/instrutor', ['instructorId' => $aluno['id']])
-            ->assertSessionHasErrors('instructorId');
-        $this->assertSame($para->id, $curso->refresh()->instructorId);
+        $this->como($token)->from('/admin/cursos')->post('/admin/cursos/'.$curso->id.'/instrutor', ['instrutor_id' => $aluno['id']])
+            ->assertSessionHasErrors('instrutor_id');
+        $this->assertSame($para->id, $curso->refresh()->instrutor_id);
     }
 
     public function test_salvar_tipo_e_chat(): void
     {
         $curso = $this->curso('Curso Tipo E Chat');
-        Course::query()->whereKey($curso->id)->update(['hasChat' => true, 'courseType' => 'fixo']);
+        Curso::query()->whereKey($curso->id)->update(['tem_chat' => true, 'tipo_curso' => 'fixo']);
         $token = $this->admin();
 
         // Chat desmarcado = ausente do formulário.
-        $this->como($token)->post('/admin/cursos/'.$curso->id.'/propriedades', ['courseType' => 'ao_vivo'])->assertRedirect();
+        $this->como($token)->post('/admin/cursos/'.$curso->id.'/propriedades', ['tipo_curso' => 'ao_vivo'])->assertRedirect();
         $curso->refresh();
-        $this->assertSame('ao_vivo', $curso->courseType);
-        $this->assertFalse((bool) $curso->hasChat);
+        $this->assertSame('ao_vivo', $curso->tipo_curso);
+        $this->assertFalse((bool) $curso->tem_chat);
 
-        $this->como($token)->post('/admin/cursos/'.$curso->id.'/propriedades', ['courseType' => 'fixo', 'hasChat' => '1'])->assertRedirect();
+        $this->como($token)->post('/admin/cursos/'.$curso->id.'/propriedades', ['tipo_curso' => 'fixo', 'tem_chat' => '1'])->assertRedirect();
         $curso->refresh();
-        $this->assertSame('fixo', $curso->courseType);
-        $this->assertTrue((bool) $curso->hasChat);
+        $this->assertSame('fixo', $curso->tipo_curso);
+        $this->assertTrue((bool) $curso->tem_chat);
 
-        $this->como($token)->from('/admin/cursos')->post('/admin/cursos/'.$curso->id.'/propriedades', ['courseType' => 'inventado'])
-            ->assertSessionHasErrors('courseType');
+        $this->como($token)->from('/admin/cursos')->post('/admin/cursos/'.$curso->id.'/propriedades', ['tipo_curso' => 'inventado'])
+            ->assertSessionHasErrors('tipo_curso');
     }
 
     public function test_vigencia_por_data_um_ano_e_permanente(): void
@@ -311,15 +322,15 @@ final class CursosDoAdminTest extends TestCase
 
         // Uma data já passada vale: é como o admin encerra um curso de propósito.
         $this->como($token)->post($base, ['prazo' => 'data', 'ate' => '2020-02-02'])->assertRedirect();
-        $this->assertSame('2020-02-02', substr((string) $curso->refresh()->vigenciaAte, 0, 10));
+        $this->assertSame('2020-02-02', substr((string) $curso->refresh()->vigencia_ate, 0, 10));
 
         $this->como($token)->post($base, ['prazo' => '1-ano'])->assertRedirect();
-        $this->assertSame(Fuso::agora()->addYear()->format('Y-m-d'), substr((string) $curso->refresh()->vigenciaAte, 0, 10));
+        $this->assertSame(Fuso::agora()->addYear()->format('Y-m-d'), substr((string) $curso->refresh()->vigencia_ate, 0, 10));
 
         $this->como($token)->post($base, ['prazo' => 'permanente'])->assertRedirect();
         $curso->refresh();
-        $this->assertNull($curso->vigenciaAte);
-        $this->assertNull($curso->contractExpirationDate);
+        $this->assertNull($curso->vigencia_ate);
+        $this->assertNull($curso->vencimento_contrato_texto);
 
         $this->como($token)->from('/admin/cursos')->post($base, ['prazo' => 'data'])->assertSessionHasErrors('ate');
         $this->como($token)->from('/admin/cursos')->post($base, ['prazo' => 'data', 'ate' => '31/12/2030'])->assertSessionHasErrors('ate');
@@ -328,12 +339,12 @@ final class CursosDoAdminTest extends TestCase
     public function test_reativar_um_curso_vencido_o_devolve_ao_ar(): void
     {
         $curso = $this->curso('Curso Para Reativar');
-        Course::query()->whereKey($curso->id)->update(['contractExpirationDate' => '2020-01-01', 'vigenciaAte' => '2020-01-01']);
+        Curso::query()->whereKey($curso->id)->update(['vencimento_contrato_texto' => '2020-01-01', 'vigencia_ate' => '2020-01-01']);
 
         $this->como($this->admin())->post('/admin/cursos/'.$curso->id.'/vigencia', ['prazo' => '1-ano'])->assertRedirect();
 
         $this->como($this->admin())->get('/admin/cursos?busca=Curso+Para+Reativar')
-            ->assertSee('Ativo no AVA')
+            ->assertSee('>Ativo</span>', false)
             ->assertDontSee('Expirado (arquivado)');
     }
 
@@ -346,11 +357,11 @@ final class CursosDoAdminTest extends TestCase
         $this->como($token)->post('/admin/cursos/'.$curso->id.'/capa', ['capa' => $this->png()])->assertRedirect();
 
         $curso->refresh();
-        $this->assertStringStartsWith('/uploads/', (string) $curso->coverImage);
-        Storage::disk('publico')->assertExists(basename((string) $curso->coverImage));
+        $this->assertStringStartsWith('/uploads/', (string) $curso->imagem_capa);
+        Storage::disk('publico')->assertExists(basename((string) $curso->imagem_capa));
 
         $this->como($token)->post('/admin/cursos/'.$curso->id.'/capa', ['remover' => '1'])->assertRedirect();
-        $this->assertNull($curso->refresh()->coverImage);
+        $this->assertNull($curso->refresh()->imagem_capa);
     }
 
     public function test_capa_de_tipo_proibido_ou_ausente_e_recusada(): void
@@ -365,7 +376,7 @@ final class CursosDoAdminTest extends TestCase
 
         $this->como($token)->from('/admin/cursos')->post('/admin/cursos/'.$curso->id.'/capa', [])->assertSessionHasErrors('capa');
 
-        $this->assertNull($curso->refresh()->coverImage);
+        $this->assertNull($curso->refresh()->imagem_capa);
     }
 
     // ---- retirar do ar --------------------------------------------------------
@@ -373,25 +384,25 @@ final class CursosDoAdminTest extends TestCase
     {
         $curso = $this->curso('Curso Para Retirar');
         $aluno = $this->makeStudent('Aluno Do Curso Retirado');
-        StudentEnrollment::query()->create([
-            'id' => (string) Str::uuid(), 'userId' => $aluno['id'], 'studentName' => $aluno['name'],
-            'enrolledCourseId' => $curso->id, 'completedCourseIds' => [], 'extraCourseIds' => [], 'canMultiEnroll' => false,
+        Matricula::query()->create([
+            'id' => (string) Str::uuid(), 'usuario_id' => $aluno['id'], 'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => $curso->id, 'cursos_concluidos_ids' => [], 'cursos_extras_ids' => [], 'pode_multimatricula' => false,
         ]);
 
         $this->como($this->admin())->post('/admin/cursos/'.$curso->id.'/retirar', ['motivo' => 'Contrato encerrado'])
             ->assertRedirect('/admin/cursos');
 
         // Fora das consultas padrão, mas a linha está lá, com quem, quando e por quê.
-        $this->assertNull(Course::query()->find($curso->id));
-        $linha = Course::query()->withTrashed()->findOrFail($curso->id);
-        $this->assertNotNull($linha->inativadoEm);
-        $this->assertSame('Contrato encerrado', $linha->motivoInativacao);
-        $this->assertNotNull($linha->inativadoPor);
+        $this->assertNull(Curso::query()->find($curso->id));
+        $linha = Curso::query()->withTrashed()->findOrFail($curso->id);
+        $this->assertNotNull($linha->inativado_em);
+        $this->assertSame('Contrato encerrado', $linha->motivo_inativacao);
+        $this->assertNotNull($linha->inativado_por);
 
         // E a matrícula continua intacta.
-        $this->assertSame($curso->id, StudentEnrollment::query()->where('userId', $aluno['id'])->value('enrolledCourseId'));
+        $this->assertSame($curso->id, Matricula::query()->where('usuario_id', $aluno['id'])->value('curso_matriculado_id'));
 
-        $this->assertTrue(DB::table('SecurityLog')->where('action', 'Inativação de Curso')->where('details', 'like', '%'.$curso->id.'%')->exists());
+        $this->assertTrue(DB::table('log_seguranca')->where('acao', 'Inativação de Curso')->where('detalhes', 'like', '%'.$curso->id.'%')->exists());
     }
 
     public function test_curso_inexistente_responde_404(): void

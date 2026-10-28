@@ -77,7 +77,7 @@ final class LogDeAcessoNegadoTest extends TestCase
     {
         Log::spy();
 
-        $this->getJson('/api/auth/me')
+        $this->getJson('/api/autenticacao/eu')
             ->assertStatus(401)
             ->assertExactJson([
                 'error' => true,
@@ -87,7 +87,7 @@ final class LogDeAcessoNegadoTest extends TestCase
 
         Log::shouldHaveReceived('warning')->once()->with(
             'Token de autenticação ausente.',
-            Mockery::on(fn (array $ctx): bool => $ctx['path'] === 'api/auth/me' && $ctx['method'] === 'GET'),
+            Mockery::on(fn (array $ctx): bool => $ctx['path'] === 'api/autenticacao/eu' && $ctx['method'] === 'GET'),
         );
         Log::shouldNotHaveReceived('error');
     }

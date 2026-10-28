@@ -18,12 +18,12 @@ use Illuminate\Support\Carbon;
  * @property string $referencia
  * @property string $conteudo JSON do conteúdo que existia antes da alteração
  * @property string $origem 'edicao' ou 'restauracao'
- * @property string|null $criadoPorUserId
- * @property Carbon|null $criadoEm
+ * @property string|null $criado_por_usuario_id
+ * @property Carbon|null $criado_em
  */
 final class VersaoDeConteudo extends Model
 {
-    protected $table = 'VersaoDeConteudo';
+    protected $table = 'versao_de_conteudo';
 
     protected $keyType = 'string';
 
@@ -31,7 +31,7 @@ final class VersaoDeConteudo extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['id', 'tipo', 'referencia', 'conteudo', 'origem', 'criadoPorUserId', 'criadoEm'];
+    protected $fillable = ['id', 'tipo', 'referencia', 'conteudo', 'origem', 'criado_por_usuario_id', 'criado_em'];
 
-    protected $casts = ['criadoEm' => 'datetime'];
+    protected $casts = ['criado_em' => 'datetime'];
 }

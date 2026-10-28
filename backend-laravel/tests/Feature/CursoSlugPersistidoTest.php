@@ -23,6 +23,12 @@ final class CursoSlugPersistidoTest extends TestCase
     use DatabaseTransactions;
     use SeedsIdentity;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ativarCursosDeSeed();
+    }
+
     /** @return array<string, string> */
     private function auth(string $token): array
     {
@@ -32,11 +38,11 @@ final class CursoSlugPersistidoTest extends TestCase
     /** @return array<string, mixed> */
     private function criarCurso(string $titulo, string $token): array
     {
-        $resposta = $this->withHeaders($this->auth($token))->postJson('/api/courses', [
-            'title' => $titulo,
-            'description' => 'Curso criado por teste.',
-            'category' => 'Testes',
-            'thumbnail' => 'https://exemplo.test/t.png',
+        $resposta = $this->withHeaders($this->auth($token))->postJson('/api/cursos', [
+            'titulo' => $titulo,
+            'descricao' => 'Curso criado por teste.',
+            'categoria' => 'Testes',
+            'miniatura' => 'https://exemplo.test/t.png',
         ])->assertStatus(201);
         $this->flushHeaders();
 
@@ -59,15 +65,15 @@ final class CursoSlugPersistidoTest extends TestCase
          * Slug é identidade de endereço. Aceitá-lo do JSON deixaria quem cria um
          * curso escolher um slug que imita outro, ou tomar de antemão o slug de
          * um curso que ainda vai existir. É a mesma razão pela qual
-         * `instructorName` é derivado e não aceito do corpo da requisição.
+         * `nome_instrutor` é derivado e não aceito do corpo da requisição.
          */
         $token = $this->staffToken('admin');
-        $resposta = $this->withHeaders($this->auth($token))->postJson('/api/courses', [
-            'title' => 'Curso Com Slug Forjado',
+        $resposta = $this->withHeaders($this->auth($token))->postJson('/api/cursos', [
+            'titulo' => 'Curso Com Slug Forjado',
             'slug' => 'ux-ui-design-interfaces-de-alta-performance',
-            'description' => 'Descricao suficientemente longa.',
-            'category' => 'Testes',
-            'thumbnail' => 'https://exemplo.test/t.png',
+            'descricao' => 'Descricao suficientemente longa.',
+            'categoria' => 'Testes',
+            'miniatura' => 'https://exemplo.test/t.png',
         ])->assertStatus(201);
         $this->flushHeaders();
 
@@ -93,7 +99,7 @@ final class CursoSlugPersistidoTest extends TestCase
         $slugAntigo = (string) $curso['slug'];
 
         $atualizado = $this->withHeaders($this->auth($token))
-            ->putJson("/api/courses/{$id}", ['title' => 'Estatistica Aplicada a Educacao'])
+            ->putJson("/api/cursos/{$id}", ['titulo' => 'Estatistica Aplicada a Educacao'])
             ->assertOk();
         $this->flushHeaders();
 
@@ -102,12 +108,12 @@ final class CursoSlugPersistidoTest extends TestCase
         $this->assertNotSame($slugAntigo, $slugNovo);
 
         // O endereço de hoje é canônico.
-        $this->getJson("/api/courses/resolve/{$slugNovo}")
+        $this->getJson("/api/cursos/resolver/{$slugNovo}")
             ->assertOk()
             ->assertJson(['id' => $id, 'slug' => $slugNovo, 'canonico' => true]);
 
         // O link salvo antes do rename abre o MESMO curso, e diz qual é o de hoje.
-        $this->getJson("/api/courses/resolve/{$slugAntigo}")
+        $this->getJson("/api/cursos/resolver/{$slugAntigo}")
             ->assertOk()
             ->assertJson(['id' => $id, 'slug' => $slugNovo, 'canonico' => false]);
     }
@@ -119,7 +125,7 @@ final class CursoSlugPersistidoTest extends TestCase
          * melhoria de endereço que transforma esses links em 404 é uma regressão
          * disfarçada de melhoria.
          */
-        $this->getJson('/api/courses/resolve/course-1')
+        $this->getJson('/api/cursos/resolver/course-1')
             ->assertOk()
             ->assertJson(['id' => 'course-1', 'canonico' => false])
             ->assertJsonPath('slug', 'ux-ui-design-interfaces-de-alta-performance');
@@ -127,7 +133,7 @@ final class CursoSlugPersistidoTest extends TestCase
 
     public function test_slug_desconhecido_da_404(): void
     {
-        $this->getJson('/api/courses/resolve/curso-que-nunca-existiu')->assertNotFound();
+        $this->getJson('/api/cursos/resolver/curso-que-nunca-existiu')->assertNotFound();
     }
 
     public function test_rename_de_ida_e_volta_nao_estoura_o_historico(): void
@@ -142,10 +148,10 @@ final class CursoSlugPersistidoTest extends TestCase
         $id = (string) $curso['id'];
 
         $this->withHeaders($this->auth($token))
-            ->putJson("/api/courses/{$id}", ['title' => 'Nome Trocado'])->assertOk();
+            ->putJson("/api/cursos/{$id}", ['titulo' => 'Nome Trocado'])->assertOk();
         $this->flushHeaders();
         $this->withHeaders($this->auth($token))
-            ->putJson("/api/courses/{$id}", ['title' => 'Nome Original Do Curso'])->assertOk();
+            ->putJson("/api/cursos/{$id}", ['titulo' => 'Nome Original Do Curso'])->assertOk();
         $this->flushHeaders();
 
         /*
@@ -154,11 +160,11 @@ final class CursoSlugPersistidoTest extends TestCase
          * O endereço fica um pouco feio; a alternativa era um link salvo abrir
          * outro curso.
          */
-        $atual = DB::table('Course')->where('id', $id)->value('slug');
+        $atual = DB::table('curso')->where('id', $id)->value('slug');
         $this->assertSame('nome-original-do-curso-2', $atual);
 
         foreach (['nome-original-do-curso', 'nome-trocado'] as $aposentado) {
-            $this->getJson("/api/courses/resolve/{$aposentado}")
+            $this->getJson("/api/cursos/resolver/{$aposentado}")
                 ->assertOk()
                 ->assertJson(['id' => $id, 'canonico' => false]);
         }
@@ -172,13 +178,13 @@ final class CursoSlugPersistidoTest extends TestCase
         $slug = (string) $curso['slug'];
 
         $this->withHeaders($this->auth($token))
-            ->putJson("/api/courses/{$id}", ['title' => 'Curso Que Nao Muda De Nome', 'category' => 'Outra'])
+            ->putJson("/api/cursos/{$id}", ['titulo' => 'Curso Que Nao Muda De Nome', 'categoria' => 'Outra'])
             ->assertOk()
             ->assertJsonPath('slug', $slug);
         $this->flushHeaders();
 
         // Histórico limpo: salvar o formulário não aposenta endereço.
-        $this->assertSame(0, DB::table('CourseSlugHistory')->where('courseId', $id)->count());
+        $this->assertSame(0, DB::table('historico_slug_curso')->where('curso_id', $id)->count());
     }
 
     public function test_visitante_nao_confirma_a_existencia_de_curso_em_rascunho(): void
@@ -193,10 +199,10 @@ final class CursoSlugPersistidoTest extends TestCase
         $id = (string) $curso['id'];
         $slug = (string) $curso['slug'];
 
-        DB::table('Course')->where('id', $id)->update(['status' => Visibilidade::RASCUNHO]);
+        DB::table('curso')->where('id', $id)->update(['status' => Visibilidade::RASCUNHO]);
 
-        $this->getJson("/api/courses/resolve/{$slug}")->assertNotFound();
-        $this->getJson("/api/courses/resolve/{$slug}", $this->auth($token))
+        $this->getJson("/api/cursos/resolver/{$slug}")->assertNotFound();
+        $this->getJson("/api/cursos/resolver/{$slug}", $this->auth($token))
             ->assertOk()
             ->assertJson(['id' => $id, 'canonico' => true]);
     }

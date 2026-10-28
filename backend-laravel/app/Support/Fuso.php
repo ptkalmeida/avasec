@@ -33,10 +33,10 @@ use DateTimeZone;
  *
  * ## A armadilha: isto serve para INSTANTE, não para data pura
  *
- * `Certificate.issueDate` é coluna `DATE`. Uma data pura não tem instante: o
+ * `Certificado.data_emissao` é coluna `DATE`. Uma data pura não tem instante: o
  * Carbon a materializa à meia-noite, e converter meia-noite UTC para BRT devolve
  * 21h do DIA ANTERIOR — formatar em `d/m/Y` depois disso troca o dia do
- * certificado. Por isso os dois pontos que formatam `issueDate` NÃO passam por
+ * certificado. Por isso os dois pontos que formatam `data_emissao` NÃO passam por
  * aqui, e há teste prendendo esse comportamento.
  */
 final class Fuso
@@ -70,7 +70,7 @@ final class Fuso
      * Igual a `de()`, mas aceita e propaga `null`.
      *
      * Existe separada em vez de `de()` virar nullable: coluna que pode estar
-     * vazia (`inativadoEm`) e instante que acabou de ser criado são casos
+     * vazia (`inativado_em`) e instante que acabou de ser criado são casos
      * diferentes, e um retorno `?CarbonImmutable` no segundo caso obrigaria a
      * silenciar o tipo em quem chama — que é onde nasce o `?->` que engole erro.
      */

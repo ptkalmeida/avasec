@@ -10,9 +10,9 @@ namespace App\Support;
  *
  * ## Por que isto está no servidor
  *
- * Estas regras só existiam no NAVEGADOR. `POST /api/quizzes` conferia o formato
+ * Estas regras só existiam no NAVEGADOR. `POST /api/avaliacoes` conferia o formato
  * (enunciado preenchido, ao menos duas alternativas) e mais nada: o gabarito
- * `correctOptionIndex` aceitava qualquer inteiro. Uma prova com 2 alternativas
+ * `indice_opcao_correta` aceitava qualquer inteiro. Uma prova com 2 alternativas
  * e gabarito 9 era gravada sem reclamação, e **ninguém conseguia acertá-la**.
  * Como a prova é exigida para o certificado, ela bloquearia a turma inteira.
  *

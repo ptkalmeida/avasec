@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Certificate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\StudentEnrollment;
-use App\Models\StudentProgress;
-use App\Models\User;
+use App\Models\Aula;
+use App\Models\Certificado;
+use App\Models\Curso;
+use App\Models\Matricula;
+use App\Models\ProgressoAluno;
+use App\Models\Usuario;
 use App\Support\ProgressoDoAluno;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -55,31 +55,31 @@ final class AlunosDoAdmin
 
         $ordem = $filtros['ordem'] ?? 'nome';
         match ($ordem) {
-            'nome-desc' => $consulta->orderByDesc('name'),
-            'recentes' => $consulta->orderByDesc('createdAt'),
-            default => $consulta->orderBy('name'),
+            'nome-desc' => $consulta->orderByDesc('nome'),
+            'recentes' => $consulta->orderByDesc('criado_em'),
+            default => $consulta->orderBy('nome'),
         };
 
         $alunos = $consulta->orderBy('id')
             ->skip(($pagina - 1) * self::POR_PAGINA)->take(self::POR_PAGINA)
-            ->get(['id', 'name', 'email', 'status']);
+            ->get(['id', 'nome', 'email', 'status']);
 
         $ids = [];
         foreach ($alunos as $aluno) {
             $ids[] = (string) $aluno->id;
         }
 
-        $matriculas = $ids === [] ? collect() : StudentEnrollment::query()->whereIn('userId', $ids)->get()->keyBy('userId');
+        $matriculas = $ids === [] ? collect() : Matricula::query()->whereIn('usuario_id', $ids)->get()->keyBy('usuario_id');
         $titulos = $this->titulosDosCursos();
         $aulasPorCurso = $this->aulasPorCurso();
 
         $percentuais = [];
         if ($ids !== []) {
-            foreach (StudentProgress::query()->whereIn('userId', $ids)->get(['userId', 'courseId', 'completedLessons']) as $linha) {
-                $feitas = $linha->completedLessons;
-                $percentuais[(string) $linha->userId][] = ProgressoDoAluno::percentual(
+            foreach (ProgressoAluno::query()->whereIn('usuario_id', $ids)->get(['usuario_id', 'curso_id', 'aulas_concluidas']) as $linha) {
+                $feitas = $linha->aulas_concluidas;
+                $percentuais[(string) $linha->usuario_id][] = ProgressoDoAluno::percentual(
                     is_array($feitas) ? array_values($feitas) : [],
-                    $aulasPorCurso[(string) $linha->courseId] ?? [],
+                    $aulasPorCurso[(string) $linha->curso_id] ?? [],
                 );
             }
         }
@@ -92,16 +92,16 @@ final class AlunosDoAdmin
 
             $linhas[] = [
                 'id' => $id,
-                'nome' => (string) $aluno->name,
+                'nome' => (string) $aluno->nome,
                 'email' => is_string($aluno->email) && $aluno->email !== '' ? $aluno->email : null,
                 'conta' => (string) $aluno->status,
                 'cursos' => $matricula === null ? [] : array_map(
                     static fn (string $cursoId): string => $titulos[$cursoId] ?? $cursoId,
                     $this->cursosAtivos($matricula),
                 ),
-                'concluidos' => $matricula === null ? 0 : count($this->ids($matricula->completedCourseIds)),
+                'concluidos' => $matricula === null ? 0 : count($this->ids($matricula->cursos_concluidos_ids)),
                 'progresso' => $dele === [] ? 0 : (int) round(array_sum($dele) / count($dele)),
-                'multipla' => $matricula !== null && $matricula->canMultiEnroll === true,
+                'multipla' => $matricula !== null && $matricula->pode_multimatricula === true,
             ];
         }
 
@@ -115,8 +115,8 @@ final class AlunosDoAdmin
      */
     public function resumo(): array
     {
-        $total = User::query()->where('role', 'student')->count();
-        $com = $this->comMatricula(User::query()->where('role', 'student'))->count();
+        $total = Usuario::query()->where('papel', 'student')->count();
+        $com = $this->comMatricula(Usuario::query()->where('papel', 'student'))->count();
 
         return ['total' => $total, 'comMatricula' => $com, 'semMatricula' => $total - $com];
     }
@@ -130,8 +130,8 @@ final class AlunosDoAdmin
     public function cursosParaFiltro(): array
     {
         $lista = [];
-        foreach (Course::query()->orderBy('title')->get(['id', 'title']) as $curso) {
-            $lista[] = ['id' => (string) $curso->id, 'titulo' => (string) $curso->title];
+        foreach (Curso::query()->orderBy('titulo')->get(['id', 'titulo']) as $curso) {
+            $lista[] = ['id' => (string) $curso->id, 'titulo' => (string) $curso->titulo];
         }
 
         return $lista;
@@ -140,38 +140,38 @@ final class AlunosDoAdmin
     /**
      * A ficha de um aluno, ou null se não existir (ou estiver inativado).
      *
-     * @return array{id:string,nome:string,nomeSocial:?string,email:?string,cpf:?string,celular:?string,municipio:?string,uf:?string,area:?string,cadastro:?string,conta:string,multipla:bool,matriculas:list<array{curso:string,tipo:string,progresso:int,aulasFeitas:int,aulas:int,certificado:bool}>,concluidos:list<string>,certificados:list<array{curso:string,emitidoEm:?string}>}|null
+     * @return array{id:string,nome:string,nome_social:?string,email:?string,cpf:?string,celular:?string,municipio:?string,uf:?string,area:?string,cadastro:?string,conta:string,multipla:bool,matriculas:list<array{curso:string,tipo:string,progresso:int,aulasFeitas:int,aulas:int,certificado:bool}>,concluidos:list<string>,certificados:list<array{curso:string,emitidoEm:?string}>}|null
      */
     public function ficha(string $id): ?array
     {
-        $aluno = User::query()->where('role', 'student')->find($id);
+        $aluno = Usuario::query()->where('papel', 'student')->find($id);
         if ($aluno === null) {
             return null;
         }
 
-        $matricula = StudentEnrollment::query()->find($id);
+        $matricula = Matricula::query()->find($id);
         $titulos = $this->titulosDosCursos();
         $aulasPorCurso = $this->aulasPorCurso();
 
         $progresso = [];
-        foreach (StudentProgress::query()->where('userId', $id)->get(['courseId', 'completedLessons']) as $linha) {
-            $feitas = $linha->completedLessons;
-            $progresso[(string) $linha->courseId] = is_array($feitas) ? array_values($feitas) : [];
+        foreach (ProgressoAluno::query()->where('usuario_id', $id)->get(['curso_id', 'aulas_concluidas']) as $linha) {
+            $feitas = $linha->aulas_concluidas;
+            $progresso[(string) $linha->curso_id] = is_array($feitas) ? array_values($feitas) : [];
         }
 
         $certificados = [];
         $comCertificado = [];
-        foreach (Certificate::query()->where('userId', $id)->orderBy('issueDate')->get(['courseId', 'courseTitle', 'issueDate']) as $c) {
-            $comCertificado[(string) $c->courseId] = true;
+        foreach (Certificado::query()->where('usuario_id', $id)->orderBy('data_emissao')->get(['curso_id', 'titulo_curso', 'data_emissao']) as $c) {
+            $comCertificado[(string) $c->curso_id] = true;
             $certificados[] = [
-                'curso' => is_string($c->courseTitle) && $c->courseTitle !== '' ? $c->courseTitle : ($titulos[(string) $c->courseId] ?? (string) $c->courseId),
-                'emitidoEm' => is_string($c->issueDate) && $c->issueDate !== '' ? $c->issueDate : null,
+                'curso' => is_string($c->titulo_curso) && $c->titulo_curso !== '' ? $c->titulo_curso : ($titulos[(string) $c->curso_id] ?? (string) $c->curso_id),
+                'emitidoEm' => is_string($c->data_emissao) && $c->data_emissao !== '' ? $c->data_emissao : null,
             ];
         }
 
         $matriculas = [];
         if ($matricula !== null) {
-            $principal = is_string($matricula->enrolledCourseId) ? $matricula->enrolledCourseId : '';
+            $principal = is_string($matricula->curso_matriculado_id) ? $matricula->curso_matriculado_id : '';
             foreach ($this->cursosAtivos($matricula) as $cursoId) {
                 $aulas = $aulasPorCurso[$cursoId] ?? [];
                 $feitas = $progresso[$cursoId] ?? [];
@@ -188,7 +188,7 @@ final class AlunosDoAdmin
 
         $concluidos = [];
         if ($matricula !== null) {
-            foreach ($this->ids($matricula->completedCourseIds) as $cursoId) {
+            foreach ($this->ids($matricula->cursos_concluidos_ids) as $cursoId) {
                 $concluidos[] = $titulos[$cursoId] ?? $cursoId;
             }
         }
@@ -197,17 +197,17 @@ final class AlunosDoAdmin
 
         return [
             'id' => (string) $aluno->id,
-            'nome' => (string) $aluno->name,
-            'nomeSocial' => $this->texto($aluno->nomeSocial),
+            'nome' => (string) $aluno->nome,
+            'nome_social' => $this->texto($aluno->nome_social),
             'email' => $this->texto($aluno->email),
             'cpf' => is_string($cpf) && strlen($cpf) === 11 ? substr($cpf, 0, 3).'.***.***-'.substr($cpf, 9, 2) : null,
             'celular' => $this->texto($aluno->celular),
             'municipio' => $this->texto($aluno->municipio),
             'uf' => $this->texto($aluno->uf),
-            'area' => $this->texto($aluno->areaInteresse),
-            'cadastro' => $this->texto($aluno->dataCadastro),
+            'area' => $this->texto($aluno->area_interesse),
+            'cadastro' => $this->texto($aluno->data_cadastro_texto),
             'conta' => (string) $aluno->status,
-            'multipla' => $matricula !== null && $matricula->canMultiEnroll === true,
+            'multipla' => $matricula !== null && $matricula->pode_multimatricula === true,
             'matriculas' => $matriculas,
             'concluidos' => $concluidos,
             'certificados' => $certificados,
@@ -216,26 +216,26 @@ final class AlunosDoAdmin
 
     /**
      * @param  array{busca?:string,curso?:string,matricula?:string,conta?:string,ordem?:string}  $filtros
-     * @return Builder<User>
+     * @return Builder<Usuario>
      */
     private function filtrada(array $filtros): Builder
     {
-        $consulta = User::query()->where('role', 'student');
+        $consulta = Usuario::query()->where('papel', 'student');
 
         $busca = trim($filtros['busca'] ?? '');
         if ($busca !== '') {
             // `%` e `_` digitados pela pessoa são texto, não curinga.
             $literal = addcslashes($busca, '\\%_');
             $consulta->where(static function (Builder $q) use ($literal): void {
-                $q->where('name', 'like', '%'.$literal.'%')->orWhere('email', 'like', '%'.$literal.'%');
+                $q->where('nome', 'like', '%'.$literal.'%')->orWhere('email', 'like', '%'.$literal.'%');
             });
         }
 
         $curso = trim($filtros['curso'] ?? '');
         if ($curso !== '') {
             $json = '"'.$curso.'"';
-            $consulta->whereIn('id', StudentEnrollment::query()->select('userId')->where(static function (Builder $q) use ($curso, $json): void {
-                $q->where('enrolledCourseId', $curso)->orWhere('extraCourseIds', 'like', '%'.$json.'%');
+            $consulta->whereIn('id', Matricula::query()->select('usuario_id')->where(static function (Builder $q) use ($curso, $json): void {
+                $q->where('curso_matriculado_id', $curso)->orWhere('cursos_extras_ids', 'like', '%'.$json.'%');
             }));
         }
 
@@ -243,10 +243,10 @@ final class AlunosDoAdmin
         if ($matricula === 'com') {
             $this->comMatricula($consulta);
         } elseif ($matricula === 'sem') {
-            $consulta->whereNotIn('id', $this->comMatricula(User::query()->where('role', 'student'))->select('id'));
+            $consulta->whereNotIn('id', $this->comMatricula(Usuario::query()->where('papel', 'student'))->select('id'));
         } elseif ($matricula === 'concluiu') {
-            $consulta->whereIn('id', StudentEnrollment::query()->select('userId')
-                ->whereNotNull('completedCourseIds')->whereRaw('JSON_LENGTH(completedCourseIds) > 0'));
+            $consulta->whereIn('id', Matricula::query()->select('usuario_id')
+                ->whereNotNull('cursos_concluidos_ids')->whereRaw('JSON_LENGTH(cursos_concluidos_ids) > 0'));
         }
 
         $conta = $filtros['conta'] ?? '';
@@ -260,16 +260,16 @@ final class AlunosDoAdmin
     /**
      * Quem está matriculado agora: curso principal ou algum concorrente.
      *
-     * @param  Builder<User>  $consulta
-     * @return Builder<User>
+     * @param  Builder<Usuario>  $consulta
+     * @return Builder<Usuario>
      */
     private function comMatricula(Builder $consulta): Builder
     {
-        return $consulta->whereIn('id', StudentEnrollment::query()->select('userId')->where(static function (Builder $q): void {
+        return $consulta->whereIn('id', Matricula::query()->select('usuario_id')->where(static function (Builder $q): void {
             $q->where(static function (Builder $p): void {
-                $p->whereNotNull('enrolledCourseId')->where('enrolledCourseId', '!=', '');
+                $p->whereNotNull('curso_matriculado_id')->where('curso_matriculado_id', '!=', '');
             })->orWhere(static function (Builder $e): void {
-                $e->whereNotNull('extraCourseIds')->whereRaw('JSON_LENGTH(extraCourseIds) > 0');
+                $e->whereNotNull('cursos_extras_ids')->whereRaw('JSON_LENGTH(cursos_extras_ids) > 0');
             });
         }));
     }
@@ -279,13 +279,13 @@ final class AlunosDoAdmin
      *
      * @return list<string>
      */
-    private function cursosAtivos(StudentEnrollment $matricula): array
+    private function cursosAtivos(Matricula $matricula): array
     {
         $cursos = [];
-        if (is_string($matricula->enrolledCourseId) && $matricula->enrolledCourseId !== '') {
-            $cursos[] = $matricula->enrolledCourseId;
+        if (is_string($matricula->curso_matriculado_id) && $matricula->curso_matriculado_id !== '') {
+            $cursos[] = $matricula->curso_matriculado_id;
         }
-        foreach ($this->ids($matricula->extraCourseIds) as $extra) {
+        foreach ($this->ids($matricula->cursos_extras_ids) as $extra) {
             $cursos[] = $extra;
         }
 
@@ -311,8 +311,8 @@ final class AlunosDoAdmin
     private function titulosDosCursos(): array
     {
         $mapa = [];
-        foreach (Course::query()->withTrashed()->get(['id', 'title']) as $curso) {
-            $mapa[(string) $curso->id] = (string) $curso->title;
+        foreach (Curso::query()->withTrashed()->get(['id', 'titulo']) as $curso) {
+            $mapa[(string) $curso->id] = (string) $curso->titulo;
         }
 
         return $mapa;
@@ -322,8 +322,8 @@ final class AlunosDoAdmin
     private function aulasPorCurso(): array
     {
         $mapa = [];
-        foreach (Lesson::query()->get(['id', 'courseId']) as $aula) {
-            $mapa[(string) $aula->courseId][] = (string) $aula->id;
+        foreach (Aula::query()->get(['id', 'curso_id']) as $aula) {
+            $mapa[(string) $aula->curso_id][] = (string) $aula->id;
         }
 
         return $mapa;

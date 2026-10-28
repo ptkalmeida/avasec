@@ -7,7 +7,7 @@ namespace App\Support;
 /**
  * URL que pode ser entregue ao navegador dentro de um atributo href/src.
  *
- * Motivo: campos como thumbnail, coverImage, documents[].url e meetingLink eram
+ * Motivo: campos como thumbnail, imagem_capa, documents[].url e link_reuniao eram
  * validados apenas como `string, max:2000`. Um instrutor podia gravar
  * `javascript:fetch('/api/...')` e o valor ia direto para um `href` na tela do aluno;
  * o cookie de sessão é HttpOnly, mas viaja automaticamente, então o script agiria

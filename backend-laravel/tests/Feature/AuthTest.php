@@ -24,10 +24,10 @@ final class AuthTest extends TestCase
 
     private function tokenForRole(string $role): string
     {
-        $user = DB::table('User')->where('role', $role)->where('status', 'active')->first(['id', 'name', 'role']);
+        $user = DB::table('usuario')->where('papel', $role)->where('status', 'active')->first(['id', 'nome', 'papel']);
         $this->assertNotNull($user, "Seed sem usuário ativo com role '$role'.");
 
-        return Jwt::issue($user->id, $user->name, $user->role);
+        return Jwt::issue($user->id, $user->nome, $user->papel);
     }
 
     private function uniqueEmail(string $prefix): string
@@ -52,17 +52,17 @@ final class AuthTest extends TestCase
         $email = $this->uniqueEmail('login-'.$role);
         $senha = 'Teste'.uniqid().'9';
 
-        DB::table('User')->insert([
+        DB::table('usuario')->insert([
             'id' => 'user-teste-'.uniqid(),
-            'name' => 'Conta de Teste '.uniqid(),
+            'nome' => 'Conta de Teste '.uniqid(),
             'email' => $email,
-            'passwordHash' => password_hash($senha, PASSWORD_BCRYPT, ['cost' => 10]),
-            'role' => $role,
+            'senha_hash' => password_hash($senha, PASSWORD_BCRYPT, ['cost' => 10]),
+            'papel' => $role,
             'status' => 'active',
             // Colunas de ARMAZENAMENTO: em UTC, o relógio do banco. Não passam
             // por `Fuso`, que é só para o que uma pessoa lê.
-            'createdAt' => CarbonImmutable::now()->toDateTimeString(),
-            'updatedAt' => CarbonImmutable::now()->toDateTimeString(),
+            'criado_em' => CarbonImmutable::now()->toDateTimeString(),
+            'atualizado_em' => CarbonImmutable::now()->toDateTimeString(),
         ]);
 
         return ['email' => $email, 'password' => $senha];
@@ -73,9 +73,9 @@ final class AuthTest extends TestCase
     public function test_login_with_correct_password_returns_token_and_sets_cookie(): void
     {
         $conta = $this->contaComSenhaConhecida('admin');
-        $response = $this->postJson('/api/auth/login', $conta);
+        $response = $this->postJson('/api/autenticacao/entrar', $conta);
 
-        $response->assertOk()->assertJsonPath('user.role', 'admin');
+        $response->assertOk()->assertJsonPath('usuario.papel', 'admin');
         $this->assertNotEmpty($response->json('token'));
         $response->assertCookie('ava_session');
     }
@@ -85,7 +85,7 @@ final class AuthTest extends TestCase
         // Conta que EXISTE com senha errada. Contra uma conta inexistente o 401
         // viria de graça, e o teste passaria sem exercitar a comparação de senha.
         $conta = $this->contaComSenhaConhecida('admin');
-        $response = $this->postJson('/api/auth/login', [
+        $response = $this->postJson('/api/autenticacao/entrar', [
             'email' => $conta['email'],
             'password' => 'senha-errada-unica',
         ]);
@@ -95,7 +95,7 @@ final class AuthTest extends TestCase
 
     public function test_protected_route_without_token_is_401(): void
     {
-        $this->getJson('/api/auth/me')
+        $this->getJson('/api/autenticacao/eu')
             ->assertStatus(401)
             ->assertJson(['error' => true, 'code' => 'UNAUTHORIZED']);
     }
@@ -103,19 +103,19 @@ final class AuthTest extends TestCase
     public function test_public_registration_is_pending_and_gets_no_token(): void
     {
         $email = $this->uniqueEmail('pendente');
-        $register = $this->postJson('/api/auth/register', [
-            'name' => 'Aluno Pendente Teste',
+        $register = $this->postJson('/api/autenticacao/cadastro', [
+            'nome' => 'Aluno Pendente Teste',
             'email' => $email,
             'password' => 'senha123456',
             'cpf' => $this->makeCpf(),
         ]);
 
         $register->assertStatus(201)
-            ->assertJsonPath('user.status', 'pending_confirmation')
+            ->assertJsonPath('usuario.status', 'pending_confirmation')
             ->assertJsonPath('token', null);
 
         // Login com a senha correta de conta pendente: 403 institucional, sem token.
-        $login = $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'senha123456']);
+        $login = $this->postJson('/api/autenticacao/entrar', ['email' => $email, 'password' => 'senha123456']);
         $login->assertStatus(403)->assertJsonPath('code', 'ACCOUNT_PENDING_CONFIRMATION');
         $this->assertNull($login->json('token'));
     }
@@ -125,12 +125,12 @@ final class AuthTest extends TestCase
         // O CPF vai preenchido DE PROPÓSITO: sem ele a requisição morreria em
         // 400 na validação e o teste deixaria de provar o que importa — que é a
         // regra de papel (e não a de campo obrigatório) que barra a escalada.
-        $this->postJson('/api/auth/register', [
-            'name' => 'Tentativa Escalada',
+        $this->postJson('/api/autenticacao/cadastro', [
+            'nome' => 'Tentativa Escalada',
             'email' => $this->uniqueEmail('escalada'),
             'password' => 'senha123456',
             'cpf' => $this->makeCpf(),
-            'role' => 'admin',
+            'papel' => 'admin',
         ])->assertStatus(403);
     }
 
@@ -139,16 +139,16 @@ final class AuthTest extends TestCase
         $adminToken = $this->tokenForRole('admin');
         $email = $this->uniqueEmail('provisionado');
 
-        $register = $this->withHeader('Authorization', "Bearer $adminToken")->postJson('/api/auth/register', [
-            'name' => 'Instrutor Provisionado '.uniqid(),
+        $register = $this->withHeader('Authorization', "Bearer $adminToken")->postJson('/api/autenticacao/cadastro', [
+            'nome' => 'Instrutor Provisionado '.uniqid(),
             'email' => $email,
             'password' => 'senha123456',
-            'role' => 'instructor',
+            'papel' => 'instructor',
         ]);
 
         $register->assertStatus(201)
-            ->assertJsonPath('user.status', 'active')
-            ->assertJsonPath('user.role', 'instructor')
+            ->assertJsonPath('usuario.status', 'active')
+            ->assertJsonPath('usuario.papel', 'instructor')
             ->assertJsonPath('token', null);
     }
 
@@ -157,32 +157,32 @@ final class AuthTest extends TestCase
         $adminToken = $this->tokenForRole('admin');
         $email = $this->uniqueEmail('bloqueado');
 
-        $register = $this->withHeader('Authorization', "Bearer $adminToken")->postJson('/api/auth/register', [
-            'name' => 'Aluno Bloqueado Teste '.uniqid(),
+        $register = $this->withHeader('Authorization', "Bearer $adminToken")->postJson('/api/autenticacao/cadastro', [
+            'nome' => 'Aluno Bloqueado Teste '.uniqid(),
             'email' => $email,
             'password' => 'senha123456',
-            'role' => 'student',
+            'papel' => 'student',
             'cpf' => $this->makeCpf(),
         ]);
-        $userId = $register->json('user.id');
+        $usuario_id = $register->json('usuario.id');
 
         // Token legítimo obtido enquanto ativo.
-        $activeLogin = $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'senha123456']);
+        $activeLogin = $this->postJson('/api/autenticacao/entrar', ['email' => $email, 'password' => 'senha123456']);
         $activeLogin->assertOk();
         $oldToken = $activeLogin->json('token');
 
         // Admin bloqueia a conta.
         $this->withHeader('Authorization', "Bearer $adminToken")
-            ->putJson("/api/auth/users/{$userId}/status", ['status' => 'blocked'])
+            ->putJson("/api/autenticacao/usuarios/{$usuario_id}/status", ['status' => 'blocked'])
             ->assertOk();
 
         // Novo login: 403, sem token.
-        $blockedLogin = $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'senha123456']);
+        $blockedLogin = $this->postJson('/api/autenticacao/entrar', ['email' => $email, 'password' => 'senha123456']);
         $blockedLogin->assertStatus(403)->assertJsonPath('code', 'ACCOUNT_BLOCKED');
         $this->assertNull($blockedLogin->json('token'));
 
         // Token antigo é barrado pelo requireActiveAccount (rota que exige conta ativa).
-        $this->withHeader('Authorization', "Bearer $oldToken")->getJson('/api/auth/users')
+        $this->withHeader('Authorization', "Bearer $oldToken")->getJson('/api/autenticacao/usuarios')
             ->assertStatus(403)->assertJsonPath('code', 'ACCOUNT_BLOCKED');
     }
 
@@ -194,23 +194,23 @@ final class AuthTest extends TestCase
 
         $adminToken = $this->tokenForRole('admin');
         $email = $this->uniqueEmail('lockout');
-        $this->withHeader('Authorization', "Bearer $adminToken")->postJson('/api/auth/register', [
-            'name' => 'Aluno Lockout '.uniqid(),
+        $this->withHeader('Authorization', "Bearer $adminToken")->postJson('/api/autenticacao/cadastro', [
+            'nome' => 'Aluno Lockout '.uniqid(),
             'email' => $email,
             'password' => 'senha123456',
-            'role' => 'student',
+            'papel' => 'student',
             'cpf' => $this->makeCpf(),
         ])->assertStatus(201);
 
         // 5 tentativas erradas: as 4 primeiras retornam 401 genérico; a 5ª ainda 401,
         // mas dispara o bloqueio.
         for ($i = 0; $i < 5; $i++) {
-            $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'errada'])
+            $this->postJson('/api/autenticacao/entrar', ['email' => $email, 'password' => 'errada'])
                 ->assertStatus(401);
         }
 
         // Agora, mesmo com a senha CORRETA, a conta está bloqueada por tempo: 429 ACCOUNT_LOCKED.
-        $this->postJson('/api/auth/login', ['email' => $email, 'password' => 'senha123456'])
+        $this->postJson('/api/autenticacao/entrar', ['email' => $email, 'password' => 'senha123456'])
             ->assertStatus(429)->assertJsonPath('code', 'ACCOUNT_LOCKED');
     }
 
@@ -219,7 +219,7 @@ final class AuthTest extends TestCase
     public function test_student_cannot_list_other_students(): void
     {
         $token = $this->tokenForRole('student');
-        $this->withHeader('Authorization', "Bearer $token")->getJson('/api/auth/users?role=student')
+        $this->withHeader('Authorization', "Bearer $token")->getJson('/api/autenticacao/usuarios?papel=student')
             ->assertStatus(403);
     }
 
@@ -227,7 +227,7 @@ final class AuthTest extends TestCase
     {
         $token = $this->tokenForRole('instructor');
         $this->withHeader('Authorization', "Bearer $token")
-            ->putJson('/api/auth/users/any-id/status', ['status' => 'blocked'])
+            ->putJson('/api/autenticacao/usuarios/any-id/status', ['status' => 'blocked'])
             ->assertStatus(403);
     }
 
@@ -235,13 +235,13 @@ final class AuthTest extends TestCase
 
     public function test_register_rejects_invalid_email(): void
     {
-        $this->postJson('/api/auth/register', ['name' => 'Teste', 'email' => 'nao-e-email', 'password' => 'senha123456'])
+        $this->postJson('/api/autenticacao/cadastro', ['nome' => 'Teste', 'email' => 'nao-e-email', 'password' => 'senha123456'])
             ->assertStatus(400)->assertJsonPath('code', 'VALIDATION_ERROR');
     }
 
     public function test_register_rejects_short_password(): void
     {
-        $this->postJson('/api/auth/register', ['name' => 'Teste', 'email' => $this->uniqueEmail('curta'), 'password' => '123'])
+        $this->postJson('/api/autenticacao/cadastro', ['nome' => 'Teste', 'email' => $this->uniqueEmail('curta'), 'password' => '123'])
             ->assertStatus(400)->assertJsonPath('code', 'VALIDATION_ERROR');
     }
 
@@ -249,16 +249,16 @@ final class AuthTest extends TestCase
 
     public function test_me_returns_current_user_with_cookie_session(): void
     {
-        $login = $this->postJson('/api/auth/login', $this->contaComSenhaConhecida('admin'));
+        $login = $this->postJson('/api/autenticacao/entrar', $this->contaComSenhaConhecida('admin'));
         $token = $login->json('token');
 
-        $this->withHeader('Authorization', "Bearer $token")->getJson('/api/auth/me')
-            ->assertOk()->assertJsonPath('role', 'admin');
+        $this->withHeader('Authorization', "Bearer $token")->getJson('/api/autenticacao/eu')
+            ->assertOk()->assertJsonPath('papel', 'admin');
     }
 
     public function test_logout_clears_session_cookie(): void
     {
-        $response = $this->postJson('/api/auth/logout');
+        $response = $this->postJson('/api/autenticacao/sair');
         $response->assertOk()->assertJsonPath('success', true);
         // O cookie de sessão é expirado (forget => expiração no passado).
         $response->assertCookieExpired('ava_session');

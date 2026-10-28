@@ -173,7 +173,7 @@ O sistema possui três papéis (`role`), definidos no cadastro e verificados via
 - Gestão de contas (criação, bloqueio, exclusão)
 - Aprovação de solicitações e configurações do sistema
 - Exportação de Dados Gerenciais (5 bases em CSV)
-- Trilha de auditoria completa (`/api/security-logs`)
+- Trilha de auditoria completa (`/api/logs-seguranca`)
 
 ### 6. Upload de Arquivos
 - Validação de extensão **e** de conteúdo real (assinatura binária/magic bytes)

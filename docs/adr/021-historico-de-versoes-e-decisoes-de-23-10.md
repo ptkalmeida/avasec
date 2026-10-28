@@ -4,6 +4,8 @@
 - **Situação:** aceita — decisões dadas pelo responsável em 23/10 sobre as pendências da M5 e da M6
 - **Afeta:** ADR 12 (nada é apagado), ADR 018, ADR 019, ADR 020
 
+> **Nota (27/10/2026):** os nomes de tabela, coluna e rota citados aqui foram atualizados para os de depois da [ADR 024](024-nomes-em-portugues.md); o texto histórico segue como foi decidido.
+
 ## Contexto
 
 Ao fechar o Admin (M5) e o editor de aula (M6) ficaram pendências que dependiam de
@@ -25,14 +27,14 @@ que foi feito, e o que ficou de fora de propósito.
 | 9 | "Sofia Rocha" não existe | Pendência encerrada |
 | 10 | **Corrigir a falha de segurança do gabarito e quaisquer outras** | Ver "Segurança" abaixo |
 | 11 | **Sem limite** de tentativas no envio de quiz | Nada |
-| 12 | `emiteCertificado`: **só o curso** | A convenção "Sem Certificado" na categoria saiu da emissão, do painel do instrutor e da tela. Nenhum curso a usava |
+| 12 | `emite_certificado`: **só o curso** | A convenção "Sem Certificado" na categoria saiu da emissão, do painel do instrutor e da tela. Nenhum curso a usava |
 | 13 | Histórico de versões da aula **e** prévia ao vivo | Ver abaixo |
 | 14 | `isOptional` não precisa existir, nem no banco | Nada será criado; a referência na tela já dizia isso |
 
 ## Histórico de versões (decisões 2 e 13)
 
 - **Uma tabela só**, `VersaoDeConteudo` (`tipo`, `referencia`, `conteudo` em JSON, `origem`,
-  `criadoPorUserId`, `criadoEm`). **Só se acrescenta**: não há UPDATE nem DELETE, e
+  `criado_por_usuario_id`, `criado_em`). **Só se acrescenta**: não há UPDATE nem DELETE, e
   restaurar uma versão grava uma linha nova — a do que estava no ar. Voltar atrás de uma
   restauração é possível.
 - **Guarda o que ia se perder**, antes de cada gravação que muda o conteúdo. Gravar sem
@@ -40,7 +42,7 @@ que foi feito, e o que ficou de fora de propósito.
   fábrica**, que antes sumia no primeiro salvamento.
 - **Páginas do Site e Modelos:** guardado no `upsert` dos serviços, na mesma transação da
   gravação. Restaurar passa pelo mesmo `upsert` (mesma normalização, mesma regra de papel).
-- **Aula:** guardado por um evento do model `Lesson` (`updating`), porque a aula é
+- **Aula:** guardado por um evento do model `Aula` (`updating`), porque a aula é
   gravada por vários caminhos (editor, API do curso, restauração) e um só esquecido
   abriria um buraco. Cobre título, carga, vídeo e texto. **Os anexos não entram**: são
   registros próprios, cuja retirada já é preservada pela regra de nada ser apagado.
@@ -67,14 +69,14 @@ Trecho novo de imagem ou vídeo também não tem prévia, porque ainda não exis
 
 Varredura feita em 23/10/2026. Achados confirmados e corrigidos, cada um com teste:
 
-1. **`GET /api/quizzes` entregava o gabarito ao aluno** (`correctOptionIndex`, `explanation`,
-   `reviewMessage`): quem chamasse a API à mão tirava 100% em qualquer prova do seu curso.
+1. **`GET /api/avaliacoes` entregava o gabarito ao aluno** (`indice_opcao_correta`, `explanation`,
+   `mensagem_revisao`): quem chamasse a API à mão tirava 100% em qualquer prova do seu curso.
    O aluno agora recebe só enunciados e alternativas, e não vê prova em rascunho ou
    restrita. Instrutor e admin seguem recebendo tudo.
-2. **`GET /api/library` e `GET /api/webinars` (públicos) ignoravam a escada de visibilidade**:
+2. **`GET /api/biblioteca` e `GET /api/webinars` (públicos) ignoravam a escada de visibilidade**:
    um visitante anônimo lia item restrito (gestor/admin) e rascunho (admin). Agora valem
    `Visibilidade` e o papel da sessão, se houver (`jwt.optional`).
-3. **`PUT /api/enrollments/{userId}`: instrutor dono de um curso podia, na mesma chamada,
+3. **`PUT /api/matriculas/{usuario_id}`: instrutor dono de um curso podia, na mesma chamada,
    marcar qualquer curso como concluído para qualquer aluno, mexer na penalidade de evasão
    e tirar o aluno do curso de outro instrutor.** Conclusão e penalidade passaram a ser do
    Admin Superior; e só o dono do curso atual de um aluno o muda de curso.
@@ -87,11 +89,11 @@ Varredura feita em 23/10/2026. Achados confirmados e corrigidos, cada um com tes
    (`?papel=');alert(1)//` virava JavaScript na página da senha). Agora só entram `student`,
    `instructor` e `admin`, e a view usa `@js`.
 6. **Instrutor sequestrava aula, documento e encontro ao vivo de outro curso** pelo `PUT
-   /api/courses/{id}`: os ids saem no catálogo público, e o `syncLessons` achava o registro em
+   /api/cursos/{id}`: os ids saem no catálogo público, e o `syncLessons` achava o registro em
    qualquer curso e o movia para o dele, sobrescrevendo o texto. Id que já é de outro curso
    vira registro novo.
-7. **Certificado forjável por aluno sem matrícula**: `POST /api/progress` aceitava qualquer
-   `courseId` com os ids de aula do catálogo, e `POST /api/certificates` emitia com 100%.
+7. **Certificado forjável por aluno sem matrícula**: `POST /api/progresso` aceitava qualquer
+   `curso_id` com os ids de aula do catálogo, e `POST /api/certificados` emitia com 100%.
    Agora o progresso e o certificado exigem que o aluno pertença ao curso; as propriedades do
    componente Livewire de conclusão ficaram `#[Locked]`.
 8. **A consulta pública de certificado enumerava alunos**: o nome casava por `LIKE %termo%`
@@ -105,17 +107,17 @@ Varredura feita em 23/10/2026. Achados confirmados e corrigidos, cada um com tes
     acesso à prova (e à nota) de um curso não publicado. `selfEnroll` e `createAdmission` agora
     pedem curso visível ao aluno; `submitQuiz` não aceita prova que o aluno não enxerga.
 12. **Fluxos hoje desligados por flag, mas com IDOR**: curtir mensagem de fórum de outro curso
-    (devolvia a mensagem inteira), e entregar exercício de curso alheio ou com `fileUrl` em
+    (devolvia a mensagem inteira), e entregar exercício de curso alheio ou com `url_arquivo` em
     `javascript:`. Corrigidos antes de a flag ligar.
 13. **`id` de curso livre** (`%` ampliava o escopo de alunos do instrutor nas consultas `LIKE`):
     só letras, números, `_` e `-`.
 14. **A senha digitada no campo do CPF ficava gravada na trilha de auditoria**, que é permanente.
     O log agora guarda e-mail, CPF mascarado, ou só "fora do formato".
-15. **Conta bloqueada trocava a própria senha** com token ainda válido: `PUT /api/auth/password`
+15. **Conta bloqueada trocava a própria senha** com token ainda válido: `PUT /api/autenticacao/senha`
     passou a exigir conta ativa.
 
 Verificado sem achado: toda rota de escrita da API exige sessão e papel; `DELETE
-/api/security-logs` é recusado (ADR 12); o segredo do JWT é validado em produção; não há
+/api/logs-seguranca` é recusado (ADR 12); o segredo do JWT é validado em produção; não há
 SQL bruto com dado de entrada nem `{!! !!}` com dado de usuário; listagens de aluno (matrícula,
 progresso, certificado, mensagens, fórum) só devolvem o próprio; upload valida tipo e conteúdo.
 

@@ -10,8 +10,8 @@ use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
 
 /**
- * Certificados — identidade por userId (ADR 10): emissão do próprio aluno deriva
- * do token; staff informa userId. Requer MySQL de dev populado.
+ * Certificados — identidade por usuario_id (ADR 10): emissão do próprio aluno deriva
+ * do token; staff informa usuario_id. Requer MySQL de dev populado.
  */
 final class CertificateTest extends TestCase
 {
@@ -21,7 +21,7 @@ final class CertificateTest extends TestCase
     public function test_verify_is_public(): void
     {
         // Sem token, deve responder 200 (cert ou null) — nunca 401.
-        $this->getJson('/api/certificates/verify?q=AVA-INEXISTENTE')
+        $this->getJson('/api/certificados/verificar?q=AVA-INEXISTENTE')
             ->assertOk();
     }
 
@@ -31,7 +31,7 @@ final class CertificateTest extends TestCase
 
         // Curso sem progresso registrado para este aluno -> frequência insuficiente.
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->postJson('/api/certificates', ['courseId' => $this->anySeededCourseId()])
+            ->postJson('/api/certificados', ['curso_id' => $this->anySeededCourseId()])
             ->assertStatus(403)
             ->assertJsonFragment(['error' => true]);
     }
@@ -42,7 +42,7 @@ final class CertificateTest extends TestCase
         $other = $this->makeStudent('Outro Aluno');
 
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->postJson('/api/certificates', ['userId' => $other['id'], 'courseId' => $this->anySeededCourseId()])
+            ->postJson('/api/certificados', ['usuario_id' => $other['id'], 'curso_id' => $this->anySeededCourseId()])
             ->assertStatus(403);
     }
 
@@ -50,7 +50,7 @@ final class CertificateTest extends TestCase
     {
         $student = $this->makeStudent('Aluno Cert');
         $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->deleteJson('/api/certificates/qualquer-id')
+            ->deleteJson('/api/certificados/qualquer-id')
             ->assertStatus(403);
     }
 
@@ -59,32 +59,32 @@ final class CertificateTest extends TestCase
         $student = $this->makeStudent('Aluno Cert');
 
         // Curso com uma única aula (frequência 100% com 1 aula concluída).
-        $courseId = 'course-cert-'.uniqid();
-        $lessonId = 'lesson-cert-'.uniqid();
-        DB::table('Course')->insert([
-            'id' => $courseId, 'title' => 'Curso Cert', 'description' => 'desc', 'category' => 'x',
-            'thumbnail' => 't', 'instructorName' => 'Gestor de Conteúdos',
+        $curso_id = 'course-cert-'.uniqid();
+        $aula_id = 'lesson-cert-'.uniqid();
+        DB::table('curso')->insert([
+            'id' => $curso_id, 'titulo' => 'Curso Cert', 'descricao' => 'desc', 'categoria' => 'x',
+            'miniatura' => 't', 'nome_instrutor' => 'Gestor de Conteúdos',
         ]);
-        DB::table('Lesson')->insert([
-            'id' => $lessonId, 'courseId' => $courseId, 'title' => 'A1', 'duration' => '5min', 'lesson_order' => 0,
+        DB::table('aula')->insert([
+            'id' => $aula_id, 'curso_id' => $curso_id, 'titulo' => 'A1', 'duracao' => '5min', 'ordem' => 0,
         ]);
-        $this->matricular($student, $courseId);
-        DB::table('StudentProgress')->insert([
-            'id' => 'prog-cert-'.uniqid(), 'studentName' => $student['name'], 'userId' => $student['id'], 'courseId' => $courseId,
-            'completedLessons' => json_encode([$lessonId]), 'attendedLiveSessions' => json_encode([]),
+        $this->matricular($student, $curso_id);
+        DB::table('progresso_aluno')->insert([
+            'id' => 'prog-cert-'.uniqid(), 'nome_aluno' => $student['nome'], 'usuario_id' => $student['id'], 'curso_id' => $curso_id,
+            'aulas_concluidas' => json_encode([$aula_id]), 'sessoes_ao_vivo_assistidas' => json_encode([]),
         ]);
 
         $first = $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->postJson('/api/certificates', ['courseId' => $courseId]);
+            ->postJson('/api/certificados', ['curso_id' => $curso_id]);
         $first->assertStatus(201)
-            ->assertJsonPath('attendancePercent', 100)
-            ->assertJsonPath('userId', $student['id'])
-            ->assertJsonPath('studentName', $student['name']);
+            ->assertJsonPath('percentual_frequencia', 100)
+            ->assertJsonPath('usuario_id', $student['id'])
+            ->assertJsonPath('nome_aluno', $student['nome']);
         $firstId = $first->json('id');
 
-        // Segunda emissão retorna o MESMO certificado (idempotente por userId+courseId).
+        // Segunda emissão retorna o MESMO certificado (idempotente por usuario_id+curso_id).
         $second = $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->postJson('/api/certificates', ['courseId' => $courseId]);
+            ->postJson('/api/certificados', ['curso_id' => $curso_id]);
         $second->assertStatus(201)->assertJsonPath('id', $firstId);
     }
 }

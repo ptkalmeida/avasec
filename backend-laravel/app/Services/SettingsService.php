@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\SystemSettings;
+use App\Models\ConfiguracaoSistema;
 
 /**
  * Configurações do sistema (linha singleton) — espelha src/server/services/settingsService.ts.
  * Atualização faz merge raso, restrito às chaves conhecidas.
  *
- * Por que existe a lista de chaves: GET /api/system-settings é PÚBLICO de propósito
+ * Por que existe a lista de chaves: GET /api/configuracoes-sistema é PÚBLICO de propósito
  * (o visitante anônimo monta o site com isso, igual a /site-content), e o merge era de
  * formato livre. Ou seja, qualquer chave que um admin gravasse ali nascia pública —
  * inclusive uma que ninguém pretendesse publicar. Nada era exposto hoje, mas a porta
@@ -40,10 +40,10 @@ final class SettingsService
     /** @return array<string, mixed> */
     public function get(): array
     {
-        $row = SystemSettings::query()->find('singleton');
+        $row = ConfiguracaoSistema::query()->find('singleton');
 
         // Filtra também na leitura: a linha pode ter sido gravada antes desta regra.
-        return array_intersect_key($row->data ?? [], array_flip(self::ALLOWED_KEYS));
+        return array_intersect_key($row->dados ?? [], array_flip(self::ALLOWED_KEYS));
     }
 
     /**
@@ -60,14 +60,14 @@ final class SettingsService
             );
         }
 
-        $row = SystemSettings::query()->find('singleton');
-        $merged = array_merge($row->data ?? [], $updates);
+        $row = ConfiguracaoSistema::query()->find('singleton');
+        $merged = array_merge($row->dados ?? [], $updates);
 
         if ($row !== null) {
-            $row->data = $merged;
+            $row->dados = $merged;
             $row->save();
         } else {
-            SystemSettings::query()->create(['id' => 'singleton', 'data' => $merged]);
+            ConfiguracaoSistema::query()->create(['id' => 'singleton', 'dados' => $merged]);
         }
 
         return $merged;

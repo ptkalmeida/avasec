@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\User;
+use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\Usuario;
 use App\Services\CourseService;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
@@ -44,63 +44,63 @@ final class MaterialDaAulaTelaTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    /** @return array{0:Course,1:Lesson,2:Lesson} */
-    private function cursoComAulas(string $instructorId, string $titulo = 'Curso Do Material'): array
+    /** @return array{0:Curso,1:Aula,2:Aula} */
+    private function cursoComAulas(string $instrutor_id, string $titulo = 'Curso Do Material'): array
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-mat-'.uniqid(),
-            'title' => $titulo,
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => $titulo,
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => Str::slug($titulo).'-'.Str::lower(Str::random(5)),
             'status' => Visibilidade::PUBLICADO,
         ]);
 
-        $a = Lesson::query()->create([
-            'id' => 'lesson-mat-'.$curso->id.'-1', 'courseId' => $curso->id, 'title' => 'Aula do material',
-            'duration' => '30 min', 'content' => self::TEXTO, 'lesson_order' => 1,
+        $a = Aula::query()->create([
+            'id' => 'lesson-mat-'.$curso->id.'-1', 'curso_id' => $curso->id, 'titulo' => 'Aula do material',
+            'duracao' => '30 min', 'conteudo' => self::TEXTO, 'ordem' => 1,
         ]);
-        $b = Lesson::query()->create([
-            'id' => 'lesson-mat-'.$curso->id.'-2', 'courseId' => $curso->id, 'title' => 'Outra aula',
-            'duration' => '10 min', 'content' => 'Texto da outra aula.', 'lesson_order' => 2,
+        $b = Aula::query()->create([
+            'id' => 'lesson-mat-'.$curso->id.'-2', 'curso_id' => $curso->id, 'titulo' => 'Outra aula',
+            'duracao' => '10 min', 'conteudo' => 'Texto da outra aula.', 'ordem' => 2,
         ]);
 
         return [$curso->refresh(), $a, $b];
     }
 
-    private function pagina(Course $curso, Lesson $aula, string $resto = ''): string
+    private function pagina(Curso $curso, Aula $aula, string $resto = ''): string
     {
         return '/inst/curso/'.$curso->slug.'/aulas/'.$aula->id.$resto;
     }
 
-    private function conteudo(Lesson $aula): string
+    private function conteudo(Aula $aula): string
     {
-        return (string) Lesson::query()->findOrFail($aula->id)->content;
+        return (string) Aula::query()->findOrFail($aula->id)->conteudo;
     }
 
-    private function versao(Lesson $aula): string
+    private function versao(Aula $aula): string
     {
         return CourseService::versaoDoConteudo($this->conteudo($aula));
     }
 
     /** @param array<string, mixed> $campos */
-    private function acao(array $eu, Course $curso, Lesson $aula, array $campos, ?string $versao = null): TestResponse
+    private function acao(array $eu, Curso $curso, Aula $aula, array $campos, ?string $versao = null): TestResponse
     {
         return $this->como($eu['token'])->post($this->pagina($curso, $aula, '/material'), $campos + ['versao' => $versao ?? $this->versao($aula)]);
     }
@@ -200,7 +200,7 @@ final class MaterialDaAulaTelaTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Legenda');
         [$curso, $aula] = $this->cursoComAulas($eu['id']);
-        Lesson::query()->whereKey($aula->id)->update(['content' => "Exemplo: veja o fluxo abaixo.\n\nOutro parágrafo.\n\n![fluxo](/uploads/f.png)"]);
+        Aula::query()->whereKey($aula->id)->update(['conteudo' => "Exemplo: veja o fluxo abaixo.\n\nOutro parágrafo.\n\n![fluxo](/uploads/f.png)"]);
 
         $this->acao($eu, $curso, $aula, ['acao' => 'mover', 'indice' => 0, 'direcao' => 'down'])
             ->assertSessionHasErrors('material');
@@ -221,9 +221,9 @@ final class MaterialDaAulaTelaTest extends TestCase
         $this->assertStringNotContainsString('Um parágrafo.', $this->conteudo($aula));
         $this->assertDoesNotMatchRegularExpression('/\n{3,}/', $this->conteudo($aula));
 
-        $registro = DB::table('SecurityLog')->where('user', $eu['name'])->where('details', 'like', '%Trecho removido%')->first();
+        $registro = DB::table('log_seguranca')->where('usuario', $eu['nome'])->where('detalhes', 'like', '%Trecho removido%')->first();
         $this->assertNotNull($registro, 'a remoção tem de ficar no registro');
-        $this->assertStringContainsString('Um parágrafo.', $registro->details);
+        $this->assertStringContainsString('Um parágrafo.', $registro->detalhes);
         $this->assertSame('WARNING', $registro->status);
     }
 
@@ -265,7 +265,7 @@ final class MaterialDaAulaTelaTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Video Corpo');
         [$curso, $aula] = $this->cursoComAulas($eu['id']);
-        Lesson::query()->whereKey($aula->id)->update(['videoUrl' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ']);
+        Aula::query()->whereKey($aula->id)->update(['url_video' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ']);
 
         $this->acao($eu, $curso, $aula, [
             'acao' => 'inserir', 'apos' => 1, 'tipo' => 'video', 'url' => 'https://youtu.be/dQw4w9WgXcQ', 'descricao' => 'Demonstração', 'legenda' => 'Vídeo 1 - demo',
@@ -356,7 +356,7 @@ final class MaterialDaAulaTelaTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Imagem Fica');
         [$curso, $aula] = $this->cursoComAulas($eu['id']);
-        Lesson::query()->whereKey($aula->id)->update(['content' => "Texto antes.\n\n![Antiga](/uploads/original.png)"]);
+        Aula::query()->whereKey($aula->id)->update(['conteudo' => "Texto antes.\n\n![Antiga](/uploads/original.png)"]);
 
         // O endereço NUNCA vem do formulário: mandar outro é ignorado.
         $this->acao($eu, $curso, $aula, ['acao' => 'atualizar', 'indice' => 1, 'tipo' => 'imagem', 'url' => 'https://evil.example/x.png', 'descricao' => 'Nova descrição']);
@@ -387,7 +387,7 @@ final class MaterialDaAulaTelaTest extends TestCase
         $versaoQueAPessoaViu = $this->versao($aula);
 
         // Outra pessoa salvou no meio.
-        Lesson::query()->whereKey($aula->id)->update(['content' => "## Reescrita\n\nTudo novo."]);
+        Aula::query()->whereKey($aula->id)->update(['conteudo' => "## Reescrita\n\nTudo novo."]);
 
         $this->acao($eu, $curso, $aula, ['acao' => 'remover', 'indice' => 0], $versaoQueAPessoaViu)
             ->assertSessionHasErrors('material');
@@ -409,7 +409,7 @@ final class MaterialDaAulaTelaTest extends TestCase
     {
         $eu = $this->instrutor('Gestor Vazia');
         [$curso, $aula] = $this->cursoComAulas($eu['id']);
-        Lesson::query()->whereKey($aula->id)->update(['content' => 'Só este.']);
+        Aula::query()->whereKey($aula->id)->update(['conteudo' => 'Só este.']);
 
         $this->acao($eu, $curso, $aula, ['acao' => 'remover', 'indice' => 0])->assertSessionHasErrors('material');
 

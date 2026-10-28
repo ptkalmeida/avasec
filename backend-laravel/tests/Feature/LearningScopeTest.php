@@ -26,6 +26,7 @@ final class LearningScopeTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->ativarCursosDeSeed();
         $this->withoutMiddleware(ThrottleRequests::class);
 
         // Flag é chave de liga/desliga, não controle de acesso: o escopo tem de valer
@@ -46,8 +47,8 @@ final class LearningScopeTest extends TestCase
     {
         $ids = [];
         foreach ($itens as $item) {
-            if (is_array($item) && is_string($item['courseId'] ?? null)) {
-                $ids[] = $item['courseId'];
+            if (is_array($item) && is_string($item['curso_id'] ?? null)) {
+                $ids[] = $item['curso_id'];
             }
         }
 
@@ -59,22 +60,22 @@ final class LearningScopeTest extends TestCase
     {
         $this->assertGreaterThan(
             1,
-            DB::table($tabela)->distinct()->count('courseId'),
+            DB::table($tabela)->distinct()->count('curso_id'),
             "Seed com um só curso em {$tabela}: o teste passaria sem provar escopo."
         );
     }
 
     public function test_student_without_enrollment_sees_no_forum_no_quizzes_no_exercises(): void
     {
-        foreach (['ForumMessage', 'Quiz', 'PracticalExercise'] as $tabela) {
+        foreach (['mensagem_forum', 'avaliacao', 'exercicio_pratico'] as $tabela) {
             $this->assertSeedTemVariosCursos($tabela);
         }
 
         $auth = $this->auth($this->makeStudent()['token']);
 
         $this->assertSame([], $this->getJson('/api/forum', $auth)->assertOk()->json());
-        $this->assertSame([], $this->getJson('/api/quizzes', $auth)->assertOk()->json());
-        $this->assertSame([], $this->getJson('/api/exercises', $auth)->assertOk()->json());
+        $this->assertSame([], $this->getJson('/api/avaliacoes', $auth)->assertOk()->json());
+        $this->assertSame([], $this->getJson('/api/exercicios', $auth)->assertOk()->json());
     }
 
     public function test_enrolled_student_sees_only_own_course(): void
@@ -83,10 +84,10 @@ final class LearningScopeTest extends TestCase
         $auth = $this->auth($aluno['token']);
 
         $this->withHeaders($auth)
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => 'course-1'])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => 'course-1'])
             ->assertOk();
 
-        foreach (['/api/forum', '/api/quizzes', '/api/exercises'] as $rota) {
+        foreach (['/api/forum', '/api/avaliacoes', '/api/exercicios'] as $rota) {
             $itens = $this->getJson($rota, $auth)->assertOk()->json();
             $this->assertNotEmpty($itens, "Aluno matriculado ficou sem conteúdo em {$rota}.");
             $this->assertSame(['course-1'], $this->cursos($itens), "Vazou curso alheio em {$rota}.");
@@ -98,34 +99,34 @@ final class LearningScopeTest extends TestCase
         $aluno = $this->makeStudent();
         $auth = $this->auth($aluno['token']);
         $this->withHeaders($auth)
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => 'course-1'])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => 'course-1'])
             ->assertOk();
 
-        $quizzes = $this->getJson('/api/quizzes', $auth)->assertOk()->json();
+        $quizzes = $this->getJson('/api/avaliacoes', $auth)->assertOk()->json();
 
         // De curso alheio não pode vir nada, e o gabarito NUNCA vem para o aluno (23/10/2026):
         // com ele, quem chamasse a API à mão tiraria 100% em qualquer prova do seu curso.
         foreach ($quizzes as $quiz) {
-            $this->assertSame('course-1', $quiz['courseId'] ?? null);
-            foreach ($quiz['questions'] as $questao) {
-                $this->assertArrayHasKey('questionText', $questao);
-                $this->assertArrayHasKey('options', $questao);
-                foreach (['correctOptionIndex', 'explanation', 'reviewMessage'] as $segredo) {
+            $this->assertSame('course-1', $quiz['curso_id'] ?? null);
+            foreach ($quiz['questoes'] as $questao) {
+                $this->assertArrayHasKey('texto_questao', $questao);
+                $this->assertArrayHasKey('opcoes', $questao);
+                foreach (['indice_opcao_correta', 'explanation', 'mensagem_revisao'] as $segredo) {
                     $this->assertArrayNotHasKey($segredo, $questao, "{$segredo} vazou para o aluno");
                 }
             }
         }
-        $this->assertNotEmpty($quizzes[0]['questions'] ?? []);
-        $this->assertStringNotContainsString('correctOptionIndex', (string) json_encode($quizzes));
+        $this->assertNotEmpty($quizzes[0]['questoes'] ?? []);
+        $this->assertStringNotContainsString('indice_opcao_correta', (string) json_encode($quizzes));
     }
 
     public function test_student_cannot_post_in_forum_of_course_they_do_not_attend(): void
     {
         $auth = $this->auth($this->makeStudent()['token']);
 
-        // courseId vem do corpo: sem checagem, qualquer autenticado publicava em
+        // curso_id vem do corpo: sem checagem, qualquer autenticado publicava em
         // qualquer turma. O chat de aula já barrava o caso equivalente.
-        $this->postJson('/api/forum', ['courseId' => 'course-1', 'text' => 'Invasão de turma'], $auth)
+        $this->postJson('/api/forum', ['curso_id' => 'course-1', 'texto' => 'Invasão de turma'], $auth)
             ->assertStatus(403);
     }
 
@@ -134,18 +135,18 @@ final class LearningScopeTest extends TestCase
         $aluno = $this->makeStudent();
         $auth = $this->auth($aluno['token']);
         $this->withHeaders($auth)
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => 'course-1'])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => 'course-1'])
             ->assertOk();
 
-        $this->postJson('/api/forum', ['courseId' => 'course-1', 'text' => 'Dúvida legítima'], $auth)
+        $this->postJson('/api/forum', ['curso_id' => 'course-1', 'texto' => 'Dúvida legítima'], $auth)
             ->assertStatus(201)
-            ->assertJsonPath('courseId', 'course-1');
+            ->assertJsonPath('curso_id', 'course-1');
     }
 
     public function test_student_can_post_in_forum_of_extra_course(): void
     {
         // Curso extra da matrícula múltipla é matrícula: CourseAccess::canAccess
-        // barrava com 403 porque não lia extraCourseIds.
+        // barrava com 403 porque não lia cursos_extras_ids.
         config(['features.matriculasMultiplas' => true]);
 
         $aluno = $this->makeStudent();
@@ -153,27 +154,27 @@ final class LearningScopeTest extends TestCase
         $principalId = $this->anotherSeededCourseId('course-1');
 
         $this->withHeaders($this->auth($this->staffToken('admin')))
-            ->putJson('/api/enrollments/'.$aluno['id'], ['canMultiEnroll' => true])
+            ->putJson('/api/matriculas/'.$aluno['id'], ['pode_multimatricula' => true])
             ->assertOk();
         $this->withHeaders($auth)
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => $principalId])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => $principalId])
             ->assertOk();
         $this->withHeaders($auth)
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => 'course-1'])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => 'course-1'])
             ->assertOk()
-            ->assertJsonPath('enrollment.extraCourseIds', ['course-1']);
+            ->assertJsonPath('enrollment.cursos_extras_ids', ['course-1']);
 
-        $this->postJson('/api/forum', ['courseId' => 'course-1', 'text' => 'Dúvida no curso extra'], $auth)
+        $this->postJson('/api/forum', ['curso_id' => 'course-1', 'texto' => 'Dúvida no curso extra'], $auth)
             ->assertStatus(201)
-            ->assertJsonPath('courseId', 'course-1');
+            ->assertJsonPath('curso_id', 'course-1');
     }
 
     public function test_student_cannot_submit_quiz_of_course_they_do_not_attend(): void
     {
         $auth = $this->auth($this->makeStudent()['token']);
 
-        $this->postJson('/api/quiz-submissions', [
-            'quizId' => 'quiz-1',
+        $this->postJson('/api/tentativas-avaliacao', [
+            'avaliacao_id' => 'quiz-1',
             'answers' => ['quiz-1-q1' => 0],
         ], $auth)->assertStatus(403);
     }
@@ -182,7 +183,7 @@ final class LearningScopeTest extends TestCase
     {
         $auth = $this->auth($this->staffToken('admin'));
 
-        foreach (['/api/forum', '/api/quizzes', '/api/exercises'] as $rota) {
+        foreach (['/api/forum', '/api/avaliacoes', '/api/exercicios'] as $rota) {
             $itens = $this->getJson($rota, $auth)->assertOk()->json();
             $this->assertGreaterThan(1, count($this->cursos($itens)), "Admin perdeu alcance em {$rota}.");
         }
@@ -193,12 +194,12 @@ final class LearningScopeTest extends TestCase
         $auth = $this->auth($this->staffToken('instructor'));
 
         // Instrutor não é admin: o alcance é o dos próprios cursos, e nunca mais que isso.
-        $instructorId = DB::table('User')->where('role', 'instructor')->where('status', 'active')->value('id');
-        $proprios = DB::table('Course')->where('instructorId', $instructorId)->pluck('id')->all();
+        $instrutor_id = DB::table('usuario')->where('papel', 'instructor')->where('status', 'active')->value('id');
+        $proprios = DB::table('curso')->where('instrutor_id', $instrutor_id)->pluck('id')->all();
 
-        foreach (['/api/forum', '/api/quizzes', '/api/exercises'] as $rota) {
-            foreach ($this->cursos($this->getJson($rota, $auth)->assertOk()->json()) as $courseId) {
-                $this->assertContains($courseId, $proprios, "Instrutor viu curso alheio em {$rota}.");
+        foreach (['/api/forum', '/api/avaliacoes', '/api/exercicios'] as $rota) {
+            foreach ($this->cursos($this->getJson($rota, $auth)->assertOk()->json()) as $curso_id) {
+                $this->assertContains($curso_id, $proprios, "Instrutor viu curso alheio em {$rota}.");
             }
         }
     }

@@ -28,14 +28,14 @@ final class CaixaDeMensagens
     /**
      * As conversas que chegam ao gestor, a que espera resposta primeiro.
      *
-     * @param  array{sub:string,name:string,role:string}  $instrutor
+     * @param  array{sub:string,nome:string,papel:string}  $instrutor
      * @return list<array{alunoId:string,nome:string,quantas:int,aguardando:bool,ultima:array{texto:string,aula:string|null,quando:string,deQuem:string}}>
      */
     public function conversas(array $instrutor): array
     {
         $porAluno = [];
         foreach ($this->mensagens->listDirectMessages($instrutor, null) as $linha) {
-            $alunoId = is_string($linha['studentUserId'] ?? null) ? $linha['studentUserId'] : null;
+            $alunoId = is_string($linha['aluno_usuario_id'] ?? null) ? $linha['aluno_usuario_id'] : null;
             if ($alunoId === null) {
                 continue;
             }
@@ -47,9 +47,9 @@ final class CaixaDeMensagens
             $ultima = $linhas[count($linhas) - 1];
             $conversas[] = [
                 'alunoId' => $alunoId,
-                'nome' => is_string($ultima['studentName'] ?? null) ? $ultima['studentName'] : 'Aluno',
+                'nome' => is_string($ultima['nome_aluno'] ?? null) ? $ultima['nome_aluno'] : 'Aluno',
                 'quantas' => count($linhas),
-                'aguardando' => ($ultima['senderRole'] ?? null) === 'student',
+                'aguardando' => ($ultima['papel_remetente'] ?? null) === 'student',
                 'ultima' => $this->paraTela($ultima),
             ];
         }
@@ -76,7 +76,7 @@ final class CaixaDeMensagens
      * O escopo é o do `MessagingService`: pedir o aluno de outro instrutor
      * devolve lista vazia, e não a conversa alheia.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return list<array{texto:string,aula:string|null,quando:string,deQuem:string,autor:string}>
      */
     public function conversa(array $requester, ?string $alunoId): array
@@ -89,7 +89,7 @@ final class CaixaDeMensagens
     /**
      * Quantas conversas esperam resposta — o número da fila "A fazer".
      *
-     * @param  array{sub:string,name:string,role:string}  $instrutor
+     * @param  array{sub:string,nome:string,papel:string}  $instrutor
      */
     public function quantasAguardam(array $instrutor): int
     {
@@ -102,23 +102,23 @@ final class CaixaDeMensagens
      */
     private function paraTela(array $linha): array
     {
-        $bruto = is_string($linha['text'] ?? null) ? $linha['text'] : '';
+        $bruto = is_string($linha['texto'] ?? null) ? $linha['texto'] : '';
         $separado = AssuntoDaAula::separar($bruto);
 
         return [
             'texto' => $separado['texto'],
             'aula' => $separado['aula'],
             'quando' => $this->quando($linha),
-            'deQuem' => is_string($linha['senderRole'] ?? null) ? $linha['senderRole'] : '',
-            'autor' => is_string($linha['senderName'] ?? null) ? $linha['senderName'] : '',
-            'ordenacao' => is_string($linha['enviadaEm'] ?? null) ? $linha['enviadaEm'] : (is_string($linha['id'] ?? null) ? $linha['id'] : ''),
+            'deQuem' => is_string($linha['papel_remetente'] ?? null) ? $linha['papel_remetente'] : '',
+            'autor' => is_string($linha['nome_remetente'] ?? null) ? $linha['nome_remetente'] : '',
+            'ordenacao' => is_string($linha['enviada_em'] ?? null) ? $linha['enviada_em'] : (is_string($linha['id'] ?? null) ? $linha['id'] : ''),
         ];
     }
 
     /**
      * Data e hora para uma pessoa ler, no fuso de exibição.
      *
-     * `enviadaEm` é a coluna de instante (UTC) e é a fonte; `timestamp` é texto
+     * `enviada_em` é a coluna de instante (UTC) e é a fonte; `timestamp` é texto
      * antigo, guardado em formatos diferentes ao longo do tempo, e só serve de
      * último recurso.
      *
@@ -126,7 +126,7 @@ final class CaixaDeMensagens
      */
     private function quando(array $linha): string
     {
-        $instante = $linha['enviadaEm'] ?? null;
+        $instante = $linha['enviada_em'] ?? null;
         if (is_string($instante) && $instante !== '') {
             try {
                 return Fuso::de(new CarbonImmutable($instante))->format('d/m/Y H:i');
@@ -135,6 +135,6 @@ final class CaixaDeMensagens
             }
         }
 
-        return is_string($linha['timestamp'] ?? null) ? $linha['timestamp'] : '';
+        return is_string($linha['registrado_em_texto'] ?? null) ? $linha['registrado_em_texto'] : '';
     }
 }

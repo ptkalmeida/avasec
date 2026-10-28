@@ -30,7 +30,7 @@
 
         <div class="flex min-w-0 flex-1 flex-col">
             <x-instrutor.barra-estreita
-                :nome="$instrutor['name'] ?? ''"
+                :nome="$instrutor['nome'] ?? ''"
                 :curso="$cursoDoMenu ?? null" />
 
             <main id="conteudo" class="flex-1 px-4 py-6 md:px-8 md:py-8">

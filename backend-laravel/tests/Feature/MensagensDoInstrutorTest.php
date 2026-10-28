@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use App\Http\Middleware\JwtAuthenticate;
-use App\Models\Course;
-use App\Models\DirectMessage;
-use App\Models\StudentEnrollment;
-use App\Models\User;
+use App\Models\Curso;
+use App\Models\Matricula;
+use App\Models\MensagemDireta;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -39,29 +39,29 @@ final class MensagensDoInstrutorTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    private function cursoDe(string $instructorId): Course
+    private function cursoDe(string $instrutor_id): Curso
     {
-        $curso = Course::query()->create([
+        $curso = Curso::query()->create([
             'id' => 'course-msg-'.uniqid(),
-            'title' => 'Curso de Mensagens '.Str::random(5),
-            'description' => 'd',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => 'Curso de Mensagens '.Str::random(5),
+            'descricao' => 'd',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
-        Course::query()->whereKey($curso->id)->update([
+        Curso::query()->whereKey($curso->id)->update([
             'slug' => 'curso-msg-'.Str::lower(Str::random(8)),
             'status' => Visibilidade::PUBLICADO,
         ]);
@@ -70,19 +70,19 @@ final class MensagensDoInstrutorTest extends TestCase
     }
 
     /** @return array{id:string,name:string,token:string} */
-    private function alunoDoCurso(string $nome, Course $curso): array
+    private function alunoDoCurso(string $nome, Curso $curso): array
     {
         $aluno = $this->makeStudent($nome);
-        StudentEnrollment::query()->create([
+        Matricula::query()->create([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'enrolledCourseId' => $curso->id,
-            'enrolledAt' => now(),
-            'completedCourseIds' => [],
-            'dropOutPenaltyUntil' => null,
-            'canMultiEnroll' => false,
-            'extraCourseIds' => [],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => $curso->id,
+            'matriculado_em_texto' => now(),
+            'cursos_concluidos_ids' => [],
+            'penalidade_desistencia_ate' => null,
+            'pode_multimatricula' => false,
+            'cursos_extras_ids' => [],
         ]);
 
         return $aluno;
@@ -106,16 +106,16 @@ final class MensagensDoInstrutorTest extends TestCase
         $curso = $this->cursoDe($eu['id']);
         $aluno = $this->alunoDoCurso('Aluno Que Escreve', $curso);
 
-        DirectMessage::query()->create([
+        MensagemDireta::query()->create([
             'id' => 'dm-caixa-'.uniqid(),
-            'studentName' => $aluno['name'],
-            'studentUserId' => $aluno['id'],
-            'senderName' => $aluno['name'],
-            'senderUserId' => $aluno['id'],
-            'senderRole' => 'student',
-            'text' => '[Aula: Aula de Teste da Caixa] Nao entendi o exercicio.',
-            'timestamp' => now()->toIso8601String(),
-            'enviadaEm' => now(),
+            'nome_aluno' => $aluno['nome'],
+            'aluno_usuario_id' => $aluno['id'],
+            'nome_remetente' => $aluno['nome'],
+            'remetente_usuario_id' => $aluno['id'],
+            'papel_remetente' => 'student',
+            'texto' => '[Aula: Aula de Teste da Caixa] Nao entendi o exercicio.',
+            'registrado_em_texto' => now()->toIso8601String(),
+            'enviada_em' => now(),
         ]);
 
         $resposta = $this->como($eu['token'])->get('/inst/mensagens?aluno='.$aluno['id']);
@@ -143,14 +143,14 @@ final class MensagensDoInstrutorTest extends TestCase
             ->post('/inst/mensagens', ['aluno' => $aluno['id'], 'texto' => 'Resposta do gestor.'])
             ->assertRedirect('/inst/mensagens?aluno='.urlencode($aluno['id']));
 
-        $gravada = DirectMessage::query()
-            ->where('studentUserId', $aluno['id'])
-            ->where('senderRole', 'instructor')
+        $gravada = MensagemDireta::query()
+            ->where('aluno_usuario_id', $aluno['id'])
+            ->where('papel_remetente', 'instructor')
             ->first();
 
         $this->assertNotNull($gravada, 'A resposta não chegou ao banco.');
-        $this->assertSame('Resposta do gestor.', $gravada->text);
-        $this->assertSame($eu['id'], $gravada->senderUserId);
+        $this->assertSame('Resposta do gestor.', $gravada->texto);
+        $this->assertSame($eu['id'], $gravada->remetente_usuario_id);
 
         // E o aluno lê a resposta na área dele.
         $this->como($aluno['token'])->get('/aluno/suporte')->assertSee('Resposta do gestor.', escape: false);
@@ -195,7 +195,7 @@ final class MensagensDoInstrutorTest extends TestCase
             ->assertSessionHasErrors('texto');
 
         $this->assertFalse(
-            DirectMessage::query()->where('studentUserId', $alheio['id'])->where('senderUserId', $eu['id'])->exists(),
+            MensagemDireta::query()->where('aluno_usuario_id', $alheio['id'])->where('remetente_usuario_id', $eu['id'])->exists(),
             'O instrutor escreveu para um aluno que não é dos cursos dele.',
         );
     }
@@ -208,7 +208,7 @@ final class MensagensDoInstrutorTest extends TestCase
         $alheio = $this->alunoDoCurso('Aluno Alheio API', $this->cursoDe($outro['id']));
 
         $this->withHeader('Authorization', 'Bearer '.$eu['token'])
-            ->postJson('/api/dms', ['studentUserId' => $alheio['id'], 'text' => 'Nao deveria chegar.'])
+            ->postJson('/api/mensagens-diretas', ['aluno_usuario_id' => $alheio['id'], 'texto' => 'Nao deveria chegar.'])
             ->assertForbidden();
     }
 
@@ -216,8 +216,8 @@ final class MensagensDoInstrutorTest extends TestCase
      * O defeito que deixou a caixa vazia com dúvida dentro dela.
      *
      * `InstructorScope::studentIds` só olhava a matrícula PRINCIPAL
-     * (`enrolledCourseId`). O aluno de demonstração está no curso por matrícula
-     * CONCORRENTE (`extraCourseIds`), e por isso nenhum gestor alcançava a
+     * (`curso_matriculado_id`). O aluno de demonstração está no curso por matrícula
+     * CONCORRENTE (`cursos_extras_ids`), e por isso nenhum gestor alcançava a
      * mensagem dele — nem a resposta que já existia no banco. O escopo passou
      * a contar as duas formas.
      */
@@ -227,17 +227,17 @@ final class MensagensDoInstrutorTest extends TestCase
         $curso = $this->cursoDe($eu['id']);
 
         $aluno = $this->makeStudent('Aluno Matricula Concorrente');
-        StudentEnrollment::query()->create([
+        Matricula::query()->create([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
             // Sem curso principal: ele está no curso pela via concorrente.
-            'enrolledCourseId' => null,
-            'enrolledAt' => now(),
-            'completedCourseIds' => [],
-            'dropOutPenaltyUntil' => null,
-            'canMultiEnroll' => true,
-            'extraCourseIds' => [$curso->id],
+            'curso_matriculado_id' => null,
+            'matriculado_em_texto' => now(),
+            'cursos_concluidos_ids' => [],
+            'penalidade_desistencia_ate' => null,
+            'pode_multimatricula' => true,
+            'cursos_extras_ids' => [$curso->id],
         ]);
 
         $this->como($aluno['token'])->post('/aluno/suporte', ['texto' => 'Duvida do concorrente.']);
@@ -254,7 +254,7 @@ final class MensagensDoInstrutorTest extends TestCase
 
     /**
      * Um id de curso que é PREFIXO de outro não pode casar por engano: a busca
-     * em `extraCourseIds` é por texto na coluna JSON.
+     * em `cursos_extras_ids` é por texto na coluna JSON.
      */
     public function test_curso_cujo_id_e_prefixo_de_outro_nao_entra_no_escopo(): void
     {
@@ -265,19 +265,19 @@ final class MensagensDoInstrutorTest extends TestCase
         $cursoAlheio = $this->cursoDe($outro['id']);
         // O id do curso alheio passa a começar com o id do meu.
         $idDerivado = $meu->id.'-extensao';
-        Course::query()->whereKey($cursoAlheio->id)->update(['id' => $idDerivado]);
+        Curso::query()->whereKey($cursoAlheio->id)->update(['id' => $idDerivado]);
 
         $aluno = $this->makeStudent('Aluno Do Curso Derivado');
-        StudentEnrollment::query()->create([
+        Matricula::query()->create([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'enrolledCourseId' => null,
-            'enrolledAt' => now(),
-            'completedCourseIds' => [],
-            'dropOutPenaltyUntil' => null,
-            'canMultiEnroll' => true,
-            'extraCourseIds' => [$idDerivado],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => null,
+            'matriculado_em_texto' => now(),
+            'cursos_concluidos_ids' => [],
+            'penalidade_desistencia_ate' => null,
+            'pode_multimatricula' => true,
+            'cursos_extras_ids' => [$idDerivado],
         ]);
 
         $this->como($aluno['token'])->post('/aluno/suporte', ['texto' => 'Duvida do derivado.']);

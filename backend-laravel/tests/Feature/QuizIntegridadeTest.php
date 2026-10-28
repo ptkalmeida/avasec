@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\Course;
-use App\Models\Quiz;
-use App\Models\QuizQuestion;
-use App\Models\User;
+use App\Models\Avaliacao;
+use App\Models\Curso;
+use App\Models\QuestaoAvaliacao;
+use App\Models\Usuario;
 use App\Support\Jwt;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Str;
@@ -18,7 +18,7 @@ use Tests\TestCase;
  * Duas coisas que o painel React garantia só no navegador, e que a API não.
  *
  * 1. O gabarito aponta para uma alternativa que EXISTE. A API aceitava
- *    `correctOptionIndex` qualquer: 2 alternativas e gabarito 9 era gravado, e a
+ *    `indice_opcao_correta` qualquer: 2 alternativas e gabarito 9 era gravado, e a
  *    prova ficava impossível de acertar — bloqueando o certificado da turma.
  * 2. O id de uma questão só vale se ela já pertence à prova. O editor mandava
  *    `rascunho-N`, cujo contador recomeça a cada carregamento: ao criar o
@@ -35,27 +35,27 @@ final class QuizIntegridadeTest extends TestCase
     private function instrutor(string $nome): array
     {
         $id = (string) Str::uuid();
-        User::query()->create([
+        Usuario::query()->create([
             'id' => $id,
-            'name' => $nome,
+            'nome' => $nome,
             'email' => Str::lower(Str::random(10)).'@example.com',
-            'passwordHash' => password_hash('senha123456', PASSWORD_BCRYPT),
-            'role' => 'instructor',
+            'senha_hash' => password_hash('senha123456', PASSWORD_BCRYPT),
+            'papel' => 'instructor',
         ]);
 
-        return ['id' => $id, 'name' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
+        return ['id' => $id, 'nome' => $nome, 'token' => Jwt::issue($id, $nome, 'instructor')];
     }
 
-    private function curso(string $instructorId): Course
+    private function curso(string $instrutor_id): Curso
     {
-        return Course::query()->create([
+        return Curso::query()->create([
             'id' => 'course-integ-'.uniqid(),
-            'title' => 'Curso De Integridade '.Str::random(4),
-            'description' => 'Descrição longa o bastante para o validador aceitar.',
-            'category' => 'Teste',
-            'thumbnail' => 'sem-imagem.png',
-            'instructorId' => $instructorId,
-            'instructorName' => 'Instrutor',
+            'titulo' => 'Curso De Integridade '.Str::random(4),
+            'descricao' => 'Descrição longa o bastante para o validador aceitar.',
+            'categoria' => 'Teste',
+            'miniatura' => 'sem-imagem.png',
+            'instrutor_id' => $instrutor_id,
+            'nome_instrutor' => 'Instrutor',
         ]);
     }
 
@@ -64,9 +64,9 @@ final class QuizIntegridadeTest extends TestCase
     {
         return array_filter([
             'id' => $id,
-            'questionText' => $texto,
-            'options' => ['Primeira', 'Segunda', 'Terceira'],
-            'correctOptionIndex' => $correta,
+            'texto_questao' => $texto,
+            'opcoes' => ['Primeira', 'Segunda', 'Terceira'],
+            'indice_opcao_correta' => $correta,
         ], static fn (mixed $v): bool => $v !== null);
     }
 
@@ -76,15 +76,15 @@ final class QuizIntegridadeTest extends TestCase
         $curso = $this->curso($eu['id']);
 
         $this->withHeader('Authorization', 'Bearer '.$eu['token'])
-            ->postJson('/api/quizzes', [
-                'courseId' => $curso->id,
-                'title' => 'Prova impossivel',
-                'questions' => [$this->questao('Pergunta?', 9)],
+            ->postJson('/api/avaliacoes', [
+                'curso_id' => $curso->id,
+                'titulo' => 'Prova impossivel',
+                'questoes' => [$this->questao('Pergunta?', 9)],
             ])
             ->assertStatus(400)
             ->assertJsonPath('code', 'VALIDATION_ERROR');
 
-        $this->assertFalse(Quiz::query()->where('courseId', $curso->id)->exists(), 'A prova impossível foi gravada.');
+        $this->assertFalse(Avaliacao::query()->where('curso_id', $curso->id)->exists(), 'A prova impossível foi gravada.');
     }
 
     public function test_alternativas_repetidas_sao_recusadas(): void
@@ -93,13 +93,13 @@ final class QuizIntegridadeTest extends TestCase
         $curso = $this->curso($eu['id']);
 
         $this->withHeader('Authorization', 'Bearer '.$eu['token'])
-            ->postJson('/api/quizzes', [
-                'courseId' => $curso->id,
-                'title' => 'Prova com duas certas',
-                'questions' => [[
-                    'questionText' => 'Pergunta?',
-                    'options' => ['Igual', 'igual', 'Outra'],
-                    'correctOptionIndex' => 0,
+            ->postJson('/api/avaliacoes', [
+                'curso_id' => $curso->id,
+                'titulo' => 'Prova com duas certas',
+                'questoes' => [[
+                    'texto_questao' => 'Pergunta?',
+                    'opcoes' => ['Igual', 'igual', 'Outra'],
+                    'indice_opcao_correta' => 0,
                 ]],
             ])
             ->assertStatus(400);
@@ -111,10 +111,10 @@ final class QuizIntegridadeTest extends TestCase
         $curso = $this->curso($eu['id']);
 
         $this->withHeader('Authorization', 'Bearer '.$eu['token'])
-            ->postJson('/api/quizzes', [
-                'courseId' => $curso->id,
-                'title' => 'Prova valida',
-                'questions' => [$this->questao('Pergunta?', 2)],
+            ->postJson('/api/avaliacoes', [
+                'curso_id' => $curso->id,
+                'titulo' => 'Prova valida',
+                'questoes' => [$this->questao('Pergunta?', 2)],
             ])
             ->assertStatus(201);
     }
@@ -126,31 +126,31 @@ final class QuizIntegridadeTest extends TestCase
         $curso = $this->curso($eu['id']);
 
         $primeira = $this->withHeader('Authorization', 'Bearer '.$eu['token'])
-            ->postJson('/api/quizzes', [
-                'courseId' => $curso->id,
-                'title' => 'Primeira prova',
-                'questions' => [$this->questao('Texto ORIGINAL da questao um.')],
+            ->postJson('/api/avaliacoes', [
+                'curso_id' => $curso->id,
+                'titulo' => 'Primeira prova',
+                'questoes' => [$this->questao('Texto ORIGINAL da questao um.')],
             ])->assertStatus(201)->json();
 
-        $idDaOriginal = (string) $primeira['questions'][0]['id'];
+        $idDaOriginal = (string) $primeira['questoes'][0]['id'];
 
         // Segunda prova, reaproveitando o id da questão da primeira — como o
         // `rascunho-3` fez.
         $segunda = $this->withHeader('Authorization', 'Bearer '.$eu['token'])
-            ->postJson('/api/quizzes', [
-                'courseId' => $curso->id,
-                'title' => 'Segunda prova',
-                'questions' => [$this->questao('Texto da questao da SEGUNDA prova.', 0, $idDaOriginal)],
+            ->postJson('/api/avaliacoes', [
+                'curso_id' => $curso->id,
+                'titulo' => 'Segunda prova',
+                'questoes' => [$this->questao('Texto da questao da SEGUNDA prova.', 0, $idDaOriginal)],
             ])->assertStatus(201)->json();
 
-        $original = QuizQuestion::query()->find($idDaOriginal);
+        $original = QuestaoAvaliacao::query()->find($idDaOriginal);
         $this->assertNotNull($original);
-        $this->assertSame($primeira['id'], $original->quizId, 'A questão foi MOVIDA para a outra prova.');
-        $this->assertSame('Texto ORIGINAL da questao um.', $original->questionText, 'O texto original foi sobrescrito.');
+        $this->assertSame($primeira['id'], $original->avaliacao_id, 'A questão foi MOVIDA para a outra prova.');
+        $this->assertSame('Texto ORIGINAL da questao um.', $original->texto_questao, 'O texto original foi sobrescrito.');
 
         // A segunda prova ganhou questão PRÓPRIA, com id novo.
-        $this->assertNotSame($idDaOriginal, $segunda['questions'][0]['id']);
-        $this->assertSame('Texto da questao da SEGUNDA prova.', $segunda['questions'][0]['questionText']);
+        $this->assertNotSame($idDaOriginal, $segunda['questoes'][0]['id']);
+        $this->assertSame('Texto da questao da SEGUNDA prova.', $segunda['questoes'][0]['texto_questao']);
     }
 
     /** O mesmo furo, visto como autorização: instrutor B edita questão do A. */
@@ -162,21 +162,21 @@ final class QuizIntegridadeTest extends TestCase
         $cursoB = $this->curso($b['id']);
 
         $provaA = $this->withHeader('Authorization', 'Bearer '.$a['token'])
-            ->postJson('/api/quizzes', [
-                'courseId' => $cursoA->id,
-                'title' => 'Prova do A',
-                'questions' => [$this->questao('Questao do instrutor A.')],
+            ->postJson('/api/avaliacoes', [
+                'curso_id' => $cursoA->id,
+                'titulo' => 'Prova do A',
+                'questoes' => [$this->questao('Questao do instrutor A.')],
             ])->assertStatus(201)->json();
-        $idDoA = (string) $provaA['questions'][0]['id'];
+        $idDoA = (string) $provaA['questoes'][0]['id'];
 
         $this->withHeader('Authorization', 'Bearer '.$b['token'])
-            ->postJson('/api/quizzes', [
-                'courseId' => $cursoB->id,
-                'title' => 'Prova do B',
-                'questions' => [$this->questao('Tentativa do B de sobrescrever.', 0, $idDoA)],
+            ->postJson('/api/avaliacoes', [
+                'curso_id' => $cursoB->id,
+                'titulo' => 'Prova do B',
+                'questoes' => [$this->questao('Tentativa do B de sobrescrever.', 0, $idDoA)],
             ])->assertStatus(201);
 
-        $this->assertSame('Questao do instrutor A.', QuizQuestion::query()->find($idDoA)?->questionText);
+        $this->assertSame('Questao do instrutor A.', QuestaoAvaliacao::query()->find($idDoA)?->texto_questao);
     }
 
     /** Editar a PRÓPRIA prova mantém os ids: as respostas já dadas continuam apontando. */
@@ -186,22 +186,22 @@ final class QuizIntegridadeTest extends TestCase
         $curso = $this->curso($eu['id']);
 
         $criada = $this->withHeader('Authorization', 'Bearer '.$eu['token'])
-            ->postJson('/api/quizzes', [
-                'courseId' => $curso->id,
-                'title' => 'Prova editavel',
-                'questions' => [$this->questao('Antes da edicao.')],
+            ->postJson('/api/avaliacoes', [
+                'curso_id' => $curso->id,
+                'titulo' => 'Prova editavel',
+                'questoes' => [$this->questao('Antes da edicao.')],
             ])->assertStatus(201)->json();
-        $idQuestao = (string) $criada['questions'][0]['id'];
+        $idQuestao = (string) $criada['questoes'][0]['id'];
 
         $this->withHeader('Authorization', 'Bearer '.$eu['token'])
-            ->postJson('/api/quizzes', [
+            ->postJson('/api/avaliacoes', [
                 'id' => $criada['id'],
-                'courseId' => $curso->id,
-                'title' => 'Prova editavel',
-                'questions' => [$this->questao('Depois da edicao.', 1, $idQuestao)],
+                'curso_id' => $curso->id,
+                'titulo' => 'Prova editavel',
+                'questoes' => [$this->questao('Depois da edicao.', 1, $idQuestao)],
             ])->assertStatus(201);
 
-        $this->assertSame(1, QuizQuestion::query()->where('quizId', $criada['id'])->count());
-        $this->assertSame('Depois da edicao.', QuizQuestion::query()->find($idQuestao)?->questionText);
+        $this->assertSame(1, QuestaoAvaliacao::query()->where('avaliacao_id', $criada['id'])->count());
+        $this->assertSame('Depois da edicao.', QuestaoAvaliacao::query()->find($idQuestao)?->texto_questao);
     }
 }

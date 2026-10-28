@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\User;
+use App\Models\Usuario;
 use Illuminate\Console\Command;
 
 /**
@@ -34,9 +34,9 @@ final class RotateDemoPasswords extends Command
     public function handle(): int
     {
         $afetadas = [];
-        foreach (User::query()->get() as $user) {
+        foreach (Usuario::query()->get() as $user) {
             foreach (self::DEMO_PASSWORDS as $pin) {
-                if (is_string($user->passwordHash) && password_verify($pin, $user->passwordHash)) {
+                if (is_string($user->senha_hash) && password_verify($pin, $user->senha_hash)) {
                     $afetadas[] = $user;
                     break;
                 }
@@ -52,7 +52,7 @@ final class RotateDemoPasswords extends Command
         $this->newLine();
         $this->warn(count($afetadas).' conta(s) com senha de demonstração:');
         foreach ($afetadas as $user) {
-            $this->line("  - {$user->name} ({$user->role}) — {$user->email}");
+            $this->line("  - {$user->nome} ({$user->papel}) — {$user->email}");
         }
         $this->newLine();
 
@@ -73,9 +73,9 @@ final class RotateDemoPasswords extends Command
         $linhas = [];
         foreach ($afetadas as $user) {
             $nova = self::gerarSenha();
-            $user->passwordHash = password_hash($nova, PASSWORD_DEFAULT);
+            $user->senha_hash = password_hash($nova, PASSWORD_DEFAULT);
             $user->save();
-            $linhas[] = [$user->name, $user->email, $nova];
+            $linhas[] = [$user->nome, $user->email, $nova];
         }
 
         $this->newLine();

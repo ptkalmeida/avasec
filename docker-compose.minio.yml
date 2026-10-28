@@ -1,0 +1,77 @@
+# MinIO local para testar os uploads em S3 (Norma TI-SECEC C.5; plano 11, item F3).
+# SÓ PARA DEV. Em HML e PRD o MinIO é da TI (Documento F, F.10) e não entra no compose
+# da aplicação (Documento C: serviço de infraestrutura não vai na imagem da aplicação).
+#
+# Uso (junto do compose de dev, que já tem o MySQL):
+#   docker compose -f docker-compose.yml -f docker-compose.minio.yml up -d minio minio-init
+#   docker compose -f docker-compose.yml -f docker-compose.minio.yml down       -> para (dados ficam no volume)
+#   docker compose -f docker-compose.yml -f docker-compose.minio.yml down -v    -> para e APAGA o bucket de dev
+#
+# Depois, no backend-laravel/.env (ver .env.example):
+#   UPLOADS_DISK_DRIVER=s3  UPLOADS_BUCKET=avasec-dev  AWS_ENDPOINT=http://127.0.0.1:9000
+#   AWS_ACCESS_KEY_ID=avasec-app  AWS_SECRET_ACCESS_KEY=avasec-app-dev-secret
+#
+# Imagem: as oficiais (minio/minio, quay.io/minio/*) deixaram de ser publicadas e o repositório
+# da MinIO Inc. foi arquivado. Aqui vai o Silo (pgsty/minio), fork independente da comunidade,
+# mesma API S3, AGPLv3. Terceiro: fica restrito ao dev, com as tags fixas.
+#
+# A aplicação NÃO recebe a credencial administrativa (Documento F, F.10): `minio-init` cria um
+# usuário `avasec-app` com permissão só no bucket `avasec-dev`, como a TI deve entregar.
+services:
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    container_name: avasec-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      # Só no localhost, como o MySQL de dev: não expõe o bucket à rede local.
+      - "127.0.0.1:9000:9000"   # API S3
+      - "127.0.0.1:9001:9001"   # console web
+    environment:
+      MINIO_ROOT_USER: avasec-admin
+      MINIO_ROOT_PASSWORD: avasec-admin-dev
+    volumes:
+      - avasec_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio-init:
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
+    container_name: avasec-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        mc alias set local http://minio:9000 avasec-admin avasec-admin-dev
+        mc mb --ignore-existing local/avasec-dev
+        cat > /tmp/politica.json <<'JSON'
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": ["s3:ListBucket", "s3:GetBucketLocation"],
+              "Resource": ["arn:aws:s3:::avasec-dev"]
+            },
+            {
+              "Effect": "Allow",
+              "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+              "Resource": ["arn:aws:s3:::avasec-dev/*"]
+            }
+          ]
+        }
+        JSON
+        mc admin policy create local avasec-app-rw /tmp/politica.json || true
+        mc admin user add local avasec-app avasec-app-dev-secret || true
+        mc admin policy attach local avasec-app-rw --user avasec-app || true
+        echo "MinIO de dev pronto: bucket avasec-dev, usuario avasec-app"
+
+volumes:
+  avasec_minio_data:

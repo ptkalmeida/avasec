@@ -9,14 +9,14 @@
     entende. Depois de criada, a aula abre na página dela, onde o texto se edita
     bloco a bloco — o que o modal tentava fazer num cantinho de tela.
 --}}
-<x-layouts.instrutor :titulo="'Nova aula — '.$curso['title']" ativo="grade" :cursoDoMenu="$curso">
+<x-layouts.instrutor :titulo="'Nova aula — '.$curso['titulo']" ativo="grade" :cursoDoMenu="$curso">
 
     <div class="mx-auto max-w-3xl space-y-6">
 
         <nav aria-label="Trilha de navegação" class="text-apoio text-escult-ink-3">
             <a href="/inst" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Meus cursos</a>
             <span aria-hidden="true" class="px-1.5">/</span>
-            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['title'] }}</a>
+            <a href="/inst/curso/{{ $ref }}" class="underline-offset-[3px] hover:text-ava-acao hover:underline">{{ $curso['titulo'] }}</a>
             <span aria-hidden="true" class="px-1.5">/</span>
             <a href="/inst/curso/{{ $ref }}/grade-curricular" class="underline-offset-[3px] hover:text-ava-acao hover:underline">Grade curricular</a>
             <span aria-hidden="true" class="px-1.5">/</span>

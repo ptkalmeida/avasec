@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Models\Course;
-use App\Models\User;
+use App\Models\Usuario;
 
 /**
  * A lista da "Equipe Pedagógica" do painel administrativo: os gestores de
  * curso e as trilhas que cada um conduz.
  *
- * Somente leitura, como a tela React que ela substitui. Aquela tela tinha um
+ * Os cursos de cada gestor vêm de `GestoresDoCurso` (responsável ou gestor
+ * adicional). A tela React que esta substitui era só leitura e tinha um
  * cartão "Configurações do Gestor" com uma "Especialidade Principal" escrita no
  * código — a mesma para qualquer gestor — e o nome genérico "Gestor de
  * Conteúdos"; nenhum dado vinha do banco, então o cartão não veio.
@@ -19,20 +19,20 @@ use App\Models\User;
 final class EquipeDoAdmin
 {
     /**
-     * @return list<array{id:string,nome:string,situacao:string,cursos:list<array{id:string,titulo:string}>}>
+     * @return list<array{id:string,nome:string,email:string,situacao:string,cursos:list<array{id:string,titulo:string}>}>
      */
     public function listar(?string $busca): array
     {
-        $consulta = User::query()->where('role', 'instructor')->orderBy('name');
+        $consulta = Usuario::query()->where('papel', 'instructor')->orderBy('nome');
 
         $termo = trim((string) $busca);
         if ($termo !== '') {
             // `%` e `_` digitados pela pessoa são texto, não curinga.
             $literal = addcslashes($termo, '\\%_');
-            $consulta->where('name', 'like', '%'.$literal.'%');
+            $consulta->where('nome', 'like', '%'.$literal.'%');
         }
 
-        $pessoas = $consulta->get(['id', 'name', 'status']);
+        $pessoas = $consulta->get(['id', 'nome', 'email', 'status']);
         if ($pessoas->isEmpty()) {
             return [];
         }
@@ -42,16 +42,14 @@ final class EquipeDoAdmin
             $ids[] = (string) $pessoa->id;
         }
 
-        $cursosDe = [];
-        foreach (Course::query()->whereIn('instructorId', $ids)->orderBy('title')->get(['id', 'title', 'instructorId']) as $curso) {
-            $cursosDe[(string) $curso->instructorId][] = ['id' => (string) $curso->id, 'titulo' => (string) $curso->title];
-        }
+        $cursosDe = (new GestoresDoCurso)->cursosPorGestor($ids);
 
         $lista = [];
         foreach ($pessoas as $pessoa) {
             $lista[] = [
                 'id' => (string) $pessoa->id,
-                'nome' => (string) $pessoa->name,
+                'nome' => (string) $pessoa->nome,
+                'email' => (string) $pessoa->email,
                 'situacao' => (string) $pessoa->status,
                 'cursos' => $cursosDe[(string) $pessoa->id] ?? [],
             ];
@@ -63,6 +61,6 @@ final class EquipeDoAdmin
     /** Quantos gestores existem, com ou sem busca — o "(N)" do cabeçalho. */
     public function total(): int
     {
-        return User::query()->where('role', 'instructor')->count();
+        return Usuario::query()->where('papel', 'instructor')->count();
     }
 }

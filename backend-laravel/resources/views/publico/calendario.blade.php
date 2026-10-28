@@ -10,11 +10,11 @@
     azul, webinar aberto em dourado. A etiqueta escrita continua no cartão: a
     cor nunca é a única pista (Documento D §2.13).
 --}}
-<x-layouts.publico ativo="Ajuda" :titulo="$pagina['title']" :descricao="$pagina['description']">
+<x-layouts.publico ativo="Ajuda" :titulo="$pagina['titulo']" :descricao="$pagina['descricao']">
     <x-componentes.moldura-pagina
         :sobretitulo="$pagina['eyebrow']"
-        :titulo="$pagina['title']"
-        :descricao="$pagina['description']"
+        :titulo="$pagina['titulo']"
+        :descricao="$pagina['descricao']"
         centralizado
     >
         @if ($agenda === [])
@@ -95,7 +95,7 @@
                                 dele: quem está autenticado vai direto para a sala
                                 que a coordenação cadastrou.
 
-                                Aula ao vivo NÃO ganha link aqui. O `meetingLink` é a
+                                Aula ao vivo NÃO ganha link aqui. O `link_reuniao` é a
                                 chave da sala de uma turma, o catálogo anônimo já vem
                                 sem ele (ISO-01), e quem está matriculado entra pelo
                                 painel do curso.

@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
-use App\Models\Course;
-use App\Models\Lesson;
-use App\Models\LessonDocument;
-use App\Models\LiveSession;
-use App\Models\StudentProgress;
-use App\Models\User;
+use App\Models\Aula;
+use App\Models\Curso;
+use App\Models\DocumentoAula;
+use App\Models\ProgressoAluno;
+use App\Models\SessaoAoVivo;
+use App\Models\Usuario;
 use App\Support\BusinessRules;
 use App\Support\CourseAccess;
 use App\Support\CursoSlug;
@@ -33,7 +33,7 @@ final class CourseService
     /**
      * Catálogo com o material protegido. O catálogo é PÚBLICO por escopo declarado
      * (01-visao-geral.md), mas devolvia o curso inteiro — texto de estudo de cada
-     * aula, videoUrl, documentos e o link do Meet — para qualquer visitante sem
+     * aula, url_video, documentos e o link do Meet — para qualquer visitante sem
      * login. O que era indevido não é a rota ser aberta: é o tamanho do payload.
      *
      * Vitrine (todos): título, descrição, categoria, capa, carga horária, instrutor,
@@ -43,12 +43,12 @@ final class CourseService
      * pertence (matriculado, concluído ou admissão aprovada) — via CourseAccess,
      * a mesma fonte usada pelo chat e pelos certificados.
      *
-     * @param  array{sub:string,name:string,role:string}|null  $requester
+     * @param  array{sub:string,nome:string,papel:string}|null  $requester
      * @return array<int, array<string, mixed>>
      */
     public function listCoursesFor(?array $requester): array
     {
-        $irrestrito = $requester !== null && $requester['role'] === 'admin';
+        $irrestrito = $requester !== null && $requester['papel'] === 'admin';
         $liberados = ($requester === null || $irrestrito)
             ? []
             : CourseAccess::accessibleCourseIds($requester);
@@ -56,14 +56,14 @@ final class CourseService
         /*
          * Escada de audiência da ADR 12: `status` 1 publicado (aluno vê),
          * 2 restrito (gestor e admin), 3 rascunho (só admin). Sem este filtro a
-         * coluna seria decoração — foi o que aconteceu com `statusCurso`, que
+         * coluna seria decoração — foi o que aconteceu com `status_curso`, que
          * existe com 'Ativo'/NULL e nenhuma consulta lê.
          *
          * Curso INATIVADO não precisa de filtro aqui: o SoftDeletes o exclui de
          * toda consulta automaticamente, e é essa a razão de tê-lo escolhido.
          */
-        $consulta = Course::query()->with($this->courseInclude());
-        Visibilidade::aplicar($consulta, $requester['role'] ?? null);
+        $consulta = Curso::query()->with($this->courseInclude());
+        Visibilidade::aplicar($consulta, $requester['papel'] ?? null);
 
         $catalogo = [];
         foreach ($consulta->get() as $course) {
@@ -86,29 +86,29 @@ final class CourseService
      */
     private static function semMaterial(array $curso): array
     {
-        if (is_array($curso['lessons'] ?? null)) {
-            $curso['lessons'] = array_map(static function (mixed $aula): mixed {
+        if (is_array($curso['aulas'] ?? null)) {
+            $curso['aulas'] = array_map(static function (mixed $aula): mixed {
                 if (! is_array($aula)) {
                     return $aula;
                 }
-                $aula['content'] = '';
-                $aula['videoUrl'] = null;
-                $aula['documents'] = [];
+                $aula['conteudo'] = '';
+                $aula['url_video'] = null;
+                $aula['documentos'] = [];
 
                 return $aula;
-            }, $curso['lessons']);
+            }, $curso['aulas']);
         }
 
-        if (is_array($curso['liveSessions'] ?? null)) {
-            $curso['liveSessions'] = array_map(static function (mixed $sessao): mixed {
+        if (is_array($curso['sessoes_ao_vivo'] ?? null)) {
+            $curso['sessoes_ao_vivo'] = array_map(static function (mixed $sessao): mixed {
                 if (! is_array($sessao)) {
                     return $sessao;
                 }
                 // Link do Meet é a chave da sala: com ele, qualquer um entra na aula.
-                $sessao['meetingLink'] = '';
+                $sessao['link_reuniao'] = '';
 
                 return $sessao;
-            }, $curso['liveSessions']);
+            }, $curso['sessoes_ao_vivo']);
         }
 
         return $curso;
@@ -117,7 +117,7 @@ final class CourseService
     /** @return array<string, mixed> */
     public function getCourseById(string $id): array
     {
-        $course = Course::query()->with($this->courseInclude())->find($id);
+        $course = Curso::query()->with($this->courseInclude())->find($id);
         if ($course === null) {
             throw ApiException::notFound('Curso não encontrado.');
         }
@@ -152,8 +152,8 @@ final class CourseService
             throw ApiException::notFound('Curso não encontrado.');
         }
 
-        $visivel = function (string $coluna, string $busca) use ($role): ?Course {
-            $q = Course::query()->where($coluna, $busca);
+        $visivel = function (string $coluna, string $busca) use ($role): ?Curso {
+            $q = Curso::query()->where($coluna, $busca);
             Visibilidade::aplicar($q, $role);
 
             return $q->first(['id', 'slug']);
@@ -164,7 +164,7 @@ final class CourseService
             return ['id' => (string) $porSlug->id, 'slug' => (string) $porSlug->slug, 'canonico' => true];
         }
 
-        $aposentado = DB::table('CourseSlugHistory')->where('slug', $valor)->value('courseId');
+        $aposentado = DB::table('historico_slug_curso')->where('slug', $valor)->value('curso_id');
         if (is_string($aposentado)) {
             $atual = $visivel('id', $aposentado);
             if ($atual !== null) {
@@ -187,7 +187,7 @@ final class CourseService
      * (`resolverCurso`). Reaproveitar um faria o link salvo de um curso abrir
      * outro — o pior defeito possível numa mudança feita para melhorar endereços.
      *
-     * Lê `Course` com SQL cru para incluir curso INATIVADO: o SoftDeletes o
+     * Lê `curso` com SQL cru para incluir curso INATIVADO: o SoftDeletes o
      * esconderia, e é a mesma armadilha de upsert registrada na ADR 12 — o id
      * (aqui, o slug) continua ocupado no banco mesmo invisível na consulta.
      *
@@ -196,9 +196,9 @@ final class CourseService
     private function slugsTomados(): array
     {
         /** @var array<int, string> $emUso */
-        $emUso = DB::table('Course')->whereNotNull('slug')->pluck('slug')->all();
+        $emUso = DB::table('curso')->whereNotNull('slug')->pluck('slug')->all();
         /** @var array<int, string> $aposentados */
-        $aposentados = DB::table('CourseSlugHistory')->pluck('slug')->all();
+        $aposentados = DB::table('historico_slug_curso')->pluck('slug')->all();
 
         return array_merge($emUso, $aposentados);
     }
@@ -210,15 +210,15 @@ final class CourseService
      * gera slug novo — senão salvar o formulário sem tocar no título aposentaria
      * o endereço e encheria o histórico de linhas iguais.
      */
-    private function trocarSlugPorTitulo(string $courseId, string $tituloNovo): ?string
+    private function trocarSlugPorTitulo(string $curso_id, string $tituloNovo): ?string
     {
-        $atual = DB::table('Course')->where('id', $courseId)->first(['title', 'slug']);
+        $atual = DB::table('curso')->where('id', $curso_id)->first(['titulo', 'slug']);
         if ($atual === null) {
             return null;
         }
 
         $slugAtual = is_string($atual->slug) ? $atual->slug : '';
-        if (is_string($atual->title) && $atual->title === $tituloNovo && $slugAtual !== '') {
+        if (is_string($atual->titulo) && $atual->titulo === $tituloNovo && $slugAtual !== '') {
             return null;
         }
 
@@ -230,10 +230,10 @@ final class CourseService
         if ($slugAtual !== '') {
             // insertOrIgnore: o mesmo slug pode voltar a ser aposentado depois de
             // um rename de ida e volta, e a segunda vez não pode estourar a PK.
-            DB::table('CourseSlugHistory')->insertOrIgnore([
+            DB::table('historico_slug_curso')->insertOrIgnore([
                 'slug' => $slugAtual,
-                'courseId' => $courseId,
-                'aposentadoEm' => CarbonImmutable::now()->toDateTimeString(),
+                'curso_id' => $curso_id,
+                'aposentado_em' => CarbonImmutable::now()->toDateTimeString(),
             ]);
         }
 
@@ -242,55 +242,55 @@ final class CourseService
 
     /**
      * @param  array<string, mixed>  $input
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
     public function createCourse(array $input, array $requester): array
     {
-        $lessons = Payload::assocList($input['lessons'] ?? []);
-        $liveSessions = Payload::assocList($input['liveSessions'] ?? []);
-        unset($input['lessons'], $input['liveSessions']);
+        $lessons = Payload::assocList($input['aulas'] ?? []);
+        $liveSessions = Payload::assocList($input['sessoes_ao_vivo'] ?? []);
+        unset($input['aulas'], $input['sessoes_ao_vivo']);
 
         // Instrutor só cria curso em seu próprio nome; admin pode atribuir a outro
-        // instrutor por userId (ADR 10) — instructorName é sempre derivado (display).
-        if (($requester['role'] ?? null) === 'admin'
-            && is_string($input['instructorId'] ?? null)
-            && $input['instructorId'] !== ''
-            && $input['instructorId'] !== $requester['sub']) {
-            $instructorId = $input['instructorId'];
-            $instructorName = User::query()
-                ->where('id', $instructorId)
-                ->whereIn('role', ['instructor', 'admin'])
-                ->value('name');
-            if (! is_string($instructorName)) {
+        // instrutor por usuario_id (ADR 10) — nome_instrutor é sempre derivado (display).
+        if (($requester['papel'] ?? null) === 'admin'
+            && is_string($input['instrutor_id'] ?? null)
+            && $input['instrutor_id'] !== ''
+            && $input['instrutor_id'] !== $requester['sub']) {
+            $instrutor_id = $input['instrutor_id'];
+            $nome_instrutor = Usuario::query()
+                ->where('id', $instrutor_id)
+                ->whereIn('papel', ['instructor', 'admin'])
+                ->value('nome');
+            if (! is_string($nome_instrutor)) {
                 throw ApiException::notFound('Instrutor não encontrado.');
             }
         } else {
-            $instructorName = $requester['name'];
-            $instructorId = $requester['sub'];
+            $nome_instrutor = $requester['nome'];
+            $instrutor_id = $requester['sub'];
         }
 
         $id = is_string($input['id'] ?? null) ? $input['id'] : ('course-'.$this->nowMs());
 
-        DB::transaction(function () use ($input, $id, $instructorName, $instructorId, $lessons, $liveSessions): void {
+        DB::transaction(function () use ($input, $id, $nome_instrutor, $instrutor_id, $lessons, $liveSessions): void {
             $courseData = $this->scalarCourseData($input);
             $courseData['id'] = $id;
             // Slug é DERIVADO do título, nunca aceito do cliente — mesma regra de
-            // instructorName. Slug escolhido pelo requisitante seria um campo de
+            // nome_instrutor. Slug escolhido pelo requisitante seria um campo de
             // identidade editável por quem manda o JSON.
             $courseData['slug'] = CursoSlug::unico(
-                is_string($input['title'] ?? null) ? $input['title'] : '',
+                is_string($input['titulo'] ?? null) ? $input['titulo'] : '',
                 $this->slugsTomados(),
             );
-            $courseData['instructorName'] = $instructorName;
-            $courseData['instructorId'] = $instructorId;
-            Course::query()->create($courseData);
+            $courseData['nome_instrutor'] = $nome_instrutor;
+            $courseData['instrutor_id'] = $instrutor_id;
+            Curso::query()->create($courseData);
 
             foreach ($lessons as $lesson) {
                 $this->createLessonWithDocuments($id, $lesson);
             }
             foreach ($liveSessions as $session) {
-                LiveSession::query()->create($this->liveSessionData($session, $id));
+                SessaoAoVivo::query()->create($this->liveSessionData($session, $id));
             }
         });
 
@@ -299,63 +299,63 @@ final class CourseService
 
     /**
      * @param  array<string, mixed>  $updates
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
-    public function updateCourse(string $courseId, array $updates, array $requester): array
+    public function updateCourse(string $curso_id, array $updates, array $requester): array
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
 
-        $lessons = array_key_exists('lessons', $updates) ? Payload::assocList($updates['lessons']) : null;
-        $liveSessions = array_key_exists('liveSessions', $updates) ? Payload::assocList($updates['liveSessions']) : null;
-        unset($updates['lessons'], $updates['liveSessions']);
+        $lessons = array_key_exists('aulas', $updates) ? Payload::assocList($updates['aulas']) : null;
+        $liveSessions = array_key_exists('sessoes_ao_vivo', $updates) ? Payload::assocList($updates['sessoes_ao_vivo']) : null;
+        unset($updates['aulas'], $updates['sessoes_ao_vivo']);
 
-        // Reatribuição de autoria: só admin, endereçada por userId; o nome de
-        // exibição é derivado do User para nunca divergir da FK (ADR 10).
+        // Reatribuição de autoria: só admin, endereçada por usuario_id; o nome de
+        // exibição é derivado do Usuario para nunca divergir da FK (ADR 10).
         $instructorIdUpdate = [];
-        if (is_string($updates['instructorId'] ?? null) && $updates['instructorId'] !== '') {
-            if (($requester['role'] ?? null) !== 'admin') {
+        if (is_string($updates['instrutor_id'] ?? null) && $updates['instrutor_id'] !== '') {
+            if (($requester['papel'] ?? null) !== 'admin') {
                 throw ApiException::forbidden('Somente administradores podem reatribuir a autoria de um curso.');
             }
-            $newName = User::query()
-                ->where('id', $updates['instructorId'])
-                ->whereIn('role', ['instructor', 'admin'])
-                ->value('name');
+            $newName = Usuario::query()
+                ->where('id', $updates['instrutor_id'])
+                ->whereIn('papel', ['instructor', 'admin'])
+                ->value('nome');
             if (! is_string($newName)) {
                 throw ApiException::notFound('Instrutor não encontrado.');
             }
-            $instructorIdUpdate = ['instructorId' => $updates['instructorId'], 'instructorName' => $newName];
+            $instructorIdUpdate = ['instrutor_id' => $updates['instrutor_id'], 'nome_instrutor' => $newName];
         }
 
-        DB::transaction(function () use ($courseId, $updates, $instructorIdUpdate, $lessons, $liveSessions): void {
+        DB::transaction(function () use ($curso_id, $updates, $instructorIdUpdate, $lessons, $liveSessions): void {
             $scalar = array_merge($this->scalarCourseData($updates), $instructorIdUpdate);
-            if (is_string($updates['title'] ?? null) && $updates['title'] !== '') {
-                $slugNovo = $this->trocarSlugPorTitulo($courseId, $updates['title']);
+            if (is_string($updates['titulo'] ?? null) && $updates['titulo'] !== '') {
+                $slugNovo = $this->trocarSlugPorTitulo($curso_id, $updates['titulo']);
                 if ($slugNovo !== null) {
                     $scalar['slug'] = $slugNovo;
                 }
             }
             if (count($scalar) > 0) {
-                Course::query()->where('id', $courseId)->update($scalar);
+                Curso::query()->where('id', $curso_id)->update($scalar);
             }
             if ($lessons !== null) {
-                $this->syncLessons($courseId, $lessons);
+                $this->syncLessons($curso_id, $lessons);
             }
             if ($liveSessions !== null) {
-                $this->syncLiveSessions($courseId, $liveSessions);
+                $this->syncLiveSessions($curso_id, $liveSessions);
             }
             if ($lessons !== null || $liveSessions !== null) {
-                $this->limparProgressoOrfao($courseId);
+                $this->limparProgressoOrfao($curso_id);
             }
         });
 
-        return $this->getCourseById($courseId);
+        return $this->getCourseById($curso_id);
     }
 
-    /** @param array{sub:string,name:string,role:string} $requester */
-    public function deleteCourse(string $courseId, array $requester, ?string $motivo = null): void
+    /** @param array{sub:string,nome:string,papel:string} $requester */
+    public function deleteCourse(string $curso_id, array $requester, ?string $motivo = null): void
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
         /*
          * Inativa a disciplina (ADR 12). Antes era exclusão física, e o
          * ON DELETE CASCADE do banco levava aulas, documentos e encontros junto
@@ -365,39 +365,74 @@ final class CourseService
          * inalcançáveis porque a disciplina está fora do ar, e reativar a
          * disciplina devolve o conteúdo inteiro sem precisar recompor nada.
          */
-        Course::query()->find($courseId)?->inativar($requester['sub'] ?? null, $motivo);
+        Curso::query()->find($curso_id)?->inativar($requester['sub'] ?? null, $motivo);
+    }
+
+    /**
+     * Devolve ao ar uma disciplina retirada (ADR 12).
+     *
+     * A retirada só inativa a linha do curso — aulas, encontros, avaliações e
+     * matrículas continuam ativos por baixo (ver `deleteCourse`) —, então reativar é
+     * `restore()` e nada mais: o conteúdo inteiro volta junto, para todos os gestores
+     * do curso e para os alunos, sem recompor nada.
+     *
+     * O curso volta **como estava**: o mesmo status de visibilidade e a mesma vigência.
+     * Não se publica nem se estende vigência por baixo dos panos — quem chama é que
+     * avisa a pessoa quando algo disso a impediria de ver o curso aberto a matrículas.
+     *
+     * Reativar não pode colidir com um curso novo: o `slug` é único em todas as linhas,
+     * inclusive as retiradas (`course_slug_unique`).
+     *
+     * @param  array{sub:string,nome:string,papel:string}  $requester
+     */
+    public function reactivateCourse(string $curso_id, array $requester): Curso
+    {
+        // Só o administrador devolve um curso ao ar; gestor não vê nem os retirados.
+        if (($requester['papel'] ?? null) !== 'admin') {
+            throw ApiException::forbidden('Somente o administrador reativa uma disciplina retirada.');
+        }
+
+        $curso = Curso::onlyTrashed()->find($curso_id);
+        if ($curso === null) {
+            // Já estava no ar (duplo clique) ou nunca existiu: o resultado pedido ou existe, ou não há o que reativar.
+            throw ApiException::notFound('Disciplina retirada não encontrada.');
+        }
+
+        $curso->reativar();
+
+        return $curso->refresh();
     }
 
     /**
      * Troca a aula de lugar com a vizinha, e renumera a grade de 1 a N.
      *
      * Existe porque a tela de grade em Blade não pode reenviar o curso inteiro
-     * para mudar uma posição. O React fazia isso (`PUT /api/courses/{id}` com o
+     * para mudar uma posição. O React fazia isso (`PUT /api/cursos/{id}` com o
      * array `lessons` completo), e dois instrutores — ou duas abas — editando o
      * mesmo curso se sobrescreviam sem aviso: quem salvasse por último levava o
      * trabalho do outro. Aqui só a ordem muda, e só o que mudou é gravado.
      *
-     * A ordem de partida é a mesma que a tela mostra (`lesson_order`, depois
+     * A ordem de partida é a mesma que a tela mostra (`ordem`, depois
      * `id`), então "subir" move a aula que a pessoa está VENDO, mesmo quando o
      * banco tem posições repetidas ou com buraco.
      *
      * @param  'up'|'down'  $direcao
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      */
-    public function moverAula(string $courseId, string $lessonId, string $direcao, array $requester): void
+    public function moverAula(string $curso_id, string $aula_id, string $direcao, array $requester): void
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
 
-        DB::transaction(function () use ($courseId, $lessonId, $direcao): void {
+        DB::transaction(function () use ($curso_id, $aula_id, $direcao): void {
             /** @var list<string> $ids */
             $ids = $this->somenteStrings(
-                Lesson::query()->where('courseId', $courseId)
-                    ->orderBy('lesson_order')->orderBy('id')
+                Aula::query()->where('curso_id', $curso_id)
+                    ->orderBy('ordem')->orderBy('id')
                     ->lockForUpdate()
                     ->pluck('id')->all()
             );
 
-            $posicao = array_search($lessonId, $ids, true);
+            $posicao = array_search($aula_id, $ids, true);
             if ($posicao === false) {
                 throw ApiException::notFound('Aula não encontrada neste curso.');
             }
@@ -409,7 +444,7 @@ final class CourseService
             }
 
             foreach ($ids as $i => $id) {
-                Lesson::query()->whereKey($id)->update(['lesson_order' => $i + 1]);
+                Aula::query()->whereKey($id)->update(['ordem' => $i + 1]);
             }
         });
     }
@@ -418,7 +453,7 @@ final class CourseService
      * Tira a aula do ar. Não apaga (ADR 12).
      *
      * O progresso dos alunos que apontava para ela é limpo, porque id órfão em
-     * `completedLessons` contava como aula concluída: um curso com 1 aula e 2
+     * `aulas_concluidas` contava como aula concluída: um curso com 1 aula e 2
      * ids órfãos dava 200% — e a frequência inflada é o gatilho da emissão
      * automática de certificado (ver `limparProgressoOrfao`).
      *
@@ -427,57 +462,57 @@ final class CourseService
      * sobrou não está vazia (`when(count($keptIds) > 0, ...)`), então mandar o
      * curso sem aula nenhuma não inativa nenhuma.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      */
-    public function inativarAula(string $courseId, string $lessonId, array $requester, ?string $motivo = null): void
+    public function inativarAula(string $curso_id, string $aula_id, array $requester, ?string $motivo = null): void
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
 
-        $aula = Lesson::query()->where('courseId', $courseId)->whereKey($lessonId)->first();
+        $aula = Aula::query()->where('curso_id', $curso_id)->whereKey($aula_id)->first();
         if ($aula === null) {
             throw ApiException::notFound('Aula não encontrada neste curso.');
         }
 
-        DB::transaction(function () use ($aula, $requester, $motivo, $courseId): void {
+        DB::transaction(function () use ($aula, $requester, $motivo, $curso_id): void {
             $aula->inativar($requester['sub'], $motivo);
-            $this->limparProgressoOrfao($courseId);
+            $this->limparProgressoOrfao($curso_id);
         });
     }
 
     /**
      * Cria UMA aula no fim da grade.
      *
-     * O React gravava o curso inteiro (`PUT /api/courses/{id}` com todas as
+     * O React gravava o curso inteiro (`PUT /api/cursos/{id}` com todas as
      * aulas) para acrescentar uma. Aqui só a aula nova é escrita, e a posição é
      * calculada no servidor, dentro da transação: a lista que a tela tinha pode
      * estar velha, e dois instrutores criando ao mesmo tempo não disputam o mesmo
      * número.
      *
-     * @param  array{title:string,duration:string,videoUrl?:?string,content?:?string}  $dados
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{titulo:string,duracao:string,url_video?:?string,conteudo?:?string}  $dados
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return string o id da aula criada
      */
-    public function criarAula(string $courseId, array $dados, array $requester): string
+    public function criarAula(string $curso_id, array $dados, array $requester): string
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
 
         $campos = $this->camposDaAula($dados, exigeTitulo: true);
-        if (($campos['content'] ?? null) === null) {
+        if (($campos['conteudo'] ?? null) === null) {
             throw ApiException::validation('Informe o texto de estudo da aula.');
         }
 
-        return DB::transaction(function () use ($courseId, $campos): string {
+        return DB::transaction(function () use ($curso_id, $campos): string {
             // Trava o curso para serializar as criações: sem isso, duas aulas
             // nascidas juntas leem o mesmo "maior número" e empatam na grade.
-            Course::query()->whereKey($courseId)->lockForUpdate()->first();
+            Curso::query()->whereKey($curso_id)->lockForUpdate()->first();
 
-            $maior = Lesson::query()->where('courseId', $courseId)->max('lesson_order');
-            $id = 'lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+            $maior = Aula::query()->where('curso_id', $curso_id)->max('ordem');
+            $id = 'lesson-'.$curso_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
 
-            Lesson::query()->create([
+            Aula::query()->create([
                 'id' => $id,
-                'courseId' => $courseId,
-                'lesson_order' => (is_numeric($maior) ? (int) $maior : 0) + 1,
+                'curso_id' => $curso_id,
+                'ordem' => (is_numeric($maior) ? (int) $maior : 0) + 1,
             ] + $campos);
 
             return $id;
@@ -488,22 +523,22 @@ final class CourseService
      * Atualiza título, carga, vídeo e/ou texto de UMA aula. Só as chaves enviadas
      * mudam; as outras ficam como estão.
      *
-     * Existe no lugar do `PUT /api/courses/{id}` que reenviava todas as aulas do
+     * Existe no lugar do `PUT /api/cursos/{id}` que reenviava todas as aulas do
      * curso: com ele, quem salvava a identificação de uma aula também regravava o
      * texto de todas as outras com o que a tela dela guardava, e uma aba velha
      * desfazia em silêncio o trabalho de outra pessoa.
      *
-     * @param  array{title?:string,duration?:string,videoUrl?:?string,content?:?string}  $campos
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{titulo?:string,duracao?:string,url_video?:?string,conteudo?:?string}  $campos
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      */
-    public function atualizarAula(string $courseId, string $lessonId, array $campos, array $requester): void
+    public function atualizarAula(string $curso_id, string $aula_id, array $campos, array $requester): void
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
 
         $novos = $this->camposDaAula($campos, exigeTitulo: false);
 
-        DB::transaction(function () use ($courseId, $lessonId, $novos): void {
-            $this->aulaTravada($courseId, $lessonId)->fill($novos)->save();
+        DB::transaction(function () use ($curso_id, $aula_id, $novos): void {
+            $this->aulaTravada($curso_id, $aula_id)->fill($novos)->save();
         });
     }
 
@@ -517,29 +552,29 @@ final class CourseService
      * ela recebe o aviso para recarregar.
      *
      * @param  callable(string): string  $edicao  recebe o texto ATUAL e devolve o novo
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return string o texto novo
      */
-    public function editarConteudoDaAula(string $courseId, string $lessonId, string $versao, callable $edicao, array $requester): string
+    public function editarConteudoDaAula(string $curso_id, string $aula_id, string $versao, callable $edicao, array $requester): string
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
 
-        return DB::transaction(function () use ($courseId, $lessonId, $versao, $edicao): string {
-            $aula = $this->aulaTravada($courseId, $lessonId);
-            $atual = is_string($aula->content) ? $aula->content : '';
+        return DB::transaction(function () use ($curso_id, $aula_id, $versao, $edicao): string {
+            $aula = $this->aulaTravada($curso_id, $aula_id);
+            $atual = is_string($aula->conteudo) ? $aula->conteudo : '';
 
             if (! hash_equals(self::versaoDoConteudo($atual), $versao)) {
                 throw ApiException::validation('O texto desta aula mudou desde que você abriu a página. Recarregue para ver a versão atual e refaça a alteração.');
             }
 
             $novo = $edicao($atual);
-            $campos = $this->camposDaAula(['content' => $novo], exigeTitulo: false);
-            if (($campos['content'] ?? null) === null) {
+            $campos = $this->camposDaAula(['conteudo' => $novo], exigeTitulo: false);
+            if (($campos['conteudo'] ?? null) === null) {
                 throw ApiException::validation('O material didático não pode ficar vazio.');
             }
             $aula->fill($campos)->save();
 
-            return is_string($campos['content'] ?? null) ? $campos['content'] : '';
+            return is_string($campos['conteudo'] ?? null) ? $campos['conteudo'] : '';
         });
     }
 
@@ -549,15 +584,15 @@ final class CourseService
      * Só o anexo novo é escrito. O React regravava a lista inteira de anexos da
      * aula — e, pelo `PUT` do curso, a de todas as aulas — a cada vínculo.
      *
-     * @param  array{title:string,type:string,url:string,size?:?string}  $dados
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{titulo:string,tipo:string,url:string,tamanho?:?string}  $dados
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return string o id do documento criado
      */
-    public function anexarDocumento(string $courseId, string $lessonId, array $dados, array $requester): string
+    public function anexarDocumento(string $curso_id, string $aula_id, array $dados, array $requester): string
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
 
-        $titulo = trim($dados['title']);
+        $titulo = trim($dados['titulo']);
         if ($titulo === '') {
             throw ApiException::validation('Dê um título ao recurso.');
         }
@@ -565,7 +600,7 @@ final class CourseService
             throw ApiException::validation('O título do recurso pode ter no máximo 191 caracteres.');
         }
 
-        if (! in_array($dados['type'], ['pdf', 'doc', 'url', 'drive', 'outro'], true)) {
+        if (! in_array($dados['tipo'], ['pdf', 'doc', 'url', 'drive', 'outro'], true)) {
             throw ApiException::validation('Escolha o tipo do recurso.');
         }
 
@@ -579,22 +614,22 @@ final class CourseService
             throw ApiException::validation('O endereço deve ser uma URL http(s) válida ou um caminho interno começando com "/".');
         }
 
-        $tamanho = isset($dados['size']) && is_string($dados['size']) ? trim($dados['size']) : '';
+        $tamanho = isset($dados['tamanho']) && is_string($dados['tamanho']) ? trim($dados['tamanho']) : '';
         if (mb_strlen($tamanho) > 30) {
             throw ApiException::validation('O tamanho pode ter no máximo 30 caracteres.');
         }
 
-        return DB::transaction(function () use ($courseId, $lessonId, $titulo, $dados, $url, $tamanho): string {
-            $this->aulaTravada($courseId, $lessonId);
+        return DB::transaction(function () use ($curso_id, $aula_id, $titulo, $dados, $url, $tamanho): string {
+            $this->aulaTravada($curso_id, $aula_id);
 
-            $id = 'doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
-            LessonDocument::query()->create([
+            $id = 'doc-'.$aula_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+            DocumentoAula::query()->create([
                 'id' => $id,
-                'lessonId' => $lessonId,
-                'title' => $titulo,
-                'type' => $dados['type'],
+                'aula_id' => $aula_id,
+                'titulo' => $titulo,
+                'tipo' => $dados['tipo'],
                 'url' => $url,
-                'size' => $tamanho === '' ? null : $tamanho,
+                'tamanho' => $tamanho === '' ? null : $tamanho,
             ]);
 
             return $id;
@@ -605,16 +640,16 @@ final class CourseService
      * Desvincula um documento da aula. Não apaga (ADR 12): o registro fica, com
      * quem desvinculou e quando.
      *
-     * @param  array{sub:string,name:string,role:string}  $requester
+     * @param  array{sub:string,nome:string,papel:string}  $requester
      */
-    public function desvincularDocumento(string $courseId, string $lessonId, string $documentId, array $requester, ?string $motivo = null): void
+    public function desvincularDocumento(string $curso_id, string $aula_id, string $documentId, array $requester, ?string $motivo = null): void
     {
-        $this->assertCourseOwnership($courseId, $requester);
+        $this->assertCourseOwnership($curso_id, $requester);
 
-        DB::transaction(function () use ($courseId, $lessonId, $documentId, $requester, $motivo): void {
-            $this->aulaTravada($courseId, $lessonId);
+        DB::transaction(function () use ($curso_id, $aula_id, $documentId, $requester, $motivo): void {
+            $this->aulaTravada($curso_id, $aula_id);
 
-            $doc = LessonDocument::query()->where('lessonId', $lessonId)->whereKey($documentId)->first();
+            $doc = DocumentoAula::query()->where('aula_id', $aula_id)->whereKey($documentId)->first();
             if ($doc === null) {
                 throw ApiException::notFound('Documento não encontrado nesta aula.');
             }
@@ -633,9 +668,9 @@ final class CourseService
      * A aula, com a linha travada para a transação. 404 quando não é deste curso
      * ou já foi retirada: o id de outro curso nunca alcança a aula alheia.
      */
-    private function aulaTravada(string $courseId, string $lessonId): Lesson
+    private function aulaTravada(string $curso_id, string $aula_id): Aula
     {
-        $aula = Lesson::query()->where('courseId', $courseId)->whereKey($lessonId)->lockForUpdate()->first();
+        $aula = Aula::query()->where('curso_id', $curso_id)->whereKey($aula_id)->lockForUpdate()->first();
         if ($aula === null) {
             throw ApiException::notFound('Aula não encontrada neste curso.');
         }
@@ -655,66 +690,67 @@ final class CourseService
     {
         $campos = [];
 
-        if (array_key_exists('title', $dados) || $exigeTitulo) {
-            $titulo = is_string($dados['title'] ?? null) ? trim($dados['title']) : '';
+        if (array_key_exists('titulo', $dados) || $exigeTitulo) {
+            $titulo = is_string($dados['titulo'] ?? null) ? trim($dados['titulo']) : '';
             if ($titulo === '') {
                 throw ApiException::validation('O título da aula não pode ficar vazio.');
             }
             if (mb_strlen($titulo) > 191) {
                 throw ApiException::validation('O título da aula pode ter no máximo 191 caracteres.');
             }
-            $campos['title'] = $titulo;
+            $campos['titulo'] = $titulo;
         }
 
-        if (array_key_exists('duration', $dados) || $exigeTitulo) {
-            $carga = is_string($dados['duration'] ?? null) ? trim($dados['duration']) : '';
+        if (array_key_exists('duracao', $dados) || $exigeTitulo) {
+            $carga = is_string($dados['duracao'] ?? null) ? trim($dados['duracao']) : '';
             if ($carga === '') {
                 throw ApiException::validation('Informe a carga da aula, por exemplo "20 min".');
             }
             if (mb_strlen($carga) > 30) {
                 throw ApiException::validation('A carga da aula pode ter no máximo 30 caracteres.');
             }
-            $campos['duration'] = $carga;
+            $campos['duracao'] = $carga;
         }
 
-        if (array_key_exists('videoUrl', $dados)) {
-            $video = is_string($dados['videoUrl']) ? trim($dados['videoUrl']) : '';
+        if (array_key_exists('url_video', $dados)) {
+            $video = is_string($dados['url_video']) ? trim($dados['url_video']) : '';
             if ($video === '') {
-                $campos['videoUrl'] = null;
+                $campos['url_video'] = null;
             } else {
                 // A forma canônica (ADR 08): youtu.be, embed e shorts viram watch?v=.
                 $fonte = VideoSource::tryParse($video);
                 if ($fonte === null) {
                     throw ApiException::validation('Informe um link de vídeo do YouTube ou um arquivo de vídeo (mp4, webm, ogg, m4v, mov).');
                 }
-                $campos['videoUrl'] = $fonte->canonicalUrl;
+                $campos['url_video'] = $fonte->canonicalUrl;
             }
         }
 
-        if (array_key_exists('content', $dados)) {
-            $texto = is_string($dados['content']) ? trim($dados['content']) : '';
+        if (array_key_exists('conteudo', $dados)) {
+            $texto = is_string($dados['conteudo']) ? trim($dados['conteudo']) : '';
             if (mb_strlen($texto) > 20000) {
                 throw ApiException::validation('O material didático pode ter no máximo 20.000 caracteres.');
             }
-            $campos['content'] = $texto === '' ? null : $texto;
+            $campos['conteudo'] = $texto === '' ? null : $texto;
         }
 
         return $campos;
     }
 
-    /** @param array{sub:string,name:string,role:string} $requester */
-    private function assertCourseOwnership(string $courseId, array $requester): void
+    /** @param array{sub:string,nome:string,papel:string} $requester */
+    private function assertCourseOwnership(string $curso_id, array $requester): void
     {
-        $course = Course::query()->find($courseId, ['instructorName', 'instructorId']);
+        $course = Curso::query()->find($curso_id, ['nome_instrutor', 'instrutor_id']);
         if ($course === null) {
             throw ApiException::notFound('Curso não encontrado.');
         }
-        if (($requester['role'] ?? null) === 'admin') {
+        if (($requester['papel'] ?? null) === 'admin') {
             return;
         }
-        // Posse por FK apenas (ADR 10) — nome nunca é identidade.
-        $owns = $course->instructorId !== null && $course->instructorId === $requester['sub'];
-        if (($requester['role'] ?? null) === 'instructor' && $owns) {
+        // Posse por FK apenas (ADR 10) — nome nunca é identidade. Gerencia o responsável
+        // do curso ou qualquer gestor adicional vinculado a ele (curso_gestor).
+        $owns = (new GestoresDoCurso)->gerencia($curso_id, $requester['sub']);
+        if (($requester['papel'] ?? null) === 'instructor' && $owns) {
             return;
         }
         throw ApiException::forbidden('Você só pode gerenciar cursos vinculados ao seu próprio perfil de instrutor.');
@@ -731,14 +767,14 @@ final class CourseService
      * a exibir "113% de progresso medio". Pior, a frequencia inflada e o gatilho
      * da emissao automatica de certificado.
      */
-    private function limparProgressoOrfao(string $courseId): void
+    private function limparProgressoOrfao(string $curso_id): void
     {
-        $aulasValidas = $this->somenteStrings(Lesson::query()->where('courseId', $courseId)->pluck('id')->all());
-        $encontrosValidos = $this->somenteStrings(LiveSession::query()->where('courseId', $courseId)->pluck('id')->all());
+        $aulasValidas = $this->somenteStrings(Aula::query()->where('curso_id', $curso_id)->pluck('id')->all());
+        $encontrosValidos = $this->somenteStrings(SessaoAoVivo::query()->where('curso_id', $curso_id)->pluck('id')->all());
 
-        foreach (StudentProgress::query()->where('courseId', $courseId)->get() as $registro) {
-            $aulas = $this->somenteStrings(is_array($registro->completedLessons) ? $registro->completedLessons : []);
-            $encontros = $this->somenteStrings(is_array($registro->attendedLiveSessions) ? $registro->attendedLiveSessions : []);
+        foreach (ProgressoAluno::query()->where('curso_id', $curso_id)->get() as $registro) {
+            $aulas = $this->somenteStrings(is_array($registro->aulas_concluidas) ? $registro->aulas_concluidas : []);
+            $encontros = $this->somenteStrings(is_array($registro->sessoes_ao_vivo_assistidas) ? $registro->sessoes_ao_vivo_assistidas : []);
 
             $aulasLimpas = array_values(array_intersect($aulas, $aulasValidas));
             $encontrosLimpos = array_values(array_intersect($encontros, $encontrosValidos));
@@ -747,8 +783,8 @@ final class CourseService
                 continue;
             }
 
-            $registro->completedLessons = $aulasLimpas;
-            $registro->attendedLiveSessions = $encontrosLimpos;
+            $registro->aulas_concluidas = $aulasLimpas;
+            $registro->sessoes_ao_vivo_assistidas = $encontrosLimpos;
             $registro->save();
         }
     }
@@ -767,33 +803,33 @@ final class CourseService
     }
 
     /** @param list<array<string, mixed>> $lessons */
-    private function syncLessons(string $courseId, array $lessons): void
+    private function syncLessons(string $curso_id, array $lessons): void
     {
         $keptIds = array_values(array_filter(array_map(fn ($l) => $l['id'] ?? null, $lessons)));
         // Aula que saiu da edição é INATIVADA, não apagada (ADR 12): com o trait
-        // Inativavel no model, este ->delete() do builder grava `inativadoEm`.
+        // Inativavel no model, este ->delete() do builder grava `inativado_em`.
         // Readicionar a mesma aula depois a reativa (ver withTrashed abaixo).
-        Lesson::query()->where('courseId', $courseId)
+        Aula::query()->where('curso_id', $curso_id)
             ->when(count($keptIds) > 0, fn ($q) => $q->whereNotIn('id', $keptIds))
             ->delete();
 
         foreach ($lessons as $lesson) {
-            $lessonId = is_string($lesson['id'] ?? null)
+            $aula_id = is_string($lesson['id'] ?? null)
                 ? $lesson['id']
-                : ('lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
-            $data = $this->lessonScalar($lesson, $courseId);
+                : ('lesson-'.$curso_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+            $data = $this->lessonScalar($lesson, $curso_id);
             // withTrashed é OBRIGATÓRIO aqui: com a inativação da ADR 12, uma
             // aula retirada e depois readicionada com o mesmo id não seria
             // encontrada por find(), e o create() estouraria a chave primária.
-            $existing = Lesson::query()->withTrashed()->find($lessonId);
+            $existing = Aula::query()->withTrashed()->find($aula_id);
             /*
              * Um id que já pertence a OUTRO curso não é desta edição. Os ids saem no catálogo
              * público: sem esta guarda, o instrutor de um curso mandava o id de uma aula
              * alheia, e ela era movida para o curso dele com o texto sobrescrito (achado da
              * varredura de segurança de 23/10/2026). Vira aula nova, com id novo.
              */
-            if ($existing !== null && $existing->courseId !== $courseId) {
-                $lessonId = 'lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+            if ($existing !== null && $existing->curso_id !== $curso_id) {
+                $aula_id = 'lesson-'.$curso_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
                 $existing = null;
             }
             if ($existing !== null) {
@@ -802,24 +838,24 @@ final class CourseService
                 }
                 $existing->fill($data)->save();
             } else {
-                $data['id'] = $lessonId;
-                Lesson::query()->create($data);
+                $data['id'] = $aula_id;
+                Aula::query()->create($data);
             }
 
-            $documents = Payload::assocList($lesson['documents'] ?? []);
+            $documents = Payload::assocList($lesson['documentos'] ?? []);
             $keptDocIds = array_values(array_filter(array_map(fn ($d) => $d['id'] ?? null, $documents)));
-            LessonDocument::query()->where('lessonId', $lessonId)
+            DocumentoAula::query()->where('aula_id', $aula_id)
                 ->when(count($keptDocIds) > 0, fn ($q) => $q->whereNotIn('id', $keptDocIds))
                 ->delete();
             foreach ($documents as $doc) {
                 $docId = is_string($doc['id'] ?? null)
                     ? $doc['id']
-                    : ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
-                $docData = $this->documentScalar($doc, $lessonId);
-                $existingDoc = LessonDocument::query()->withTrashed()->find($docId);
+                    : ('doc-'.$aula_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+                $docData = $this->documentScalar($doc, $aula_id);
+                $existingDoc = DocumentoAula::query()->withTrashed()->find($docId);
                 // Mesma guarda das aulas: documento de outra aula não é movido para esta.
-                if ($existingDoc !== null && $existingDoc->lessonId !== $lessonId) {
-                    $docId = 'doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+                if ($existingDoc !== null && $existingDoc->aula_id !== $aula_id) {
+                    $docId = 'doc-'.$aula_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
                     $existingDoc = null;
                 }
                 if ($existingDoc !== null) {
@@ -829,32 +865,32 @@ final class CourseService
                     $existingDoc->fill($docData)->save();
                 } else {
                     $docData['id'] = $docId;
-                    LessonDocument::query()->create($docData);
+                    DocumentoAula::query()->create($docData);
                 }
             }
         }
     }
 
     /** @param list<array<string, mixed>> $liveSessions */
-    private function syncLiveSessions(string $courseId, array $liveSessions): void
+    private function syncLiveSessions(string $curso_id, array $liveSessions): void
     {
         $keptIds = array_values(array_filter(array_map(fn ($s) => $s['id'] ?? null, $liveSessions)));
-        LiveSession::query()->where('courseId', $courseId)
+        SessaoAoVivo::query()->where('curso_id', $curso_id)
             ->when(count($keptIds) > 0, fn ($q) => $q->whereNotIn('id', $keptIds))
             ->delete();
 
         foreach ($liveSessions as $session) {
-            $sessionId = is_string($session['id'] ?? null)
+            $sessao_id = is_string($session['id'] ?? null)
                 ? $session['id']
-                : ('live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
-            $data = $this->liveSessionData($session, $courseId);
-            $existing = LiveSession::query()->withTrashed()->find($sessionId);
+                : ('live-'.$curso_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+            $data = $this->liveSessionData($session, $curso_id);
+            $existing = SessaoAoVivo::query()->withTrashed()->find($sessao_id);
             // Mesma guarda das aulas: encontro de outro curso não é sobrescrito nem movido.
-            if ($existing !== null && $existing->courseId !== $courseId) {
-                $sessionId = 'live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
+            if ($existing !== null && $existing->curso_id !== $curso_id) {
+                $sessao_id = 'live-'.$curso_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4));
                 $existing = null;
             }
-            $data['id'] = $sessionId;
+            $data['id'] = $sessao_id;
             if ($existing !== null) {
                 unset($data['id']);
                 if ($existing->estaInativo()) {
@@ -862,26 +898,26 @@ final class CourseService
                 }
                 $existing->fill($data)->save();
             } else {
-                LiveSession::query()->create($data);
+                SessaoAoVivo::query()->create($data);
             }
         }
     }
 
     /** @param array<string, mixed> $lesson */
-    private function createLessonWithDocuments(string $courseId, array $lesson): void
+    private function createLessonWithDocuments(string $curso_id, array $lesson): void
     {
-        $lessonId = is_string($lesson['id'] ?? null)
+        $aula_id = is_string($lesson['id'] ?? null)
             ? $lesson['id']
-            : ('lesson-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
-        $data = $this->lessonScalar($lesson, $courseId);
-        $data['id'] = $lessonId;
-        Lesson::query()->create($data);
-        foreach (Payload::assocList($lesson['documents'] ?? []) as $doc) {
-            $docData = $this->documentScalar($doc, $lessonId);
+            : ('lesson-'.$curso_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+        $data = $this->lessonScalar($lesson, $curso_id);
+        $data['id'] = $aula_id;
+        Aula::query()->create($data);
+        foreach (Payload::assocList($lesson['documentos'] ?? []) as $doc) {
+            $docData = $this->documentScalar($doc, $aula_id);
             $docData['id'] = is_string($doc['id'] ?? null)
                 ? $doc['id']
-                : ('doc-'.$lessonId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
-            LessonDocument::query()->create($docData);
+                : ('doc-'.$aula_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4)));
+            DocumentoAula::query()->create($docData);
         }
     }
 
@@ -889,18 +925,18 @@ final class CourseService
      * @param  array<string, mixed>  $lesson
      * @return array<string, mixed>
      */
-    private function lessonScalar(array $lesson, string $courseId): array
+    private function lessonScalar(array $lesson, string $curso_id): array
     {
         return [
-            'courseId' => $courseId,
-            'title' => $lesson['title'],
-            'duration' => $lesson['duration'],
+            'curso_id' => $curso_id,
+            'titulo' => $lesson['titulo'],
+            'duracao' => $lesson['duracao'],
             // Persistimos a forma canônica (ADR 08) — youtu.be/embed/shorts viram watch?v=.
-            'videoUrl' => is_string($lesson['videoUrl'] ?? null)
-                ? VideoSource::tryParse($lesson['videoUrl'])?->canonicalUrl
+            'url_video' => is_string($lesson['url_video'] ?? null)
+                ? VideoSource::tryParse($lesson['url_video'])?->canonicalUrl
                 : null,
-            'content' => $lesson['content'] ?? null,
-            'lesson_order' => is_numeric($lesson['order'] ?? null) ? (int) $lesson['order'] : 0,
+            'conteudo' => $lesson['conteudo'] ?? null,
+            'ordem' => is_numeric($lesson['ordem'] ?? null) ? (int) $lesson['ordem'] : 0,
         ];
     }
 
@@ -908,14 +944,14 @@ final class CourseService
      * @param  array<string, mixed>  $doc
      * @return array<string, mixed>
      */
-    private function documentScalar(array $doc, string $lessonId): array
+    private function documentScalar(array $doc, string $aula_id): array
     {
         return [
-            'lessonId' => $lessonId,
-            'title' => $doc['title'],
-            'type' => $doc['type'],
+            'aula_id' => $aula_id,
+            'titulo' => $doc['titulo'],
+            'tipo' => $doc['tipo'],
             'url' => $doc['url'],
-            'size' => $doc['size'] ?? null,
+            'tamanho' => $doc['tamanho'] ?? null,
         ];
     }
 
@@ -923,21 +959,21 @@ final class CourseService
      * @param  array<string, mixed>  $session
      * @return array<string, mixed>
      */
-    private function liveSessionData(array $session, string $courseId): array
+    private function liveSessionData(array $session, string $curso_id): array
     {
         return [
-            'id' => $session['id'] ?? ('live-'.$courseId.'-'.$this->nowMs().'-'.Str::lower(Str::random(4))),
-            'courseId' => $courseId,
-            'title' => $session['title'],
-            'scheduledAt' => $session['scheduledAt'],
-            'durationMinutes' => is_numeric($session['durationMinutes'] ?? null) ? (int) $session['durationMinutes'] : 0,
-            'meetingLink' => $session['meetingLink'],
+            'id' => $session['id'] ?? ('live-'.$curso_id.'-'.$this->nowMs().'-'.Str::lower(Str::random(4))),
+            'curso_id' => $curso_id,
+            'titulo' => $session['titulo'],
+            'agendado_para_texto' => $session['agendado_para_texto'],
+            'duracao_minutos' => is_numeric($session['duracao_minutos'] ?? null) ? (int) $session['duracao_minutos'] : 0,
+            'link_reuniao' => $session['link_reuniao'],
             // Encontro que a regra das 24h já encerrou não pode voltar a ser
             // marcado como ao vivo: o painel não oferece mais o botão, mas o
             // servidor é quem tem de garantir — um PUT direto reabriria a sala.
-            'isLive' => (bool) ($session['isLive'] ?? false)
+            'ao_vivo' => (bool) ($session['ao_vivo'] ?? false)
                 && ! BusinessRules::liveSessionExpired(
-                    is_string($session['scheduledAt'] ?? null) ? $session['scheduledAt'] : null
+                    is_string($session['agendado_para_texto'] ?? null) ? $session['agendado_para_texto'] : null
                 ),
         ];
     }
@@ -950,18 +986,18 @@ final class CourseService
      */
     private function scalarCourseData(array $input): array
     {
-        // instructorName/instructorId ficam FORA da lista: a autoria só muda pelo
-        // fluxo de reatribuição por userId (ADR 10), nunca por campo solto.
+        // nome_instrutor/instrutor_id ficam FORA da lista: a autoria só muda pelo
+        // fluxo de reatribuição por usuario_id (ADR 10), nunca por campo solto.
         $allowed = [
-            'title', 'description', 'category', 'thumbnail', 'coverImage',
-            'courseType', 'hasChat', 'minAttendance', 'contractExpirationDate', 'areaTematica',
-            'cargaHoraria', 'modalidade', 'nivel', 'emiteCertificado', 'statusCurso',
+            'titulo', 'descricao', 'categoria', 'miniatura', 'imagem_capa',
+            'tipo_curso', 'tem_chat', 'frequencia_minima', 'vencimento_contrato_texto', 'area_tematica',
+            'carga_horaria', 'modalidade', 'nivel', 'emite_certificado', 'status_curso',
         ];
 
         $campos = array_intersect_key($input, array_flip($allowed));
 
         /*
-         * `vigenciaAte` acompanha `contractExpirationDate` (Norma C.2.4). O texto
+         * `vigencia_ate` acompanha `vencimento_contrato_texto` (Norma C.2.4). O texto
          * continua sendo o campo do contrato de API; a coluna DATE ao lado é a data
          * comparável. Só é tocada quando o texto vem no pedido, para que uma edição
          * parcial do curso não apague uma vigência que ninguém mandou mudar.
@@ -970,9 +1006,9 @@ final class CourseService
          * o valor realmente pode não ser data: nesse caso a coluna fica NULL, sem
          * inventar vencimento para um contrato.
          */
-        if (array_key_exists('contractExpirationDate', $campos)) {
-            $texto = $campos['contractExpirationDate'];
-            $campos['vigenciaAte'] = DataTexto::dia(is_string($texto) ? $texto : null);
+        if (array_key_exists('vencimento_contrato_texto', $campos)) {
+            $texto = $campos['vencimento_contrato_texto'];
+            $campos['vigencia_ate'] = DataTexto::dia(is_string($texto) ? $texto : null);
         }
 
         return $campos;
@@ -982,9 +1018,9 @@ final class CourseService
     private function courseInclude(): array
     {
         return [
-            'lessons' => fn ($q) => $q->orderBy('lesson_order'),
-            'lessons.documents',
-            'liveSessions',
+            'aulas' => fn ($q) => $q->orderBy('ordem'),
+            'aulas.documentos',
+            'sessoesAoVivo',
         ];
     }
 

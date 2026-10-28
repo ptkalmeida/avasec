@@ -141,6 +141,8 @@ Route::middleware('aluno.web')->group(function (): void {
     Route::get('/aluno/certificados', [AreaDoAlunoController::class, 'certificados'])->name('aluno.certificados');
     Route::get('/aluno/certificados/{certificadoId}/pdf', [AreaDoAlunoController::class, 'pdfDoCertificado'])
         ->name('aluno.certificados.pdf');
+    // Histórico escolar emitido pelo admin: aparece na lista de certificados e baixa aqui.
+    Route::get('/aluno/historico/{historicoId}/pdf', [AreaDoAlunoController::class, 'pdfDoHistorico'])->whereNumber('historicoId');
 
     Route::get('/aluno/biblioteca', [AreaDoAlunoController::class, 'biblioteca'])->name('aluno.biblioteca');
     Route::get('/aluno/duvidas', [AreaDoAlunoController::class, 'ajuda'])->name('aluno.ajuda');
@@ -171,8 +173,8 @@ Route::middleware('aluno.web')->group(function (): void {
      * e o gabarito não vai para a página (decisão de 20/10).
      */
     Route::get('/aluno/curso/{cursoRef}/avaliacoes', [AreaDoAlunoController::class, 'avaliacoes'])->name('aluno.avaliacoes');
-    Route::get('/aluno/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoAlunoController::class, 'prova'])->name('aluno.prova');
-    Route::post('/aluno/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoAlunoController::class, 'responderProva']);
+    Route::get('/aluno/curso/{cursoRef}/avaliacoes/{avaliacao_id}', [AreaDoAlunoController::class, 'prova'])->name('aluno.prova');
+    Route::post('/aluno/curso/{cursoRef}/avaliacoes/{avaliacao_id}', [AreaDoAlunoController::class, 'responderProva']);
 
     /*
      * As seções que existem no sistema mas estão desligadas por flag. O
@@ -289,9 +291,9 @@ Route::middleware('instrutor.web')->group(function (): void {
         'Exercícios práticos',
         'Os exercícios práticos ainda não estão abertos nesta plataforma.',
     ))->name('instrutor.exercicios');
-    Route::get('/inst/curso/{cursoRef}/avaliacoes/{quizId}/editar', [AreaDoInstrutorController::class, 'formularioDeAvaliacao'])->name('instrutor.avaliacao.editar');
-    Route::post('/inst/curso/{cursoRef}/avaliacoes/{quizId}', [AreaDoInstrutorController::class, 'salvarAvaliacao']);
-    Route::post('/inst/curso/{cursoRef}/avaliacoes/{quizId}/remover', [AreaDoInstrutorController::class, 'removerAvaliacao']);
+    Route::get('/inst/curso/{cursoRef}/avaliacoes/{avaliacao_id}/editar', [AreaDoInstrutorController::class, 'formularioDeAvaliacao'])->name('instrutor.avaliacao.editar');
+    Route::post('/inst/curso/{cursoRef}/avaliacoes/{avaliacao_id}', [AreaDoInstrutorController::class, 'salvarAvaliacao']);
+    Route::post('/inst/curso/{cursoRef}/avaliacoes/{avaliacao_id}/remover', [AreaDoInstrutorController::class, 'removerAvaliacao']);
 
     // Alunos do curso: a turma e a fila de matrículas. Com a aprovação automática
     // ligada (hoje) a fila não existe, e a tela mostra só a turma.
@@ -347,14 +349,21 @@ Route::middleware('admin.web')->group(function (): void {
     Route::post('/admin/configuracoes', [ConfiguracoesDoAdminController::class, 'salvar']);
     Route::get('/admin/templates', [ModelosDoAdminController::class, 'mostrar'])->name('admin.templates');
     Route::post('/admin/templates/{tipo}', [ModelosDoAdminController::class, 'salvar']);
+    Route::post('/admin/templates/{tipo}/previa', [ModelosDoAdminController::class, 'previa']);
+    Route::post('/admin/templates/{tipo}/logo', [ModelosDoAdminController::class, 'enviarLogo']);
+    Route::post('/admin/templates/{tipo}/logo/tirar', [ModelosDoAdminController::class, 'tirarLogo']);
     Route::post('/admin/templates/{tipo}/versoes/{versao}/restaurar', [ModelosDoAdminController::class, 'restaurar']);
     Route::get('/admin/alunos', [AlunosDoAdminController::class, 'listar'])->name('admin.alunos');
     Route::get('/admin/alunos/{alunoId}', [AlunosDoAdminController::class, 'ficha'])->name('admin.aluno');
     Route::post('/admin/alunos', [AlunosDoAdminController::class, 'cadastrar']);
     // Mesmo limitador da rota de API de redefinição administrativa (`auth-password`).
     Route::post('/admin/alunos/{alunoId}/senha', [AlunosDoAdminController::class, 'redefinirSenha'])->middleware('throttle:auth-password');
+    Route::post('/admin/alunos/{alunoId}/confirmar', [AlunosDoAdminController::class, 'confirmarCadastro']);
     Route::post('/admin/alunos/{alunoId}/matricula-multipla', [AlunosDoAdminController::class, 'matriculaMultipla']);
+    Route::post('/admin/alunos/{alunoId}/historico', [AlunosDoAdminController::class, 'emitirHistorico']);
+    Route::get('/admin/alunos/{alunoId}/historico/{historicoId}/pdf', [AlunosDoAdminController::class, 'pdfDoHistorico'])->whereNumber('historicoId');
     Route::post('/admin/alunos/{alunoId}/inativar', [AlunosDoAdminController::class, 'inativar']);
+    Route::post('/admin/alunos/{alunoId}/reativar', [AlunosDoAdminController::class, 'reativar']);
     Route::get('/admin/cursos', [CursosDoAdminController::class, 'listar'])->name('admin.cursos');
     Route::post('/admin/cursos', [CursosDoAdminController::class, 'criar']);
     Route::post('/admin/cursos/{cursoId}/instrutor', [CursosDoAdminController::class, 'trocarInstrutor']);
@@ -362,7 +371,13 @@ Route::middleware('admin.web')->group(function (): void {
     Route::post('/admin/cursos/{cursoId}/vigencia', [CursosDoAdminController::class, 'salvarVigencia']);
     Route::post('/admin/cursos/{cursoId}/capa', [CursosDoAdminController::class, 'salvarCapa']);
     Route::post('/admin/cursos/{cursoId}/retirar', [CursosDoAdminController::class, 'retirar']);
+    Route::post('/admin/cursos/{cursoId}/reativar', [CursosDoAdminController::class, 'reativar']);
     Route::get('/admin/equipe', [EquipeDoAdminController::class, 'listar'])->name('admin.equipe');
+    Route::post('/admin/equipe/{gestorId}/reativar', [EquipeDoAdminController::class, 'reativar']);
+    Route::post('/admin/equipe', [EquipeDoAdminController::class, 'criar']);
+    Route::post('/admin/equipe/{gestorId}/acesso', [EquipeDoAdminController::class, 'acesso'])->middleware('throttle:auth-password');
+    Route::post('/admin/equipe/{gestorId}/cursos', [EquipeDoAdminController::class, 'cursos']);
+    Route::post('/admin/equipe/{gestorId}/retirar', [EquipeDoAdminController::class, 'retirar']);
     Route::get('/admin', [PainelDoAdminController::class, 'dashboard'])->name('admin.painel');
     Route::get('/admin/relatorio/{sub}', [PainelDoAdminController::class, 'dashboard'])->name('admin.relatorio');
 

@@ -22,7 +22,7 @@ trait GeneratesCpf
                 continue;
             }
             $cpf = $base.$this->cpfCheckDigits($base);
-        } while (DB::table('User')->where('cpf', $cpf)->exists());
+        } while (DB::table('usuario')->where('cpf', $cpf)->exists());
 
         return $cpf;
     }

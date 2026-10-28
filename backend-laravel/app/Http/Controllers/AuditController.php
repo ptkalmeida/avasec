@@ -33,16 +33,16 @@ final class AuditController extends Controller
     public function recordClientEvent(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'action' => ['required', 'string', 'min:1', 'max:200'],
-            'details' => ['required', 'string', 'min:1', 'max:1000'],
+            'acao' => ['required', 'string', 'min:1', 'max:200'],
+            'detalhes' => ['required', 'string', 'min:1', 'max:1000'],
             'status' => ['sometimes', 'in:SUCCESS,WARNING,FAILED'],
         ]);
 
         // A identidade registrada vem do token (se houver), nunca do corpo.
         $authUser = $this->optionalRequester($request);
         $actor = $authUser !== null
-            ? ['name' => $authUser['name'] !== '' ? $authUser['name'] : 'Visitante Anônimo', 'role' => $authUser['role'] !== '' ? $authUser['role'] : 'anonymous']
-            : ['name' => 'Visitante Anônimo', 'role' => 'anonymous'];
+            ? ['nome' => $authUser['nome'] !== '' ? $authUser['nome'] : 'Visitante Anônimo', 'papel' => $authUser['papel'] !== '' ? $authUser['papel'] : 'anonymous']
+            : ['nome' => 'Visitante Anônimo', 'papel' => 'anonymous'];
 
         // NUNCA ler X-Forwarded-For do header cru: qualquer cliente poderia forjar o IP
         // gravado na auditoria. $request->ip() só honra o XFF vindo de um proxy confiável
@@ -50,8 +50,8 @@ final class AuditController extends Controller
         $ip = $request->ip() ?? 'desconhecido';
 
         $event = $this->audit->recordClientEvent([
-            'action' => $this->stringField($data, 'action'),
-            'details' => $this->stringField($data, 'details'),
+            'acao' => $this->stringField($data, 'acao'),
+            'detalhes' => $this->stringField($data, 'detalhes'),
             'status' => $this->optionalString($data, 'status'),
         ], $actor, $ip, (string) $request->userAgent());
 

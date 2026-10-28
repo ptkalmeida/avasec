@@ -7,6 +7,8 @@
   acadêmico e sua revogação é ato administrativo) e
   [ADR 13](013-slug-de-curso-no-endereco.md) (que registrou a pendência de módulo).
 
+> **Nota (27/10/2026):** os nomes de tabela, coluna e rota citados aqui foram atualizados para os de depois da [ADR 024](024-nomes-em-portugues.md); o texto histórico segue como foi decidido.
+
 ## Contexto
 
 Duas coisas que vinham da mesma raiz — informação na tela sem dado por trás —
@@ -30,7 +32,7 @@ O painel do aluno exibia três "módulos" por curso, com nome e descrição escr
 dentro do componente e presos a `course.id === 'course-1'` / `'course-2'`,
 dividindo as aulas **por posição** (`lessons.slice(0, 2)`).
 
-`Lesson` não tem coluna de módulo. Não há tabela `Module`. Consequências
+`Aula` não tem coluna de módulo. Não há tabela `Module`. Consequências
 verificadas no banco e na tela:
 
 - o gestor **não podia** criar, renomear ou reordenar módulo — não havia campo;
@@ -53,7 +55,7 @@ verificadas no banco e na tela:
 
 **1. Curso com avaliação exige todas as avaliações ativas APROVADAS, além da
 frequência.** Curso sem avaliação segue apenas pela frequência — é o que ele
-mede. "Aprovada" é `QuizSubmission.passed`, coluna que já existia: responder e
+mede. "Aprovada" é `tentativa_avaliacao.aprovado`, coluna que já existia: responder e
 zerar a prova não conclui o curso.
 
 A regra vive em `CertificateService::issueCertificate`, no **servidor**. O
@@ -98,7 +100,7 @@ e `id_modulo` / `titulo_modulo` / `status_modulo` viraram `id_aula` /
 a alternativa era manter `titulo_modulo` com título de aula dentro, que é o
 problema, não a solução.
 
-**`recommendedModule` (em `QuizQuestion`) FICA.** É coluna real, preenchida à mão
+**`modulo_recomendado` (em `QuestaoAvaliacao`) FICA.** É coluna real, preenchida à mão
 pelo instrutor como dica de revisão depois de uma resposta errada. É texto de uma
 pessoa, não estrutura inventada — e apagá-la seria destruir dado histórico, o que
 a ADR 12 proíbe. Só o conceito de módulo como *agrupamento de aulas* deixou de

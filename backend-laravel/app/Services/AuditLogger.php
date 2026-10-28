@@ -18,7 +18,7 @@ use Throwable;
  */
 final class AuditLogger
 {
-    /** @param array{name:string,role:string}|null $actorOverride */
+    /** @param array{nome:string,papel:string}|null $actorOverride */
     public function log(
         Request $request,
         string $action,
@@ -31,20 +31,20 @@ final class AuditLogger
         $now = Fuso::agora();
 
         try {
-            DB::table('SecurityLog')->insert([
+            DB::table('log_seguranca')->insert([
                 'id' => 'log-'.$now->getTimestampMs().'-'.Str::lower(Str::random(6)),
-                'timestamp' => $now->format('H:i:s').' '.$now->format('d/m/Y'),
+                'registrado_em_texto' => $now->format('H:i:s').' '.$now->format('d/m/Y'),
                 // Mesmo instante, em coluna nativa e em UTC (Norma C.2.4). O texto
                 // acima continua sendo o que a tela de seguranca exibe; esta coluna
                 // e o que permite ordenar. Ordenar pelo texto ordena pela HORA antes
                 // da data, e o "mais recente" saia errado.
-                'ocorridoEm' => $now->utc()->format('Y-m-d H:i:s'),
-                'user' => is_string($actor['name'] ?? null) ? $actor['name'] : 'Visitante Anônimo',
-                'role' => is_string($actor['role'] ?? null) ? $actor['role'] : 'anonymous',
-                'ipAddress' => $this->clientIp($request),
-                'device' => Str::substr((string) $request->userAgent(), 0, 200) ?: 'desconhecido',
-                'action' => $action,
-                'details' => Str::substr($details, 0, 1000),
+                'ocorrido_em' => $now->utc()->format('Y-m-d H:i:s'),
+                'usuario' => is_string($actor['nome'] ?? null) ? $actor['nome'] : 'Visitante Anônimo',
+                'papel' => is_string($actor['papel'] ?? null) ? $actor['papel'] : 'anonymous',
+                'ip' => $this->clientIp($request),
+                'dispositivo' => Str::substr((string) $request->userAgent(), 0, 200) ?: 'desconhecido',
+                'acao' => $action,
+                'detalhes' => Str::substr($details, 0, 1000),
                 'status' => $status,
             ]);
         } catch (Throwable $e) {
@@ -53,18 +53,18 @@ final class AuditLogger
         }
     }
 
-    /** @return array{name:string,role:string} */
+    /** @return array{nome:string,papel:string} */
     private function actorFromRequest(Request $request): array
     {
         $authUser = $request->attributes->get('auth_user');
         if (is_array($authUser)) {
             return [
-                'name' => is_string($authUser['name'] ?? null) ? $authUser['name'] : 'Visitante Anônimo',
-                'role' => is_string($authUser['role'] ?? null) ? $authUser['role'] : 'anonymous',
+                'nome' => is_string($authUser['nome'] ?? null) ? $authUser['nome'] : 'Visitante Anônimo',
+                'papel' => is_string($authUser['papel'] ?? null) ? $authUser['papel'] : 'anonymous',
             ];
         }
 
-        return ['name' => 'Visitante Anônimo', 'role' => 'anonymous'];
+        return ['nome' => 'Visitante Anônimo', 'papel' => 'anonymous'];
     }
 
     private function clientIp(Request $request): string

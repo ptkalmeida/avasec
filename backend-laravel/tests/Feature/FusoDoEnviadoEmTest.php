@@ -11,11 +11,11 @@ use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /**
- * `QuizSubmission.enviadoEm` tem de exibir a MESMA hora que `submittedAt` diz.
+ * `TentativaAvaliacao.enviado_em` tem de exibir a MESMA hora que `enviado_em_texto` diz.
  *
- * As duas colunas descrevem o mesmo evento em formatos diferentes: `submittedAt`
- * é a string que a tela lê, em hora de Brasília; `enviadoEm` é o instante em UTC
- * que ordena a lista. Se converter `enviadoEm` para o fuso de exibição não
+ * As duas colunas descrevem o mesmo evento em formatos diferentes: `enviado_em_texto`
+ * é a string que a tela lê, em hora de Brasília; `enviado_em` é o instante em UTC
+ * que ordena a lista. Se converter `enviado_em` para o fuso de exibição não
  * devolver a hora do texto, uma das duas está mentindo.
  *
  * Foi o que aconteceu entre 03/09 e 15/10/2026: o backfill leu a hora de parede
@@ -25,15 +25,15 @@ final class FusoDoEnviadoEmTest extends TestCase
 {
     public function test_enviadoem_exibe_a_mesma_hora_que_o_texto_diz(): void
     {
-        $linhas = DB::table('QuizSubmission')->whereNotNull('enviadoEm')
-            ->select('id', 'submittedAt', 'enviadoEm')->get();
+        $linhas = DB::table('tentativa_avaliacao')->whereNotNull('enviado_em')
+            ->select('id', 'enviado_em_texto', 'enviado_em')->get();
 
         if ($linhas->isEmpty()) {
-            $this->markTestSkipped('Nenhuma submissao com enviadoEm no banco.');
+            $this->markTestSkipped('Nenhuma submissao com enviado_em no banco.');
         }
 
         foreach ($linhas as $linha) {
-            $texto = trim(str_replace(' às ', ' ', (string) $linha->submittedAt));
+            $texto = trim(str_replace(' às ', ' ', (string) $linha->enviado_em_texto));
             $esperado = DataTexto::instante($texto);
 
             if ($esperado === null) {
@@ -42,7 +42,7 @@ final class FusoDoEnviadoEmTest extends TestCase
                 continue;
             }
 
-            $exibido = CarbonImmutable::parse((string) $linha->enviadoEm, 'UTC')
+            $exibido = CarbonImmutable::parse((string) $linha->enviado_em, 'UTC')
                 ->setTimezone(Fuso::exibicao())
                 ->format('d/m/Y H:i');
 
@@ -50,7 +50,7 @@ final class FusoDoEnviadoEmTest extends TestCase
                 $esperado->setTimezone(Fuso::exibicao())->format('d/m/Y H:i'),
                 $exibido,
                 "A submissao {$linha->id} grava um instante que nao corresponde ao texto "
-                ."\"{$linha->submittedAt}\". Provavel leitura de hora de Brasilia como UTC.",
+                ."\"{$linha->enviado_em_texto}\". Provavel leitura de hora de Brasilia como UTC.",
             );
         }
     }
@@ -65,16 +65,16 @@ final class FusoDoEnviadoEmTest extends TestCase
          */
         $suspeitas = [];
 
-        foreach (DB::table('QuizSubmission')->whereNotNull('enviadoEm')
-            ->select('id', 'submittedAt', 'enviadoEm')->get() as $linha) {
-            $texto = trim(str_replace(' às ', ' ', (string) $linha->submittedAt));
+        foreach (DB::table('tentativa_avaliacao')->whereNotNull('enviado_em')
+            ->select('id', 'enviado_em_texto', 'enviado_em')->get() as $linha) {
+            $texto = trim(str_replace(' às ', ' ', (string) $linha->enviado_em_texto));
             $correto = DataTexto::instante($texto);
 
             if ($correto === null) {
                 continue;
             }
 
-            $paredeGravada = substr((string) $linha->enviadoEm, 0, 16);
+            $paredeGravada = substr((string) $linha->enviado_em, 0, 16);
             $paredeDoTexto = $correto->setTimezone(Fuso::exibicao())->format('Y-m-d H:i');
 
             if ($paredeGravada === $paredeDoTexto) {

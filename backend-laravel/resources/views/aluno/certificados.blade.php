@@ -33,7 +33,7 @@
             @else
                 <ul role="list" class="space-y-4">
                     @foreach ($emitidos as $cert)
-                        @php($carga = $cargaPorCurso[$cert['courseId']] ?? null)
+                        @php($carga = $cargaPorCurso[$cert['curso_id']] ?? null)
                         <li class="flex flex-col justify-between gap-5 rounded-2xl border border-ava-borda bg-white p-5 shadow-3xs md:flex-row md:items-center">
                             <div class="min-w-0 space-y-2">
                                 <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-sobretitulo uppercase text-emerald-800">
@@ -43,14 +43,14 @@
                                     </svg>
                                     Emitido
                                 </span>
-                                <h3 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $cert['courseTitle'] }}</h3>
+                                <h3 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $cert['titulo_curso'] }}</h3>
 
                                 <dl class="flex flex-wrap gap-x-5 gap-y-1 text-apoio text-escult-ink-2">
-                                    <div><dt class="inline">Emitido em</dt> <dd class="inline font-semibold text-ava-tinta">{{ $cert['issueDate'] }}</dd></div>
+                                    <div><dt class="inline">Emitido em</dt> <dd class="inline font-semibold text-ava-tinta">{{ $cert['data_emissao'] }}</dd></div>
                                     @if ($carga !== null)
                                         <div><dt class="inline">Carga horária</dt> <dd class="inline font-semibold text-ava-tinta">{{ $carga }}h</dd></div>
                                     @endif
-                                    <div><dt class="inline">Frequência</dt> <dd class="inline font-semibold text-ava-tinta">{{ $cert['attendancePercent'] }}%</dd></div>
+                                    <div><dt class="inline">Frequência</dt> <dd class="inline font-semibold text-ava-tinta">{{ $cert['percentual_frequencia'] }}%</dd></div>
                                 </dl>
 
                                 {{--
@@ -61,7 +61,7 @@
                                 --}}
                                 <p class="text-apoio text-escult-ink-2">
                                     Código de verificação:
-                                    <code class="select-all rounded border border-ava-borda bg-ava-faixa px-1.5 py-0.5 font-mono text-ava-tinta break-all">{{ $cert['verificationHash'] }}</code>
+                                    <code class="select-all rounded border border-ava-borda bg-ava-faixa px-1.5 py-0.5 font-mono text-ava-tinta break-all">{{ $cert['hash_verificacao'] }}</code>
                                 </p>
                             </div>
 
@@ -86,6 +86,37 @@
             @endif
         </section>
 
+        {{-- Histórico escolar: emitido pela secretaria (admin); aparece aqui sozinho. --}}
+        @if ($historicos !== [])
+            <section aria-labelledby="titulo-historico" class="space-y-4">
+                <h2 id="titulo-historico" class="font-titulo text-cartao text-ava-tinta">Histórico escolar</h2>
+                <ul role="list" class="space-y-4">
+                    @foreach ($historicos as $h)
+                        <li class="flex flex-col justify-between gap-4 rounded-2xl border border-ava-borda bg-white p-5 shadow-3xs md:flex-row md:items-center">
+                            <div class="space-y-1">
+                                <h3 class="font-titulo text-lg leading-tight text-ava-tinta">Histórico escolar</h3>
+                                <p class="text-apoio text-escult-ink-2">
+                                    Emitido em <span class="font-semibold text-ava-tinta">{{ $h['emitido_em'] }}</span>
+                                    · {{ $h['cursos'] === 1 ? '1 curso' : $h['cursos'].' cursos' }}
+                                </p>
+                            </div>
+                            <div class="flex shrink-0 flex-col gap-2 sm:flex-row">
+                                <a href="/aluno/historico/{{ $h['id'] }}/pdf"
+                                   class="inline-flex items-center justify-center gap-2 rounded-[10px] bg-ava-acao px-5 py-2.5 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
+                                    Baixar PDF
+                                </a>
+                                <a href="/aluno/historico/{{ $h['id'] }}/pdf?modo=ver" target="_blank" rel="noopener"
+                                   class="inline-flex items-center justify-center gap-2 rounded-[10px] border border-ava-borda bg-white px-5 py-2.5 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                                    Ver
+                                    <span class="sr-only">o histórico em nova aba</span>
+                                </a>
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
+
         {{-- A caminho --}}
         @if ($emAndamento !== [])
             <section aria-labelledby="titulo-a-caminho" class="space-y-4">
@@ -97,7 +128,7 @@
                         @php($s = $item['situacao'])
                         @php($ref = ($curso['slug'] ?? '') !== '' ? $curso['slug'] : $curso['id'])
                         <li class="space-y-4 rounded-2xl border border-ava-borda bg-white p-5 shadow-3xs">
-                            <h3 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $curso['title'] }}</h3>
+                            <h3 class="font-titulo text-lg leading-tight text-ava-tinta break-words">{{ $curso['titulo'] }}</h3>
 
                             @if (! $s['emite'])
                                 <p class="text-apoio text-escult-ink-2">Este curso não emite certificado.</p>

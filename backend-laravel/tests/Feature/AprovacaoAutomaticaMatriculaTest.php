@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
-use App\Models\AdmissionRequest;
-use App\Models\StudentEnrollment;
+use App\Models\Matricula;
+use App\Models\SolicitacaoIngresso;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Str;
 use Tests\Support\SeedsIdentity;
@@ -17,7 +17,7 @@ use Tests\TestCase;
  * Por que este arquivo existe: havia DOIS caminhos para matricular e só um
  * tinha regra. `selfEnroll` validava cinco condições; `updateAdmissionStatus`
  * — o botão "Aprovar Acesso" — não validava nenhuma, e sobrescrevia
- * `enrolledCourseId` direto.
+ * `curso_matriculado_id` direto.
  *
  * Enquanto uma pessoa lia cada pedido, a assimetria passava. Automatizar a
  * aprovação sem unificar as travas transformaria isso em dano silencioso: o
@@ -33,24 +33,30 @@ final class AprovacaoAutomaticaMatriculaTest extends TestCase
     use DatabaseTransactions;
     use SeedsIdentity;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->ativarCursosDeSeed();
+    }
+
     public function test_com_a_flag_ligada_a_solicitacao_ja_nasce_aprovada_e_matricula(): void
     {
         config(['features.aprovacaoAutomaticaMatricula' => true]);
 
         $aluno = $this->makeStudent('Aluno Aprovacao Automatica');
-        $courseId = $this->anySeededCourseId();
+        $curso_id = $this->anySeededCourseId();
 
         $this->withHeader('Authorization', "Bearer {$aluno['token']}")
-            ->postJson('/api/admissions', ['courseId' => $courseId])
+            ->postJson('/api/ingressos', ['curso_id' => $curso_id])
             ->assertStatus(201)
             ->assertJsonPath('status', 'approved');
 
         // "Aprovada" sem matricular é o estado que não pode existir: se a
         // solicitação diz aprovada e a matrícula não saiu, o aluno vê acesso
         // liberado na tela e não tem registro nenhum por trás.
-        $matricula = StudentEnrollment::query()->whereKey($aluno['id'])->first();
+        $matricula = Matricula::query()->whereKey($aluno['id'])->first();
         $this->assertNotNull($matricula, 'Aprovou e não matriculou.');
-        $this->assertSame($courseId, $matricula->enrolledCourseId);
+        $this->assertSame($curso_id, $matricula->curso_matriculado_id);
     }
 
     public function test_com_a_flag_desligada_a_solicitacao_continua_pendente_e_nao_matricula(): void
@@ -58,15 +64,15 @@ final class AprovacaoAutomaticaMatriculaTest extends TestCase
         config(['features.aprovacaoAutomaticaMatricula' => false]);
 
         $aluno = $this->makeStudent('Aluno Aprovacao Manual');
-        $courseId = $this->anySeededCourseId();
+        $curso_id = $this->anySeededCourseId();
 
         $this->withHeader('Authorization', "Bearer {$aluno['token']}")
-            ->postJson('/api/admissions', ['courseId' => $courseId])
+            ->postJson('/api/ingressos', ['curso_id' => $curso_id])
             ->assertStatus(201)
             ->assertJsonPath('status', 'pending');
 
         $this->assertNull(
-            StudentEnrollment::query()->whereKey($aluno['id'])->value('enrolledCourseId'),
+            Matricula::query()->whereKey($aluno['id'])->value('curso_matriculado_id'),
             'Pedido pendente não pode matricular — a fila do professor existe justamente para decidir isso.'
         );
     }
@@ -89,18 +95,18 @@ final class AprovacaoAutomaticaMatriculaTest extends TestCase
         $segundo = $this->anotherSeededCourseId($primeiro);
 
         $this->withHeader('Authorization', "Bearer {$aluno['token']}")
-            ->postJson('/api/enrollments/self/enroll', ['courseId' => $primeiro])
+            ->postJson('/api/matriculas/proprio/matricular', ['curso_id' => $primeiro])
             ->assertOk();
         $this->flushHeaders();
 
         $this->withHeader('Authorization', "Bearer {$aluno['token']}")
-            ->postJson('/api/admissions', ['courseId' => $segundo])
+            ->postJson('/api/ingressos', ['curso_id' => $segundo])
             ->assertStatus(409);
         $this->flushHeaders();
 
         $this->assertSame(
             $primeiro,
-            StudentEnrollment::query()->whereKey($aluno['id'])->value('enrolledCourseId'),
+            Matricula::query()->whereKey($aluno['id'])->value('curso_matriculado_id'),
             'A recusa precisa deixar a matrícula anterior INTACTA, não apenas devolver erro.'
         );
 
@@ -109,7 +115,7 @@ final class AprovacaoAutomaticaMatriculaTest extends TestCase
         // preso para sempre.
         $this->assertSame(
             0,
-            AdmissionRequest::query()->where('userId', $aluno['id'])->count(),
+            SolicitacaoIngresso::query()->where('usuario_id', $aluno['id'])->count(),
             'Recusa não pode criar solicitação — ela ficaria pendente sem ninguém para resolver.'
         );
     }
@@ -124,22 +130,22 @@ final class AprovacaoAutomaticaMatriculaTest extends TestCase
         config(['features.aprovacaoAutomaticaMatricula' => true]);
 
         $aluno = $this->makeStudent('Aluno Curso Concluido');
-        $courseId = $this->anySeededCourseId();
+        $curso_id = $this->anySeededCourseId();
 
-        StudentEnrollment::query()->create([
+        Matricula::query()->create([
             'id' => (string) Str::uuid(),
-            'userId' => $aluno['id'],
-            'studentName' => $aluno['name'],
-            'enrolledCourseId' => null,
-            'enrolledAt' => null,
-            'completedCourseIds' => [$courseId],
-            'dropOutPenaltyUntil' => null,
-            'canMultiEnroll' => false,
-            'extraCourseIds' => [],
+            'usuario_id' => $aluno['id'],
+            'nome_aluno' => $aluno['nome'],
+            'curso_matriculado_id' => null,
+            'matriculado_em_texto' => null,
+            'cursos_concluidos_ids' => [$curso_id],
+            'penalidade_desistencia_ate' => null,
+            'pode_multimatricula' => false,
+            'cursos_extras_ids' => [],
         ]);
 
         $this->withHeader('Authorization', "Bearer {$aluno['token']}")
-            ->postJson('/api/admissions', ['courseId' => $courseId])
+            ->postJson('/api/ingressos', ['curso_id' => $curso_id])
             ->assertStatus(409);
     }
 }

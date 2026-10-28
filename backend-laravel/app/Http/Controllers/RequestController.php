@@ -27,21 +27,21 @@ final class RequestController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $this->validateInput($request, [
-            'userId' => ['sometimes', 'nullable', 'string', 'max:191'],
-            'type' => ['required', 'in:certificado,historico,matricula,outro'],
-            'description' => ['required', 'string', 'min:10', 'max:4000'],
-            'courseTitle' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'usuario_id' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'tipo' => ['required', 'in:certificado,historico,matricula,outro'],
+            'descricao' => ['required', 'string', 'min:10', 'max:4000'],
+            'titulo_curso' => ['sometimes', 'nullable', 'string', 'max:200'],
         ]);
 
-        $type = $this->stringField($data, 'type');
+        $type = $this->stringField($data, 'tipo');
         $req = $this->requests->createAcademicRequest([
-            'userId' => $this->optionalString($data, 'userId'),
-            'type' => $type,
-            'description' => $this->stringField($data, 'description'),
-            'courseTitle' => $this->optionalString($data, 'courseTitle'),
+            'usuario_id' => $this->optionalString($data, 'usuario_id'),
+            'tipo' => $type,
+            'descricao' => $this->stringField($data, 'descricao'),
+            'titulo_curso' => $this->optionalString($data, 'titulo_curso'),
         ], $this->requester($request));
-        $studentName = $this->optionalString($req, 'studentName') ?? '';
-        $this->audit->log($request, 'Solicitação Acadêmica', "Solicitação de \"{$type}\" enviada por {$studentName}.");
+        $nome_aluno = $this->optionalString($req, 'nome_aluno') ?? '';
+        $this->audit->log($request, 'Solicitação Acadêmica', "Solicitação de \"{$type}\" enviada por {$nome_aluno}.");
 
         return response()->json($req, 201);
     }
@@ -51,8 +51,8 @@ final class RequestController extends Controller
         $data = $this->validateInput($request, ['status' => ['required', 'in:approved,rejected']]);
         $status = $this->stringField($data, 'status');
         $updated = $this->requests->updateAcademicRequestStatus($id, $status);
-        $studentName = $this->optionalString($updated, 'studentName') ?? '';
-        $this->audit->log($request, 'Aprovação de Solicitação', "Solicitação acadêmica {$id} ({$studentName}) marcada como \"{$status}\".");
+        $nome_aluno = $this->optionalString($updated, 'nome_aluno') ?? '';
+        $this->audit->log($request, 'Aprovação de Solicitação', "Solicitação acadêmica {$id} ({$nome_aluno}) marcada como \"{$status}\".");
 
         return response()->json($updated);
     }

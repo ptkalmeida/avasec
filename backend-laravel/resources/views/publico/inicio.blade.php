@@ -106,31 +106,8 @@
                 <p class="text-apoio leading-relaxed text-escult-ink-2">
                     A Escola Estadual da Cultura RJ foi lançada em janeiro de 2024 e é promovida pela
                     Diretoria de Políticas para Trabalhadores da Cultura e da Economia Criativa por meio
-                    da Coordenação de Capacitação e Qualificação Profissional. Veja aqui os resultados já
-                    alcançados de nossa rede:
+                    da Coordenação de Capacitação e Qualificação Profissional.
                 </p>
-
-                {{-- Os quatro números são conteúdo institucional fixo, como sempre
-                     foram no React: não há consulta por trás deles, e inventar uma
-                     origem seria afirmar uma precisão que o sistema não tem. --}}
-                <ul role="list" class="grid grid-cols-1 gap-4 pt-2 min-[400px]:grid-cols-2">
-                    @foreach ([
-                        ['188K', 'Estudantes cadastrados'],
-                        ['300K', 'Inscrições nos cursos'],
-                        ['66K', 'Mil concluintes'],
-                        ['4M+', 'Visitas à plataforma'],
-                    ] as [$numero, $rotulo])
-                        <li class="flex items-center gap-3.5 rounded-2xl border border-ava-borda bg-white p-4 shadow-3xs">
-                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ava-lilas-fundo" aria-hidden="true">
-                                <span class="h-2.5 w-2.5 rounded-full bg-ava-lilas"></span>
-                            </span>
-                            <span class="min-w-0">
-                                <strong class="block text-2xl font-black leading-none text-ava-acao">{{ $numero }}</strong>
-                                <span class="mt-1.5 block text-nota font-semibold uppercase tracking-wide text-escult-ink-2">{{ $rotulo }}</span>
-                            </span>
-                        </li>
-                    @endforeach
-                </ul>
             </div>
 
             <div class="min-w-0 lg:col-span-6">

@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\CatalogoPublico;
 use App\Services\SitePageContentService;
 use Livewire\Component;
 
@@ -13,16 +14,12 @@ use Livewire\Component;
  * catálogo, então a necessidade mudou de lugar: a busca do cabeçalho é a que
  * sobrou, e ela é a mais interativa das duas — consulta a cada tecla.
  *
- * ## Onde ela procura, e por que NÃO é no banco
+ * ## Onde ela procura
  *
- * Nos mesmos dois lugares do React: a vitrine de `config/catalogo_publico.php`
- * e as notícias do `SitePageContentService`. A vitrine do portal nunca leu a
- * tabela `Course` — o arquivo de configuração explica o levantamento.
- *
- * Trocá-la pelo banco aqui pareceria um avanço e seria uma regressão: o
- * autocompletar público passaria a oferecer os registros de teste que existem
- * na tabela, e a busca do Blade devolveria resultados diferentes da busca do
- * React na mesma sessão da mesma pessoa.
+ * Nos cursos ativos agora para serem cursados (`CatalogoPublico`, os mesmos da
+ * tela `/cursos`) e nas notícias do `SitePageContentService`. Curso inativado,
+ * rascunho ou com vigência vencida não aparece: a busca nunca oferece ao
+ * público o que ele não consegue cursar.
  *
  * ## O que ela NÃO faz, e por quê
  *
@@ -54,7 +51,7 @@ new class extends Component
     /** @var list<array{title:string,tag:string|null}> */
     public array $noticias = [];
 
-    public function updatedTermo(SitePageContentService $conteudo): void
+    public function updatedTermo(SitePageContentService $conteudo, CatalogoPublico $catalogo): void
     {
         $termo = trim($this->termo);
 
@@ -65,7 +62,7 @@ new class extends Component
             return;
         }
 
-        $this->cursos = $this->buscarCursos($termo);
+        $this->cursos = $this->buscarCursos($catalogo, $termo);
         $this->noticias = $this->buscarNoticias($conteudo, $termo);
     }
 
@@ -76,21 +73,18 @@ new class extends Component
      *
      * @return list<array{title:string,category:string}>
      */
-    private function buscarCursos(string $termo): array
+    private function buscarCursos(CatalogoPublico $catalogo, string $termo): array
     {
         $achados = [];
 
-        /** @var list<array<string, string>> $vitrine */
-        $vitrine = config('catalogo_publico');
-
-        foreach ($vitrine as $curso) {
-            $alvo = $curso['title'].' '.$curso['description'];
+        foreach ($catalogo->cursaveis() as $curso) {
+            $alvo = $curso['titulo'].' '.$curso['descricao'];
 
             if (mb_stripos($alvo, $termo) === false) {
                 continue;
             }
 
-            $achados[] = ['title' => $curso['title'], 'category' => $curso['category']];
+            $achados[] = ['titulo' => $curso['titulo'], 'categoria' => $curso['categoria']];
 
             if (count($achados) === self::LIMITE) {
                 break;
@@ -107,14 +101,14 @@ new class extends Component
         $achados = [];
 
         foreach ($itens as $item) {
-            $alvo = ($item['title'] ?? '').' '.($item['description'] ?? '').' '.($item['tag'] ?? '');
+            $alvo = ($item['titulo'] ?? '').' '.($item['descricao'] ?? '').' '.($item['tag'] ?? '');
 
             if (mb_stripos($alvo, $termo) === false) {
                 continue;
             }
 
             $achados[] = [
-                'title' => (string) ($item['title'] ?? ''),
+                'titulo' => (string) ($item['titulo'] ?? ''),
                 'tag' => isset($item['tag']) ? (string) $item['tag'] : null,
             ];
 
@@ -183,12 +177,12 @@ new class extends Component
                     <span class="block text-apoio font-semibold text-ava-acao">Cursos ({{ count($cursos) }})</span>
                     @foreach ($cursos as $curso)
                         <a wire:key="curso-{{ $loop->index }}"
-                           href="/cursos?curso={{ urlencode($curso['title']) }}"
+                           href="/cursos?curso={{ urlencode($curso['titulo']) }}"
                            class="flex items-center gap-2 rounded-[10px] p-2 transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                             <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ava-lilas-fundo text-xs font-bold text-ava-lilas" aria-hidden="true">C</span>
                             <span class="min-w-0">
-                                <span class="block truncate text-apoio font-semibold leading-snug text-ava-tinta">{{ $curso['title'] }}</span>
-                                <span class="block truncate text-apoio text-escult-ink-3">{{ $curso['category'] }}</span>
+                                <span class="block truncate text-apoio font-semibold leading-snug text-ava-tinta">{{ $curso['titulo'] }}</span>
+                                <span class="block truncate text-apoio text-escult-ink-3">{{ $curso['categoria'] }}</span>
                             </span>
                         </a>
                     @endforeach
@@ -202,11 +196,11 @@ new class extends Component
                         {{-- O termo vai junto: a página de notícias filtra por `?busca=`,
                              e sem ele o resultado clicado abriria a lista inteira. --}}
                         <a wire:key="noticia-{{ $loop->index }}"
-                           href="/noticias?busca={{ urlencode($noticia['title']) }}"
+                           href="/noticias?busca={{ urlencode($noticia['titulo']) }}"
                            class="flex items-center gap-2 rounded-[10px] p-2 transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
                             <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ava-icone-fundo text-xs font-bold text-ava-acao" aria-hidden="true">N</span>
                             <span class="min-w-0">
-                                <span class="block truncate text-apoio font-semibold leading-snug text-ava-tinta">{{ $noticia['title'] }}</span>
+                                <span class="block truncate text-apoio font-semibold leading-snug text-ava-tinta">{{ $noticia['titulo'] }}</span>
                                 <span class="block truncate text-apoio text-escult-ink-3">{{ $noticia['tag'] }}</span>
                             </span>
                         </a>

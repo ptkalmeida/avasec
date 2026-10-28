@@ -67,12 +67,12 @@ final class PaginasPublicasBladeTest extends TestCase
              * correto, e a comparação crua falharia por causa da escapagem —
              * acusando a tela de não mostrar um texto que ela mostra.
              */
-            $resposta->assertSee(e($pagina['title']), false);
+            $resposta->assertSee(e($pagina['titulo']), false);
             $resposta->assertSee(e($pagina['eyebrow']), false);
 
             foreach ($pagina['items'] as $item) {
-                $resposta->assertSee(e($item['title']), false);
-                $resposta->assertSee(e($item['description']), false);
+                $resposta->assertSee(e($item['titulo']), false);
+                $resposta->assertSee(e($item['descricao']), false);
             }
         }
     }
@@ -90,7 +90,7 @@ final class PaginasPublicasBladeTest extends TestCase
         $servico = app(SitePageContentService::class);
 
         foreach (self::TELAS as $rota => $chave) {
-            $titulo = $servico->get($chave)['title'];
+            $titulo = $servico->get($chave)['titulo'];
             $html = $this->get($rota)->getContent();
 
             $this->assertMatchesRegularExpression(
@@ -153,7 +153,7 @@ final class PaginasPublicasBladeTest extends TestCase
 
         // Uma palavra que existe no título da primeira e não nas outras.
         $palavra = null;
-        foreach (preg_split('/\s+/u', (string) $itens[0]['title']) as $candidata) {
+        foreach (preg_split('/\s+/u', (string) $itens[0]['titulo']) as $candidata) {
             $candidata = trim((string) $candidata, " 	.,:;\"'()");
             if (mb_strlen($candidata) < 5) {
                 continue;
@@ -161,7 +161,7 @@ final class PaginasPublicasBladeTest extends TestCase
 
             $apareceNoutra = false;
             foreach (array_slice($itens, 1) as $outra) {
-                $alvo = ($outra['title'] ?? '').' '.($outra['description'] ?? '');
+                $alvo = ($outra['titulo'] ?? '').' '.($outra['descricao'] ?? '');
                 if (mb_stripos($alvo, $candidata) !== false) {
                     $apareceNoutra = true;
                     break;
@@ -181,8 +181,8 @@ final class PaginasPublicasBladeTest extends TestCase
         $resposta = $this->get('/noticias?busca='.urlencode($palavra));
 
         $resposta->assertOk();
-        $resposta->assertSee(e((string) $itens[0]['title']), false);
-        $resposta->assertDontSee(e((string) $itens[1]['title']), false);
+        $resposta->assertSee(e((string) $itens[0]['titulo']), false);
+        $resposta->assertDontSee(e((string) $itens[1]['titulo']), false);
     }
 
     /**
@@ -208,7 +208,7 @@ final class PaginasPublicasBladeTest extends TestCase
     {
         $temImagem = false;
         foreach (app(SitePageContentService::class)->get('noticias')['items'] as $item) {
-            if (! empty($item['image'])) {
+            if (! empty($item['imagem'])) {
                 $temImagem = true;
                 break;
             }

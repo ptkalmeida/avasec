@@ -32,62 +32,62 @@ final class CertificadoExigeAvaliacaoTest extends TestCase
      * Curso de uma aula, com a aula concluída: frequência 100%, o único critério
      * que existia antes desta regra.
      *
-     * @return array{courseId:string, student:array<string, mixed>}
+     * @return array{curso_id:string, student:array<string, mixed>}
      */
     private function cursoComFrequenciaCheia(string $nomeDoAluno): array
     {
         $student = $this->makeStudent($nomeDoAluno);
-        $courseId = 'course-aval-'.uniqid();
-        $lessonId = 'lesson-aval-'.uniqid();
+        $curso_id = 'course-aval-'.uniqid();
+        $aula_id = 'lesson-aval-'.uniqid();
 
-        DB::table('Course')->insert([
-            'id' => $courseId, 'title' => 'Curso Com Avaliacao', 'description' => 'desc',
-            'category' => 'x', 'thumbnail' => 't', 'instructorName' => 'Gestor de Conteúdos',
+        DB::table('curso')->insert([
+            'id' => $curso_id, 'titulo' => 'Curso Com Avaliacao', 'descricao' => 'desc',
+            'categoria' => 'x', 'miniatura' => 't', 'nome_instrutor' => 'Gestor de Conteúdos',
         ]);
-        DB::table('Lesson')->insert([
-            'id' => $lessonId, 'courseId' => $courseId, 'title' => 'A1',
-            'duration' => '5min', 'lesson_order' => 0,
+        DB::table('aula')->insert([
+            'id' => $aula_id, 'curso_id' => $curso_id, 'titulo' => 'A1',
+            'duracao' => '5min', 'ordem' => 0,
         ]);
-        $this->matricular($student, $courseId);
-        DB::table('StudentProgress')->insert([
-            'id' => 'prog-aval-'.uniqid(), 'studentName' => $student['name'], 'userId' => $student['id'],
-            'courseId' => $courseId, 'completedLessons' => json_encode([$lessonId]),
-            'attendedLiveSessions' => json_encode([]),
+        $this->matricular($student, $curso_id);
+        DB::table('progresso_aluno')->insert([
+            'id' => 'prog-aval-'.uniqid(), 'nome_aluno' => $student['nome'], 'usuario_id' => $student['id'],
+            'curso_id' => $curso_id, 'aulas_concluidas' => json_encode([$aula_id]),
+            'sessoes_ao_vivo_assistidas' => json_encode([]),
         ]);
 
-        return ['courseId' => $courseId, 'student' => $student];
+        return ['curso_id' => $curso_id, 'student' => $student];
     }
 
-    private function criarQuiz(string $courseId, string $titulo, int $status = Visibilidade::PUBLICADO, bool $inativo = false): string
+    private function criarQuiz(string $curso_id, string $titulo, int $status = Visibilidade::PUBLICADO, bool $inativo = false): string
     {
-        $quizId = 'quiz-aval-'.uniqid();
-        DB::table('Quiz')->insert([
-            'id' => $quizId, 'courseId' => $courseId, 'title' => $titulo, 'status' => $status,
-            'inativadoEm' => $inativo ? now()->toDateTimeString() : null,
+        $avaliacao_id = 'quiz-aval-'.uniqid();
+        DB::table('avaliacao')->insert([
+            'id' => $avaliacao_id, 'curso_id' => $curso_id, 'titulo' => $titulo, 'status' => $status,
+            'inativado_em' => $inativo ? now()->toDateTimeString() : null,
         ]);
 
-        return $quizId;
+        return $avaliacao_id;
     }
 
     /** @param array<string, mixed> $student */
-    private function enviarTentativa(array $student, string $courseId, string $quizId, bool $aprovado): void
+    private function enviarTentativa(array $student, string $curso_id, string $avaliacao_id, bool $aprovado): void
     {
-        DB::table('QuizSubmission')->insert([
+        DB::table('tentativa_avaliacao')->insert([
             'id' => 'sub-aval-'.uniqid(),
-            'studentName' => $student['name'], 'userId' => $student['id'],
-            'courseId' => $courseId, 'quizId' => $quizId,
-            'scorePercent' => $aprovado ? 90.0 : 20.0,
-            'passed' => $aprovado,
-            'submittedAt' => '09/09/2026 às 10:00',
-            'enviadoEm' => now()->toDateTimeString(),
+            'nome_aluno' => $student['nome'], 'usuario_id' => $student['id'],
+            'curso_id' => $curso_id, 'avaliacao_id' => $avaliacao_id,
+            'percentual_nota' => $aprovado ? 90.0 : 20.0,
+            'aprovado' => $aprovado,
+            'enviado_em_texto' => '09/09/2026 às 10:00',
+            'enviado_em' => now()->toDateTimeString(),
         ]);
     }
 
     /** @param array<string, mixed> $student */
-    private function pedirCertificado(array $student, string $courseId): TestResponse
+    private function pedirCertificado(array $student, string $curso_id): TestResponse
     {
         $r = $this->withHeader('Authorization', "Bearer {$student['token']}")
-            ->postJson('/api/certificates', ['courseId' => $courseId]);
+            ->postJson('/api/certificados', ['curso_id' => $curso_id]);
         $this->flushHeaders();
 
         return $r;
@@ -101,52 +101,52 @@ final class CertificadoExigeAvaliacaoTest extends TestCase
          */
         $c = $this->cursoComFrequenciaCheia('Cert Sem Prova');
 
-        $this->pedirCertificado($c['student'], $c['courseId'])
+        $this->pedirCertificado($c['student'], $c['curso_id'])
             ->assertStatus(201)
-            ->assertJsonPath('attendancePercent', 100);
+            ->assertJsonPath('percentual_frequencia', 100);
     }
 
     public function test_frequencia_cheia_sem_fazer_a_prova_nao_gera_certificado(): void
     {
         // O defeito exato que a regra veio fechar: clicar "Próxima aula" até o fim.
         $c = $this->cursoComFrequenciaCheia('Cert So Clicou');
-        $this->criarQuiz($c['courseId'], 'Avaliação Final');
+        $this->criarQuiz($c['curso_id'], 'Avaliação Final');
 
-        $this->pedirCertificado($c['student'], $c['courseId'])
+        $this->pedirCertificado($c['student'], $c['curso_id'])
             ->assertStatus(403)
             ->assertJsonPath('message', 'Falta ser aprovado na avaliação "Avaliação Final" para a emissão do certificado.');
 
-        $this->assertSame(0, DB::table('Certificate')->where('userId', $c['student']['id'])->count());
+        $this->assertSame(0, DB::table('certificado')->where('usuario_id', $c['student']['id'])->count());
     }
 
     public function test_prova_reprovada_nao_gera_certificado(): void
     {
         // A decisão foi "aprovada", não "respondida": zerar a prova não conclui.
         $c = $this->cursoComFrequenciaCheia('Cert Reprovado');
-        $quiz = $this->criarQuiz($c['courseId'], 'Avaliação Final');
-        $this->enviarTentativa($c['student'], $c['courseId'], $quiz, false);
+        $quiz = $this->criarQuiz($c['curso_id'], 'Avaliação Final');
+        $this->enviarTentativa($c['student'], $c['curso_id'], $quiz, false);
 
-        $this->pedirCertificado($c['student'], $c['courseId'])->assertStatus(403);
+        $this->pedirCertificado($c['student'], $c['curso_id'])->assertStatus(403);
     }
 
     public function test_prova_aprovada_gera_certificado(): void
     {
         $c = $this->cursoComFrequenciaCheia('Cert Aprovado');
-        $quiz = $this->criarQuiz($c['courseId'], 'Avaliação Final');
-        $this->enviarTentativa($c['student'], $c['courseId'], $quiz, true);
+        $quiz = $this->criarQuiz($c['curso_id'], 'Avaliação Final');
+        $this->enviarTentativa($c['student'], $c['curso_id'], $quiz, true);
 
-        $this->pedirCertificado($c['student'], $c['courseId'])->assertStatus(201);
+        $this->pedirCertificado($c['student'], $c['curso_id'])->assertStatus(201);
     }
 
     public function test_todas_as_avaliacoes_sao_exigidas_e_a_mensagem_diz_quais_faltam(): void
     {
         $c = $this->cursoComFrequenciaCheia('Cert Parcial');
-        $q1 = $this->criarQuiz($c['courseId'], 'Prova 1');
-        $this->criarQuiz($c['courseId'], 'Prova 2');
-        $this->criarQuiz($c['courseId'], 'Prova 3');
-        $this->enviarTentativa($c['student'], $c['courseId'], $q1, true);
+        $q1 = $this->criarQuiz($c['curso_id'], 'Prova 1');
+        $this->criarQuiz($c['curso_id'], 'Prova 2');
+        $this->criarQuiz($c['curso_id'], 'Prova 3');
+        $this->enviarTentativa($c['student'], $c['curso_id'], $q1, true);
 
-        $this->pedirCertificado($c['student'], $c['courseId'])
+        $this->pedirCertificado($c['student'], $c['curso_id'])
             ->assertStatus(403)
             ->assertJsonPath('message', 'Faltam 2 avaliações aprovadas para a emissão do certificado: Prova 2, Prova 3.');
     }
@@ -159,9 +159,9 @@ final class CertificadoExigeAvaliacaoTest extends TestCase
          * exigida.
          */
         $c = $this->cursoComFrequenciaCheia('Cert Prova Fora');
-        $this->criarQuiz($c['courseId'], 'Prova Retirada', Visibilidade::PUBLICADO, true);
+        $this->criarQuiz($c['curso_id'], 'Prova Retirada', Visibilidade::PUBLICADO, true);
 
-        $this->pedirCertificado($c['student'], $c['courseId'])->assertStatus(201);
+        $this->pedirCertificado($c['student'], $c['curso_id'])->assertStatus(201);
     }
 
     public function test_avaliacao_em_rascunho_nao_e_cobrada_do_aluno(): void
@@ -173,9 +173,9 @@ final class CertificadoExigeAvaliacaoTest extends TestCase
          * cobrado por uma prova que só o gestor vê.
          */
         $c = $this->cursoComFrequenciaCheia('Cert Prova Rascunho');
-        $this->criarQuiz($c['courseId'], 'Prova Em Elaboracao', Visibilidade::RASCUNHO);
+        $this->criarQuiz($c['curso_id'], 'Prova Em Elaboracao', Visibilidade::RASCUNHO);
 
-        $this->pedirCertificado($c['student'], $c['courseId'])->assertStatus(201);
+        $this->pedirCertificado($c['student'], $c['curso_id'])->assertStatus(201);
     }
 
     public function test_aprovacao_em_tentativa_anterior_continua_valendo(): void
@@ -186,37 +186,37 @@ final class CertificadoExigeAvaliacaoTest extends TestCase
          * "a última tentativa" tiraria um certificado já conquistado.
          */
         $c = $this->cursoComFrequenciaCheia('Cert Duas Tentativas');
-        $quiz = $this->criarQuiz($c['courseId'], 'Avaliação Final');
-        $this->enviarTentativa($c['student'], $c['courseId'], $quiz, true);
-        $this->enviarTentativa($c['student'], $c['courseId'], $quiz, false);
+        $quiz = $this->criarQuiz($c['curso_id'], 'Avaliação Final');
+        $this->enviarTentativa($c['student'], $c['curso_id'], $quiz, true);
+        $this->enviarTentativa($c['student'], $c['curso_id'], $quiz, false);
 
-        $this->pedirCertificado($c['student'], $c['courseId'])->assertStatus(201);
+        $this->pedirCertificado($c['student'], $c['curso_id'])->assertStatus(201);
     }
 
     public function test_prova_aprovada_de_outro_curso_nao_conta(): void
     {
         $c = $this->cursoComFrequenciaCheia('Cert Prova Alheia');
         $outro = $this->cursoComFrequenciaCheia('Cert Dono Da Outra');
-        $quizDoCurso = $this->criarQuiz($c['courseId'], 'Avaliação Deste Curso');
-        $quizAlheio = $this->criarQuiz($outro['courseId'], 'Avaliação De Outro');
+        $quizDoCurso = $this->criarQuiz($c['curso_id'], 'Avaliação Deste Curso');
+        $quizAlheio = $this->criarQuiz($outro['curso_id'], 'Avaliação De Outro');
 
         // Aprovado na prova do OUTRO curso, e nada no curso que está pedindo.
-        $this->enviarTentativa($c['student'], $outro['courseId'], $quizAlheio, true);
+        $this->enviarTentativa($c['student'], $outro['curso_id'], $quizAlheio, true);
 
-        $this->pedirCertificado($c['student'], $c['courseId'])->assertStatus(403);
+        $this->pedirCertificado($c['student'], $c['curso_id'])->assertStatus(403);
 
         // E a aprovação certa libera.
-        $this->enviarTentativa($c['student'], $c['courseId'], $quizDoCurso, true);
-        $this->pedirCertificado($c['student'], $c['courseId'])->assertStatus(201);
+        $this->enviarTentativa($c['student'], $c['curso_id'], $quizDoCurso, true);
+        $this->pedirCertificado($c['student'], $c['curso_id'])->assertStatus(201);
     }
 
     public function test_aprovacao_de_outro_aluno_nao_conta(): void
     {
         $c = $this->cursoComFrequenciaCheia('Cert Sem Aprovacao');
         $colega = $this->makeStudent('Cert Colega Aprovado');
-        $quiz = $this->criarQuiz($c['courseId'], 'Avaliação Final');
-        $this->enviarTentativa($colega, $c['courseId'], $quiz, true);
+        $quiz = $this->criarQuiz($c['curso_id'], 'Avaliação Final');
+        $this->enviarTentativa($colega, $c['curso_id'], $quiz, true);
 
-        $this->pedirCertificado($c['student'], $c['courseId'])->assertStatus(403);
+        $this->pedirCertificado($c['student'], $c['curso_id'])->assertStatus(403);
     }
 }

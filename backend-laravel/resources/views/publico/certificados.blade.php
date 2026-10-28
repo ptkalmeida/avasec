@@ -10,11 +10,11 @@
     recarregar a página, mandar o link adiante ou usar o "voltar" do navegador
     devolvem a mesma resposta, sem refazer um POST.
 --}}
-<x-layouts.publico ativo="Certificados" :titulo="$pagina['title']" :descricao="$pagina['description']">
+<x-layouts.publico ativo="Certificados" :titulo="$pagina['titulo']" :descricao="$pagina['descricao']">
     <x-componentes.moldura-pagina
         :sobretitulo="$pagina['eyebrow']"
-        :titulo="$pagina['title']"
-        :descricao="$pagina['description']"
+        :titulo="$pagina['titulo']"
+        :descricao="$pagina['descricao']"
         centralizado
     >
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start text-left">
@@ -42,8 +42,8 @@
                                     <path d="M21.801 10A10 10 0 1 1 17 3.335"/><path d="m9 11 3 3L22 4"/>
                                 </svg>
                                 <span class="text-apoio">
-                                    <strong class="text-ava-tinta block">{{ $criterio['title'] }}</strong>
-                                    <span class="text-escult-ink-2 text-rotulo leading-normal block">{{ $criterio['description'] }}</span>
+                                    <strong class="text-ava-tinta block">{{ $criterio['titulo'] }}</strong>
+                                    <span class="text-escult-ink-2 text-rotulo leading-normal block">{{ $criterio['descricao'] }}</span>
                                 </span>
                             </li>
                         @endforeach
@@ -179,26 +179,26 @@
                                 ])>
                                     <div>
                                         <dt class="text-escult-ink-2 block text-sobretitulo uppercase">Aluno</dt>
-                                        <dd class="text-ava-tinta font-bold block">{{ $certificado['studentName'] }}</dd>
+                                        <dd class="text-ava-tinta font-bold block">{{ $certificado['nome_aluno'] }}</dd>
                                     </div>
                                     <div>
                                         <dt class="text-escult-ink-2 block text-sobretitulo uppercase">Curso</dt>
-                                        <dd class="text-ava-tinta font-bold block">{{ $certificado['courseTitle'] }}</dd>
+                                        <dd class="text-ava-tinta font-bold block">{{ $certificado['titulo_curso'] }}</dd>
                                     </div>
                                     <div>
                                         <dt class="text-escult-ink-2 block text-sobretitulo uppercase">Data de emissão</dt>
-                                        <dd class="text-ava-tinta font-medium block">{{ $certificado['issueDate'] }}</dd>
+                                        <dd class="text-ava-tinta font-medium block">{{ $certificado['data_emissao'] }}</dd>
                                     </div>
                                     <div>
                                         <dt class="text-escult-ink-2 block text-sobretitulo uppercase">Registro de autenticidade</dt>
-                                        <dd class="text-ava-tinta font-bold block select-all break-words">{{ $certificado['verificationHash'] }}</dd>
+                                        <dd class="text-ava-tinta font-bold block select-all break-words">{{ $certificado['hash_verificacao'] }}</dd>
                                     </div>
                                 </dl>
 
                                 @if (! $certificado['revogado'])
                                     <p class="text-apoio text-emerald-700 leading-normal font-medium bg-white/50 p-2.5 rounded-lg border border-emerald-100/50">
                                         Certificado emitido em conformidade com as diretrizes do AVA da Escola Estadual
-                                        da Cultura RJ. Registro de presença homologado: {{ $certificado['attendancePercent'] }}%.
+                                        da Cultura RJ. Registro de presença homologado: {{ $certificado['percentual_frequencia'] }}%.
                                     </p>
                                 @endif
                             </div>

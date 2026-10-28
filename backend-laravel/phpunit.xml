@@ -36,6 +36,10 @@
         <env name="DB_USERNAME" value="avasec"/>
         <env name="DB_PASSWORD" value="avasec"/>
         <env name="JWT_SECRET" value="avasec-dev-jwt-secret-troque-em-producao-000000"/>
+        <!-- Os testes de upload trocam a PASTA dos discos locais: não podem herdar o S3/MinIO
+             que o .env do dev pode ter ligado (UPLOADS_DISK_DRIVER). -->
+        <env name="UPLOADS_DISK_DRIVER" value="local"/>
+        <env name="MEDIA_DISK_DRIVER" value="local"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

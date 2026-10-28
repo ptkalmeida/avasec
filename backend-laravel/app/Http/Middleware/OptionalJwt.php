@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Middleware;
 
 use App\Exceptions\ApiException;
-use App\Models\User;
+use App\Models\Usuario;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -56,12 +56,12 @@ final class OptionalJwt
             return null;
         }
 
-        $user = User::query()->withTrashed()->find($sub, ['status', 'role', 'inativadoEm']);
-        if ($user === null || $user->estaInativo() || $user->status !== 'active' || ! is_string($user->role)) {
+        $user = Usuario::query()->withTrashed()->find($sub, ['status', 'papel', 'inativado_em']);
+        if ($user === null || $user->estaInativo() || $user->status !== 'active' || ! is_string($user->papel)) {
             return null;
         }
 
-        $payload['role'] = $user->role;
+        $payload['papel'] = $user->papel;
 
         return $payload;
     }

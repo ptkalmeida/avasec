@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Exceptions\ApiException;
-use App\Models\Course;
+use App\Models\Curso;
+use App\Models\Usuario;
 use App\Services\AuditLogger;
 use App\Services\CourseService;
 use App\Services\CursosDoAdmin;
+use App\Services\RetiradosDoAdmin;
 use App\Services\UploadService;
 use App\Support\Fuso;
 use App\Support\VigenciaDoCurso;
+use App\Support\Visibilidade;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -45,6 +48,7 @@ final class CursosDoAdminController extends Controller
     public function __construct(
         private readonly CourseService $cursos,
         private readonly CursosDoAdmin $leitura,
+        private readonly RetiradosDoAdmin $retirados,
         private readonly UploadService $uploads,
         private readonly AuditLogger $audit,
     ) {}
@@ -59,7 +63,8 @@ final class CursosDoAdminController extends Controller
         return view('admin.cursos', [
             'busca' => $busca,
             'cursos' => $lista,
-            'totalNoCatalogo' => Course::query()->count(),
+            'retirados' => $this->retirados->cursos(),
+            'totalNoCatalogo' => Curso::query()->count(),
             'categorias' => $this->leitura->categorias(),
             'instrutores' => $this->leitura->instrutores(),
             'abrir' => (string) $request->query('curso', ''),
@@ -70,47 +75,47 @@ final class CursosDoAdminController extends Controller
     {
         abort_unless(config('features.catalogoCursos') === true, 404);
 
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
         $dados = $request->validate([
-            'title' => ['required', 'string', 'min:3', 'max:200'],
-            'category' => ['required', 'string', 'min:1', 'max:120'],
-            'instructorId' => ['nullable', 'string', 'max:191'],
-            'description' => ['nullable', 'string', 'min:10', 'max:5000'],
+            'titulo' => ['required', 'string', 'min:3', 'max:200'],
+            'categoria' => ['required', 'string', 'min:1', 'max:120'],
+            'instrutor_id' => ['nullable', 'string', 'max:191'],
+            'descricao' => ['nullable', 'string', 'min:10', 'max:5000'],
             'vigencia' => ['nullable', 'date_format:Y-m-d'],
-            'courseType' => ['required', 'in:fixo,ao_vivo'],
+            'tipo_curso' => ['required', 'in:fixo,ao_vivo'],
         ], [
             'vigencia.date_format' => 'Data de vigência inválida.',
         ], [
-            'title' => 'título',
-            'category' => 'área',
-            'description' => 'ementa',
+            'titulo' => 'título',
+            'categoria' => 'área',
+            'descricao' => 'ementa',
         ]);
 
-        $titulo = trim((string) $dados['title']);
-        $descricao = trim((string) ($dados['description'] ?? ''));
+        $titulo = trim((string) $dados['titulo']);
+        $descricao = trim((string) ($dados['descricao'] ?? ''));
         $vigencia = trim((string) ($dados['vigencia'] ?? ''));
 
         $entrada = [
-            'title' => $titulo,
-            'description' => $descricao !== '' ? $descricao : self::DESCRICAO_PADRAO,
-            'category' => trim((string) $dados['category']),
-            'thumbnail' => self::MINIATURAS[crc32($titulo) % count(self::MINIATURAS)],
-            'courseType' => $dados['courseType'],
-            'hasChat' => $request->boolean('hasChat'),
+            'titulo' => $titulo,
+            'descricao' => $descricao !== '' ? $descricao : self::DESCRICAO_PADRAO,
+            'categoria' => trim((string) $dados['categoria']),
+            'miniatura' => self::MINIATURAS[crc32($titulo) % count(self::MINIATURAS)],
+            'tipo_curso' => $dados['tipo_curso'],
+            'tem_chat' => $request->boolean('tem_chat'),
         ];
         if ($vigencia !== '') {
-            $entrada['contractExpirationDate'] = $vigencia;
+            $entrada['vencimento_contrato_texto'] = $vigencia;
         }
-        if (is_string($dados['instructorId'] ?? null) && $dados['instructorId'] !== '') {
-            $entrada['instructorId'] = $dados['instructorId'];
+        if (is_string($dados['instrutor_id'] ?? null) && $dados['instrutor_id'] !== '') {
+            $entrada['instrutor_id'] = $dados['instrutor_id'];
         }
 
         try {
             $curso = $this->cursos->createCourse($entrada, $admin);
         } catch (ApiException $e) {
-            return back()->withInput()->withErrors(['instructorId' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['instrutor_id' => $e->getMessage()]);
         }
 
         $this->audit->log($request, 'Criação de Curso', 'Curso "'.$titulo.'" criado pelo painel administrativo.');
@@ -126,44 +131,44 @@ final class CursosDoAdminController extends Controller
         abort_unless(config('features.catalogoCursos') === true, 404);
 
         $dados = $request->validate([
-            'instructorId' => ['required', 'string', 'max:191'],
-        ], ['instructorId.required' => 'Escolha o professor responsável.']);
+            'instrutor_id' => ['required', 'string', 'max:191'],
+        ], ['instrutor_id.required' => 'Escolha o professor responsável.']);
 
         $atual = $this->curso($cursoId);
 
         try {
-            $atualizado = $this->cursos->updateCourse($cursoId, ['instructorId' => $dados['instructorId']], $this->admin($request));
+            $atualizado = $this->cursos->updateCourse($cursoId, ['instrutor_id' => $dados['instrutor_id']], $this->admin($request));
         } catch (ApiException $e) {
-            return $this->voltar($cursoId)->withErrors(['instructorId' => $e->getMessage()]);
+            return $this->voltar($cursoId)->withErrors(['instrutor_id' => $e->getMessage()]);
         }
 
-        $nome = is_string($atualizado['instructorName'] ?? null) ? $atualizado['instructorName'] : '';
-        $this->audit->log($request, 'Alteração de Curso', 'Curso "'.$atual->title.'" ('.$cursoId.') passou para '.$nome.'.');
+        $nome = is_string($atualizado['nome_instrutor'] ?? null) ? $atualizado['nome_instrutor'] : '';
+        $this->audit->log($request, 'Alteração de Curso', 'Curso "'.$atual->titulo.'" ('.$cursoId.') passou para '.$nome.'.');
 
-        return $this->voltar($cursoId)->with('avisoDosCursos', 'Professor de "'.$atual->title.'" alterado para '.$nome.'.');
+        return $this->voltar($cursoId)->with('avisoDosCursos', 'Professor de "'.$atual->titulo.'" alterado para '.$nome.'.');
     }
 
     public function salvarPropriedades(Request $request, string $cursoId): RedirectResponse
     {
         abort_unless(config('features.catalogoCursos') === true, 404);
 
-        $dados = $request->validate(['courseType' => ['required', 'in:fixo,ao_vivo']]);
+        $dados = $request->validate(['tipo_curso' => ['required', 'in:fixo,ao_vivo']]);
         $atual = $this->curso($cursoId);
-        $chat = $request->boolean('hasChat');
+        $chat = $request->boolean('tem_chat');
 
         try {
-            $this->cursos->updateCourse($cursoId, ['courseType' => $dados['courseType'], 'hasChat' => $chat], $this->admin($request));
+            $this->cursos->updateCourse($cursoId, ['tipo_curso' => $dados['tipo_curso'], 'tem_chat' => $chat], $this->admin($request));
         } catch (ApiException $e) {
-            return $this->voltar($cursoId)->withErrors(['courseType' => $e->getMessage()]);
+            return $this->voltar($cursoId)->withErrors(['tipo_curso' => $e->getMessage()]);
         }
 
         $this->audit->log(
             $request,
             'Alteração de Curso',
-            'Curso "'.$atual->title.'" ('.$cursoId.'): tipo '.$dados['courseType'].', chat '.($chat ? 'ativado' : 'desativado').'.',
+            'Curso "'.$atual->titulo.'" ('.$cursoId.'): tipo '.$dados['tipo_curso'].', chat '.($chat ? 'ativado' : 'desativado').'.',
         );
 
-        return $this->voltar($cursoId)->with('avisoDosCursos', 'Tipo e chat de "'.$atual->title.'" salvos.');
+        return $this->voltar($cursoId)->with('avisoDosCursos', 'Tipo e chat de "'.$atual->titulo.'" salvos.');
     }
 
     /**
@@ -195,7 +200,7 @@ final class CursosDoAdminController extends Controller
         };
 
         try {
-            $this->cursos->updateCourse($cursoId, ['contractExpirationDate' => $nova], $this->admin($request));
+            $this->cursos->updateCourse($cursoId, ['vencimento_contrato_texto' => $nova], $this->admin($request));
         } catch (ApiException $e) {
             return $this->voltar($cursoId)->withErrors(['prazo' => $e->getMessage()]);
         }
@@ -209,8 +214,8 @@ final class CursosDoAdminController extends Controller
         return $this->voltar($cursoId)->with(
             'avisoDosCursos',
             $nova === null
-                ? 'Vigência de "'.$atual->title.'": sem limite (permanente).'
-                : 'Vigência de "'.$atual->title.'" até '.VigenciaDoCurso::diaParaPessoa(['vigenciaAte' => $nova]).'.',
+                ? 'Vigência de "'.$atual->titulo.'": sem limite (permanente).'
+                : 'Vigência de "'.$atual->titulo.'" até '.VigenciaDoCurso::diaParaPessoa(['vigencia_ate' => $nova]).'.',
         );
     }
 
@@ -223,10 +228,10 @@ final class CursosDoAdminController extends Controller
         $admin = $this->admin($request);
 
         if ($request->boolean('remover')) {
-            $this->cursos->updateCourse($cursoId, ['coverImage' => null], $admin);
+            $this->cursos->updateCourse($cursoId, ['imagem_capa' => null], $admin);
             $this->audit->log($request, 'Alteração de Curso', 'Capa do curso '.$cursoId.' removida.');
 
-            return $this->voltar($cursoId)->with('avisoDosCursos', 'Capa de "'.$atual->title.'" removida.');
+            return $this->voltar($cursoId)->with('avisoDosCursos', 'Capa de "'.$atual->titulo.'" removida.');
         }
 
         $request->validate([
@@ -248,14 +253,14 @@ final class CursosDoAdminController extends Controller
 
         try {
             $url = $this->uploads->store($arquivo, 'public', $admin['sub'])['url'];
-            $this->cursos->updateCourse($cursoId, ['coverImage' => $url], $admin);
+            $this->cursos->updateCourse($cursoId, ['imagem_capa' => $url], $admin);
         } catch (ApiException $e) {
             return $this->voltar($cursoId)->withErrors(['capa' => $e->getMessage()]);
         }
 
         $this->audit->log($request, 'Alteração de Curso', 'Capa do curso '.$cursoId.' atualizada.');
 
-        return $this->voltar($cursoId)->with('avisoDosCursos', 'Capa de "'.$atual->title.'" atualizada.');
+        return $this->voltar($cursoId)->with('avisoDosCursos', 'Capa de "'.$atual->titulo.'" atualizada.');
     }
 
     /**
@@ -276,22 +281,76 @@ final class CursosDoAdminController extends Controller
 
         return redirect('/admin/cursos')->with(
             'avisoDosCursos',
-            'Curso "'.$atual->title.'" retirado do ar. O registro e o histórico ficam preservados.',
+            'Curso "'.$atual->titulo.'" retirado do ar. O registro e o histórico ficam preservados.',
         );
     }
 
-    /** @return array{sub:string,name:string,role:string} */
+    /**
+     * Devolver ao ar um curso retirado. Volta tudo de uma vez — aulas, avaliações,
+     * matrículas, histórico — e para todos os gestores do curso e para os alunos,
+     * porque a retirada só inativou a linha do curso (ver `CourseService::reactivateCourse`).
+     */
+    public function reativar(Request $request, string $cursoId): RedirectResponse
+    {
+        abort_unless(config('features.catalogoCursos') === true, 404);
+
+        $curso = $this->cursos->reactivateCourse($cursoId, $this->admin($request));
+        $this->audit->log($request, 'Reativação de Curso', 'Curso '.$cursoId.' reativado (aulas, matrículas e histórico preservados).', 'WARNING');
+
+        return redirect('/admin/cursos')->with('avisoDosCursos', $this->avisoDaReativacao($curso));
+    }
+
+    /**
+     * O que a pessoa precisa saber depois de reativar. O curso volta COMO ESTAVA, então
+     * o que o deixaria fechado aos alunos é dito, em vez de a tela afirmar um "no ar" que
+     * o aluno não veria: não se publica nem se estende vigência por baixo dos panos.
+     */
+    private function avisoDaReativacao(Curso $curso): string
+    {
+        $ressalvas = [];
+
+        // Sem valor gravado, o curso sempre foi tratado como publicado (mesma leitura de `CursosDoAdmin::listar`).
+        $status = $curso->getAttribute('status');
+        $visibilidade = is_numeric($status) ? (int) $status : Visibilidade::PUBLICADO;
+        if ($visibilidade === Visibilidade::RESTRITO || $visibilidade === Visibilidade::RASCUNHO) {
+            $ressalvas[] = 'Ele voltou como '.($visibilidade === Visibilidade::RESTRITO ? 'Restrito' : 'Rascunho')
+                .', então os alunos só o veem depois de publicado.';
+        }
+
+        $vigencia = [
+            'vigencia_ate' => $curso->getAttribute('vigencia_ate'),
+            'vencimento_contrato_texto' => $curso->vencimento_contrato_texto,
+        ];
+        if (VigenciaDoCurso::vencida($vigencia)) {
+            $ressalvas[] = 'A vigência venceu em '.(VigenciaDoCurso::diaParaPessoa($vigencia) ?? 'data anterior')
+                .'; enquanto não for ampliada, não entram matrículas novas.';
+        }
+
+        $gestorId = is_string($curso->instrutor_id) ? $curso->instrutor_id : '';
+        $gestor = $gestorId !== '' ? Usuario::withTrashed()->find($gestorId, ['id', 'nome', 'inativado_em']) : null;
+        if ($gestor !== null && $gestor->trashed()) {
+            $ressalvas[] = 'O gestor do curso ('.$gestor->nome.') está retirado; atribua outro em "Gerenciar este curso".';
+        }
+
+        $base = 'Curso "'.$curso->titulo.'" voltou ao ar, com as aulas, as matrículas e o histórico de antes.';
+
+        return $ressalvas === []
+            ? $base.' Já está aberto a matrículas.'
+            : $base.' Atenção: '.implode(' ', $ressalvas);
+    }
+
+    /** @return array{sub:string,nome:string,papel:string} */
     private function admin(Request $request): array
     {
-        /** @var array{sub:string,name:string,role:string} $admin */
+        /** @var array{sub:string,nome:string,papel:string} $admin */
         $admin = $request->attributes->get('auth_user');
 
         return $admin;
     }
 
-    private function curso(string $cursoId): Course
+    private function curso(string $cursoId): Curso
     {
-        $curso = Course::query()->find($cursoId);
+        $curso = Curso::query()->find($cursoId);
         abort_if($curso === null, 404);
 
         return $curso;

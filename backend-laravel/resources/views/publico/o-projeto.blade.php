@@ -15,10 +15,10 @@
     A numeração dos pilares vem da ORDEM, não do conteúdo: o admin edita título
     e descrição, nunca o número. Era assim no React (`index + 1`) e continua.
 --}}
-<x-layouts.publico ativo="A Escola" :titulo="$pagina['title']" :descricao="$pagina['description']">
+<x-layouts.publico ativo="A Escola" :titulo="$pagina['titulo']" :descricao="$pagina['descricao']">
     <x-componentes.moldura-pagina
         :sobretitulo="$pagina['eyebrow']"
-        :titulo="$pagina['title']"
+        :titulo="$pagina['titulo']"
     >
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             {{--
@@ -49,7 +49,7 @@
 
             {{-- Texto de abertura e os pilares do plano político-pedagógico. --}}
             <div class="lg:col-span-7 space-y-6 text-left">
-                <p class="text-corpo text-escult-ink-2 leading-relaxed">{{ $pagina['description'] }}</p>
+                <p class="text-corpo text-escult-ink-2 leading-relaxed">{{ $pagina['descricao'] }}</p>
 
                 <div class="space-y-4 pt-2">
                     @foreach ($pagina['items'] as $i => $pilar)
@@ -58,8 +58,8 @@
                                 {{ $i + 1 }}
                             </div>
                             <div class="space-y-1 min-w-0">
-                                <strong class="text-rotulo text-ava-tinta font-bold block">{{ $pilar['title'] }}</strong>
-                                <p class="text-apoio text-escult-ink-2 leading-relaxed">{{ $pilar['description'] }}</p>
+                                <strong class="text-rotulo text-ava-tinta font-bold block">{{ $pilar['titulo'] }}</strong>
+                                <p class="text-apoio text-escult-ink-2 leading-relaxed">{{ $pilar['descricao'] }}</p>
                             </div>
                         </div>
                     @endforeach
