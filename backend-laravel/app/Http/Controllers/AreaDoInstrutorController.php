@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Services\AuditLogger;
 use App\Services\CaixaDeMensagens;
 use App\Services\CourseService;
+use App\Services\CursosDoAdmin;
 use App\Services\EnrollmentService;
 use App\Services\GestoresDoCurso;
 use App\Services\LearningService;
@@ -26,6 +27,7 @@ use App\Support\QuestaoDeProva;
 use App\Support\VideoProvider;
 use App\Support\VideoSource;
 use App\Support\VigenciaDoCurso;
+use App\Support\Visibilidade;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -42,8 +44,12 @@ use InvalidArgumentException;
  */
 final class AreaDoInstrutorController extends Controller
 {
+    /** Ementa de curso criado sem texto: o gestor a completa depois, na tela do curso. */
+    private const DESCRICAO_PADRAO = 'Ementa em elaboração pelo professor responsável.';
+
     public function __construct(
         private readonly PainelDoInstrutor $painel,
+        private readonly CursosDoAdmin $leituraDeCursos,
         private readonly CourseService $cursos,
         private readonly AuditLogger $audit,
         private readonly LearningService $aprendizagem,
@@ -68,9 +74,252 @@ final class AreaDoInstrutorController extends Controller
         $instrutor = $request->attributes->get('auth_user');
 
         return view('instrutor.escolha', [
-            'cursos' => $this->painel->cursos($instrutor),
+            // Com os retirados: a tela os separa dos ativos e oferece "Reativar" (ADR 029).
+            'cursos' => $this->painel->cursos($instrutor, incluirRetirados: true),
             'aFazer' => $this->painel->aFazer($instrutor),
         ]);
+    }
+
+    /**
+     * `/inst/cursos/novo` — o formulário de curso (disciplina) novo.
+     *
+     * Existia no painel React ("Cadastrar Novo Curso") e ficou de fora quando `/inst` virou
+     * Blade (M4, 20/10), com a promessa de entrar na fatia seguinte; não entrou, e o gestor
+     * ficou sem como criar disciplina. Volta aqui, com os mesmos campos da criação do admin.
+     */
+    public function formularioDeCurso(): View
+    {
+        abort_unless(config('features.catalogoCursos') === true, 404);
+
+        return view('instrutor.curso-novo', ['categorias' => $this->leituraDeCursos->categorias()]);
+    }
+
+    /**
+     * `POST /inst/cursos` — cria o curso EM NOME DE QUEM ESTÁ LOGADO.
+     *
+     * Não há campo de professor: o `CourseService` já faz o instrutor criar só em seu próprio
+     * nome (só o admin atribui a outro, pelo painel). O curso nasce como os demais criados pelo
+     * admin — `status` padrão do banco — e o gestor o completa na tela do curso.
+     */
+    public function criarCurso(Request $request): RedirectResponse
+    {
+        abort_unless(config('features.catalogoCursos') === true, 404);
+
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $dados = $request->validate([
+            'titulo' => ['required', 'string', 'min:3', 'max:200'],
+            'categoria' => ['required', 'string', 'min:1', 'max:120'],
+            'descricao' => ['nullable', 'string', 'min:10', 'max:5000'],
+            'vigencia' => ['nullable', 'date_format:Y-m-d'],
+            'tipo_curso' => ['required', 'in:fixo,ao_vivo'],
+        ], [
+            // O projeto não traz arquivos de tradução (idioma `en`): cada formulário diz o seu em português.
+            'titulo.required' => 'Informe o título do curso.',
+            'titulo.min' => 'O título precisa ter pelo menos 3 caracteres.',
+            'titulo.max' => 'O título pode ter no máximo 200 caracteres.',
+            'categoria.required' => 'Informe a área ou categoria do curso.',
+            'categoria.max' => 'A área pode ter no máximo 120 caracteres.',
+            'descricao.min' => 'A ementa precisa ter pelo menos 10 caracteres (ou deixe em branco).',
+            'descricao.max' => 'A ementa pode ter no máximo 5000 caracteres.',
+            'tipo_curso.required' => 'Escolha o tipo de curso.',
+            'tipo_curso.in' => 'Escolha um tipo de curso válido.',
+            'vigencia.date_format' => 'Data de vigência inválida.',
+        ]);
+
+        $titulo = trim((string) $dados['titulo']);
+        $descricao = trim((string) ($dados['descricao'] ?? ''));
+        $vigencia = trim((string) ($dados['vigencia'] ?? ''));
+
+        $entrada = [
+            'titulo' => $titulo,
+            'descricao' => $descricao !== '' ? $descricao : self::DESCRICAO_PADRAO,
+            'categoria' => trim((string) $dados['categoria']),
+            'miniatura' => CursosDoAdminController::MINIATURAS[crc32($titulo) % count(CursosDoAdminController::MINIATURAS)],
+            'tipo_curso' => $dados['tipo_curso'],
+            'tem_chat' => $request->boolean('tem_chat'),
+        ];
+        if ($vigencia !== '') {
+            $entrada['vencimento_contrato_texto'] = $vigencia;
+        }
+
+        // Nasce RESTRITO: só o gestor e o admin o veem até ele ser ativado para os alunos (ADR 029).
+        $curso = $this->cursos->createCourse($entrada, $instrutor, Visibilidade::RESTRITO);
+
+        $this->audit->log($request, 'Criação de Curso', 'Curso "'.$titulo.'" criado pela área do gestor (restrito).');
+
+        $ref = is_string($curso['slug'] ?? null) && $curso['slug'] !== ''
+            ? $curso['slug']
+            : (is_string($curso['id'] ?? null) ? $curso['id'] : '');
+
+        return redirect('/inst/curso/'.rawurlencode($ref))
+            ->with('avisoDoCurso', 'Curso "'.$titulo.'" criado. Ele começa restrito: só você e o admin o veem. Monte a grade, complete a ementa e, quando estiver pronto, ative-o para os alunos.');
+    }
+
+    /**
+     * `POST /inst/curso/{ref}/visibilidade` — ativa o curso para o ambiente do aluno, ou o restringe.
+     *
+     * Ativar publica (o aluno passa a ver o curso no catálogo); desativar restringe (só gestor e admin).
+     * Nada é apagado e as matrículas ficam como estão: o aluno já matriculado só deixa de achar o curso
+     * enquanto ele estiver restrito. A regra de quem pode é do `CourseService::setVisibility`.
+     */
+    public function alternarVisibilidade(Request $request, string $cursoRef): RedirectResponse
+    {
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $dados = $request->validate(
+            ['acao' => ['required', 'in:ativar,desativar']],
+            ['acao.required' => 'Escolha ativar ou desativar o curso.', 'acao.in' => 'Ação inválida.'],
+        );
+        $ativar = $dados['acao'] === 'ativar';
+
+        try {
+            $this->cursos->setVisibility($meu['id'], $ativar ? Visibilidade::PUBLICADO : Visibilidade::RESTRITO, $instrutor);
+        } catch (ApiException $e) {
+            return back()->withErrors(['visibilidade' => $e->getMessage()]);
+        }
+
+        $titulo = is_string($meu['curso']['titulo'] ?? null) ? $meu['curso']['titulo'] : $meu['id'];
+        $this->audit->log(
+            $request,
+            'Alteração de Curso',
+            'Curso "'.$titulo.'" ('.$meu['id'].') '.($ativar ? 'ativado para os alunos.' : 'restrito (fora do ambiente dos alunos).'),
+        );
+
+        $semAulas = is_array($meu['curso']['aulas'] ?? null) && $meu['curso']['aulas'] === [];
+
+        return redirect('/inst/curso/'.$meu['ref'])->with(
+            'avisoDoCurso',
+            $ativar
+                ? 'Curso ativado: os alunos já o veem no catálogo.'.($semAulas ? ' Atenção: ele ainda não tem aulas.' : '')
+                : 'Curso restrito: só você e o admin o veem.',
+        );
+    }
+
+    /**
+     * `POST /inst/curso/{ref}/retirar` — tira o curso do ar. INATIVA, não apaga (ADR 12): aulas,
+     * avaliações, matrículas e o histórico ficam, com quem retirou, quando e por quê. O curso passa
+     * ao grupo "Inativos" de "Meus cursos", de onde o próprio gestor o reativa (ADR 029).
+     */
+    public function retirarCurso(Request $request, string $cursoRef): RedirectResponse
+    {
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        $dados = $request->validate(
+            ['motivo' => ['nullable', 'string', 'max:500']],
+            ['motivo.max' => 'O motivo pode ter no máximo 500 caracteres.'],
+        );
+        $motivo = trim((string) ($dados['motivo'] ?? ''));
+
+        try {
+            $this->cursos->deleteCourse($meu['id'], $instrutor, $motivo !== '' ? $motivo : null);
+        } catch (ApiException $e) {
+            return back()->withErrors(['retirar' => $e->getMessage()]);
+        }
+
+        $titulo = is_string($meu['curso']['titulo'] ?? null) ? $meu['curso']['titulo'] : $meu['id'];
+        $this->audit->log($request, 'Inativação de Curso', 'Curso '.$meu['id'].' inativado pelo gestor (registro preservado).', 'WARNING');
+
+        return redirect('/inst')->with(
+            'avisoDoCurso',
+            'Curso "'.$titulo.'" retirado do ar. Nada foi apagado: ele está em "Cursos inativos", onde você pode reativá-lo.',
+        );
+    }
+
+    /**
+     * `POST /inst/cursos/{id}/reativar` — devolve ao ar um curso que o gestor retirou.
+     *
+     * Pelo ID, e não pelo apelido do endereço: o curso retirado não tem tela própria. Volta COMO
+     * ESTAVA (restrito ou publicado), com aulas, avaliações e matrículas; não se publica por baixo dos
+     * panos. Quem pode: o admin ou quem gerencia o curso (`CourseService::reactivateCourse`).
+     */
+    public function reativarCurso(Request $request, string $cursoId): RedirectResponse
+    {
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        try {
+            $curso = $this->cursos->reactivateCourse($cursoId, $instrutor);
+        } catch (ApiException $e) {
+            return redirect('/inst')->withErrors(['reativar' => $e->getMessage()]);
+        }
+
+        $this->audit->log($request, 'Reativação de Curso', 'Curso '.$cursoId.' reativado pelo gestor (aulas, matrículas e histórico preservados).', 'WARNING');
+
+        $status = $curso->getAttribute('status');
+        $publicado = ! is_numeric($status) || (int) $status === Visibilidade::PUBLICADO;
+
+        return redirect('/inst')->with(
+            'avisoDoCurso',
+            'Curso "'.$curso->titulo.'" reativado. '.($publicado
+                ? 'Ele voltou publicado: os alunos já o veem.'
+                : 'Ele voltou restrito: ative-o na tela do curso quando quiser abri-lo aos alunos.'),
+        );
+    }
+
+    /**
+     * `POST /inst/curso/{ref}/capa` — troca (ou remove) a capa do curso, como o admin faz.
+     *
+     * Mesma regra e mesmo limite do painel do admin: PNG, JPEG ou WebP, até 4 MB, gravada pelo
+     * `UploadService` (que confere os bytes reais). A posse é reconferida em `updateCourse`.
+     */
+    public function salvarCapa(Request $request, string $cursoRef): RedirectResponse
+    {
+        /** @var array{sub:string,nome:string,papel:string} $instrutor */
+        $instrutor = $request->attributes->get('auth_user');
+
+        $meu = $this->meuCurso($instrutor, $cursoRef);
+        if ($meu instanceof RedirectResponse) {
+            return $meu;
+        }
+
+        if ($request->boolean('remover')) {
+            $this->cursos->updateCourse($meu['id'], ['imagem_capa' => null], $instrutor);
+            $this->audit->log($request, 'Alteração de Curso', 'Capa do curso '.$meu['id'].' removida.');
+
+            return redirect('/inst/curso/'.$meu['ref'])->with('avisoDoCurso', 'Capa removida.');
+        }
+
+        $request->validate([
+            'capa' => ['required', 'file', 'mimes:png,jpg,jpeg,webp', 'max:4096'],
+        ], [
+            'capa.required' => 'Escolha uma imagem para a capa.',
+            'capa.mimes' => 'A capa precisa ser PNG, JPEG ou WebP.',
+            'capa.max' => 'A imagem passa de 4 MB, o limite da capa.',
+            'capa.uploaded' => 'A imagem não pôde ser recebida: ela é maior do que o servidor aceita.',
+        ]);
+
+        $arquivo = $request->file('capa');
+        if (! $arquivo instanceof UploadedFile || ! $arquivo->isValid()) {
+            return back()->withErrors(['capa' => 'A imagem não pôde ser recebida.']);
+        }
+        if (config('features.uploadArquivos') !== true) {
+            return back()->withErrors(['capa' => 'O envio de arquivos está desligado nesta instalação.']);
+        }
+
+        try {
+            $url = $this->uploads->store($arquivo, 'public', $instrutor['sub'])['url'];
+            $this->cursos->updateCourse($meu['id'], ['imagem_capa' => $url], $instrutor);
+        } catch (ApiException $e) {
+            return back()->withErrors(['capa' => $e->getMessage()]);
+        }
+
+        $this->audit->log($request, 'Alteração de Curso', 'Capa do curso '.$meu['id'].' atualizada.');
+
+        return redirect('/inst/curso/'.$meu['ref'])->with('avisoDoCurso', 'Capa atualizada.');
     }
 
     /**

@@ -164,18 +164,57 @@ final class EscolhaDeCursoDoInstrutorTest extends TestCase
     }
 
     /**
-     * Curso tirado do ar não volta à tela. É a regra da API, e o painel React
-     * também não o mostrava: ressuscitá-lo aqui devolveria à vista do
-     * instrutor o que a coordenação removeu.
+     * REGRA MUDADA em 29/10/2026 (ADR 029). Antes, o curso tirado do ar sumia desta tela (era a regra
+     * da API, e o painel React também não o mostrava), e só o admin o devolvia. Agora o gestor vê o
+     * curso retirado, num grupo à parte ("Cursos inativos"), com o motivo e o botão de reativar.
      */
-    public function test_curso_inativado_nao_aparece(): void
+    public function test_curso_retirado_aparece_so_no_grupo_de_inativos_com_o_botao_de_reativar(): void
     {
         $eu = $this->instrutor('Instrutor Inativado');
-        $curso = $this->curso('Curso Tirado Do Ar Teste', $eu['id']);
-        $curso->inativar($eu['id'], 'teste');
+        $this->curso('Curso Ainda Ativo Teste', $eu['id']);
+        $retirado = $this->curso('Curso Tirado Do Ar Teste', $eu['id']);
+        $retirado->inativar($eu['id'], 'Disciplina encerrada no semestre');
+
+        $html = $this->como($eu['token'])->get('/inst')->assertOk()->getContent() ?: '';
+
+        $this->assertStringContainsString('Cursos ativos', $html);
+        $this->assertStringContainsString('Cursos inativos', $html);
+        // Dois grupos, e o ativo vem antes do inativo.
+        $this->assertLessThan(strpos($html, 'Cursos inativos'), strpos($html, 'Cursos ativos'));
+
+        [$grupoAtivos, $grupoInativos] = explode('id="titulo-inativos"', $html, 2);
+        $this->assertStringContainsString('Curso Ainda Ativo Teste', $grupoAtivos);
+        $this->assertStringNotContainsString('Curso Tirado Do Ar Teste', $grupoAtivos);
+        $this->assertStringContainsString('Curso Tirado Do Ar Teste', $grupoInativos);
+        $this->assertStringNotContainsString('Curso Ainda Ativo Teste', $grupoInativos);
+
+        // O que o gestor precisa: que está inativo, por quê, e como reativar.
+        $this->assertStringContainsString('Disciplina encerrada no semestre', $grupoInativos);
+        $this->assertStringContainsString('action="/inst/cursos/'.$retirado->id.'/reativar"', $grupoInativos);
+        $this->assertStringContainsString('Reativar curso', $grupoInativos);
+        $this->assertStringContainsString('Inativo', $grupoInativos);
+    }
+
+    /** O escopo de posse não se alarga: retirado de OUTRO gestor continua invisível. */
+    public function test_curso_retirado_de_outro_gestor_nao_aparece(): void
+    {
+        $eu = $this->instrutor('Instrutor Que Olha');
+        $outro = $this->instrutor('Instrutor Alheio');
+        $this->curso('Curso Retirado Alheio Teste', $outro['id'])->inativar($outro['id'], 'x');
 
         $this->como($eu['token'])->get('/inst')
-            ->assertDontSee('Curso Tirado Do Ar Teste', escape: false);
+            ->assertDontSee('Curso Retirado Alheio Teste', escape: false)
+            ->assertDontSee('Cursos inativos', escape: false);
+    }
+
+    public function test_sem_curso_retirado_nao_ha_grupo_de_inativos(): void
+    {
+        $eu = $this->instrutor('Instrutor So Ativos');
+        $this->curso('Curso So Ativo Teste', $eu['id']);
+
+        $this->como($eu['token'])->get('/inst')
+            ->assertSee('Cursos ativos', escape: false)
+            ->assertDontSee('Cursos inativos', escape: false);
     }
 
     /**

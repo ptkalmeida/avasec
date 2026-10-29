@@ -51,6 +51,44 @@ final class GestoresDoCurso
     }
 
     /**
+     * Como `gerencia`, mas também para curso RETIRADO (inativado). Existe para o gestor poder
+     * reativar o curso que ele mesmo retirou: `gerencia` não enxerga o retirado, de propósito,
+     * e quem usa o escopo comum (listas, alunos, mensagens) continua sem ele (ADR 029).
+     * O vínculo em `curso_gestor` continua valendo só enquanto ativo.
+     */
+    public function gerenciaIncluindoRetirados(string $cursoId, string $usuarioId): bool
+    {
+        if (Curso::withTrashed()->whereKey($cursoId)->where('instrutor_id', $usuarioId)->exists()) {
+            return true;
+        }
+
+        return CursoGestor::query()
+            ->where('curso_id', $cursoId)
+            ->where('usuario_id', $usuarioId)
+            ->whereIn('curso_id', Curso::withTrashed()->select('id'))
+            ->exists();
+    }
+
+    /**
+     * Como `cursoIdsDe`, incluindo os cursos retirados. Só a tela "Meus cursos" usa, para mostrar
+     * o retirado como inativo com o botão de reativar; o escopo de dados segue por `cursoIdsDe`.
+     *
+     * @return list<string>
+     */
+    public function cursoIdsDeIncluindoRetirados(string $usuarioId): array
+    {
+        $ids = array_merge(
+            Curso::withTrashed()->where('instrutor_id', $usuarioId)->pluck('id')->all(),
+            CursoGestor::query()
+                ->where('usuario_id', $usuarioId)
+                ->whereIn('curso_id', Curso::withTrashed()->select('id'))
+                ->pluck('curso_id')->all(),
+        );
+
+        return array_values(array_unique(array_filter($ids, static fn ($id): bool => is_string($id) && $id !== '')));
+    }
+
+    /**
      * Os cursos de cada gestor, para a tela da equipe: `[usuario_id => [[id, titulo], ...]]`.
      *
      * @param  list<string>  $usuarioIds

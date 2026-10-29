@@ -43,24 +43,26 @@ final class PainelDoInstrutor
      * `Visibilidade` governa quem LÊ o conteúdo, não quem o gerencia.
      *
      * @param  array{sub:string,nome:string,papel:string}  $instrutor
-     * @return list<array{id:string,slug:string|null,titulo:string,categoria:string|null,aulas:int,alunos:int,vigencia_ate:string|null,vigenciaVencida:bool,publicado:bool}>
+     * @param  bool  $incluirRetirados  Só para "Meus cursos": traz também os cursos que o gestor retirou,
+     *                                  marcados como `inativo`, para ele poder reativá-los (ADR 029).
+     *                                  O padrão continua sem eles, como na API. Não vale para o admin,
+     *                                  que tem a seção "Retirados" no painel dele.
+     * @return list<array{id:string,slug:string|null,titulo:string,categoria:string|null,aulas:int,alunos:int,vigencia_ate:string|null,vigenciaVencida:bool,publicado:bool,inativo:bool,motivoDaRetirada:string|null,retiradoEm:string|null}>
      */
-    public function cursos(array $instrutor): array
+    public function cursos(array $instrutor, bool $incluirRetirados = false): array
     {
         /*
-         * Curso INATIVADO não entra, e isso é a mesma regra da API: quem sai
-         * do ar sai de `/api/cursos`, e o painel React também não o mostrava.
-         * Trazê-lo de volta aqui ressuscitaria na tela do instrutor o que a
-         * coordenação tirou — os dois cursos inativados hoje são, de fato,
-         * limpeza de dados de teste.
-         *
-         * O que fica em aberto, e está no plano 18: o instrutor cujo curso é
-         * tirado do ar vê o curso sumir sem nenhuma explicação, embora o motivo
-         * esteja gravado em `motivo_inativacao`.
+         * Por padrão curso INATIVADO não entra, a mesma regra da API: quem sai do ar sai de
+         * `/api/cursos`. A exceção é a tela "Meus cursos" do gestor (`$incluirRetirados`), que
+         * mostra o retirado à parte e com o botão de reativar. Antes ele sumia sem explicação,
+         * embora o motivo estivesse gravado em `motivo_inativacao` (pendência do plano 18).
          */
-        $consulta = Curso::query();
+        $incluirRetirados = $incluirRetirados && $instrutor['papel'] !== 'admin';
+        $consulta = $incluirRetirados ? Curso::withTrashed() : Curso::query();
         if ($instrutor['papel'] !== 'admin') {
-            $consulta->whereIn('id', InstructorScope::courseIds($instrutor));
+            $consulta->whereIn('id', $incluirRetirados
+                ? (new GestoresDoCurso)->cursoIdsDeIncluindoRetirados($instrutor['sub'])
+                : InstructorScope::courseIds($instrutor));
         }
 
         $cursos = $consulta->orderBy('titulo')->get();
@@ -100,10 +102,27 @@ final class PainelDoInstrutor
                 // A pergunta tem uma resposta só, em `VigenciaDoCurso`.
                 'vigenciaVencida' => VigenciaDoCurso::vencida($vigencia),
                 'publicado' => is_numeric($visibilidade) && (int) $visibilidade === Visibilidade::PUBLICADO,
+                'inativo' => $curso->trashed(),
+                'motivoDaRetirada' => $curso->trashed() && is_string($curso->motivo_inativacao) && $curso->motivo_inativacao !== ''
+                    ? $curso->motivo_inativacao
+                    : null,
+                'retiradoEm' => $curso->trashed() ? $this->quando($curso->getAttribute('inativado_em')) : null,
             ];
         }
 
         return $lista;
+    }
+
+    /** Data em que o curso saiu do ar, como a pessoa lê (fuso de exibição), ou null. */
+    private function quando(mixed $momento): ?string
+    {
+        if (! $momento instanceof CarbonInterface) {
+            return null;
+        }
+
+        $fuso = config('app.display_timezone');
+
+        return $momento->copy()->setTimezone(is_string($fuso) ? $fuso : 'America/Sao_Paulo')->format('d/m/Y');
     }
 
     /**

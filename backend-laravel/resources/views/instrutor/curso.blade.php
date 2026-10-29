@@ -51,6 +51,41 @@
             </section>
         @endif
 
+        {{-- Ambiente do aluno: ativar PUBLICA o curso, desativar o RESTRINGE (só gestor e admin veem).
+             O curso criado pelo gestor nasce restrito (ADR 029). O estado vem por texto, não só por cor. --}}
+        @php($publicado = (int) ($curso['status'] ?? 1) === \App\Support\Visibilidade::PUBLICADO)
+        <section aria-labelledby="titulo-visibilidade"
+                 class="space-y-3 rounded-2xl border p-5 shadow-3xs md:p-6 {{ $publicado ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="min-w-0 space-y-1">
+                    <h2 id="titulo-visibilidade" class="text-sobretitulo uppercase {{ $publicado ? 'text-emerald-900' : 'text-amber-900' }}">
+                        Ambiente do aluno: {{ $publicado ? 'ativo' : 'restrito' }}
+                    </h2>
+                    <p class="text-apoio leading-relaxed {{ $publicado ? 'text-emerald-950' : 'text-amber-950' }}">
+                        @if ($publicado)
+                            Os alunos veem este curso no catálogo e podem se matricular.
+                        @else
+                            Só você e o admin veem este curso. Os alunos não o encontram no catálogo.
+                            @if (($aulas ?? 0) === 0)
+                                Ele ainda não tem aulas: monte a grade antes de ativá-lo.
+                            @endif
+                        @endif
+                    </p>
+                </div>
+                <form method="POST" action="/inst/curso/{{ $ref }}/visibilidade" class="shrink-0">
+                    @csrf
+                    <input type="hidden" name="acao" value="{{ $publicado ? 'desativar' : 'ativar' }}">
+                    <button type="submit"
+                            class="cursor-pointer rounded-[10px] px-5 py-2.5 text-rotulo font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2 {{ $publicado ? 'border border-ava-borda bg-white text-ava-tinta hover:bg-ava-faixa' : 'bg-ava-acao text-white hover:bg-ava-acao-escuro' }}">
+                        {{ $publicado ? 'Desativar para os alunos' : 'Ativar para os alunos' }}
+                    </button>
+                </form>
+            </div>
+            @if ($errors->has('visibilidade'))
+                <p role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-apoio font-semibold text-rose-800">{{ $errors->first('visibilidade') }}</p>
+            @endif
+        </section>
+
         {{-- Panorama --}}
         <section id="panorama" aria-labelledby="titulo-panorama" class="space-y-4 rounded-2xl border border-ava-borda bg-white p-5 shadow-3xs md:p-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -307,6 +342,101 @@
                             class="cursor-pointer rounded-[10px] bg-ava-acao px-5 py-2.5 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
                         Salvar vigência
                     </button>
+                </form>
+            </details>
+        </section>
+
+        {{-- Capa: a mesma regra do painel do admin (PNG, JPEG ou WebP, até 4 MB). --}}
+        <section aria-labelledby="titulo-capa" class="rounded-2xl border border-ava-borda bg-white shadow-3xs">
+            <details class="group" @if ($errors->has('capa')) open @endif>
+                <summary class="cursor-pointer list-none rounded-2xl p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                    <h2 id="titulo-capa" class="inline font-titulo text-cartao text-ava-tinta">Capa do curso</h2>
+                    <span class="ml-2 text-apoio text-escult-ink-3 group-open:hidden">alterar</span>
+                </summary>
+
+                <div class="space-y-4 border-t border-ava-borda p-5">
+                    @if (! empty($curso['imagem_capa']))
+                        <img src="{{ $curso['imagem_capa'] }}" alt="Capa atual do curso" loading="lazy" referrerpolicy="no-referrer"
+                             class="max-h-48 w-auto rounded-xl border border-ava-borda bg-ava-faixa">
+                    @else
+                        <p class="text-apoio text-escult-ink-2">Este curso ainda não tem capa própria: o catálogo usa uma imagem padrão.</p>
+                    @endif
+
+                    @if ($errors->has('capa'))
+                        <p role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-apoio font-semibold text-rose-800">{{ $errors->first('capa') }}</p>
+                    @endif
+
+                    <form method="POST" action="/inst/curso/{{ $ref }}/capa" enctype="multipart/form-data" class="space-y-3">
+                        @csrf
+                        <div class="space-y-1.5">
+                            <label for="capa" class="block text-rotulo font-semibold text-ava-tinta">Escolher imagem</label>
+                            <input id="capa" name="capa" type="file" required accept="image/png,image/jpeg,image/webp"
+                                   class="block w-full text-apoio text-ava-tinta file:mr-3 file:cursor-pointer file:rounded-[10px] file:border file:border-ava-borda file:bg-white file:px-4 file:py-2 file:text-rotulo file:font-semibold file:text-ava-tinta">
+                            <p class="text-apoio text-escult-ink-2">PNG, JPEG ou WebP, até 4 MB.</p>
+                        </div>
+                        <button type="submit"
+                                class="cursor-pointer rounded-[10px] bg-ava-acao px-5 py-2.5 text-rotulo font-semibold text-white transition-colors hover:bg-ava-acao-escuro focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao focus-visible:ring-offset-2">
+                            Enviar capa
+                        </button>
+                    </form>
+
+                    @if (! empty($curso['imagem_capa']))
+                        <form method="POST" action="/inst/curso/{{ $ref }}/capa">
+                            @csrf
+                            <input type="hidden" name="remover" value="1">
+                            <button type="submit"
+                                    class="cursor-pointer rounded-[10px] border border-ava-borda bg-white px-5 py-2.5 text-rotulo font-semibold text-ava-tinta transition-colors hover:bg-ava-faixa focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                                Remover capa
+                            </button>
+                        </form>
+                    @endif
+                </div>
+            </details>
+        </section>
+
+        {{-- Retirar do ar. Inativa, não apaga (ADR 12). Duas etapas SEM JavaScript: o botão que age só
+             aparece depois de abrir o `<details>` interno. O curso vai para "Cursos inativos". --}}
+        <section aria-labelledby="titulo-retirar" class="rounded-2xl border border-rose-200 bg-white shadow-3xs">
+            <details class="group" @if ($errors->has('retirar') || $errors->has('motivo')) open @endif>
+                <summary class="cursor-pointer list-none rounded-2xl p-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ava-acao">
+                    <h2 id="titulo-retirar" class="inline font-titulo text-cartao text-rose-900">Retirar do ar</h2>
+                    <span class="ml-2 text-apoio text-escult-ink-3 group-open:hidden">abrir</span>
+                </summary>
+
+                <form method="POST" action="/inst/curso/{{ $ref }}/retirar" class="space-y-4 border-t border-rose-200 p-5">
+                    @csrf
+                    <p class="text-apoio leading-relaxed text-escult-ink-2">
+                        Retirar tira o curso do ar para todos. <strong>Nada é apagado</strong>: aulas, avaliações, matrículas e
+                        o histórico dos alunos ficam guardados. Você o encontra em <em>Meus cursos &rsaquo; Cursos inativos</em>
+                        e pode reativá-lo quando quiser.
+                    </p>
+
+                    @if ($errors->has('retirar') || $errors->has('motivo'))
+                        <p role="alert" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-apoio font-semibold text-rose-800">
+                            {{ $errors->first('retirar') ?: $errors->first('motivo') }}
+                        </p>
+                    @endif
+
+                    <div class="space-y-1.5">
+                        <label for="motivo" class="block text-rotulo font-semibold text-ava-tinta">
+                            Motivo <span class="font-normal text-escult-ink-2">(opcional, fica registrado)</span>
+                        </label>
+                        <textarea id="motivo" name="motivo" rows="2" maxlength="500"
+                                  class="w-full rounded-[10px] border border-ava-borda bg-white px-4 py-3 text-apoio text-ava-tinta focus:border-ava-acao focus:outline-none focus:ring-2 focus:ring-ava-acao/30">{{ old('motivo') }}</textarea>
+                    </div>
+
+                    <details>
+                        <summary class="inline-flex cursor-pointer list-none items-center rounded-[10px] border border-rose-300 bg-white px-5 py-2.5 text-rotulo font-semibold text-rose-800 transition-colors hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600">
+                            Retirar este curso do ar
+                        </summary>
+                        <div class="mt-3 space-y-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
+                            <p class="text-apoio font-semibold text-rose-900">Confirma retirar “{{ $curso['titulo'] }}” do ar?</p>
+                            <button type="submit"
+                                    class="cursor-pointer rounded-[10px] bg-rose-700 px-5 py-2.5 text-rotulo font-semibold text-white transition-colors hover:bg-rose-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600 focus-visible:ring-offset-2">
+                                Sim, retirar do ar
+                            </button>
+                        </div>
+                    </details>
                 </form>
             </details>
         </section>

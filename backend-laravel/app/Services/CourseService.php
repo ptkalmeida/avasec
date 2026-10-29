@@ -245,7 +245,7 @@ final class CourseService
      * @param  array{sub:string,nome:string,papel:string}  $requester
      * @return array<string, mixed>
      */
-    public function createCourse(array $input, array $requester): array
+    public function createCourse(array $input, array $requester, ?int $visibilidade = null): array
     {
         $lessons = Payload::assocList($input['aulas'] ?? []);
         $liveSessions = Payload::assocList($input['sessoes_ao_vivo'] ?? []);
@@ -272,7 +272,7 @@ final class CourseService
 
         $id = is_string($input['id'] ?? null) ? $input['id'] : ('course-'.$this->nowMs());
 
-        DB::transaction(function () use ($input, $id, $nome_instrutor, $instrutor_id, $lessons, $liveSessions): void {
+        DB::transaction(function () use ($input, $id, $nome_instrutor, $instrutor_id, $lessons, $liveSessions, $visibilidade): void {
             $courseData = $this->scalarCourseData($input);
             $courseData['id'] = $id;
             // Slug é DERIVADO do título, nunca aceito do cliente — mesma regra de
@@ -285,6 +285,12 @@ final class CourseService
             $courseData['nome_instrutor'] = $nome_instrutor;
             $courseData['instrutor_id'] = $instrutor_id;
             Curso::query()->create($courseData);
+
+            // `status` não é "fillable" (a visibilidade tem caminho próprio): sem `$visibilidade`, vale o
+            // padrão do banco (publicado), como sempre foi para o admin e a API.
+            if ($visibilidade !== null) {
+                Curso::query()->whereKey($id)->update(['status' => $visibilidade]);
+            }
 
             foreach ($lessons as $lesson) {
                 $this->createLessonWithDocuments($id, $lesson);
@@ -387,9 +393,13 @@ final class CourseService
      */
     public function reactivateCourse(string $curso_id, array $requester): Curso
     {
-        // Só o administrador devolve um curso ao ar; gestor não vê nem os retirados.
-        if (($requester['papel'] ?? null) !== 'admin') {
-            throw ApiException::forbidden('Somente o administrador reativa uma disciplina retirada.');
+        // Reativa o administrador ou quem gerencia o curso (ADR 029). Antes era só o admin, e o gestor nem
+        // via o curso retirado; passou a ser dele também, "na ausência do admin" (decisão de 29/10/2026).
+        $papel = $requester['papel'] ?? null;
+        $gerencia = $papel === 'instructor'
+            && (new GestoresDoCurso)->gerenciaIncluindoRetirados($curso_id, $requester['sub']);
+        if ($papel !== 'admin' && ! $gerencia) {
+            throw ApiException::forbidden('Você só pode reativar cursos vinculados ao seu perfil.');
         }
 
         $curso = Curso::onlyTrashed()->find($curso_id);
@@ -401,6 +411,26 @@ final class CourseService
         $curso->reativar();
 
         return $curso->refresh();
+    }
+
+    /**
+     * Ativa o curso para o ambiente do aluno (publicado) ou o restringe (só gestor e admin veem).
+     *
+     * Só os dois degraus que o gestor tem: `rascunho` é do admin e não passa por aqui. Quem gerencia
+     * o curso decide; a posse é a de sempre (`assertCourseOwnership`).
+     *
+     * @param  array{sub:string,nome:string,papel:string}  $requester
+     */
+    public function setVisibility(string $curso_id, int $visibilidade, array $requester): Curso
+    {
+        if ($visibilidade !== Visibilidade::PUBLICADO && $visibilidade !== Visibilidade::RESTRITO) {
+            throw ApiException::validation('Escolha entre publicar o curso para os alunos ou restringi-lo.');
+        }
+        $this->assertCourseOwnership($curso_id, $requester);
+
+        Curso::query()->whereKey($curso_id)->update(['status' => $visibilidade]);
+
+        return Curso::query()->findOrFail($curso_id);
     }
 
     /**

@@ -35,8 +35,11 @@ use Illuminate\View\View;
  */
 final class CursosDoAdminController extends Controller
 {
-    /** As imagens que o painel React sorteava para o curso novo. */
-    private const MINIATURAS = [
+    /**
+     * As imagens que o painel React sorteava para o curso novo. Públicas porque a área do
+     * gestor (`AreaDoInstrutorController::criarCurso`) cria curso com as mesmas.
+     */
+    public const MINIATURAS = [
         'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60',
         'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&auto=format&fit=crop&q=60',
         'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&auto=format&fit=crop&q=60',

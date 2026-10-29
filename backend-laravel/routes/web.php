@@ -241,6 +241,11 @@ Route::middleware('aluno.web')->group(function (): void {
 Route::middleware('instrutor.web')->group(function (): void {
     Route::get('/inst', [AreaDoInstrutorController::class, 'escolha'])->name('instrutor.escolha');
 
+    // Curso novo pelo gestor. Fica ANTES de `/inst/{resto}` (o redirecionamento do fim do
+    // arquivo) e longe de `/inst/curso/{cursoRef}`: `cursos` (plural) é a coleção.
+    Route::get('/inst/cursos/novo', [AreaDoInstrutorController::class, 'formularioDeCurso'])->name('instrutor.curso.novo');
+    Route::post('/inst/cursos', [AreaDoInstrutorController::class, 'criarCurso']);
+
     /*
      * A caixa de mensagens do gestor. Fica FORA de `/inst/curso/...` de
      * propósito: a dúvida do aluno chega de uma aula, mas quem responde quer
@@ -256,6 +261,12 @@ Route::middleware('instrutor.web')->group(function (): void {
     Route::get('/inst/curso/{cursoRef}', [AreaDoInstrutorController::class, 'curso'])->name('instrutor.curso');
     Route::post('/inst/curso/{cursoRef}/propriedades', [AreaDoInstrutorController::class, 'salvarPropriedades']);
     Route::post('/inst/curso/{cursoRef}/vigencia', [AreaDoInstrutorController::class, 'salvarVigencia']);
+    // Visibilidade para o aluno, capa e retirada do ar (ADR 029). A reativação é pelo ID do curso
+    // (o retirado não tem tela própria) e fica junto de `/inst/cursos`.
+    Route::post('/inst/curso/{cursoRef}/visibilidade', [AreaDoInstrutorController::class, 'alternarVisibilidade']);
+    Route::post('/inst/curso/{cursoRef}/capa', [AreaDoInstrutorController::class, 'salvarCapa']);
+    Route::post('/inst/curso/{cursoRef}/retirar', [AreaDoInstrutorController::class, 'retirarCurso']);
+    Route::post('/inst/cursos/{cursoId}/reativar', [AreaDoInstrutorController::class, 'reativarCurso']);
 
     // Grade curricular: a lista, a ordem e a retirada. O EDITOR de aula é React
     // até a M6 e vive em `/inst/curso/{ref}/aula/...`, que não está aqui.
