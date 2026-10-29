@@ -38,6 +38,15 @@ return [
     // normal continuam valendo — automática é "sem espera humana", não "sem
     // regra". Espelho em src/config/features.ts.
     'aprovacaoAutomaticaMatricula' => true,
+    // Desligada em 29/10/2026 por decisão do responsável: a escola não vai usar a página
+    // pública de certificados nem o autenticador por QR. Desliga JUNTOS: a página
+    // `/certificados` (404), o link no cabeçalho e no rodapé, o redirecionamento de
+    // `/?verify=`, a rota pública `/api/certificados/verificar` e o QR impresso no PDF
+    // (um QR para uma página que não existe seria um link morto em documento oficial).
+    // Nada foi apagado (ADR 12): o código, a coluna `hash_verificacao` e o texto da página
+    // ficam, e ligar a flag devolve tudo. A área do aluno (`/aluno/certificados`) e a
+    // emissão continuam como estavam. Ver ADR 027.
+    'verificacaoPublicaCertificados' => false,
 
     // Ativadas por padrão no MVP
     'catalogoCursos' => true,

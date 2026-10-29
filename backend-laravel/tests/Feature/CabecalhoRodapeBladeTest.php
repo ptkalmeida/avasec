@@ -44,6 +44,15 @@ final class CabecalhoRodapeBladeTest extends TestCase
         $menu = config('menu_publico');
 
         foreach ($menu as $entrada) {
+            // Entrada com `flag` só aparece com a feature flag ligada (ADR 027). Desligada,
+            // o que se exige é o contrário: que o destino NÃO seja oferecido.
+            $flag = $entrada['flag'] ?? null;
+            if (is_string($flag) && config("features.$flag") !== true) {
+                $resposta->assertDontSee('href="'.$entrada['rota'].'"', escape: false);
+
+                continue;
+            }
+
             $resposta->assertSee($entrada['rotulo'], escape: false);
 
             if ($entrada['tipo'] === 'link') {

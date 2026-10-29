@@ -26,7 +26,9 @@ return [
 
     ['tipo' => 'link', 'rotulo' => 'Cursos', 'rota' => '/cursos'],
 
-    ['tipo' => 'link', 'rotulo' => 'Certificados', 'rota' => '/certificados'],
+    // `flag`: a entrada só aparece com a feature flag ligada (config/features.php). A página
+    // pública de certificados foi inativada em 29/10/2026 (ADR 027); religar a flag a devolve.
+    ['tipo' => 'link', 'rotulo' => 'Certificados', 'rota' => '/certificados', 'flag' => 'verificacaoPublicaCertificados'],
 
     [
         'tipo' => 'grupo',

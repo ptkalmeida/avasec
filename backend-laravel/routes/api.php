@@ -132,8 +132,10 @@ Route::middleware('feature:matricula')->group(function (): void {
 // Etapa 3 — Certificados (flag certificados). Verificação pública; emissão/listagem
 // autenticadas; exclusão só admin. Espelha src/server/routes/certificateRoutes.ts.
 Route::middleware('feature:certificados')->group(function (): void {
+    // Verificação pública (a do QR): inativada junto com a página (ADR 027). Emissão e
+    // listagem, abaixo, seguem pela flag `certificados` e não são afetadas.
     Route::get('/certificados/verificar', [CertificateController::class, 'verify'])
-        ->middleware('throttle:cert-lookup');
+        ->middleware(['feature:verificacaoPublicaCertificados', 'throttle:cert-lookup']);
     Route::get('/certificados', [CertificateController::class, 'index'])
         ->middleware(['jwt', 'active']);
     Route::get('/certificados/{id}/pdf', [CertificateController::class, 'pdf'])

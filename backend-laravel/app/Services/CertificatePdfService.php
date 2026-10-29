@@ -61,7 +61,7 @@ final class CertificatePdfService
             'data_emissao' => $cert->data_emissao?->format('d/m/Y'),
             'hash_verificacao' => $cert->hash_verificacao,
             'verificationUrl' => $verificationUrl,
-            'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
+            'qrDataUri' => $this->qrDaVerificacao($verificationUrl),
         ] + $this->variaveisDoModelo($template, [
             'aluno' => $cert->nome_aluno,
             'curso' => $cert->titulo_curso,
@@ -114,7 +114,7 @@ final class CertificatePdfService
             'data_emissao' => $hoje,
             'hash_verificacao' => 'PREVIEW-'.strtoupper(substr(md5((string) microtime()), 0, 8)),
             'verificationUrl' => $verificationUrl,
-            'qrDataUri' => $this->buildQrSvgDataUri($verificationUrl),
+            'qrDataUri' => $this->qrDaVerificacao($verificationUrl),
         ] + $this->variaveisDoModelo($template, [
             'aluno' => 'Aluno(a) Exemplo',
             'curso' => 'Curso Modelo de Demonstração',
@@ -273,9 +273,24 @@ final class CertificatePdfService
         }
         $qrDataUri = $vars['qrDataUri'] ?? '';
         $search[] = '{{qrImg}}';
-        $replace[] = '<img src="'.htmlspecialchars(is_string($qrDataUri) ? $qrDataUri : '', ENT_QUOTES, 'UTF-8').'" width="76" height="76" alt="QR de verificação">';
+        // Sem QR (verificação pública inativada, ADR 027), o marcador some: nada de <img> vazio.
+        $replace[] = is_string($qrDataUri) && $qrDataUri !== ''
+            ? '<img src="'.htmlspecialchars($qrDataUri, ENT_QUOTES, 'UTF-8').'" width="76" height="76" alt="QR de verificação">'
+            : '';
 
         return str_replace($search, $replace, $html);
+    }
+
+    /**
+     * O QR aponta para a verificação pública. Com a página inativada (flag
+     * `verificacaoPublicaCertificados` desligada, ADR 027) ele seria um link morto num
+     * documento oficial, então não é gerado.
+     */
+    private function qrDaVerificacao(string $verificationUrl): string
+    {
+        return config('features.verificacaoPublicaCertificados') === true
+            ? $this->buildQrSvgDataUri($verificationUrl)
+            : '';
     }
 
     private function verificationUrl(string $hash): string

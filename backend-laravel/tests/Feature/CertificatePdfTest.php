@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\ComVerificacaoPublicaLigada;
 use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
 
@@ -15,6 +16,7 @@ use Tests\TestCase;
  */
 final class CertificatePdfTest extends TestCase
 {
+    use ComVerificacaoPublicaLigada;
     use DatabaseTransactions;
     use SeedsIdentity;
 

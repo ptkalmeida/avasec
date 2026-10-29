@@ -1,5 +1,13 @@
 @props(['ativo' => null])
 
+{{-- Entrada com `flag` só aparece com a feature flag ligada (config/features.php). --}}
+@php
+    $menu = array_values(array_filter(
+        config('menu_publico'),
+        fn (array $entrada): bool => ! isset($entrada['flag']) || config("features.{$entrada['flag']}") === true,
+    ));
+@endphp
+
 {{--
     Cabeçalho institucional do portal público (fase M2 do plano 16).
 
@@ -51,7 +59,7 @@
             </a>
 
             <nav class="hidden items-center gap-1 lg:flex" aria-label="Navegação principal">
-                @foreach (config('menu_publico') as $entrada)
+                @foreach ($menu as $entrada)
                     @php($estaAtiva = $ativo === $entrada['rotulo'])
 
                     @if ($entrada['tipo'] === 'link')
@@ -163,7 +171,7 @@
              entender; aqui ele empurra a página para baixo. --}}
         <div id="menu-movel" x-show="menuMovel" x-cloak x-transition.opacity.duration.150ms class="border-t border-ava-borda py-3 lg:hidden">
             <nav aria-label="Navegação principal (telas estreitas)" class="space-y-1">
-                @foreach (config('menu_publico') as $entrada)
+                @foreach ($menu as $entrada)
                     @if ($entrada['tipo'] === 'link')
                         <a href="{{ $entrada['rota'] }}"
                            @if ($ativo === $entrada['rotulo']) aria-current="page" @endif

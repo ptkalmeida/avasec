@@ -53,10 +53,14 @@ final class PaginaPublicaController extends Controller
          *
          * O hash viaja junto no redirecionamento: levar só o caminho perderia
          * exatamente a consulta que a pessoa veio fazer.
+         *
+         * Só com a flag `verificacaoPublicaCertificados` ligada (ADR 027). Desligada,
+         * não há página para onde levar: `?verify=` é ignorado e a home abre normal,
+         * em vez de redirecionar para um 404.
          */
         $hash = trim((string) $request->query('verify', ''));
 
-        if ($hash !== '') {
+        if ($hash !== '' && config('features.verificacaoPublicaCertificados') === true) {
             return redirect()->to('/certificados?verify='.urlencode($hash));
         }
 
@@ -78,6 +82,10 @@ final class PaginaPublicaController extends Controller
      */
     public function certificados(Request $request): View
     {
+        // Inativada em 29/10/2026 (ADR 027): 404 comum, a mesma página de erro das demais.
+        // Nada foi apagado; ligar a flag `verificacaoPublicaCertificados` devolve a página.
+        abort_unless(config('features.verificacaoPublicaCertificados') === true, 404);
+
         $termo = trim((string) $request->query('verify', ''));
 
         return view('publico.certificados', [

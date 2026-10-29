@@ -17,6 +17,7 @@ use App\Support\Visibilidade;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Tests\Support\ComVerificacaoPublicaLigada;
 use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
 
@@ -26,6 +27,7 @@ use Tests\TestCase;
  */
 final class VarreduraDeSegurancaTest extends TestCase
 {
+    use ComVerificacaoPublicaLigada;
     use DatabaseTransactions;
     use SeedsIdentity;
 

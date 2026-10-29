@@ -48,7 +48,7 @@
                 $colunas = [
                     'Estudar' => [
                         ['rotulo' => 'Cursos', 'rota' => '/cursos'],
-                        ['rotulo' => 'Certificados', 'rota' => '/certificados'],
+                        ['rotulo' => 'Certificados', 'rota' => '/certificados', 'flag' => 'verificacaoPublicaCertificados'],
                         ['rotulo' => 'Calendário', 'rota' => '/calendario'],
                     ],
                     'A Escola' => [
@@ -61,6 +61,15 @@
                         ['rotulo' => 'Orientações ao estudante', 'rota' => '/orientacoes'],
                     ],
                 ];
+
+                // Item com `flag` só aparece com a feature flag ligada (config/features.php).
+                $colunas = array_map(
+                    fn (array $itens): array => array_values(array_filter(
+                        $itens,
+                        fn (array $item): bool => ! isset($item['flag']) || config("features.{$item['flag']}") === true,
+                    )),
+                    $colunas,
+                );
             @endphp
 
             @foreach ($colunas as $titulo => $itens)

@@ -10,6 +10,7 @@ use App\Services\SitePageContentService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\ComVerificacaoPublicaLigada;
 use Tests\Support\SeedsIdentity;
 use Tests\TestCase;
 
@@ -28,6 +29,7 @@ use Tests\TestCase;
  */
 final class CertificadosPublicosBladeTest extends TestCase
 {
+    use ComVerificacaoPublicaLigada;
     use DatabaseTransactions;
     use SeedsIdentity;
 
