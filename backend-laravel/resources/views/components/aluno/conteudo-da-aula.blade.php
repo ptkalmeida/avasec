@@ -87,15 +87,54 @@
                 @break
 
             @case('imagem')
-                <figure class="my-5 space-y-2">
-                    {{-- `alt` vem do autor e pode ser vazio de propósito (imagem
-                         decorativa). `lazy` porque a aula pode ter várias. --}}
-                    <img src="{{ $bloco['url'] }}" alt="{{ $bloco['alt'] }}" loading="lazy"
-                         referrerpolicy="no-referrer"
-                         class="w-full rounded-xl border border-ava-borda bg-ava-faixa">
+                {{--
+                    Clicar na imagem a abre ampliada, ajustada à tela (plano 20).
+
+                    O ampliado é um `<dialog>` nativo aberto com `showModal()`: o navegador dá o
+                    `Esc`, o foco preso dentro da janela, o fundo escurecido e o retorno do foco
+                    à imagem ao fechar — nada disso foi reescrito aqui.
+
+                    A imagem é um LINK para o arquivo: sem JavaScript (ou onde o Alpine não
+                    estiver), o clique abre a imagem em outra aba em vez de não fazer nada. Com o
+                    Alpine, `.prevent` troca isso pela janela. O Alpine existe em todos os
+                    layouts (vem com o Livewire) e na prévia do editor, que o Alpine injeta.
+
+                    O `<img>` ampliado usa a MESMA URL da miniatura: o navegador reaproveita o
+                    arquivo já baixado. `lazy` num elemento escondido só carrega ao abrir.
+
+                    `alt` vem do autor e pode ser vazio de propósito (imagem decorativa): o link
+                    precisa de nome mesmo assim, por isso o `aria-label`.
+                --}}
+                <figure class="my-5 space-y-2" x-data>
+                    <a href="{{ $bloco['url'] }}" target="_blank" rel="noopener noreferrer"
+                       aria-label="{{ $bloco['alt'] !== '' ? 'Ampliar imagem: '.$bloco['alt'] : 'Ampliar imagem' }}"
+                       @click.prevent="$refs.ampliada.showModal()"
+                       class="block cursor-zoom-in rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ava-acao">
+                        <img src="{{ $bloco['url'] }}" alt="{{ $bloco['alt'] }}" loading="lazy"
+                             referrerpolicy="no-referrer"
+                             class="w-full rounded-xl border border-ava-borda bg-ava-faixa">
+                    </a>
                     @if ($bloco['legenda'] !== null)
                         <figcaption class="text-apoio font-bold text-ava-acao">{{ $bloco['legenda'] }}</figcaption>
                     @endif
+                    {{-- Clique no fundo (o próprio <dialog>, fora do conteúdo) fecha. --}}
+                    <dialog x-ref="ampliada"
+                            @click="if ($event.target === $el) $el.close()"
+                            aria-label="{{ $bloco['alt'] !== '' ? $bloco['alt'] : 'Imagem ampliada' }}"
+                            class="m-auto max-h-[94vh] max-w-[96vw] overflow-auto rounded-xl border border-ava-borda bg-white p-2 backdrop:bg-black/80">
+                        <form method="dialog" class="mb-2 flex justify-end">
+                            <button type="submit"
+                                    class="rounded-lg bg-ava-acao px-4 py-2 text-apoio font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ava-acao">
+                                Fechar
+                            </button>
+                        </form>
+                        <img src="{{ $bloco['url'] }}" alt="{{ $bloco['alt'] }}" loading="lazy"
+                             referrerpolicy="no-referrer"
+                             class="mx-auto max-h-[80vh] max-w-full object-contain">
+                        @if ($bloco['legenda'] !== null)
+                            <p class="mt-2 text-center text-apoio font-bold text-ava-acao">{{ $bloco['legenda'] }}</p>
+                        @endif
+                    </dialog>
                 </figure>
                 @break
 
